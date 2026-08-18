@@ -71,8 +71,17 @@ var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
-    using var scope = app.Services.CreateScope();
-    scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.Migrate();
+    // Integration tests spin up multiple WebApplicationFactory<Program> instances in
+    // parallel (xUnit runs different test classes concurrently by default), and each
+    // one re-executes this Main. Against a fresh database, unsynchronized concurrent
+    // Migrate() calls race and fail with "relation already exists". This lock is a
+    // static field on the partial Program class (not a top-level local), so it's
+    // shared across every Main invocation within the same test process.
+    lock (Program.MigrationLock)
+    {
+        using var scope = app.Services.CreateScope();
+        scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.Migrate();
+    }
 }
 
 app.UseSerilogRequestLogging();
@@ -102,4 +111,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 
 app.Run();
 
-public partial class Program { }
+public partial class Program
+{
+    private static readonly object MigrationLock = new();
+}
