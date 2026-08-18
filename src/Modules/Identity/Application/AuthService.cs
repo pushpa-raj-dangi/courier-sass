@@ -11,6 +11,7 @@ public class AuthService
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtTokenService _jwtTokenService;
     private readonly IAuditLogger _auditLogger;
+    private string? _dummyPasswordHash;
 
     public AuthService(DbContext dbContext, IPasswordHasher passwordHasher, IJwtTokenService jwtTokenService, IAuditLogger auditLogger)
     {
@@ -91,7 +92,12 @@ public class AuthService
         var user = await _dbContext.Set<User>().IgnoreQueryFilters()
             .FirstOrDefaultAsync(u => u.Email == request.Email, cancellationToken);
 
-        if (user is null || !_passwordHasher.Verify(request.Password, user.PasswordHash))
+        // Always run a password verification, even when no user was found, so the
+        // "unknown email" and "wrong password" paths take the same time (avoids a
+        // timing side-channel that would let an attacker enumerate registered emails).
+        var passwordValid = _passwordHasher.Verify(request.Password, user?.PasswordHash ?? GetDummyPasswordHash());
+
+        if (user is null || !passwordValid)
         {
             throw new AuthenticationFailedException("Invalid email or password.");
         }
@@ -150,4 +156,10 @@ public class AuthService
 
     private static string HashToken(string token)
         => Convert.ToBase64String(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(token)));
+
+    // Computed once (lazily, via the injected hasher) and cached, so the "unknown email" login
+    // path has a fixed, valid-format hash to verify against — keeping its cost comparable to the
+    // "wrong password" path instead of short-circuiting before any hashing occurs.
+    private string GetDummyPasswordHash()
+        => _dummyPasswordHash ??= _passwordHasher.Hash("dummy-password-for-timing-safety");
 }
