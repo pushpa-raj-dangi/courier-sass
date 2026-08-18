@@ -5,6 +5,9 @@ using Courier.Audit.Infrastructure;
 using Courier.Branches.Application;
 using Courier.Branches.Infrastructure;
 using Courier.Branches.Presentation;
+using Courier.Geography.Application;
+using Courier.Geography.Infrastructure;
+using Courier.Geography.Presentation;
 using Courier.Identity.Application;
 using Courier.Identity.Infrastructure;
 using Courier.Identity.Presentation;
@@ -49,6 +52,9 @@ builder.Services.AddScoped<IPermissionChecker, Courier.Identity.Infrastructure.P
 builder.Services.AddScoped<IBranchHierarchyService, BranchHierarchyService>();
 builder.Services.AddScoped<IBranchAuthorizationChecker, Courier.Identity.Infrastructure.BranchAuthorizationChecker>();
 builder.Services.AddScoped<BranchService>();
+builder.Services.AddScoped<GeographyQueryService>();
+builder.Services.AddScoped<IGeographyLookupService>(sp => sp.GetRequiredService<GeographyQueryService>());
+builder.Services.AddScoped<DeliveryZoneService>();
 
 var jwtSection = builder.Configuration.GetSection("Jwt");
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -99,6 +105,8 @@ app.UseAuthorization();
 app.MapAuthEndpoints();
 app.MapUsersEndpoints();
 app.MapBranchesEndpoints();
+app.MapGeographyEndpoints();
+app.MapDeliveryZonesEndpoints();
 
 app.MapGet("/health/ping", () => Results.Ok(new { status = "ok" }));
 
