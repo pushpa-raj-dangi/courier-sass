@@ -2,6 +2,9 @@ using System.Text;
 using System.Text.Json;
 using Courier.Audit.Application;
 using Courier.Audit.Infrastructure;
+using Courier.Branches.Application;
+using Courier.Branches.Infrastructure;
+using Courier.Branches.Presentation;
 using Courier.Identity.Application;
 using Courier.Identity.Infrastructure;
 using Courier.Identity.Presentation;
@@ -43,6 +46,9 @@ builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IAuditLogger, AuditLogger>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<IPermissionChecker, Courier.Identity.Infrastructure.PermissionChecker>();
+builder.Services.AddScoped<IBranchHierarchyService, BranchHierarchyService>();
+builder.Services.AddScoped<IBranchAuthorizationChecker, Courier.Identity.Infrastructure.BranchAuthorizationChecker>();
+builder.Services.AddScoped<BranchService>();
 
 var jwtSection = builder.Configuration.GetSection("Jwt");
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -92,6 +98,7 @@ app.UseAuthorization();
 
 app.MapAuthEndpoints();
 app.MapUsersEndpoints();
+app.MapBranchesEndpoints();
 
 app.MapGet("/health/ping", () => Results.Ok(new { status = "ok" }));
 
