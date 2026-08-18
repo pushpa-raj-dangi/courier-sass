@@ -1,5 +1,7 @@
 using Courier.Audit.Domain;
 using Courier.Audit.Infrastructure;
+using Courier.Branches.Domain;
+using Courier.Branches.Infrastructure;
 using Courier.Identity.Domain;
 using Courier.Identity.Infrastructure;
 using Courier.SharedKernel;
@@ -24,6 +26,8 @@ public class AppDbContext : DbContext
     public DbSet<UserRole> UserRoles => Set<UserRole>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<Branch> Branches => Set<Branch>();
+    public DbSet<UserBranch> UserBranches => Set<UserBranch>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -34,6 +38,19 @@ public class AppDbContext : DbContext
         modelBuilder.ApplyConfiguration(new UserRoleConfiguration());
         modelBuilder.ApplyConfiguration(new RefreshTokenConfiguration());
         modelBuilder.ApplyConfiguration(new AuditLogConfiguration());
+        modelBuilder.ApplyConfiguration(new BranchConfiguration());
+        modelBuilder.ApplyConfiguration(new UserBranchConfiguration());
+
+        // Branch.OrganizationId -> Organizations FK lives here rather than in
+        // BranchConfiguration (Branches module) because Branches deliberately has no project
+        // reference to Identity — the dependency runs the other way (Identity -> Branches, for
+        // UserBranch's FK to Branch and IBranchHierarchyService). Persistence already
+        // references both modules, so it's the one place that can wire this specific
+        // constraint without introducing a project cycle.
+        modelBuilder.Entity<Branch>().HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(b => b.OrganizationId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         // Tenant filters fail CLOSED: the explicit `OrganizationId != null` guard stops EF Core's
         // null-semantics translation from degrading these into `WHERE "OrganizationId" IS NULL`
@@ -43,6 +60,8 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Role>().HasQueryFilter(r => _currentTenantProvider.OrganizationId != null && r.OrganizationId == _currentTenantProvider.OrganizationId);
         modelBuilder.Entity<UserRole>().HasQueryFilter(ur => _currentTenantProvider.OrganizationId != null && ur.OrganizationId == _currentTenantProvider.OrganizationId);
         modelBuilder.Entity<AuditLog>().HasQueryFilter(a => _currentTenantProvider.OrganizationId != null && a.OrganizationId == _currentTenantProvider.OrganizationId);
+        modelBuilder.Entity<Branch>().HasQueryFilter(b => _currentTenantProvider.OrganizationId != null && b.OrganizationId == _currentTenantProvider.OrganizationId);
+        modelBuilder.Entity<UserBranch>().HasQueryFilter(ub => _currentTenantProvider.OrganizationId != null && ub.OrganizationId == _currentTenantProvider.OrganizationId);
 
         // Defensive: nothing queries Organizations with a tenant context today (registration only
         // inserts), but without this a future `Organizations.ToListAsync()` would enumerate every
