@@ -66,6 +66,20 @@ placeholder.
 *Exit:* branch coverage/zone lookups work off normalized data, no free-text
 geography remains on `Branch`.
 
+*Status (2026-08-18): Complete.* A new `Geography` module implements `Province, District,
+LocalLevel(Type), Ward, Area, DeliveryZone` per `DOMAIN-MODEL.md`. All 7 real provinces and all
+77 real districts are seeded; `LocalLevel/Ward/Area` are seeded for the 5 districts CLAUDE.md §1's
+example org operates in (Kathmandu, Lalitpur, Bhaktapur, Kaski, Rupandehi) — full national
+local-level coverage is an explicit follow-up data-loading task, not part of this phase's
+application-logic scope. `Branch` now carries `ProvinceId/DistrictId/LocalLevelId/WardNumber` FKs
+in place of the Phase 2 free-text placeholder; `BranchService` validates the full chain
+server-side via `IGeographyLookupService` before persisting (`tests/Api.Tests/
+BranchesEndpointsTests.cs`'s `CreateBranch_MismatchedGeographyChain_Returns400`).
+`GET /api/v1/geography/{provinces,districts,local-levels,wards,areas}` (permission
+`geography.read`) and `POST/GET/PUT /api/v1/delivery-zones` (`zone.read/create/update`, tenant-
+isolated like `Branch`) are exercised end-to-end in `tests/Api.Tests/GeographyEndpointsTests.cs`
+and `tests/Api.Tests/DeliveryZonesEndpointsTests.cs`.
+
 ## Phase 4 — Merchants, Merchant Users, KYC, Merchant Settings
 
 `Merchant`, `MerchantUser`, KYC document handling (via the storage abstraction),
