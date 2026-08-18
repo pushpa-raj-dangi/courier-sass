@@ -48,6 +48,12 @@ var jwtSection = builder.Configuration.GetSection("Jwt");
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        // Without this, ASP.NET Core's default inbound claim map silently rewrites
+        // well-known JWT claim names (e.g. "sub" -> ClaimTypes.NameIdentifier) on the
+        // ClaimsPrincipal built from the token, which breaks any code (PermissionChecker,
+        // audit logging, future endpoints) that reads HttpContext.User.FindFirst("sub")
+        // directly. Disabling it keeps claims exactly as JwtTokenService issued them.
+        options.MapInboundClaims = false;
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidIssuer = jwtSection["Issuer"],
