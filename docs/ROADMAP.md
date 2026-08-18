@@ -48,6 +48,16 @@ permission checks.
 *Exit:* branch-scoped permission checks proven by tests covering single-branch,
 multi-branch, all-branches, hierarchy, and expired-temporary-grant cases.
 
+*Status (2026-08-18): Complete.* `Branch` (with `ParentBranchId` hierarchy) and `UserBranch`
+(with `ExpiresAt`) are implemented — `Branch` in a new `Branches` module, `UserBranch` in
+`Identity` per `ARCHITECTURE.md` §2. Branch-scope authorization
+(`IBranchAuthorizationChecker`, `RequireBranchScopedPermission`) is layered on top of Phase 1's
+permission checks and exercised end-to-end via `POST/GET /api/v1/branches`. Automated tests
+cover single-branch, multi-branch, all-branches, parent-branch-hierarchy, and
+expired-temporary-grant authorization scenarios (`tests/Identity.Tests/
+BranchAuthorizationCheckerTests.cs`). Geography fields on `Branch` remain a free-text
+placeholder (`AddressLine`) pending Phase 3 per this phase's entry note.
+
 ## Phase 3 — Nepal Geography, Zones, Coverage
 
 `Province, District, LocalLevel, Ward, Area, DeliveryZone` (`CLARIFICATIONS.md` #2).
