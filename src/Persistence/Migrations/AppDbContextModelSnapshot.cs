@@ -446,6 +446,8 @@ namespace Persistence.Migrations
                     b.HasIndex("TokenHash")
                         .IsUnique();
 
+                    b.HasIndex("UserId");
+
                     b.ToTable("RefreshTokens", (string)null);
                 });
 
@@ -467,6 +469,8 @@ namespace Persistence.Migrations
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
 
                     b.ToTable("Roles", (string)null);
                 });
@@ -505,6 +509,8 @@ namespace Persistence.Migrations
                     b.HasIndex("Email")
                         .IsUnique();
 
+                    b.HasIndex("OrganizationId");
+
                     b.ToTable("Users", (string)null);
                 });
 
@@ -534,6 +540,10 @@ namespace Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("OrganizationId");
+
+                    b.HasIndex("RoleId");
+
                     b.HasIndex("UserId", "RoleId")
                         .IsUnique();
 
@@ -553,6 +563,52 @@ namespace Persistence.Migrations
                     b.HasIndex("RoleId");
 
                     b.ToTable("RolePermissions", (string)null);
+                });
+
+            modelBuilder.Entity("Courier.Identity.Domain.RefreshToken", b =>
+                {
+                    b.HasOne("Courier.Identity.Domain.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Courier.Identity.Domain.Role", b =>
+                {
+                    b.HasOne("Courier.Identity.Domain.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Courier.Identity.Domain.User", b =>
+                {
+                    b.HasOne("Courier.Identity.Domain.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Courier.Identity.Domain.UserRole", b =>
+                {
+                    b.HasOne("Courier.Identity.Domain.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Courier.Identity.Domain.Role", null)
+                        .WithMany()
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Courier.Identity.Domain.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("PermissionRole", b =>

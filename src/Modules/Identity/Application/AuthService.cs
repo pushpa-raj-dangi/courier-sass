@@ -11,7 +11,15 @@ public class AuthService
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtTokenService _jwtTokenService;
     private readonly IAuditLogger _auditLogger;
-    private string? _dummyPasswordHash;
+
+    // Computed exactly once for the lifetime of the process. AuthService is registered as
+    // Scoped (one instance per HTTP request), so an instance-level cache would be recomputed
+    // on every unknown-email login — making that path cost TWO hashes (compute + verify)
+    // against the wrong-password path's one, widening the very timing gap it exists to close.
+    // A throwaway hasher is used here because IPasswordHasher is only available per-instance
+    // through DI; the DI-injected hasher still performs every real verification.
+    private static readonly string DummyPasswordHash =
+        new Courier.Identity.Infrastructure.PasswordHasherAdapter().Hash("dummy-password-for-timing-safety");
 
     public AuthService(DbContext dbContext, IPasswordHasher passwordHasher, IJwtTokenService jwtTokenService, IAuditLogger auditLogger)
     {
@@ -23,10 +31,15 @@ public class AuthService
 
     public async Task<AuthResult> RegisterOrganizationAsync(RegisterOrganizationRequest request, CancellationToken cancellationToken = default)
     {
+        // Emails are stored and compared in a single canonical (lowercase) form so that
+        // "Owner@x.com" and "owner@x.com" are the same account for both the unique index
+        // and login. Normalize before the uniqueness check and before persisting.
+        var ownerEmail = request.OwnerEmail.ToLowerInvariant();
+
         // Pre-authentication: no tenant is known yet, so the global org-scoped
         // query filter must be bypassed for this platform-wide uniqueness check.
         var emailTaken = await _dbContext.Set<User>().IgnoreQueryFilters()
-            .AnyAsync(u => u.Email == request.OwnerEmail, cancellationToken);
+            .AnyAsync(u => u.Email == ownerEmail, cancellationToken);
         if (emailTaken)
         {
             throw new AuthenticationFailedException("Email is already registered.");
@@ -60,7 +73,7 @@ public class AuthService
         {
             Id = Guid.NewGuid(),
             OrganizationId = organization.Id,
-            Email = request.OwnerEmail,
+            Email = ownerEmail,
             PasswordHash = _passwordHasher.Hash(request.OwnerPassword),
             FullName = request.OwnerFullName
         };
@@ -89,15 +102,19 @@ public class AuthService
 
     public async Task<AuthResult> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
     {
+        var email = request.Email.ToLowerInvariant();
         var user = await _dbContext.Set<User>().IgnoreQueryFilters()
-            .FirstOrDefaultAsync(u => u.Email == request.Email, cancellationToken);
+            .FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
 
         // Always run a password verification, even when no user was found, so the
         // "unknown email" and "wrong password" paths take the same time (avoids a
         // timing side-channel that would let an attacker enumerate registered emails).
-        var passwordValid = _passwordHasher.Verify(request.Password, user?.PasswordHash ?? GetDummyPasswordHash());
+        var passwordValid = _passwordHasher.Verify(request.Password, user?.PasswordHash ?? DummyPasswordHash);
 
-        if (user is null || !passwordValid)
+        // A deactivated account must not be able to log in. The message stays identical to
+        // the bad-credentials message so the response does not disclose that the address
+        // belongs to a real-but-disabled account.
+        if (user is null || !passwordValid || !user.IsActive)
         {
             throw new AuthenticationFailedException("Invalid email or password.");
         }
@@ -129,6 +146,12 @@ public class AuthService
         var user = await _dbContext.Set<User>().IgnoreQueryFilters()
             .FirstAsync(u => u.Id == existing.UserId, cancellationToken);
 
+        // Deactivating a user must also end their ability to mint fresh access tokens.
+        if (!user.IsActive)
+        {
+            throw new AuthenticationFailedException("Refresh token is invalid or expired.");
+        }
+
         var newRefreshToken = await IssueRefreshTokenAsync(user.Id, cancellationToken);
         existing.RevokedAt = DateTimeOffset.UtcNow;
         existing.ReplacedByTokenId = newRefreshToken.Entity.Id;
@@ -156,10 +179,4 @@ public class AuthService
 
     private static string HashToken(string token)
         => Convert.ToBase64String(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(token)));
-
-    // Computed once (lazily, via the injected hasher) and cached, so the "unknown email" login
-    // path has a fixed, valid-format hash to verify against — keeping its cost comparable to the
-    // "wrong password" path instead of short-circuiting before any hashing occurs.
-    private string GetDummyPasswordHash()
-        => _dummyPasswordHash ??= _passwordHasher.Hash("dummy-password-for-timing-safety");
 }

@@ -12,5 +12,12 @@ public class RefreshTokenConfiguration : IEntityTypeConfiguration<RefreshToken>
         builder.HasKey(rt => rt.Id);
         builder.Property(rt => rt.TokenHash).IsRequired();
         builder.HasIndex(rt => rt.TokenHash).IsUnique();
+
+        // Tokens follow the user: deleting a User should take their refresh tokens with it
+        // rather than leaving credentials that resolve to a missing account.
+        builder.HasOne<User>()
+            .WithMany()
+            .HasForeignKey(rt => rt.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }
