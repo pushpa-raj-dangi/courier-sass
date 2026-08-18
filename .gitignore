@@ -16,3 +16,6 @@ out/
 .vs/
 .vscode/
 .idea/
+
+# Claude Code worktree scratch state
+.claude/
