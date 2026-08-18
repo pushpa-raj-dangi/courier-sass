@@ -18,6 +18,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\SharedKernel\SharedKernel.csproj" />
     <ProjectReference Include="..\Audit\Audit.csproj" />
+    <ProjectReference Include="..\Geography\Geography.csproj" />
   </ItemGroup>
 
 </Project>

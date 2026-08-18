@@ -25,6 +25,7 @@
     <ProjectReference Include="..\Modules\Audit\Audit.csproj" />
     <ProjectReference Include="..\Persistence\Persistence.csproj" />
     <ProjectReference Include="..\Modules\Branches\Branches.csproj" />
+    <ProjectReference Include="..\Modules\Geography\Geography.csproj" />
   </ItemGroup>
 
 </Project>
