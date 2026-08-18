@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Courier.Audit.Application;
 using Courier.Branches.Domain;
+using Courier.Geography.Application;
 using Courier.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,17 +13,20 @@ public class BranchService
     private readonly ICurrentTenantProvider _currentTenantProvider;
     private readonly IAuditLogger _auditLogger;
     private readonly IBranchAuthorizationChecker _branchAuthorizationChecker;
+    private readonly IGeographyLookupService _geographyLookupService;
 
     public BranchService(
         DbContext dbContext,
         ICurrentTenantProvider currentTenantProvider,
         IAuditLogger auditLogger,
-        IBranchAuthorizationChecker branchAuthorizationChecker)
+        IBranchAuthorizationChecker branchAuthorizationChecker,
+        IGeographyLookupService geographyLookupService)
     {
         _dbContext = dbContext;
         _currentTenantProvider = currentTenantProvider;
         _auditLogger = auditLogger;
         _branchAuthorizationChecker = branchAuthorizationChecker;
+        _geographyLookupService = geographyLookupService;
     }
 
     public async Task<BranchResponse> CreateBranchAsync(CreateBranchRequest request, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
@@ -37,6 +41,13 @@ public class BranchService
         if (codeTaken)
         {
             throw new BranchValidationException($"Branch code '{request.Code}' is already in use.");
+        }
+
+        var validGeography = await _geographyLookupService.IsValidHierarchyAsync(
+            request.ProvinceId, request.DistrictId, request.LocalLevelId, request.WardNumber, cancellationToken);
+        if (!validGeography)
+        {
+            throw new BranchValidationException("Province/District/LocalLevel/WardNumber do not form a valid geography chain.");
         }
 
         if (request.ParentBranchId is Guid parentId)
@@ -62,6 +73,10 @@ public class BranchService
             Code = request.Code,
             Name = request.Name,
             Type = request.Type,
+            ProvinceId = request.ProvinceId,
+            DistrictId = request.DistrictId,
+            LocalLevelId = request.LocalLevelId,
+            WardNumber = request.WardNumber,
             AddressLine = request.AddressLine,
             Phone = request.Phone,
             OperatingHours = request.OperatingHours,
@@ -100,7 +115,8 @@ public class BranchService
     }
 
     private static BranchResponse ToResponse(Branch branch) => new(
-        branch.Id, branch.Code, branch.Name, branch.Type, branch.AddressLine,
-        branch.Phone, branch.OperatingHours, branch.Latitude, branch.Longitude,
+        branch.Id, branch.Code, branch.Name, branch.Type,
+        branch.ProvinceId, branch.DistrictId, branch.LocalLevelId, branch.WardNumber,
+        branch.AddressLine, branch.Phone, branch.OperatingHours, branch.Latitude, branch.Longitude,
         branch.ParentBranchId, branch.IsActive);
 }

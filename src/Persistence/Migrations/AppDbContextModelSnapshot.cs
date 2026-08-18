@@ -105,11 +105,17 @@ namespace Persistence.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
+                    b.Property<Guid>("DistrictId")
+                        .HasColumnType("uuid");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
                     b.Property<decimal?>("Latitude")
                         .HasColumnType("numeric");
+
+                    b.Property<Guid>("LocalLevelId")
+                        .HasColumnType("uuid");
 
                     b.Property<decimal?>("Longitude")
                         .HasColumnType("numeric");
@@ -133,14 +139,26 @@ namespace Persistence.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)");
 
+                    b.Property<Guid>("ProvinceId")
+                        .HasColumnType("uuid");
+
                     b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("WardNumber")
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
 
+                    b.HasIndex("DistrictId");
+
+                    b.HasIndex("LocalLevelId");
+
                     b.HasIndex("OrganizationId");
 
                     b.HasIndex("ParentBranchId");
+
+                    b.HasIndex("ProvinceId");
 
                     b.HasIndex("OrganizationId", "Code")
                         .IsUnique();
@@ -1655,6 +1673,18 @@ namespace Persistence.Migrations
 
             modelBuilder.Entity("Courier.Branches.Domain.Branch", b =>
                 {
+                    b.HasOne("Courier.Geography.Domain.District", null)
+                        .WithMany()
+                        .HasForeignKey("DistrictId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Courier.Geography.Domain.LocalLevel", null)
+                        .WithMany()
+                        .HasForeignKey("LocalLevelId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("Courier.Identity.Domain.Organization", null)
                         .WithMany()
                         .HasForeignKey("OrganizationId")
@@ -1665,6 +1695,12 @@ namespace Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("ParentBranchId")
                         .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Courier.Geography.Domain.Province", null)
+                        .WithMany()
+                        .HasForeignKey("ProvinceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Courier.Geography.Domain.Area", b =>

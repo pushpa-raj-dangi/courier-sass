@@ -32,6 +32,10 @@ public class BranchHierarchyServiceTests
         Code = id.ToString("N")[..8],
         Name = "Test Branch",
         Type = BranchType.Branch,
+        ProvinceId = Guid.NewGuid(),
+        DistrictId = Guid.NewGuid(),
+        LocalLevelId = Guid.NewGuid(),
+        WardNumber = 1,
         AddressLine = "Somewhere",
         ParentBranchId = parentId
     };

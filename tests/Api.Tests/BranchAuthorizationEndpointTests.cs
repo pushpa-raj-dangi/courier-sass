@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Courier.Branches.Application;
 using Courier.Branches.Domain;
+using Courier.Geography.Infrastructure;
 using Courier.Identity.Application;
 using Courier.Identity.Domain;
 using Courier.Persistence;
@@ -16,6 +17,11 @@ namespace Courier.Api.Tests;
 public class BranchAuthorizationEndpointTests : IClassFixture<WebApplicationFactory<Program>>
 {
     private readonly WebApplicationFactory<Program> _factory;
+
+    private static readonly Guid KathmanduProvinceId = GeographyIds.ProvinceId("Bagmati");
+    private static readonly Guid KathmanduDistrictId = GeographyIds.DistrictId("Bagmati", "Kathmandu");
+    private static readonly Guid KathmanduLocalLevelId = GeographyIds.LocalLevelId("Bagmati", "Kathmandu", "Kathmandu Metropolitan City");
+    private const int KathmanduWardNumber = 1;
 
     public BranchAuthorizationEndpointTests(WebApplicationFactory<Program> factory)
     {
@@ -98,12 +104,16 @@ public class BranchAuthorizationEndpointTests : IClassFixture<WebApplicationFact
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", owner.AccessToken);
 
         var grantedResponse = await client.PostAsJsonAsync("/api/v1/branches", new CreateBranchRequest(
-            "LSG-01", "Granted Branch", BranchType.Branch, "Somewhere", null, null, null, null, null));
+            "LSG-01", "Granted Branch", BranchType.Branch,
+            KathmanduProvinceId, KathmanduDistrictId, KathmanduLocalLevelId, KathmanduWardNumber,
+            "Somewhere", null, null, null, null, null));
         grantedResponse.EnsureSuccessStatusCode();
         var granted = (await grantedResponse.Content.ReadFromJsonAsync<BranchResponse>())!;
 
         var ungrantedResponse = await client.PostAsJsonAsync("/api/v1/branches", new CreateBranchRequest(
-            "LSU-01", "Ungranted Branch", BranchType.Branch, "Elsewhere", null, null, null, null, null));
+            "LSU-01", "Ungranted Branch", BranchType.Branch,
+            KathmanduProvinceId, KathmanduDistrictId, KathmanduLocalLevelId, KathmanduWardNumber,
+            "Elsewhere", null, null, null, null, null));
         ungrantedResponse.EnsureSuccessStatusCode();
 
         var scopedToken = await SeedScopedUserTokenAsync(owner.OrganizationId, owner.UserId, "branch.read", granted.Id);
@@ -126,12 +136,16 @@ public class BranchAuthorizationEndpointTests : IClassFixture<WebApplicationFact
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", owner.AccessToken);
 
         var grantedResponse = await client.PostAsJsonAsync("/api/v1/branches", new CreateBranchRequest(
-            "CRG-01", "Granted Branch", BranchType.Branch, "Somewhere", null, null, null, null, null));
+            "CRG-01", "Granted Branch", BranchType.Branch,
+            KathmanduProvinceId, KathmanduDistrictId, KathmanduLocalLevelId, KathmanduWardNumber,
+            "Somewhere", null, null, null, null, null));
         grantedResponse.EnsureSuccessStatusCode();
         var granted = (await grantedResponse.Content.ReadFromJsonAsync<BranchResponse>())!;
 
         var outOfScopeResponse = await client.PostAsJsonAsync("/api/v1/branches", new CreateBranchRequest(
-            "CRO-01", "Out Of Scope Parent", BranchType.Hub, "Elsewhere", null, null, null, null, null));
+            "CRO-01", "Out Of Scope Parent", BranchType.Hub,
+            KathmanduProvinceId, KathmanduDistrictId, KathmanduLocalLevelId, KathmanduWardNumber,
+            "Elsewhere", null, null, null, null, null));
         outOfScopeResponse.EnsureSuccessStatusCode();
         var outOfScopeParent = (await outOfScopeResponse.Content.ReadFromJsonAsync<BranchResponse>())!;
 
@@ -140,7 +154,9 @@ public class BranchAuthorizationEndpointTests : IClassFixture<WebApplicationFact
         scopedClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", scopedToken);
 
         var response = await scopedClient.PostAsJsonAsync("/api/v1/branches", new CreateBranchRequest(
-            "CRN-01", "Attempted Child", BranchType.Branch, "Nowhere", null, null, null, null, outOfScopeParent.Id));
+            "CRN-01", "Attempted Child", BranchType.Branch,
+            KathmanduProvinceId, KathmanduDistrictId, KathmanduLocalLevelId, KathmanduWardNumber,
+            "Nowhere", null, null, null, null, outOfScopeParent.Id));
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         // Pin the reason: a 400 here must be the branch-scope rejection, not an unrelated
@@ -157,11 +173,15 @@ public class BranchAuthorizationEndpointTests : IClassFixture<WebApplicationFact
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", owner.AccessToken);
 
         var parentResponse = await client.PostAsJsonAsync("/api/v1/branches", new CreateBranchRequest(
-            "PAR-01", "Parent Hub", BranchType.Hub, "Somewhere", null, null, null, null, null));
+            "PAR-01", "Parent Hub", BranchType.Hub,
+            KathmanduProvinceId, KathmanduDistrictId, KathmanduLocalLevelId, KathmanduWardNumber,
+            "Somewhere", null, null, null, null, null));
         var parent = await parentResponse.Content.ReadFromJsonAsync<BranchResponse>();
 
         var childResponse = await client.PostAsJsonAsync("/api/v1/branches", new CreateBranchRequest(
-            "CHD-01", "Child Branch", BranchType.Branch, "Somewhere Else", null, null, null, null, parent!.Id));
+            "CHD-01", "Child Branch", BranchType.Branch,
+            KathmanduProvinceId, KathmanduDistrictId, KathmanduLocalLevelId, KathmanduWardNumber,
+            "Somewhere Else", null, null, null, null, parent!.Id));
         var child = await childResponse.Content.ReadFromJsonAsync<BranchResponse>();
 
         // No grant/user-management endpoint exists yet this phase, so the scoped test user's

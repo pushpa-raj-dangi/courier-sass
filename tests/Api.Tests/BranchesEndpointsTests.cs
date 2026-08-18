@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Courier.Branches.Application;
 using Courier.Branches.Domain;
+using Courier.Geography.Infrastructure;
 using Courier.Identity.Application;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
@@ -12,6 +13,11 @@ namespace Courier.Api.Tests;
 public class BranchesEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
 {
     private readonly WebApplicationFactory<Program> _factory;
+
+    private static readonly Guid KathmanduProvinceId = GeographyIds.ProvinceId("Bagmati");
+    private static readonly Guid KathmanduDistrictId = GeographyIds.DistrictId("Bagmati", "Kathmandu");
+    private static readonly Guid KathmanduLocalLevelId = GeographyIds.LocalLevelId("Bagmati", "Kathmandu", "Kathmandu Metropolitan City");
+    private const int KathmanduWardNumber = 1;
 
     public BranchesEndpointsTests(WebApplicationFactory<Program> factory)
     {
@@ -34,7 +40,9 @@ public class BranchesEndpointsTests : IClassFixture<WebApplicationFactory<Progra
         var client = _factory.CreateClient();
 
         var response = await client.PostAsJsonAsync("/api/v1/branches", new CreateBranchRequest(
-            "KTM-HUB", "Kathmandu Hub", BranchType.Hub, "New Road, Kathmandu", null, null, null, null, null));
+            "KTM-HUB", "Kathmandu Hub", BranchType.Hub,
+            KathmanduProvinceId, KathmanduDistrictId, KathmanduLocalLevelId, KathmanduWardNumber,
+            "New Road, Kathmandu", null, null, null, null, null));
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
@@ -47,7 +55,9 @@ public class BranchesEndpointsTests : IClassFixture<WebApplicationFactory<Progra
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth.AccessToken);
 
         var createResponse = await client.PostAsJsonAsync("/api/v1/branches", new CreateBranchRequest(
-            "KTM-HUB", "Kathmandu Hub", BranchType.Hub, "New Road, Kathmandu", "01-4444444", "09:00-18:00", 27.7m, 85.3m, null));
+            "KTM-HUB", "Kathmandu Hub", BranchType.Hub,
+            KathmanduProvinceId, KathmanduDistrictId, KathmanduLocalLevelId, KathmanduWardNumber,
+            "New Road, Kathmandu", "01-4444444", "09:00-18:00", 27.7m, 85.3m, null));
         Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
         var created = await createResponse.Content.ReadFromJsonAsync<BranchResponse>();
         Assert.NotNull(created);
@@ -65,12 +75,34 @@ public class BranchesEndpointsTests : IClassFixture<WebApplicationFactory<Progra
         var client = _factory.CreateClient();
         var auth = await RegisterOrgAsync(client);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth.AccessToken);
-        var request = new CreateBranchRequest("DUP-01", "First", BranchType.Branch, "Somewhere", null, null, null, null, null);
+        var request = new CreateBranchRequest(
+            "DUP-01", "First", BranchType.Branch,
+            KathmanduProvinceId, KathmanduDistrictId, KathmanduLocalLevelId, KathmanduWardNumber,
+            "Somewhere", null, null, null, null, null);
         await client.PostAsJsonAsync("/api/v1/branches", request);
 
         var response = await client.PostAsJsonAsync("/api/v1/branches", request with { Name = "Second" });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreateBranch_MismatchedGeographyChain_Returns400()
+    {
+        var client = _factory.CreateClient();
+        var auth = await RegisterOrgAsync(client);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth.AccessToken);
+
+        // Kathmandu's province/district paired with Pokhara's local level — mismatched chain.
+        var pokharaLocalLevelId = GeographyIds.LocalLevelId("Gandaki", "Kaski", "Pokhara Metropolitan City");
+        var response = await client.PostAsJsonAsync("/api/v1/branches", new CreateBranchRequest(
+            "BAD-GEO-01", "Bad Geo Branch", BranchType.Branch,
+            KathmanduProvinceId, KathmanduDistrictId, pokharaLocalLevelId, KathmanduWardNumber,
+            "Somewhere", null, null, null, null, null));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Contains("valid geography chain", body);
     }
 
     [Fact]
@@ -92,7 +124,9 @@ public class BranchesEndpointsTests : IClassFixture<WebApplicationFactory<Progra
         var auth = await RegisterOrgAsync(client);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth.AccessToken);
         await client.PostAsJsonAsync("/api/v1/branches", new CreateBranchRequest(
-            "LST-01", "List Test Branch", BranchType.Branch, "Somewhere", null, null, null, null, null));
+            "LST-01", "List Test Branch", BranchType.Branch,
+            KathmanduProvinceId, KathmanduDistrictId, KathmanduLocalLevelId, KathmanduWardNumber,
+            "Somewhere", null, null, null, null, null));
 
         var response = await client.GetAsync("/api/v1/branches");
 

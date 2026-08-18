@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Courier.Branches.Domain;
 using Courier.Branches.Infrastructure;
+using Courier.Geography.Infrastructure;
 using Courier.Identity.Domain;
 using Courier.Identity.Infrastructure;
 using Courier.Persistence;
@@ -18,6 +19,12 @@ file class FixedTenantProvider : ICurrentTenantProvider
 
 public class BranchAuthorizationCheckerTests
 {
+    // This test uses the real Postgres-backed AppDbContext (TestDbContextFactory), not an
+    // in-memory provider, so Branch's geography FKs are actually enforced — arbitrary Guids
+    // would violate the FK constraints added in this task. Point at the seeded Kathmandu chain.
+    private static readonly Guid KathmanduProvinceId = GeographyIds.ProvinceId("Bagmati");
+    private static readonly Guid KathmanduDistrictId = GeographyIds.DistrictId("Bagmati", "Kathmandu");
+    private static readonly Guid KathmanduLocalLevelId = GeographyIds.LocalLevelId("Bagmati", "Kathmandu", "Kathmandu Metropolitan City");
     private static async Task<Guid> SeedUserAsync(AppDbContext dbContext, Guid organizationId, string permissionKey, BranchScope branchScope)
     {
         dbContext.Set<Organization>().Add(new Organization
@@ -64,6 +71,10 @@ public class BranchAuthorizationCheckerTests
         Code = id.ToString("N")[..8],
         Name = "Test Branch",
         Type = BranchType.Branch,
+        ProvinceId = KathmanduProvinceId,
+        DistrictId = KathmanduDistrictId,
+        LocalLevelId = KathmanduLocalLevelId,
+        WardNumber = 1,
         AddressLine = "Somewhere in Kathmandu",
         ParentBranchId = parentId
     };

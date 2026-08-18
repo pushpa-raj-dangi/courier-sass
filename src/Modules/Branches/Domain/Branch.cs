@@ -8,9 +8,15 @@ public class Branch
     public required string Name { get; set; }
     public BranchType Type { get; set; }
 
-    // Free-text placeholder for Nepal geography. ROADMAP Phase 3 replaces this with
-    // ProvinceId/DistrictId/LocalLevelId/WardNumber FKs into the Geography module, which does
-    // not exist yet (CLARIFICATIONS.md #2).
+    // Normalized Nepal geography (ROADMAP Phase 3, CLARIFICATIONS.md #2). WardNumber is a plain
+    // int scoped to LocalLevelId, not a FK to Ward.Id — Ward exists as its own entity so
+    // Area/DeliveryZone coverage can FK into it, but a Branch's own address only needs to name
+    // "ward number N of this local level", identical to MerchantAddress's field shape.
+    public required Guid ProvinceId { get; set; }
+    public required Guid DistrictId { get; set; }
+    public required Guid LocalLevelId { get; set; }
+    public required int WardNumber { get; set; }
+
     public required string AddressLine { get; set; }
 
     public decimal? Latitude { get; set; }
