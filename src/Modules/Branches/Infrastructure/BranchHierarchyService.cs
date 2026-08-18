@@ -13,7 +13,10 @@ public class BranchHierarchyService : IBranchHierarchyService
         _dbContext = dbContext;
     }
 
-    public async Task<IReadOnlySet<Guid>> GetDescendantBranchIdsAsync(Guid branchId, CancellationToken cancellationToken = default)
+    public Task<IReadOnlySet<Guid>> GetDescendantBranchIdsAsync(Guid branchId, CancellationToken cancellationToken = default)
+        => GetDescendantBranchIdsAsync(new[] { branchId }, cancellationToken);
+
+    public async Task<IReadOnlySet<Guid>> GetDescendantBranchIdsAsync(IReadOnlyCollection<Guid> branchIds, CancellationToken cancellationToken = default)
     {
         var branches = await _dbContext.Set<Branch>()
             .Select(b => new { b.Id, b.ParentBranchId })
@@ -24,9 +27,15 @@ public class BranchHierarchyService : IBranchHierarchyService
             .GroupBy(b => b.ParentBranchId!.Value)
             .ToDictionary(g => g.Key, g => g.Select(b => b.Id).ToList());
 
-        var result = new HashSet<Guid> { branchId };
+        var result = new HashSet<Guid>();
         var queue = new Queue<Guid>();
-        queue.Enqueue(branchId);
+        foreach (var seedId in branchIds)
+        {
+            if (result.Add(seedId))
+            {
+                queue.Enqueue(seedId);
+            }
+        }
         while (queue.Count > 0)
         {
             var current = queue.Dequeue();

@@ -32,6 +32,123 @@ public class BranchAuthorizationEndpointTests : IClassFixture<WebApplicationFact
         return (await response.Content.ReadFromJsonAsync<AuthResult>())!;
     }
 
+    // Same direct-seeding approach as GetBranch_ScopedUser_...: no grant/user-management endpoint
+    // exists yet this phase, so the scoped test user's role, UserRole scope and UserBranch grants
+    // are persisted straight against AppDbContext, exactly like a future "invite user" flow would.
+    private async Task<string> SeedScopedUserTokenAsync(
+        Guid organizationId, Guid ownerUserId, string permissionKey, params Guid[] grantedBranchIds)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var jwtTokenService = scope.ServiceProvider.GetRequiredService<IJwtTokenService>();
+
+        var permission = await dbContext.Set<Permission>().FirstAsync(p => p.Key == permissionKey);
+        var role = new Role
+        {
+            Id = Guid.NewGuid(),
+            OrganizationId = organizationId,
+            Name = $"ScopedRole-{permissionKey}",
+            IsSystemDefault = false
+        };
+        role.Permissions.Add(permission);
+        dbContext.Set<Role>().Add(role);
+
+        var scopedUserId = Guid.NewGuid();
+        var email = $"scoped-{scopedUserId:N}@example.com";
+        dbContext.Set<User>().Add(new User
+        {
+            Id = scopedUserId,
+            OrganizationId = organizationId,
+            Email = email,
+            PasswordHash = "not-used-in-this-test",
+            FullName = "Scoped User"
+        });
+        dbContext.Set<UserRole>().Add(new UserRole
+        {
+            Id = Guid.NewGuid(),
+            UserId = scopedUserId,
+            RoleId = role.Id,
+            OrganizationId = organizationId,
+            BranchScope = BranchScope.SpecificBranches,
+            AssignedAt = DateTimeOffset.UtcNow,
+            AssignedByUserId = ownerUserId
+        });
+        foreach (var branchId in grantedBranchIds)
+        {
+            dbContext.Set<UserBranch>().Add(new UserBranch
+            {
+                Id = Guid.NewGuid(),
+                UserId = scopedUserId,
+                BranchId = branchId,
+                OrganizationId = organizationId,
+                GrantedAt = DateTimeOffset.UtcNow,
+                GrantedByUserId = ownerUserId
+            });
+        }
+        await dbContext.SaveChangesAsync();
+
+        return jwtTokenService.IssueAccessToken(scopedUserId, organizationId, email);
+    }
+
+    [Fact]
+    public async Task ListBranches_ScopedUser_ReturnsOnlyGrantedBranches()
+    {
+        var client = _factory.CreateClient();
+        var owner = await RegisterOrgAsync(client);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", owner.AccessToken);
+
+        var grantedResponse = await client.PostAsJsonAsync("/api/v1/branches", new CreateBranchRequest(
+            "LSG-01", "Granted Branch", BranchType.Branch, "Somewhere", null, null, null, null, null));
+        grantedResponse.EnsureSuccessStatusCode();
+        var granted = (await grantedResponse.Content.ReadFromJsonAsync<BranchResponse>())!;
+
+        var ungrantedResponse = await client.PostAsJsonAsync("/api/v1/branches", new CreateBranchRequest(
+            "LSU-01", "Ungranted Branch", BranchType.Branch, "Elsewhere", null, null, null, null, null));
+        ungrantedResponse.EnsureSuccessStatusCode();
+
+        var scopedToken = await SeedScopedUserTokenAsync(owner.OrganizationId, owner.UserId, "branch.read", granted.Id);
+        var scopedClient = _factory.CreateClient();
+        scopedClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", scopedToken);
+
+        var listResponse = await scopedClient.GetAsync("/api/v1/branches");
+
+        Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
+        var branches = (await listResponse.Content.ReadFromJsonAsync<List<BranchResponse>>())!;
+        Assert.Contains(branches, b => b.Code == "LSG-01");
+        Assert.DoesNotContain(branches, b => b.Code == "LSU-01");
+    }
+
+    [Fact]
+    public async Task CreateBranch_ScopedUser_OutOfScopeParentBranch_Returns400()
+    {
+        var client = _factory.CreateClient();
+        var owner = await RegisterOrgAsync(client);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", owner.AccessToken);
+
+        var grantedResponse = await client.PostAsJsonAsync("/api/v1/branches", new CreateBranchRequest(
+            "CRG-01", "Granted Branch", BranchType.Branch, "Somewhere", null, null, null, null, null));
+        grantedResponse.EnsureSuccessStatusCode();
+        var granted = (await grantedResponse.Content.ReadFromJsonAsync<BranchResponse>())!;
+
+        var outOfScopeResponse = await client.PostAsJsonAsync("/api/v1/branches", new CreateBranchRequest(
+            "CRO-01", "Out Of Scope Parent", BranchType.Hub, "Elsewhere", null, null, null, null, null));
+        outOfScopeResponse.EnsureSuccessStatusCode();
+        var outOfScopeParent = (await outOfScopeResponse.Content.ReadFromJsonAsync<BranchResponse>())!;
+
+        var scopedToken = await SeedScopedUserTokenAsync(owner.OrganizationId, owner.UserId, "branch.create", granted.Id);
+        var scopedClient = _factory.CreateClient();
+        scopedClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", scopedToken);
+
+        var response = await scopedClient.PostAsJsonAsync("/api/v1/branches", new CreateBranchRequest(
+            "CRN-01", "Attempted Child", BranchType.Branch, "Nowhere", null, null, null, null, outOfScopeParent.Id));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        // Pin the reason: a 400 here must be the branch-scope rejection, not an unrelated
+        // validation failure such as a duplicate branch code.
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Contains("outside your branch access", body);
+    }
+
     [Fact]
     public async Task GetBranch_ScopedUser_ForbiddenWithoutGrant_ThenAllowedAfterParentGrant()
     {

@@ -196,4 +196,39 @@ public class BranchAuthorizationCheckerTests
 
         Assert.False(await checker.HasAccessAsync(principal, "branch.read", branchId));
     }
+
+    [Fact]
+    public async Task HasAccessAsync_ExpiredAndValidGrants_FiltersPerRow()
+    {
+        var organizationId = Guid.NewGuid();
+        await using var dbContext = TestDbContextFactory.Create(new FixedTenantProvider(organizationId));
+        var userId = await SeedUserAsync(dbContext, organizationId, "branch.read", BranchScope.SpecificBranches);
+
+        var expiredBranchId = Guid.NewGuid();
+        var validBranchId = Guid.NewGuid();
+        dbContext.Set<Branch>().AddRange(
+            NewBranch(organizationId, expiredBranchId),
+            NewBranch(organizationId, validBranchId));
+        dbContext.Set<UserBranch>().AddRange(
+            new UserBranch
+            {
+                Id = Guid.NewGuid(), UserId = userId, BranchId = expiredBranchId, OrganizationId = organizationId,
+                GrantedAt = DateTimeOffset.UtcNow.AddDays(-10), ExpiresAt = DateTimeOffset.UtcNow.AddDays(-1),
+                GrantedByUserId = userId
+            },
+            new UserBranch
+            {
+                Id = Guid.NewGuid(), UserId = userId, BranchId = validBranchId, OrganizationId = organizationId,
+                GrantedAt = DateTimeOffset.UtcNow.AddDays(-10), ExpiresAt = null,
+                GrantedByUserId = userId
+            });
+        await dbContext.SaveChangesAsync();
+
+        var checker = CreateChecker(dbContext);
+        var principal = BuildPrincipal(userId);
+
+        // Proves the ExpiresAt filter applies per grant row, not as an all-or-nothing gate.
+        Assert.False(await checker.HasAccessAsync(principal, "branch.read", expiredBranchId));
+        Assert.True(await checker.HasAccessAsync(principal, "branch.read", validBranchId));
+    }
 }

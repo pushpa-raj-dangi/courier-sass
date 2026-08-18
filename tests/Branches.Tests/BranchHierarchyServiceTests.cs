@@ -79,6 +79,30 @@ public class BranchHierarchyServiceTests
     }
 
     [Fact]
+    public async Task GetDescendantBranchIdsAsync_MultipleSeeds_UnionsDescendantsFromEverySeed()
+    {
+        await using var dbContext = CreateContext();
+        var rootA = Guid.NewGuid();
+        var childA = Guid.NewGuid();
+        var rootB = Guid.NewGuid();
+        var childB = Guid.NewGuid();
+        var unrelatedId = Guid.NewGuid();
+
+        dbContext.Set<Branch>().AddRange(
+            NewBranch(rootA),
+            NewBranch(childA, rootA),
+            NewBranch(rootB),
+            NewBranch(childB, rootB),
+            NewBranch(unrelatedId));
+        await dbContext.SaveChangesAsync();
+
+        var service = new BranchHierarchyService(dbContext);
+        var result = await service.GetDescendantBranchIdsAsync(new[] { rootA, rootB });
+
+        Assert.Equal(new HashSet<Guid> { rootA, childA, rootB, childB }, result);
+    }
+
+    [Fact]
     public async Task GetDescendantBranchIdsAsync_LeafBranch_ReturnsOnlySelf()
     {
         await using var dbContext = CreateContext();

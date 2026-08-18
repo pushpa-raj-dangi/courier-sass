@@ -14,15 +14,14 @@ public static class BranchesEndpoints
 
         group.MapPost("/", async (CreateBranchRequest request, BranchService branchService, HttpContext httpContext) =>
         {
-            var actingUserId = httpContext.User.GetUserId();
-            if (actingUserId is null)
+            if (httpContext.User.GetUserId() is null)
             {
                 return Results.Unauthorized();
             }
 
             try
             {
-                var result = await branchService.CreateBranchAsync(request, actingUserId.Value, httpContext.RequestAborted);
+                var result = await branchService.CreateBranchAsync(request, httpContext.User, httpContext.RequestAborted);
                 return Results.Created($"/api/v1/branches/{result.Id}", result);
             }
             catch (BranchValidationException ex)

@@ -56,12 +56,11 @@ public class BranchAuthorizationChecker : IBranchAuthorizationChecker
             .Select(ub => ub.BranchId)
             .ToListAsync(cancellationToken);
 
-        var accessible = new HashSet<Guid>();
-        foreach (var branchId in grantedBranchIds)
+        if (grantedBranchIds.Count == 0)
         {
-            accessible.UnionWith(await _branchHierarchyService.GetDescendantBranchIdsAsync(branchId, cancellationToken));
+            return new HashSet<Guid>();
         }
-        return accessible;
+        return await _branchHierarchyService.GetDescendantBranchIdsAsync(grantedBranchIds, cancellationToken);
     }
 
     public async Task<bool> HasAccessAsync(ClaimsPrincipal user, string permission, Guid branchId, CancellationToken cancellationToken = default)

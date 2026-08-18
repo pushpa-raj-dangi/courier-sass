@@ -25,10 +25,12 @@ public class BranchService
         _branchAuthorizationChecker = branchAuthorizationChecker;
     }
 
-    public async Task<BranchResponse> CreateBranchAsync(CreateBranchRequest request, Guid actingUserId, CancellationToken cancellationToken = default)
+    public async Task<BranchResponse> CreateBranchAsync(CreateBranchRequest request, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
         var organizationId = _currentTenantProvider.OrganizationId
             ?? throw new BranchValidationException("No active organization context.");
+        var actingUserId = actingUser.GetUserId()
+            ?? throw new BranchValidationException("Acting user could not be resolved.");
 
         var codeTaken = await _dbContext.Set<Branch>()
             .AnyAsync(b => b.Code == request.Code, cancellationToken);
@@ -44,6 +46,12 @@ public class BranchService
             if (!parentExists)
             {
                 throw new BranchValidationException("Parent branch was not found in this organization.");
+            }
+
+            var accessibleForCreate = await _branchAuthorizationChecker.GetAccessibleBranchIdsAsync(actingUser, "branch.create", cancellationToken);
+            if (accessibleForCreate is not null && !accessibleForCreate.Contains(parentId))
+            {
+                throw new BranchValidationException("Parent branch is outside your branch access.");
             }
         }
 
@@ -83,7 +91,8 @@ public class BranchService
         var query = _dbContext.Set<Branch>().AsQueryable();
         if (accessibleBranchIds is not null)
         {
-            query = query.Where(b => accessibleBranchIds.Contains(b.Id));
+            var ids = accessibleBranchIds.ToArray();
+            query = query.Where(b => ids.Contains(b.Id));
         }
 
         var branches = await query.ToListAsync(cancellationToken);

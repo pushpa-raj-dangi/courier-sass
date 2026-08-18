@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Courier.SharedKernel;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
@@ -55,8 +56,7 @@ public class RequireBranchScopedPermissionFilterTests
 
         var result = await filter.InvokeAsync(context, _ => ValueTask.FromResult<object?>(Results.Ok()));
 
-        var statusResult = Assert.IsAssignableFrom<IStatusCodeHttpResult>(result);
-        Assert.Equal(StatusCodes.Status403Forbidden, statusResult.StatusCode);
+        Assert.IsType<ForbidHttpResult>(result);
     }
 
     [Fact]

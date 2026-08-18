@@ -36,7 +36,7 @@ public class RequireBranchScopedPermissionFilter : IEndpointFilter
         var hasAccess = await checker.HasAccessAsync(httpContext.User, _permission, branchId, httpContext.RequestAborted);
         if (!hasAccess)
         {
-            return Results.StatusCode(StatusCodes.Status403Forbidden);
+            return Results.Forbid();
         }
 
         return await next(context);
