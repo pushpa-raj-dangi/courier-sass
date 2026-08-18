@@ -35,6 +35,11 @@ Implements `Identity` module per `DOMAIN-MODEL.md`/`RBAC.md`, including `UserRol
 checks work end-to-end on at least one protected endpoint, tenant isolation is
 covered by an integration test that proves cross-tenant access is rejected.
 
+*Status (2026-08-18): Complete.* Organization self-registration, login, refresh token
+rotation, permission-checked `GET /api/v1/users`, and an automated tenant-isolation test
+are implemented and passing. `SuperAdmin`/platform-level auth remains deferred (see
+`CLARIFICATIONS.md` #5) — no phase depends on it yet.
+
 ## Phase 2 — Branches, UserBranch, Branch Authorization
 
 `Branch` (with `ParentBranchId` hierarchy), `UserBranch` (with `ExpiresAt`,
