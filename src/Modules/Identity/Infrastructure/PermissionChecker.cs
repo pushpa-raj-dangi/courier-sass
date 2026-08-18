@@ -16,8 +16,8 @@ public class PermissionChecker : IPermissionChecker
 
     public async Task<bool> HasPermissionAsync(ClaimsPrincipal user, string permission, CancellationToken cancellationToken = default)
     {
-        var subClaim = user.FindFirst("sub")?.Value;
-        if (!Guid.TryParse(subClaim, out var userId))
+        var userId = user.GetUserId();
+        if (userId is null)
         {
             return false;
         }
