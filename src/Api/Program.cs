@@ -4,11 +4,6 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using RabbitMQ.Client;
 using Serilog;
 
-Log.Logger = new LoggerConfiguration()
-    .Enrich.FromLogContext()
-    .WriteTo.Console()
-    .CreateBootstrapLogger();
-
 var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseSerilog((context, services, configuration) => configuration
     .ReadFrom.Configuration(context.Configuration)
