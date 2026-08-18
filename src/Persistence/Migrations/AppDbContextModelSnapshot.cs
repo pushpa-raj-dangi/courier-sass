@@ -22,6 +22,21 @@ namespace Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("AreaDeliveryZone", b =>
+                {
+                    b.Property<Guid>("CoveredAreasId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("DeliveryZoneId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("CoveredAreasId", "DeliveryZoneId");
+
+                    b.HasIndex("DeliveryZoneId");
+
+                    b.ToTable("DeliveryZoneAreas", (string)null);
+                });
+
             modelBuilder.Entity("Courier.Audit.Domain.AuditLog", b =>
                 {
                     b.Property<Guid>("Id")
@@ -131,6 +146,946 @@ namespace Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("Branches", (string)null);
+                });
+
+            modelBuilder.Entity("Courier.Geography.Domain.Area", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<Guid>("WardId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WardId");
+
+                    b.ToTable("Areas", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("381aead0-e538-a6ee-62ea-f6fe3096fd77"),
+                            Name = "Kathmandu Metropolitan City Ward 1 Area A",
+                            WardId = new Guid("d67b8356-13d5-6c67-2744-fdb6c1ba803d")
+                        },
+                        new
+                        {
+                            Id = new Guid("9669c08f-4e94-4565-0c6a-56502c363c33"),
+                            Name = "Kathmandu Metropolitan City Ward 1 Area B",
+                            WardId = new Guid("d67b8356-13d5-6c67-2744-fdb6c1ba803d")
+                        },
+                        new
+                        {
+                            Id = new Guid("2e7f8241-a2e6-cebf-1c3b-9db14b12e147"),
+                            Name = "Kathmandu Metropolitan City Ward 2 Area A",
+                            WardId = new Guid("20d1f25c-41e7-9ea2-6178-e861e26d8601")
+                        },
+                        new
+                        {
+                            Id = new Guid("96b70121-d5ce-6bcf-c8d8-58d6dd2f0aff"),
+                            Name = "Kathmandu Metropolitan City Ward 2 Area B",
+                            WardId = new Guid("20d1f25c-41e7-9ea2-6178-e861e26d8601")
+                        },
+                        new
+                        {
+                            Id = new Guid("7c1faff1-f5bd-9ffb-2764-90ba91173c57"),
+                            Name = "Kathmandu Metropolitan City Ward 3 Area A",
+                            WardId = new Guid("62881b7e-0242-3b63-14f4-5e09839bb665")
+                        },
+                        new
+                        {
+                            Id = new Guid("fccaf4e2-92af-db22-953c-0080713fa711"),
+                            Name = "Kathmandu Metropolitan City Ward 3 Area B",
+                            WardId = new Guid("62881b7e-0242-3b63-14f4-5e09839bb665")
+                        },
+                        new
+                        {
+                            Id = new Guid("3278739a-0ec6-d37c-3efa-64565c727274"),
+                            Name = "Lalitpur Metropolitan City Ward 1 Area A",
+                            WardId = new Guid("21f5fe30-dca7-9aa7-07d6-37841c17a905")
+                        },
+                        new
+                        {
+                            Id = new Guid("4c491974-365c-874d-a74b-6576ac4bdeb0"),
+                            Name = "Lalitpur Metropolitan City Ward 1 Area B",
+                            WardId = new Guid("21f5fe30-dca7-9aa7-07d6-37841c17a905")
+                        },
+                        new
+                        {
+                            Id = new Guid("d6d19fe7-cf7d-bd90-8447-66758abd02b0"),
+                            Name = "Lalitpur Metropolitan City Ward 2 Area A",
+                            WardId = new Guid("c510114f-e5ea-e18f-20e3-2342bb55bcb4")
+                        },
+                        new
+                        {
+                            Id = new Guid("9d2ea7ad-f35b-be25-31b4-b2413f9d3806"),
+                            Name = "Lalitpur Metropolitan City Ward 2 Area B",
+                            WardId = new Guid("c510114f-e5ea-e18f-20e3-2342bb55bcb4")
+                        },
+                        new
+                        {
+                            Id = new Guid("3341edcc-c16e-772e-df5c-4dc5e6cbb880"),
+                            Name = "Lalitpur Metropolitan City Ward 3 Area A",
+                            WardId = new Guid("b19cfc20-25cb-785c-ca12-066f7a68b6ef")
+                        },
+                        new
+                        {
+                            Id = new Guid("89d25841-ab97-221c-ab46-7e4619607a76"),
+                            Name = "Lalitpur Metropolitan City Ward 3 Area B",
+                            WardId = new Guid("b19cfc20-25cb-785c-ca12-066f7a68b6ef")
+                        },
+                        new
+                        {
+                            Id = new Guid("f5828515-1d02-4bf2-fd0c-18ec0591be7e"),
+                            Name = "Bhaktapur Municipality Ward 1 Area A",
+                            WardId = new Guid("6b20ff37-5983-d2b5-447c-e1ba5d2bb29e")
+                        },
+                        new
+                        {
+                            Id = new Guid("996140f0-d3e5-c0b0-ff74-a74e2e4d4da9"),
+                            Name = "Bhaktapur Municipality Ward 1 Area B",
+                            WardId = new Guid("6b20ff37-5983-d2b5-447c-e1ba5d2bb29e")
+                        },
+                        new
+                        {
+                            Id = new Guid("b893d0cc-bf71-fe9c-1703-74b756ac4b6a"),
+                            Name = "Bhaktapur Municipality Ward 2 Area A",
+                            WardId = new Guid("1894d96f-f71b-f28c-7af0-308fe8e8dfa8")
+                        },
+                        new
+                        {
+                            Id = new Guid("1cc28189-5e03-9543-cbfc-9d9268218553"),
+                            Name = "Bhaktapur Municipality Ward 2 Area B",
+                            WardId = new Guid("1894d96f-f71b-f28c-7af0-308fe8e8dfa8")
+                        },
+                        new
+                        {
+                            Id = new Guid("6f962d2f-ebba-9d72-be39-d511eb8591df"),
+                            Name = "Bhaktapur Municipality Ward 3 Area A",
+                            WardId = new Guid("1d5b840c-c0de-b416-1539-73e5b6157fcf")
+                        },
+                        new
+                        {
+                            Id = new Guid("749c3c69-d7fe-a0a7-871e-c5661e4d20cf"),
+                            Name = "Bhaktapur Municipality Ward 3 Area B",
+                            WardId = new Guid("1d5b840c-c0de-b416-1539-73e5b6157fcf")
+                        },
+                        new
+                        {
+                            Id = new Guid("b3a8faf9-d0fe-1cf3-80ac-b32f1b6f2a84"),
+                            Name = "Pokhara Metropolitan City Ward 1 Area A",
+                            WardId = new Guid("9b15caae-1076-edd6-97a8-36f36689edad")
+                        },
+                        new
+                        {
+                            Id = new Guid("8b20ccc1-d6d2-835b-bdb8-35c9fe7cab59"),
+                            Name = "Pokhara Metropolitan City Ward 1 Area B",
+                            WardId = new Guid("9b15caae-1076-edd6-97a8-36f36689edad")
+                        },
+                        new
+                        {
+                            Id = new Guid("1be866be-d6a9-54cb-5a6d-f4039d3aea76"),
+                            Name = "Pokhara Metropolitan City Ward 2 Area A",
+                            WardId = new Guid("153feabb-79cc-fc0e-1e69-530e39339f17")
+                        },
+                        new
+                        {
+                            Id = new Guid("69dc31f2-e423-2506-f994-c8d0fb1a9130"),
+                            Name = "Pokhara Metropolitan City Ward 2 Area B",
+                            WardId = new Guid("153feabb-79cc-fc0e-1e69-530e39339f17")
+                        },
+                        new
+                        {
+                            Id = new Guid("f64c3372-af21-c7b2-4d30-544ef2810524"),
+                            Name = "Pokhara Metropolitan City Ward 3 Area A",
+                            WardId = new Guid("a7812273-5557-1449-04d9-fd93f14532fe")
+                        },
+                        new
+                        {
+                            Id = new Guid("dd39e5c6-6429-f6a9-3708-58ed37aedf5b"),
+                            Name = "Pokhara Metropolitan City Ward 3 Area B",
+                            WardId = new Guid("a7812273-5557-1449-04d9-fd93f14532fe")
+                        },
+                        new
+                        {
+                            Id = new Guid("d7242207-271b-eb1b-d75e-08e9c91813b3"),
+                            Name = "Butwal Sub-Metropolitan City Ward 1 Area A",
+                            WardId = new Guid("09f35779-2786-e2e7-dbd8-027db40825fa")
+                        },
+                        new
+                        {
+                            Id = new Guid("10d5785f-affc-dc37-f75c-ca83594b7e27"),
+                            Name = "Butwal Sub-Metropolitan City Ward 1 Area B",
+                            WardId = new Guid("09f35779-2786-e2e7-dbd8-027db40825fa")
+                        },
+                        new
+                        {
+                            Id = new Guid("ffb4efc7-37a7-d5af-ead4-6521ac6642f6"),
+                            Name = "Butwal Sub-Metropolitan City Ward 2 Area A",
+                            WardId = new Guid("5c200267-6f0a-6475-ed49-3a7227505b87")
+                        },
+                        new
+                        {
+                            Id = new Guid("75df0034-d95a-8464-ccad-5bac9f69243a"),
+                            Name = "Butwal Sub-Metropolitan City Ward 2 Area B",
+                            WardId = new Guid("5c200267-6f0a-6475-ed49-3a7227505b87")
+                        },
+                        new
+                        {
+                            Id = new Guid("6c30d3f8-1a25-fa3d-ea23-7a4d859696d9"),
+                            Name = "Butwal Sub-Metropolitan City Ward 3 Area A",
+                            WardId = new Guid("658c7166-8866-8879-59fd-0e74fe99f087")
+                        },
+                        new
+                        {
+                            Id = new Guid("abcae483-b4fd-dfb6-926e-712f035ea894"),
+                            Name = "Butwal Sub-Metropolitan City Ward 3 Area B",
+                            WardId = new Guid("658c7166-8866-8879-59fd-0e74fe99f087")
+                        });
+                });
+
+            modelBuilder.Entity("Courier.Geography.Domain.DeliveryZone", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.ToTable("DeliveryZones", (string)null);
+                });
+
+            modelBuilder.Entity("Courier.Geography.Domain.District", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid>("ProvinceId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProvinceId");
+
+                    b.ToTable("Districts", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("d1d5b685-15a0-5577-df89-d9c37d7cc952"),
+                            Name = "Bhojpur",
+                            ProvinceId = new Guid("f2e47c6e-c17e-fa21-38ed-30484b8d695b")
+                        },
+                        new
+                        {
+                            Id = new Guid("d5aa47b8-dcfc-1641-0fd7-65b55517e01a"),
+                            Name = "Dhankuta",
+                            ProvinceId = new Guid("f2e47c6e-c17e-fa21-38ed-30484b8d695b")
+                        },
+                        new
+                        {
+                            Id = new Guid("2d093140-92cf-d798-a998-676b9e8d0253"),
+                            Name = "Ilam",
+                            ProvinceId = new Guid("f2e47c6e-c17e-fa21-38ed-30484b8d695b")
+                        },
+                        new
+                        {
+                            Id = new Guid("8bccf440-1138-d772-077e-e9fce3e1e500"),
+                            Name = "Jhapa",
+                            ProvinceId = new Guid("f2e47c6e-c17e-fa21-38ed-30484b8d695b")
+                        },
+                        new
+                        {
+                            Id = new Guid("588d7bc0-3b84-5a58-3443-7e0aab1e0d55"),
+                            Name = "Khotang",
+                            ProvinceId = new Guid("f2e47c6e-c17e-fa21-38ed-30484b8d695b")
+                        },
+                        new
+                        {
+                            Id = new Guid("d4289155-ae50-f795-534f-d8a178d3f97e"),
+                            Name = "Morang",
+                            ProvinceId = new Guid("f2e47c6e-c17e-fa21-38ed-30484b8d695b")
+                        },
+                        new
+                        {
+                            Id = new Guid("6df7320f-5712-f018-6e00-18e8b1fdc6ab"),
+                            Name = "Okhaldhunga",
+                            ProvinceId = new Guid("f2e47c6e-c17e-fa21-38ed-30484b8d695b")
+                        },
+                        new
+                        {
+                            Id = new Guid("d2f14631-0e4c-5596-71b1-68627b35d578"),
+                            Name = "Panchthar",
+                            ProvinceId = new Guid("f2e47c6e-c17e-fa21-38ed-30484b8d695b")
+                        },
+                        new
+                        {
+                            Id = new Guid("ef68987b-f531-4647-0a2a-5f7721b62fa2"),
+                            Name = "Sankhuwasabha",
+                            ProvinceId = new Guid("f2e47c6e-c17e-fa21-38ed-30484b8d695b")
+                        },
+                        new
+                        {
+                            Id = new Guid("6891b090-e3d5-12a2-f228-3094a71b982d"),
+                            Name = "Solukhumbu",
+                            ProvinceId = new Guid("f2e47c6e-c17e-fa21-38ed-30484b8d695b")
+                        },
+                        new
+                        {
+                            Id = new Guid("99745062-237c-0074-4b5b-013edbd260da"),
+                            Name = "Sunsari",
+                            ProvinceId = new Guid("f2e47c6e-c17e-fa21-38ed-30484b8d695b")
+                        },
+                        new
+                        {
+                            Id = new Guid("dc533961-3558-715c-628a-18724cc662a3"),
+                            Name = "Taplejung",
+                            ProvinceId = new Guid("f2e47c6e-c17e-fa21-38ed-30484b8d695b")
+                        },
+                        new
+                        {
+                            Id = new Guid("23a8da65-9609-f7a0-4f1c-ccea7a1a273c"),
+                            Name = "Terhathum",
+                            ProvinceId = new Guid("f2e47c6e-c17e-fa21-38ed-30484b8d695b")
+                        },
+                        new
+                        {
+                            Id = new Guid("d540ab14-8c4f-9113-cc8a-bf9e47a66f4f"),
+                            Name = "Udayapur",
+                            ProvinceId = new Guid("f2e47c6e-c17e-fa21-38ed-30484b8d695b")
+                        },
+                        new
+                        {
+                            Id = new Guid("e8990d78-a554-5fe7-c482-d9af2d6829c3"),
+                            Name = "Bara",
+                            ProvinceId = new Guid("65283d1e-5064-992a-26f9-9bc0af3e2515")
+                        },
+                        new
+                        {
+                            Id = new Guid("aab1e45c-eb87-4006-62dd-6ffea18c98e0"),
+                            Name = "Dhanusha",
+                            ProvinceId = new Guid("65283d1e-5064-992a-26f9-9bc0af3e2515")
+                        },
+                        new
+                        {
+                            Id = new Guid("97e9a9c4-1b31-7541-9cfe-c358833aa1fd"),
+                            Name = "Mahottari",
+                            ProvinceId = new Guid("65283d1e-5064-992a-26f9-9bc0af3e2515")
+                        },
+                        new
+                        {
+                            Id = new Guid("eae20588-cb26-3ee4-b97f-14cb7c6f4c9d"),
+                            Name = "Parsa",
+                            ProvinceId = new Guid("65283d1e-5064-992a-26f9-9bc0af3e2515")
+                        },
+                        new
+                        {
+                            Id = new Guid("0aa17044-be75-f208-737d-2faec42bb7d4"),
+                            Name = "Rautahat",
+                            ProvinceId = new Guid("65283d1e-5064-992a-26f9-9bc0af3e2515")
+                        },
+                        new
+                        {
+                            Id = new Guid("2288a129-f66b-b198-91bf-4c025f68c16f"),
+                            Name = "Saptari",
+                            ProvinceId = new Guid("65283d1e-5064-992a-26f9-9bc0af3e2515")
+                        },
+                        new
+                        {
+                            Id = new Guid("1f7bbb28-9aae-e15d-dff8-994763eea1b7"),
+                            Name = "Sarlahi",
+                            ProvinceId = new Guid("65283d1e-5064-992a-26f9-9bc0af3e2515")
+                        },
+                        new
+                        {
+                            Id = new Guid("cbfe179e-bfe4-fa78-ce28-3c4b485115af"),
+                            Name = "Siraha",
+                            ProvinceId = new Guid("65283d1e-5064-992a-26f9-9bc0af3e2515")
+                        },
+                        new
+                        {
+                            Id = new Guid("507a3923-7396-dd1d-ffa8-fdad101ea19b"),
+                            Name = "Bhaktapur",
+                            ProvinceId = new Guid("59f5c8d7-fb6a-941a-8d64-642885e9076a")
+                        },
+                        new
+                        {
+                            Id = new Guid("007130f7-df39-d6dc-d981-ee65bdbf3bd8"),
+                            Name = "Chitwan",
+                            ProvinceId = new Guid("59f5c8d7-fb6a-941a-8d64-642885e9076a")
+                        },
+                        new
+                        {
+                            Id = new Guid("00b8b6e0-c375-46bf-86cf-1a37ba17c15f"),
+                            Name = "Dhading",
+                            ProvinceId = new Guid("59f5c8d7-fb6a-941a-8d64-642885e9076a")
+                        },
+                        new
+                        {
+                            Id = new Guid("570fa706-ac49-3f2e-dab9-19cdab9edde4"),
+                            Name = "Dolakha",
+                            ProvinceId = new Guid("59f5c8d7-fb6a-941a-8d64-642885e9076a")
+                        },
+                        new
+                        {
+                            Id = new Guid("4d4c70f0-1487-88fd-46f6-fa54f3aebfb2"),
+                            Name = "Kathmandu",
+                            ProvinceId = new Guid("59f5c8d7-fb6a-941a-8d64-642885e9076a")
+                        },
+                        new
+                        {
+                            Id = new Guid("dd75a9fb-239b-234f-5761-c30443cf02d4"),
+                            Name = "Kavrepalanchok",
+                            ProvinceId = new Guid("59f5c8d7-fb6a-941a-8d64-642885e9076a")
+                        },
+                        new
+                        {
+                            Id = new Guid("038a7c84-9ee9-0018-c89e-0db29de6ba15"),
+                            Name = "Lalitpur",
+                            ProvinceId = new Guid("59f5c8d7-fb6a-941a-8d64-642885e9076a")
+                        },
+                        new
+                        {
+                            Id = new Guid("4afcbaed-dbba-e109-ff3a-d36c0349ddca"),
+                            Name = "Makwanpur",
+                            ProvinceId = new Guid("59f5c8d7-fb6a-941a-8d64-642885e9076a")
+                        },
+                        new
+                        {
+                            Id = new Guid("405ad5e7-b5da-1160-b8b0-c4bd7a33986c"),
+                            Name = "Nuwakot",
+                            ProvinceId = new Guid("59f5c8d7-fb6a-941a-8d64-642885e9076a")
+                        },
+                        new
+                        {
+                            Id = new Guid("0f53c9dc-28f7-f4df-e62c-bee15baec333"),
+                            Name = "Ramechhap",
+                            ProvinceId = new Guid("59f5c8d7-fb6a-941a-8d64-642885e9076a")
+                        },
+                        new
+                        {
+                            Id = new Guid("56401cdd-9729-c925-f010-2720749999ff"),
+                            Name = "Rasuwa",
+                            ProvinceId = new Guid("59f5c8d7-fb6a-941a-8d64-642885e9076a")
+                        },
+                        new
+                        {
+                            Id = new Guid("8858c866-5b09-30bc-7b96-3268ca1951e1"),
+                            Name = "Sindhuli",
+                            ProvinceId = new Guid("59f5c8d7-fb6a-941a-8d64-642885e9076a")
+                        },
+                        new
+                        {
+                            Id = new Guid("3f0051a7-1dc7-9f2d-eda7-6dfaa7610a28"),
+                            Name = "Sindhupalchok",
+                            ProvinceId = new Guid("59f5c8d7-fb6a-941a-8d64-642885e9076a")
+                        },
+                        new
+                        {
+                            Id = new Guid("40919215-cb27-8bda-8ec5-f3f4e6d9a7b4"),
+                            Name = "Baglung",
+                            ProvinceId = new Guid("78c72d87-a1ec-8954-2250-33ffb8e22135")
+                        },
+                        new
+                        {
+                            Id = new Guid("af751949-30fd-490e-1303-da66457d63cd"),
+                            Name = "Gorkha",
+                            ProvinceId = new Guid("78c72d87-a1ec-8954-2250-33ffb8e22135")
+                        },
+                        new
+                        {
+                            Id = new Guid("2d66cdd7-001c-2bbc-9a12-2f4fc36ada06"),
+                            Name = "Kaski",
+                            ProvinceId = new Guid("78c72d87-a1ec-8954-2250-33ffb8e22135")
+                        },
+                        new
+                        {
+                            Id = new Guid("8786330d-9b10-9f06-21c0-5b9689e782d3"),
+                            Name = "Lamjung",
+                            ProvinceId = new Guid("78c72d87-a1ec-8954-2250-33ffb8e22135")
+                        },
+                        new
+                        {
+                            Id = new Guid("f113760f-3792-c589-d11d-3570b8c6ac25"),
+                            Name = "Manang",
+                            ProvinceId = new Guid("78c72d87-a1ec-8954-2250-33ffb8e22135")
+                        },
+                        new
+                        {
+                            Id = new Guid("bbe1ec5a-9614-8b81-858d-c40fd0f7b2c6"),
+                            Name = "Mustang",
+                            ProvinceId = new Guid("78c72d87-a1ec-8954-2250-33ffb8e22135")
+                        },
+                        new
+                        {
+                            Id = new Guid("d5216571-fa41-83b9-ac02-f934c6c0c591"),
+                            Name = "Myagdi",
+                            ProvinceId = new Guid("78c72d87-a1ec-8954-2250-33ffb8e22135")
+                        },
+                        new
+                        {
+                            Id = new Guid("884af7cb-246e-fc97-537a-828a044e56be"),
+                            Name = "Nawalpur",
+                            ProvinceId = new Guid("78c72d87-a1ec-8954-2250-33ffb8e22135")
+                        },
+                        new
+                        {
+                            Id = new Guid("ebb64aa2-789a-5137-d350-2caa389fbcb0"),
+                            Name = "Parbat",
+                            ProvinceId = new Guid("78c72d87-a1ec-8954-2250-33ffb8e22135")
+                        },
+                        new
+                        {
+                            Id = new Guid("16b05377-abaf-7108-103f-c8b073420f25"),
+                            Name = "Syangja",
+                            ProvinceId = new Guid("78c72d87-a1ec-8954-2250-33ffb8e22135")
+                        },
+                        new
+                        {
+                            Id = new Guid("b6108dab-f164-900c-8076-7b9f42902eab"),
+                            Name = "Tanahun",
+                            ProvinceId = new Guid("78c72d87-a1ec-8954-2250-33ffb8e22135")
+                        },
+                        new
+                        {
+                            Id = new Guid("a67441ad-7e2c-d06d-15ef-946ea5b1c7fd"),
+                            Name = "Arghakhanchi",
+                            ProvinceId = new Guid("1fc4c078-0dcc-0c03-3f79-c96a4d405c7c")
+                        },
+                        new
+                        {
+                            Id = new Guid("ccabca5a-8cf1-37af-5d07-925d836a8e21"),
+                            Name = "Banke",
+                            ProvinceId = new Guid("1fc4c078-0dcc-0c03-3f79-c96a4d405c7c")
+                        },
+                        new
+                        {
+                            Id = new Guid("5ed859ac-0280-915e-ba08-d2b98465ea99"),
+                            Name = "Bardiya",
+                            ProvinceId = new Guid("1fc4c078-0dcc-0c03-3f79-c96a4d405c7c")
+                        },
+                        new
+                        {
+                            Id = new Guid("628b1578-f4c2-7f2d-2c0c-eeb98694936e"),
+                            Name = "Dang",
+                            ProvinceId = new Guid("1fc4c078-0dcc-0c03-3f79-c96a4d405c7c")
+                        },
+                        new
+                        {
+                            Id = new Guid("0c9d8ab6-c198-d34f-5c5d-f66955785812"),
+                            Name = "Eastern Rukum",
+                            ProvinceId = new Guid("1fc4c078-0dcc-0c03-3f79-c96a4d405c7c")
+                        },
+                        new
+                        {
+                            Id = new Guid("1dcaca5e-4114-2110-1ce6-1430f673e111"),
+                            Name = "Gulmi",
+                            ProvinceId = new Guid("1fc4c078-0dcc-0c03-3f79-c96a4d405c7c")
+                        },
+                        new
+                        {
+                            Id = new Guid("574a63d3-fc23-3022-8029-1c2f2b135543"),
+                            Name = "Kapilvastu",
+                            ProvinceId = new Guid("1fc4c078-0dcc-0c03-3f79-c96a4d405c7c")
+                        },
+                        new
+                        {
+                            Id = new Guid("0ed4f14a-04eb-202d-00ce-196293cd16f2"),
+                            Name = "Parasi",
+                            ProvinceId = new Guid("1fc4c078-0dcc-0c03-3f79-c96a4d405c7c")
+                        },
+                        new
+                        {
+                            Id = new Guid("61422dc7-4e83-c476-4c51-7b951ae61a29"),
+                            Name = "Palpa",
+                            ProvinceId = new Guid("1fc4c078-0dcc-0c03-3f79-c96a4d405c7c")
+                        },
+                        new
+                        {
+                            Id = new Guid("27010fcc-15bc-5e4e-9245-d1e10bf3c93b"),
+                            Name = "Pyuthan",
+                            ProvinceId = new Guid("1fc4c078-0dcc-0c03-3f79-c96a4d405c7c")
+                        },
+                        new
+                        {
+                            Id = new Guid("333f4f9e-7f55-da15-5f2f-8fe379ca10d8"),
+                            Name = "Rolpa",
+                            ProvinceId = new Guid("1fc4c078-0dcc-0c03-3f79-c96a4d405c7c")
+                        },
+                        new
+                        {
+                            Id = new Guid("e077c19d-7d5f-3c62-be1d-cd7808eace1b"),
+                            Name = "Rupandehi",
+                            ProvinceId = new Guid("1fc4c078-0dcc-0c03-3f79-c96a4d405c7c")
+                        },
+                        new
+                        {
+                            Id = new Guid("9edf9319-c07e-e84c-73a3-527f07e46a8e"),
+                            Name = "Dailekh",
+                            ProvinceId = new Guid("c5be3e04-e6fc-36f2-8481-6a89ec227702")
+                        },
+                        new
+                        {
+                            Id = new Guid("29015f49-0c50-ff65-6e46-da98ba72e155"),
+                            Name = "Dolpa",
+                            ProvinceId = new Guid("c5be3e04-e6fc-36f2-8481-6a89ec227702")
+                        },
+                        new
+                        {
+                            Id = new Guid("39817103-daf5-ac1d-e22e-4b7c1cbf0554"),
+                            Name = "Humla",
+                            ProvinceId = new Guid("c5be3e04-e6fc-36f2-8481-6a89ec227702")
+                        },
+                        new
+                        {
+                            Id = new Guid("0d8ae957-69ba-8fcd-7c71-f9e0dfa96082"),
+                            Name = "Jajarkot",
+                            ProvinceId = new Guid("c5be3e04-e6fc-36f2-8481-6a89ec227702")
+                        },
+                        new
+                        {
+                            Id = new Guid("e122a137-23c6-177c-a5cc-4277f637253a"),
+                            Name = "Jumla",
+                            ProvinceId = new Guid("c5be3e04-e6fc-36f2-8481-6a89ec227702")
+                        },
+                        new
+                        {
+                            Id = new Guid("4251c274-9eef-e598-5f76-ec97674b5e7e"),
+                            Name = "Kalikot",
+                            ProvinceId = new Guid("c5be3e04-e6fc-36f2-8481-6a89ec227702")
+                        },
+                        new
+                        {
+                            Id = new Guid("58f8b699-3400-62b3-2d95-df609f23b348"),
+                            Name = "Mugu",
+                            ProvinceId = new Guid("c5be3e04-e6fc-36f2-8481-6a89ec227702")
+                        },
+                        new
+                        {
+                            Id = new Guid("f48b393d-0fd1-c753-f2c7-5714f3e91861"),
+                            Name = "Salyan",
+                            ProvinceId = new Guid("c5be3e04-e6fc-36f2-8481-6a89ec227702")
+                        },
+                        new
+                        {
+                            Id = new Guid("90ab13a6-4022-33e4-adfd-e67f281017dd"),
+                            Name = "Surkhet",
+                            ProvinceId = new Guid("c5be3e04-e6fc-36f2-8481-6a89ec227702")
+                        },
+                        new
+                        {
+                            Id = new Guid("a8328c32-dd80-5f04-b541-f151069f8494"),
+                            Name = "Western Rukum",
+                            ProvinceId = new Guid("c5be3e04-e6fc-36f2-8481-6a89ec227702")
+                        },
+                        new
+                        {
+                            Id = new Guid("ef97541c-6911-40e0-42ae-12b03471c689"),
+                            Name = "Achham",
+                            ProvinceId = new Guid("902e6dbb-c786-86eb-1a20-dfd166025324")
+                        },
+                        new
+                        {
+                            Id = new Guid("ba75ad98-a6c6-6e9b-e694-d745c422df00"),
+                            Name = "Baitadi",
+                            ProvinceId = new Guid("902e6dbb-c786-86eb-1a20-dfd166025324")
+                        },
+                        new
+                        {
+                            Id = new Guid("5aac6a25-e12b-5ebf-2b73-6885729d2f16"),
+                            Name = "Bajhang",
+                            ProvinceId = new Guid("902e6dbb-c786-86eb-1a20-dfd166025324")
+                        },
+                        new
+                        {
+                            Id = new Guid("2656b871-d313-f2e6-b019-d6b977443481"),
+                            Name = "Bajura",
+                            ProvinceId = new Guid("902e6dbb-c786-86eb-1a20-dfd166025324")
+                        },
+                        new
+                        {
+                            Id = new Guid("d63cfd9f-0361-3e63-bc30-008fb743da6a"),
+                            Name = "Dadeldhura",
+                            ProvinceId = new Guid("902e6dbb-c786-86eb-1a20-dfd166025324")
+                        },
+                        new
+                        {
+                            Id = new Guid("660282e2-0b2d-9aa1-a7dd-40821a799fcc"),
+                            Name = "Darchula",
+                            ProvinceId = new Guid("902e6dbb-c786-86eb-1a20-dfd166025324")
+                        },
+                        new
+                        {
+                            Id = new Guid("14fa88ad-20b4-f2f9-cef4-f0c5ae988393"),
+                            Name = "Doti",
+                            ProvinceId = new Guid("902e6dbb-c786-86eb-1a20-dfd166025324")
+                        },
+                        new
+                        {
+                            Id = new Guid("af58daeb-e43f-1586-12b7-81c4a8ecb119"),
+                            Name = "Kailali",
+                            ProvinceId = new Guid("902e6dbb-c786-86eb-1a20-dfd166025324")
+                        },
+                        new
+                        {
+                            Id = new Guid("6e4887cd-0824-5006-485a-2af685a33868"),
+                            Name = "Kanchanpur",
+                            ProvinceId = new Guid("902e6dbb-c786-86eb-1a20-dfd166025324")
+                        });
+                });
+
+            modelBuilder.Entity("Courier.Geography.Domain.LocalLevel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("DistrictId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DistrictId");
+
+                    b.ToTable("LocalLevels", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("9af1740e-3ba8-827f-91fb-342823b2f14e"),
+                            DistrictId = new Guid("4d4c70f0-1487-88fd-46f6-fa54f3aebfb2"),
+                            Name = "Kathmandu Metropolitan City",
+                            Type = 0
+                        },
+                        new
+                        {
+                            Id = new Guid("6a2055f9-a63b-7fbb-b373-4cf7571d1dad"),
+                            DistrictId = new Guid("038a7c84-9ee9-0018-c89e-0db29de6ba15"),
+                            Name = "Lalitpur Metropolitan City",
+                            Type = 0
+                        },
+                        new
+                        {
+                            Id = new Guid("8a4fcb0f-b87e-dcfd-c1fb-7074ba9e6760"),
+                            DistrictId = new Guid("507a3923-7396-dd1d-ffa8-fdad101ea19b"),
+                            Name = "Bhaktapur Municipality",
+                            Type = 2
+                        },
+                        new
+                        {
+                            Id = new Guid("22d6aa73-f80e-b3fe-74cd-672b66804e49"),
+                            DistrictId = new Guid("2d66cdd7-001c-2bbc-9a12-2f4fc36ada06"),
+                            Name = "Pokhara Metropolitan City",
+                            Type = 0
+                        },
+                        new
+                        {
+                            Id = new Guid("a84013c7-1c0b-7c6d-84f0-ee024edb2f5e"),
+                            DistrictId = new Guid("e077c19d-7d5f-3c62-be1d-cd7808eace1b"),
+                            Name = "Butwal Sub-Metropolitan City",
+                            Type = 1
+                        });
+                });
+
+            modelBuilder.Entity("Courier.Geography.Domain.Province", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Provinces", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("f2e47c6e-c17e-fa21-38ed-30484b8d695b"),
+                            Name = "Koshi"
+                        },
+                        new
+                        {
+                            Id = new Guid("65283d1e-5064-992a-26f9-9bc0af3e2515"),
+                            Name = "Madhesh"
+                        },
+                        new
+                        {
+                            Id = new Guid("59f5c8d7-fb6a-941a-8d64-642885e9076a"),
+                            Name = "Bagmati"
+                        },
+                        new
+                        {
+                            Id = new Guid("78c72d87-a1ec-8954-2250-33ffb8e22135"),
+                            Name = "Gandaki"
+                        },
+                        new
+                        {
+                            Id = new Guid("1fc4c078-0dcc-0c03-3f79-c96a4d405c7c"),
+                            Name = "Lumbini"
+                        },
+                        new
+                        {
+                            Id = new Guid("c5be3e04-e6fc-36f2-8481-6a89ec227702"),
+                            Name = "Karnali"
+                        },
+                        new
+                        {
+                            Id = new Guid("902e6dbb-c786-86eb-1a20-dfd166025324"),
+                            Name = "Sudurpashchim"
+                        });
+                });
+
+            modelBuilder.Entity("Courier.Geography.Domain.Ward", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("LocalLevelId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Number")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LocalLevelId");
+
+                    b.HasIndex("LocalLevelId", "Number")
+                        .IsUnique();
+
+                    b.ToTable("Wards", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("d67b8356-13d5-6c67-2744-fdb6c1ba803d"),
+                            LocalLevelId = new Guid("9af1740e-3ba8-827f-91fb-342823b2f14e"),
+                            Number = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("20d1f25c-41e7-9ea2-6178-e861e26d8601"),
+                            LocalLevelId = new Guid("9af1740e-3ba8-827f-91fb-342823b2f14e"),
+                            Number = 2
+                        },
+                        new
+                        {
+                            Id = new Guid("62881b7e-0242-3b63-14f4-5e09839bb665"),
+                            LocalLevelId = new Guid("9af1740e-3ba8-827f-91fb-342823b2f14e"),
+                            Number = 3
+                        },
+                        new
+                        {
+                            Id = new Guid("21f5fe30-dca7-9aa7-07d6-37841c17a905"),
+                            LocalLevelId = new Guid("6a2055f9-a63b-7fbb-b373-4cf7571d1dad"),
+                            Number = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("c510114f-e5ea-e18f-20e3-2342bb55bcb4"),
+                            LocalLevelId = new Guid("6a2055f9-a63b-7fbb-b373-4cf7571d1dad"),
+                            Number = 2
+                        },
+                        new
+                        {
+                            Id = new Guid("b19cfc20-25cb-785c-ca12-066f7a68b6ef"),
+                            LocalLevelId = new Guid("6a2055f9-a63b-7fbb-b373-4cf7571d1dad"),
+                            Number = 3
+                        },
+                        new
+                        {
+                            Id = new Guid("6b20ff37-5983-d2b5-447c-e1ba5d2bb29e"),
+                            LocalLevelId = new Guid("8a4fcb0f-b87e-dcfd-c1fb-7074ba9e6760"),
+                            Number = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("1894d96f-f71b-f28c-7af0-308fe8e8dfa8"),
+                            LocalLevelId = new Guid("8a4fcb0f-b87e-dcfd-c1fb-7074ba9e6760"),
+                            Number = 2
+                        },
+                        new
+                        {
+                            Id = new Guid("1d5b840c-c0de-b416-1539-73e5b6157fcf"),
+                            LocalLevelId = new Guid("8a4fcb0f-b87e-dcfd-c1fb-7074ba9e6760"),
+                            Number = 3
+                        },
+                        new
+                        {
+                            Id = new Guid("9b15caae-1076-edd6-97a8-36f36689edad"),
+                            LocalLevelId = new Guid("22d6aa73-f80e-b3fe-74cd-672b66804e49"),
+                            Number = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("153feabb-79cc-fc0e-1e69-530e39339f17"),
+                            LocalLevelId = new Guid("22d6aa73-f80e-b3fe-74cd-672b66804e49"),
+                            Number = 2
+                        },
+                        new
+                        {
+                            Id = new Guid("a7812273-5557-1449-04d9-fd93f14532fe"),
+                            LocalLevelId = new Guid("22d6aa73-f80e-b3fe-74cd-672b66804e49"),
+                            Number = 3
+                        },
+                        new
+                        {
+                            Id = new Guid("09f35779-2786-e2e7-dbd8-027db40825fa"),
+                            LocalLevelId = new Guid("a84013c7-1c0b-7c6d-84f0-ee024edb2f5e"),
+                            Number = 1
+                        },
+                        new
+                        {
+                            Id = new Guid("5c200267-6f0a-6475-ed49-3a7227505b87"),
+                            LocalLevelId = new Guid("a84013c7-1c0b-7c6d-84f0-ee024edb2f5e"),
+                            Number = 2
+                        },
+                        new
+                        {
+                            Id = new Guid("658c7166-8866-8879-59fd-0e74fe99f087"),
+                            LocalLevelId = new Guid("a84013c7-1c0b-7c6d-84f0-ee024edb2f5e"),
+                            Number = 3
+                        });
                 });
 
             modelBuilder.Entity("Courier.Identity.Domain.Organization", b =>
@@ -361,6 +1316,30 @@ namespace Persistence.Migrations
                             Id = new Guid("db8ce444-0483-013f-8028-6d39371c90c9"),
                             Description = "Update branches",
                             Key = "branch.update"
+                        },
+                        new
+                        {
+                            Id = new Guid("2eea5274-1bfa-96a2-be44-d1e8c18f73b6"),
+                            Description = "Read geography reference data",
+                            Key = "geography.read"
+                        },
+                        new
+                        {
+                            Id = new Guid("5203f802-330a-0b12-67ff-5570e277d1f0"),
+                            Description = "Read delivery zones",
+                            Key = "zone.read"
+                        },
+                        new
+                        {
+                            Id = new Guid("fe18cd79-2ce4-7ce5-2a5f-ce0bb9693610"),
+                            Description = "Create delivery zones",
+                            Key = "zone.create"
+                        },
+                        new
+                        {
+                            Id = new Guid("e7b2b379-bbd2-f5a8-c0c5-654702988968"),
+                            Description = "Update delivery zones",
+                            Key = "zone.update"
                         },
                         new
                         {
@@ -659,6 +1638,21 @@ namespace Persistence.Migrations
                     b.ToTable("RolePermissions", (string)null);
                 });
 
+            modelBuilder.Entity("AreaDeliveryZone", b =>
+                {
+                    b.HasOne("Courier.Geography.Domain.Area", null)
+                        .WithMany()
+                        .HasForeignKey("CoveredAreasId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Courier.Geography.Domain.DeliveryZone", null)
+                        .WithMany()
+                        .HasForeignKey("DeliveryZoneId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Courier.Branches.Domain.Branch", b =>
                 {
                     b.HasOne("Courier.Identity.Domain.Organization", null)
@@ -671,6 +1665,51 @@ namespace Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("ParentBranchId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Courier.Geography.Domain.Area", b =>
+                {
+                    b.HasOne("Courier.Geography.Domain.Ward", null)
+                        .WithMany()
+                        .HasForeignKey("WardId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Courier.Geography.Domain.DeliveryZone", b =>
+                {
+                    b.HasOne("Courier.Identity.Domain.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Courier.Geography.Domain.District", b =>
+                {
+                    b.HasOne("Courier.Geography.Domain.Province", null)
+                        .WithMany()
+                        .HasForeignKey("ProvinceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Courier.Geography.Domain.LocalLevel", b =>
+                {
+                    b.HasOne("Courier.Geography.Domain.District", null)
+                        .WithMany()
+                        .HasForeignKey("DistrictId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Courier.Geography.Domain.Ward", b =>
+                {
+                    b.HasOne("Courier.Geography.Domain.LocalLevel", null)
+                        .WithMany()
+                        .HasForeignKey("LocalLevelId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Courier.Identity.Domain.RefreshToken", b =>

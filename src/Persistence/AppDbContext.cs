@@ -2,6 +2,8 @@ using Courier.Audit.Domain;
 using Courier.Audit.Infrastructure;
 using Courier.Branches.Domain;
 using Courier.Branches.Infrastructure;
+using Courier.Geography.Domain;
+using Courier.Geography.Infrastructure;
 using Courier.Identity.Domain;
 using Courier.Identity.Infrastructure;
 using Courier.SharedKernel;
@@ -28,6 +30,12 @@ public class AppDbContext : DbContext
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<Branch> Branches => Set<Branch>();
     public DbSet<UserBranch> UserBranches => Set<UserBranch>();
+    public DbSet<Province> Provinces => Set<Province>();
+    public DbSet<District> Districts => Set<District>();
+    public DbSet<LocalLevel> LocalLevels => Set<LocalLevel>();
+    public DbSet<Ward> Wards => Set<Ward>();
+    public DbSet<Area> Areas => Set<Area>();
+    public DbSet<DeliveryZone> DeliveryZones => Set<DeliveryZone>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -40,6 +48,12 @@ public class AppDbContext : DbContext
         modelBuilder.ApplyConfiguration(new AuditLogConfiguration());
         modelBuilder.ApplyConfiguration(new BranchConfiguration());
         modelBuilder.ApplyConfiguration(new UserBranchConfiguration());
+        modelBuilder.ApplyConfiguration(new ProvinceConfiguration());
+        modelBuilder.ApplyConfiguration(new DistrictConfiguration());
+        modelBuilder.ApplyConfiguration(new LocalLevelConfiguration());
+        modelBuilder.ApplyConfiguration(new WardConfiguration());
+        modelBuilder.ApplyConfiguration(new AreaConfiguration());
+        modelBuilder.ApplyConfiguration(new DeliveryZoneConfiguration());
 
         // Branch.OrganizationId -> Organizations FK lives here rather than in
         // BranchConfiguration (Branches module) because Branches deliberately has no project
@@ -52,6 +66,13 @@ public class AppDbContext : DbContext
             .HasForeignKey(b => b.OrganizationId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // Same reasoning for DeliveryZone.OrganizationId: Geography has no project reference to
+        // Identity.
+        modelBuilder.Entity<DeliveryZone>().HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(z => z.OrganizationId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         // Tenant filters fail CLOSED: the explicit `OrganizationId != null` guard stops EF Core's
         // null-semantics translation from degrading these into `WHERE "OrganizationId" IS NULL`
         // when no tenant is resolved, which would otherwise match org-less rows (planned for
@@ -62,6 +83,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<AuditLog>().HasQueryFilter(a => _currentTenantProvider.OrganizationId != null && a.OrganizationId == _currentTenantProvider.OrganizationId);
         modelBuilder.Entity<Branch>().HasQueryFilter(b => _currentTenantProvider.OrganizationId != null && b.OrganizationId == _currentTenantProvider.OrganizationId);
         modelBuilder.Entity<UserBranch>().HasQueryFilter(ub => _currentTenantProvider.OrganizationId != null && ub.OrganizationId == _currentTenantProvider.OrganizationId);
+        modelBuilder.Entity<DeliveryZone>().HasQueryFilter(z => _currentTenantProvider.OrganizationId != null && z.OrganizationId == _currentTenantProvider.OrganizationId);
 
         // Defensive: nothing queries Organizations with a tenant context today (registration only
         // inserts), but without this a future `Organizations.ToListAsync()` would enumerate every
@@ -71,5 +93,8 @@ public class AppDbContext : DbContext
         // No tenant filter on RefreshToken: its lookups happen before the caller's tenant is known
         // (see AuthService.RefreshTokenAsync), and rows are keyed by an unguessable SHA-256 token
         // hash rather than being enumerable. Filtering it would break the refresh flow outright.
+
+        // No tenant filter on Province/District/LocalLevel/Ward/Area: shared reference data,
+        // identical across every tenant, per ARCHITECTURE.md §2's Geography module description.
     }
 }
