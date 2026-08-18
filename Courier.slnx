@@ -6,11 +6,13 @@
   </Folder>
   <Folder Name="/src/Modules/">
     <Project Path="src/Modules/Audit/Audit.csproj" />
+    <Project Path="src/Modules/Branches/Branches.csproj" />
     <Project Path="src/Modules/Identity/Identity.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Api.Tests/Api.Tests.csproj" />
     <Project Path="tests/Audit.Tests/Audit.Tests.csproj" />
+    <Project Path="tests/Branches.Tests/Branches.Tests.csproj" />
     <Project Path="tests/Identity.Tests/Identity.Tests.csproj" />
     <Project Path="tests/SharedKernel.Tests/SharedKernel.Tests.csproj" />
   </Folder>

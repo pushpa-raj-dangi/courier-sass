@@ -25,6 +25,7 @@
     <ProjectReference Include="..\..\src\Persistence\Persistence.csproj" />
     <ProjectReference Include="..\..\src\SharedKernel\SharedKernel.csproj" />
     <ProjectReference Include="..\..\src\Modules\Audit\Audit.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Branches\Branches.csproj" />
   </ItemGroup>
 
 </Project>

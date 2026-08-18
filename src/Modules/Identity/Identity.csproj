@@ -13,6 +13,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\SharedKernel\SharedKernel.csproj" />
     <ProjectReference Include="..\Audit\Audit.csproj" />
+    <ProjectReference Include="..\Branches\Branches.csproj" />
   </ItemGroup>
 
   <ItemGroup>

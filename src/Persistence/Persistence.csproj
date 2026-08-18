@@ -4,6 +4,7 @@
     <ProjectReference Include="..\SharedKernel\SharedKernel.csproj" />
     <ProjectReference Include="..\Modules\Identity\Identity.csproj" />
     <ProjectReference Include="..\Modules\Audit\Audit.csproj" />
+    <ProjectReference Include="..\Modules\Branches\Branches.csproj" />
   </ItemGroup>
 
   <ItemGroup>
