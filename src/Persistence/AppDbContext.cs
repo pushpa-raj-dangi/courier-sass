@@ -6,6 +6,8 @@ using Courier.Geography.Domain;
 using Courier.Geography.Infrastructure;
 using Courier.Identity.Domain;
 using Courier.Identity.Infrastructure;
+using Courier.Merchants.Domain;
+using Courier.Merchants.Infrastructure;
 using Courier.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 
@@ -36,6 +38,11 @@ public class AppDbContext : DbContext
     public DbSet<Ward> Wards => Set<Ward>();
     public DbSet<Area> Areas => Set<Area>();
     public DbSet<DeliveryZone> DeliveryZones => Set<DeliveryZone>();
+    public DbSet<Merchant> Merchants => Set<Merchant>();
+    public DbSet<MerchantUser> MerchantUsers => Set<MerchantUser>();
+    public DbSet<MerchantAddress> MerchantAddresses => Set<MerchantAddress>();
+    public DbSet<MerchantKycDocument> MerchantKycDocuments => Set<MerchantKycDocument>();
+    public DbSet<MerchantRefreshToken> MerchantRefreshTokens => Set<MerchantRefreshToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -54,6 +61,11 @@ public class AppDbContext : DbContext
         modelBuilder.ApplyConfiguration(new WardConfiguration());
         modelBuilder.ApplyConfiguration(new AreaConfiguration());
         modelBuilder.ApplyConfiguration(new DeliveryZoneConfiguration());
+        modelBuilder.ApplyConfiguration(new MerchantConfiguration());
+        modelBuilder.ApplyConfiguration(new MerchantUserConfiguration());
+        modelBuilder.ApplyConfiguration(new MerchantAddressConfiguration());
+        modelBuilder.ApplyConfiguration(new MerchantKycDocumentConfiguration());
+        modelBuilder.ApplyConfiguration(new MerchantRefreshTokenConfiguration());
 
         // Branch.OrganizationId -> Organizations FK lives here rather than in
         // BranchConfiguration (Branches module) because Branches deliberately has no project
@@ -73,6 +85,25 @@ public class AppDbContext : DbContext
             .HasForeignKey(z => z.OrganizationId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // Same reasoning for all four Merchants entities' OrganizationId: Merchants has no
+        // project reference to Identity either.
+        modelBuilder.Entity<Merchant>().HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(m => m.OrganizationId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<MerchantUser>().HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(mu => mu.OrganizationId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<MerchantAddress>().HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(a => a.OrganizationId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<MerchantKycDocument>().HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(d => d.OrganizationId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         // Tenant filters fail CLOSED: the explicit `OrganizationId != null` guard stops EF Core's
         // null-semantics translation from degrading these into `WHERE "OrganizationId" IS NULL`
         // when no tenant is resolved, which would otherwise match org-less rows (planned for
@@ -84,15 +115,20 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Branch>().HasQueryFilter(b => _currentTenantProvider.OrganizationId != null && b.OrganizationId == _currentTenantProvider.OrganizationId);
         modelBuilder.Entity<UserBranch>().HasQueryFilter(ub => _currentTenantProvider.OrganizationId != null && ub.OrganizationId == _currentTenantProvider.OrganizationId);
         modelBuilder.Entity<DeliveryZone>().HasQueryFilter(z => _currentTenantProvider.OrganizationId != null && z.OrganizationId == _currentTenantProvider.OrganizationId);
+        modelBuilder.Entity<Merchant>().HasQueryFilter(m => _currentTenantProvider.OrganizationId != null && m.OrganizationId == _currentTenantProvider.OrganizationId);
+        modelBuilder.Entity<MerchantUser>().HasQueryFilter(mu => _currentTenantProvider.OrganizationId != null && mu.OrganizationId == _currentTenantProvider.OrganizationId);
+        modelBuilder.Entity<MerchantAddress>().HasQueryFilter(a => _currentTenantProvider.OrganizationId != null && a.OrganizationId == _currentTenantProvider.OrganizationId);
+        modelBuilder.Entity<MerchantKycDocument>().HasQueryFilter(d => _currentTenantProvider.OrganizationId != null && d.OrganizationId == _currentTenantProvider.OrganizationId);
 
         // Defensive: nothing queries Organizations with a tenant context today (registration only
         // inserts), but without this a future `Organizations.ToListAsync()` would enumerate every
         // tenant on the platform.
         modelBuilder.Entity<Organization>().HasQueryFilter(o => _currentTenantProvider.OrganizationId != null && o.Id == _currentTenantProvider.OrganizationId);
 
-        // No tenant filter on RefreshToken: its lookups happen before the caller's tenant is known
-        // (see AuthService.RefreshTokenAsync), and rows are keyed by an unguessable SHA-256 token
-        // hash rather than being enumerable. Filtering it would break the refresh flow outright.
+        // No tenant filter on RefreshToken/MerchantRefreshToken: their lookups happen before the
+        // caller's tenant is known (see AuthService.RefreshTokenAsync / MerchantAuthService.
+        // RefreshTokenAsync), and rows are keyed by an unguessable SHA-256 token hash rather than
+        // being enumerable. Filtering it would break the refresh flow outright.
 
         // No tenant filter on Province/District/LocalLevel/Ward/Area: shared reference data,
         // identical across every tenant, per ARCHITECTURE.md §2's Geography module description.
