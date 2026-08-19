@@ -1,8 +1,7 @@
-using Courier.Geography.Application;
 using Courier.Geography.Domain;
 using Microsoft.EntityFrameworkCore;
 
-namespace Courier.Geography.Infrastructure;
+namespace Courier.Geography.Application;
 
 public class GeographyQueryService : IGeographyLookupService
 {
@@ -50,7 +49,7 @@ public class GeographyQueryService : IGeographyLookupService
     public async Task<bool> IsValidHierarchyAsync(Guid provinceId, Guid districtId, Guid localLevelId, int wardNumber, CancellationToken cancellationToken = default)
     {
         return await _dbContext.Set<Ward>()
-            .Where(w => w.Id != Guid.Empty && w.LocalLevelId == localLevelId && w.Number == wardNumber)
+            .Where(w => w.LocalLevelId == localLevelId && w.Number == wardNumber)
             .Join(_dbContext.Set<LocalLevel>(), w => w.LocalLevelId, l => l.Id, (w, l) => l)
             .Where(l => l.DistrictId == districtId)
             .Join(_dbContext.Set<District>(), l => l.DistrictId, d => d.Id, (l, d) => d)

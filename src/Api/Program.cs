@@ -6,7 +6,6 @@ using Courier.Branches.Application;
 using Courier.Branches.Infrastructure;
 using Courier.Branches.Presentation;
 using Courier.Geography.Application;
-using Courier.Geography.Infrastructure;
 using Courier.Geography.Presentation;
 using Courier.Identity.Application;
 using Courier.Identity.Infrastructure;

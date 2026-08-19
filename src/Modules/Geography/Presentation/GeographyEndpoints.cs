@@ -1,4 +1,4 @@
-using Courier.Geography.Infrastructure;
+using Courier.Geography.Application;
 using Courier.SharedKernel;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
