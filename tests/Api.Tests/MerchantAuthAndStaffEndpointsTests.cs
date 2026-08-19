@@ -110,4 +110,34 @@ public class MerchantAuthAndStaffEndpointsTests : IClassFixture<WebApplicationFa
             new InviteMerchantStaffRequest($"blocked-{Guid.NewGuid():N}@example.com", "P@ssw0rd123!", "Blocked"));
         Assert.Equal(HttpStatusCode.Forbidden, staffInviteAttempt.StatusCode);
     }
+
+    [Fact]
+    public async Task StaffToken_UsedAgainstMerchantProfile_Returns403()
+    {
+        var staffClient = _factory.CreateClient();
+        var staffToken = await RegisterOrgAndGetStaffTokenAsync(staffClient, "d");
+        staffClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", staffToken);
+
+        var profileResponse = await staffClient.GetAsync("/api/v1/merchant/profile");
+
+        Assert.Equal(HttpStatusCode.Forbidden, profileResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task MerchantToken_UsedAgainstOrgStaffMerchantsList_Returns403()
+    {
+        var staffClient = _factory.CreateClient();
+        var staffToken = await RegisterOrgAndGetStaffTokenAsync(staffClient, "e");
+        staffClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", staffToken);
+        var (ownerEmail, password) = await CreateMerchantAsync(staffClient, "e");
+
+        var merchantClient = _factory.CreateClient();
+        var loginResponse = await merchantClient.PostAsJsonAsync("/api/v1/merchant/auth/login", new MerchantLoginRequest(ownerEmail, password));
+        var auth = await loginResponse.Content.ReadFromJsonAsync<MerchantAuthResult>();
+        merchantClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth!.AccessToken);
+
+        var merchantsListResponse = await merchantClient.GetAsync("/api/v1/merchants");
+
+        Assert.Equal(HttpStatusCode.Forbidden, merchantsListResponse.StatusCode);
+    }
 }

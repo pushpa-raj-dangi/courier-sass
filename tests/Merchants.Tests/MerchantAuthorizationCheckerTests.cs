@@ -27,10 +27,10 @@ public class MerchantAuthorizationCheckerTests
         new Claim("sub", userId.ToString())
     }, "test"));
 
-    private static MerchantUser NewMerchantUser(Guid id, MerchantUserRole role, bool isActive = true) => new()
+    private static MerchantUser NewMerchantUser(Guid id, MerchantUserRole role, bool isActive = true, Guid? merchantId = null) => new()
     {
         Id = id,
-        MerchantId = Guid.NewGuid(),
+        MerchantId = merchantId ?? Guid.NewGuid(),
         OrganizationId = Guid.NewGuid(),
         Email = $"{id:N}@example.com",
         PasswordHash = "not-used-in-this-test",
@@ -39,12 +39,23 @@ public class MerchantAuthorizationCheckerTests
         IsActive = isActive
     };
 
+    private static Merchant NewMerchant(Guid id, bool isActive = true) => new()
+    {
+        Id = id,
+        OrganizationId = Guid.NewGuid(),
+        LegalName = "Test Merchant Legal Name",
+        DisplayName = "Test Merchant",
+        IsActive = isActive
+    };
+
     [Fact]
     public async Task HasPermissionAsync_OwnerRole_HoldsStaffManage()
     {
         await using var dbContext = CreateContext();
         var ownerId = Guid.NewGuid();
-        dbContext.Set<MerchantUser>().Add(NewMerchantUser(ownerId, MerchantUserRole.Owner));
+        var merchantId = Guid.NewGuid();
+        dbContext.Set<Merchant>().Add(NewMerchant(merchantId));
+        dbContext.Set<MerchantUser>().Add(NewMerchantUser(ownerId, MerchantUserRole.Owner, merchantId: merchantId));
         await dbContext.SaveChangesAsync();
         var checker = new MerchantAuthorizationChecker(dbContext);
 
@@ -58,7 +69,9 @@ public class MerchantAuthorizationCheckerTests
     {
         await using var dbContext = CreateContext();
         var staffId = Guid.NewGuid();
-        dbContext.Set<MerchantUser>().Add(NewMerchantUser(staffId, MerchantUserRole.Staff));
+        var merchantId = Guid.NewGuid();
+        dbContext.Set<Merchant>().Add(NewMerchant(merchantId));
+        dbContext.Set<MerchantUser>().Add(NewMerchantUser(staffId, MerchantUserRole.Staff, merchantId: merchantId));
         await dbContext.SaveChangesAsync();
         var checker = new MerchantAuthorizationChecker(dbContext);
 
@@ -72,7 +85,25 @@ public class MerchantAuthorizationCheckerTests
     {
         await using var dbContext = CreateContext();
         var ownerId = Guid.NewGuid();
-        dbContext.Set<MerchantUser>().Add(NewMerchantUser(ownerId, MerchantUserRole.Owner, isActive: false));
+        var merchantId = Guid.NewGuid();
+        dbContext.Set<Merchant>().Add(NewMerchant(merchantId));
+        dbContext.Set<MerchantUser>().Add(NewMerchantUser(ownerId, MerchantUserRole.Owner, isActive: false, merchantId: merchantId));
+        await dbContext.SaveChangesAsync();
+        var checker = new MerchantAuthorizationChecker(dbContext);
+
+        var result = await checker.HasPermissionAsync(PrincipalFor(ownerId), "merchant.profile.read");
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    public async Task HasPermissionAsync_ActiveMerchantUserUnderInactiveMerchant_ReturnsFalse()
+    {
+        await using var dbContext = CreateContext();
+        var ownerId = Guid.NewGuid();
+        var merchantId = Guid.NewGuid();
+        dbContext.Set<Merchant>().Add(NewMerchant(merchantId, isActive: false));
+        dbContext.Set<MerchantUser>().Add(NewMerchantUser(ownerId, MerchantUserRole.Owner, isActive: true, merchantId: merchantId));
         await dbContext.SaveChangesAsync();
         var checker = new MerchantAuthorizationChecker(dbContext);
 

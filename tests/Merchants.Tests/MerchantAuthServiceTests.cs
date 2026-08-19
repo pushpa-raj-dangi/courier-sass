@@ -41,13 +41,23 @@ public class MerchantAuthServiceTests
         return new MerchantAuthService(dbContext, new MerchantPasswordHasherAdapter(), new MerchantJwtTokenService(jwtOptions), new NoopAuditLogger());
     }
 
-    private static async Task<MerchantUser> SeedOwnerAsync(TestDbContext dbContext, string email, string password)
+    private static async Task<MerchantUser> SeedOwnerAsync(TestDbContext dbContext, string email, string password, bool merchantIsActive = true)
     {
+        var merchant = new Merchant
+        {
+            Id = Guid.NewGuid(),
+            OrganizationId = Guid.NewGuid(),
+            LegalName = "Test Merchant Legal Name",
+            DisplayName = "Test Merchant",
+            IsActive = merchantIsActive
+        };
+        dbContext.Set<Merchant>().Add(merchant);
+
         var owner = new MerchantUser
         {
             Id = Guid.NewGuid(),
-            MerchantId = Guid.NewGuid(),
-            OrganizationId = Guid.NewGuid(),
+            MerchantId = merchant.Id,
+            OrganizationId = merchant.OrganizationId,
             Email = email,
             PasswordHash = new MerchantPasswordHasherAdapter().Hash(password),
             FullName = "Owner Person",
@@ -107,6 +117,17 @@ public class MerchantAuthServiceTests
 
         await Assert.ThrowsAsync<MerchantAuthenticationFailedException>(
             () => service.LoginAsync(new MerchantLoginRequest("inactive@example.com", "P@ssw0rd123!")));
+    }
+
+    [Fact]
+    public async Task LoginAsync_ActiveMerchantUserUnderInactiveMerchant_ThrowsMerchantAuthenticationFailed()
+    {
+        await using var dbContext = CreateContext();
+        await SeedOwnerAsync(dbContext, "inactive-merchant@example.com", "P@ssw0rd123!", merchantIsActive: false);
+        var service = CreateService(dbContext);
+
+        await Assert.ThrowsAsync<MerchantAuthenticationFailedException>(
+            () => service.LoginAsync(new MerchantLoginRequest("inactive-merchant@example.com", "P@ssw0rd123!")));
     }
 
     [Fact]
