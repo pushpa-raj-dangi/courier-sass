@@ -87,6 +87,29 @@ merchant-scoped authorization (`RBAC.md` §5).
 *Exit:* a merchant account can be onboarded and its staff can log in with
 correctly scoped permissions.
 
+*Status (2026-08-19): Complete.* A new `Merchants` module implements `Merchant, MerchantUser,
+MerchantAddress, MerchantKycDocument, MerchantRefreshToken` per `DOMAIN-MODEL.md`. Merchant
+authorization is a separate track from staff RBAC (`RBAC.md` §5): `MerchantUser.Role` is a
+2-value enum (`Owner`/`Staff`) checked against a small `MerchantPermissionCatalog`, with its own
+`IMerchantAuthorizationChecker`/`RequireMerchantPermission` filter and its own
+`IMerchantJwtTokenService` issuing tokens that share the staff signing key/issuer/audience but
+carry a distinct `merchant_id` claim. Org staff onboard a merchant in one call
+(`POST /api/v1/merchants`, `merchant.create`) — creating the `Merchant`, its owner `MerchantUser`,
+and a default pickup address, with the address's geography chain validated server-side via
+`IGeographyLookupService` exactly like Phase 3's `Branch` creation
+(`tests/Api.Tests/MerchantsEndpointsTests.cs`'s `CreateMerchant_MismatchedGeographyChain_Returns400`).
+The owner can log in (`POST /api/v1/merchant/auth/login`), invite `MerchantStaff`
+(`POST /api/v1/merchant/staff`, owner-only — proven end-to-end in
+`tests/Api.Tests/MerchantAuthAndStaffEndpointsTests.cs`), and both roles can upload KYC documents
+(`POST /api/v1/merchant/kyc-documents`, raw-body upload against a new `IObjectStorage`
+local-filesystem implementation in `SharedKernel`) for org staff to review
+(`POST /api/v1/merchants/{id}/kyc-documents/{docId}/review`, `merchant.kyc.review`). `Merchant`,
+`MerchantUser`, `MerchantAddress`, and `MerchantKycDocument` are all tenant-isolated
+(`tests/Api.Tests/MerchantsEndpointsTests.cs`'s `ListMerchants_OrgBCannotSeeOrgAsMerchant`,
+`MerchantKycEndpointsTests.cs`'s `Review_FromDifferentOrganization_Returns404`). Deferred to later
+phases per this phase's plan: `ApiKey`/Merchant API (Phase 12), a merchant-update endpoint,
+`MerchantAddress` CRUD beyond the one address created at onboarding.
+
 ## Phase 5 — Rate Cards, Pricing Engine
 
 `RateCard, RateCardRule, ServiceType, WeightSlab, Zone, ZoneRate, AdditionalCharge,
