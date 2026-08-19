@@ -55,7 +55,7 @@ public class MerchantsEndpointsTests : IClassFixture<WebApplicationFactory<Progr
         var org = await RegisterOrgAsync(client, "a");
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
 
-        var createResponse = await client.PostAsJsonAsync("/api/v1/merchants", ValidMerchantRequest("merchant-owner-a@example.com"));
+        var createResponse = await client.PostAsJsonAsync("/api/v1/merchants", ValidMerchantRequest($"merchant-owner-a-{Guid.NewGuid():N}@example.com"));
         Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
         var created = await createResponse.Content.ReadFromJsonAsync<MerchantResponse>();
         Assert.NotNull(created);
@@ -88,7 +88,7 @@ public class MerchantsEndpointsTests : IClassFixture<WebApplicationFactory<Progr
         var clientA = _factory.CreateClient();
         var orgA = await RegisterOrgAsync(clientA, "c");
         clientA.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", orgA.AccessToken);
-        var createResponse = await clientA.PostAsJsonAsync("/api/v1/merchants", ValidMerchantRequest("merchant-owner-c@example.com"));
+        var createResponse = await clientA.PostAsJsonAsync("/api/v1/merchants", ValidMerchantRequest($"merchant-owner-c-{Guid.NewGuid():N}@example.com"));
         var created = await createResponse.Content.ReadFromJsonAsync<MerchantResponse>();
 
         var clientB = _factory.CreateClient();
