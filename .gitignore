@@ -17,5 +17,8 @@ out/
 .vscode/
 .idea/
 
+# Local object storage (e.g. uploaded KYC documents) — never commit real uploads
+storage/
+
 # Claude Code worktree scratch state
 .claude/

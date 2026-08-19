@@ -30,6 +30,13 @@ public class MerchantAuthorizationChecker : IMerchantAuthorizationChecker
             return false;
         }
 
+        var merchant = await _dbContext.Set<Merchant>()
+            .FirstOrDefaultAsync(m => m.Id == merchantUser.MerchantId, cancellationToken);
+        if (merchant is null || !merchant.IsActive)
+        {
+            return false;
+        }
+
         return MerchantPermissionCatalog.RolePermissions[merchantUser.Role].Contains(permission);
     }
 }

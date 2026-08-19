@@ -24,6 +24,11 @@ public class MerchantKycService
     public async Task<MerchantKycDocumentResponse> UploadDocumentAsync(
         KycDocumentType documentType, Stream content, string contentType, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
+        if (!Enum.IsDefined(documentType))
+        {
+            throw new MerchantValidationException("Invalid document type.");
+        }
+
         var merchantId = actingUser.GetMerchantId()
             ?? throw new MerchantValidationException("Acting merchant could not be resolved.");
         var actingUserId = actingUser.GetUserId()
@@ -50,8 +55,11 @@ public class MerchantKycService
         return ToResponse(document);
     }
 
-    public async Task<List<MerchantKycDocumentResponse>> ListDocumentsAsync(Guid merchantId, CancellationToken cancellationToken = default)
+    public async Task<List<MerchantKycDocumentResponse>> ListDocumentsAsync(ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
+        var merchantId = actingUser.GetMerchantId()
+            ?? throw new MerchantValidationException("Acting merchant could not be resolved.");
+
         var documents = await _dbContext.Set<MerchantKycDocument>()
             .Where(d => d.MerchantId == merchantId)
             .ToListAsync(cancellationToken);
@@ -75,6 +83,11 @@ public class MerchantKycService
         if (document is null)
         {
             return null;
+        }
+
+        if (!Enum.IsDefined(request.Status))
+        {
+            throw new MerchantValidationException("Invalid review status.");
         }
 
         document.Status = request.Status;

@@ -41,6 +41,18 @@ public class MerchantAuthService
             throw new MerchantAuthenticationFailedException("Invalid email or password.");
         }
 
+        // Deliberately checked after the password/active checks above rather than merged into
+        // that single condition — this way the non-disclosure design intent stays legible: any
+        // failure here throws the exact same generic message, so a caller can never learn
+        // whether the merchant account (as opposed to the merchant user or password) was the
+        // reason for the rejection.
+        var merchant = await _dbContext.Set<Merchant>().IgnoreQueryFilters()
+            .FirstOrDefaultAsync(m => m.Id == merchantUser.MerchantId, cancellationToken);
+        if (merchant is null || !merchant.IsActive)
+        {
+            throw new MerchantAuthenticationFailedException("Invalid email or password.");
+        }
+
         var refreshToken = await IssueRefreshTokenAsync(merchantUser.Id, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
