@@ -72,6 +72,10 @@ manifest.receive         manifest.close
 
 branch.read               branch.create           branch.update
 
+geography.read
+
+zone.read                 zone.create             zone.update
+
 merchant.read             merchant.create         merchant.update
 merchant.kyc.review
 
