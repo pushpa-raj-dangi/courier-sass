@@ -22,21 +22,6 @@ namespace Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("AreaDeliveryZone", b =>
-                {
-                    b.Property<Guid>("CoveredAreasId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("DeliveryZoneId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("CoveredAreasId", "DeliveryZoneId");
-
-                    b.HasIndex("DeliveryZoneId");
-
-                    b.ToTable("DeliveryZoneAreas", (string)null);
-                });
-
             modelBuilder.Entity("Courier.Audit.Domain.AuditLog", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1641,6 +1626,21 @@ namespace Persistence.Migrations
                     b.ToTable("UserRoles", (string)null);
                 });
 
+            modelBuilder.Entity("DeliveryZoneAreas", b =>
+                {
+                    b.Property<Guid>("CoveredAreasId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("DeliveryZoneId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("CoveredAreasId", "DeliveryZoneId");
+
+                    b.HasIndex("DeliveryZoneId");
+
+                    b.ToTable("DeliveryZoneAreas", (string)null);
+                });
+
             modelBuilder.Entity("PermissionRole", b =>
                 {
                     b.Property<Guid>("PermissionsId")
@@ -1654,21 +1654,6 @@ namespace Persistence.Migrations
                     b.HasIndex("RoleId");
 
                     b.ToTable("RolePermissions", (string)null);
-                });
-
-            modelBuilder.Entity("AreaDeliveryZone", b =>
-                {
-                    b.HasOne("Courier.Geography.Domain.Area", null)
-                        .WithMany()
-                        .HasForeignKey("CoveredAreasId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Courier.Geography.Domain.DeliveryZone", null)
-                        .WithMany()
-                        .HasForeignKey("DeliveryZoneId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
                 });
 
             modelBuilder.Entity("Courier.Branches.Domain.Branch", b =>
@@ -1812,6 +1797,21 @@ namespace Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("DeliveryZoneAreas", b =>
+                {
+                    b.HasOne("Courier.Geography.Domain.Area", null)
+                        .WithMany()
+                        .HasForeignKey("CoveredAreasId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Courier.Geography.Domain.DeliveryZone", null)
+                        .WithMany()
+                        .HasForeignKey("DeliveryZoneId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 

@@ -16,7 +16,11 @@ public class DeliveryZoneConfiguration : IEntityTypeConfiguration<DeliveryZone>
         builder.HasIndex(z => z.OrganizationId);
 
         builder.HasMany(z => z.CoveredAreas).WithMany()
-            .UsingEntity(j => j.ToTable("DeliveryZoneAreas"));
+            .UsingEntity<Dictionary<string, object>>(
+                "DeliveryZoneAreas",
+                j => j.HasOne<Area>().WithMany().HasForeignKey("CoveredAreasId").OnDelete(DeleteBehavior.Restrict),
+                j => j.HasOne<DeliveryZone>().WithMany().HasForeignKey("DeliveryZoneId"),
+                j => j.ToTable("DeliveryZoneAreas"));
 
         // No FK to Organizations here: Geography has no project reference to Identity, same
         // reasoning as Branch.OrganizationId (see Persistence/AppDbContext.OnModelCreating,
