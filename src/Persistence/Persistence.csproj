@@ -6,6 +6,7 @@
     <ProjectReference Include="..\Modules\Audit\Audit.csproj" />
     <ProjectReference Include="..\Modules\Branches\Branches.csproj" />
     <ProjectReference Include="..\Modules\Geography\Geography.csproj" />
+    <ProjectReference Include="..\Modules\Merchants\Merchants.csproj" />
   </ItemGroup>
 
   <ItemGroup>

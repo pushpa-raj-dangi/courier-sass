@@ -26,6 +26,7 @@
     <ProjectReference Include="..\Persistence\Persistence.csproj" />
     <ProjectReference Include="..\Modules\Branches\Branches.csproj" />
     <ProjectReference Include="..\Modules\Geography\Geography.csproj" />
+    <ProjectReference Include="..\Modules\Merchants\Merchants.csproj" />
   </ItemGroup>
 
 </Project>
