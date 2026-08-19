@@ -10,6 +10,9 @@ using Courier.Geography.Presentation;
 using Courier.Identity.Application;
 using Courier.Identity.Infrastructure;
 using Courier.Identity.Presentation;
+using Courier.Merchants.Application;
+using Courier.Merchants.Infrastructure;
+using Courier.Merchants.Presentation;
 using Courier.Persistence;
 using Courier.SharedKernel;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -36,6 +39,7 @@ builder.Services.AddHealthChecks()
     }, name: "rabbitmq");
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
+builder.Services.Configure<MerchantJwtOptions>(builder.Configuration.GetSection("Jwt"));
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentTenantProvider, HttpContextCurrentTenantProvider>();
 
@@ -54,6 +58,15 @@ builder.Services.AddScoped<BranchService>();
 builder.Services.AddScoped<GeographyQueryService>();
 builder.Services.AddScoped<IGeographyLookupService>(sp => sp.GetRequiredService<GeographyQueryService>());
 builder.Services.AddScoped<DeliveryZoneService>();
+builder.Services.AddScoped<IMerchantPasswordHasher, MerchantPasswordHasherAdapter>();
+builder.Services.AddScoped<IMerchantJwtTokenService, MerchantJwtTokenService>();
+builder.Services.AddScoped<IMerchantAuthorizationChecker, MerchantAuthorizationChecker>();
+builder.Services.AddScoped<MerchantAuthService>();
+builder.Services.AddScoped<MerchantOnboardingService>();
+builder.Services.AddScoped<MerchantStaffService>();
+builder.Services.AddScoped<MerchantKycService>();
+builder.Services.AddSingleton<IObjectStorage>(_ =>
+    new LocalFileSystemObjectStorage(builder.Configuration["ObjectStorage:LocalRootPath"] ?? Path.Combine(AppContext.BaseDirectory, "storage")));
 
 var jwtSection = builder.Configuration.GetSection("Jwt");
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -106,6 +119,11 @@ app.MapUsersEndpoints();
 app.MapBranchesEndpoints();
 app.MapGeographyEndpoints();
 app.MapDeliveryZonesEndpoints();
+app.MapMerchantsEndpoints();
+app.MapMerchantAuthEndpoints();
+app.MapMerchantProfileEndpoints();
+app.MapMerchantStaffEndpoints();
+app.MapMerchantKycEndpoints();
 
 app.MapGet("/health/ping", () => Results.Ok(new { status = "ok" }));
 
