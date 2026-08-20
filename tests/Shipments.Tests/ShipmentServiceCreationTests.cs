@@ -119,6 +119,18 @@ public class ShipmentServiceCreationTests
         return (originBranchId, destinationBranchId, originZoneId, destinationZoneId, serviceTypeId);
     }
 
+    // Same routable rate card as SeedRoutableRateCard, plus a flat COD-handling AdditionalCharge —
+    // used to prove GenerateAwbAsync's/CreateShipmentAsync's charge classification folds
+    // AdditionalChargeType.COD into OtherCharges rather than silently dropping it.
+    private static (Guid OriginBranchId, Guid DestinationBranchId, Guid OriginZoneId, Guid DestinationZoneId, Guid ServiceTypeId) SeedRoutableRateCardWithCodCharge(TestDbContext dbContext, Guid organizationId, decimal baseRate = 150m, decimal codChargeValue = 50m)
+    {
+        var seed = SeedRoutableRateCard(dbContext, organizationId, baseRate);
+        var rateCard = dbContext.Set<RateCard>().First(rc => rc.OrganizationId == organizationId);
+        dbContext.Set<AdditionalCharge>().Add(new AdditionalCharge { Id = Guid.NewGuid(), RateCardId = rateCard.Id, Type = AdditionalChargeType.COD, CalculationType = ChargeCalculationType.Flat, Value = codChargeValue });
+        dbContext.SaveChanges();
+        return seed;
+    }
+
     private static ShipmentService CreateService(TestDbContext dbContext, Guid organizationId, Dictionary<Guid, Guid?> zonesByBranch)
     {
         var branchLookup = new FakeBranchLookup(zonesByBranch);
@@ -180,6 +192,24 @@ public class ShipmentServiceCreationTests
         Assert.Null(created.PreviousStatus);
         Assert.Equal(ShipmentStatus.Created, created.NewStatus);
         Assert.Equal(seed.OriginBranchId, created.BranchId);
+    }
+
+    [Fact]
+    public async Task CreateShipmentAsync_CodAmountPositive_WithCodCharge_FoldsIntoOtherChargesAndReconciles()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var seed = SeedRoutableRateCardWithCodCharge(dbContext, organizationId, codChargeValue: 50m);
+        var service = CreateService(dbContext, organizationId, new() { [seed.OriginBranchId] = seed.OriginZoneId, [seed.DestinationBranchId] = seed.DestinationZoneId });
+
+        var request = ValidRequest(seed.OriginBranchId, seed.DestinationBranchId, seed.ServiceTypeId, codAmount: 500m);
+        var result = await service.CreateShipmentAsync(request, ActingUser(Guid.NewGuid()));
+
+        // The COD charge must not vanish: it has no dedicated Shipment column this phase, so it
+        // folds into OtherCharges — and the per-component fields must reconcile exactly against
+        // TotalCharge (no merchant discount involved here) per CLAUDE.md §23's traceability rule.
+        Assert.Equal(50m, result.OtherCharges);
+        Assert.Equal(result.DeliveryCharge + result.InsuranceCharge + result.OtherCharges, result.TotalCharge);
     }
 
     [Fact]

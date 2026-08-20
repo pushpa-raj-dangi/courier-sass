@@ -110,7 +110,12 @@ public partial class ShipmentService
         }
 
         var insuranceCharge = quote.AppliedCharges.Where(c => c.Type == AdditionalChargeType.Insurance).Sum(c => c.Amount);
-        var otherCharges = quote.AppliedCharges.Where(c => c.Type is AdditionalChargeType.Fuel or AdditionalChargeType.Other).Sum(c => c.Amount);
+        // COD-type charges have no dedicated Shipment column in this phase's domain model, so they
+        // fold into OtherCharges alongside Fuel/Other — otherwise a COD-handling charge would vanish
+        // from every per-component field even though it's still counted in quote.Total/TotalCharge,
+        // breaking DeliveryCharge + InsuranceCharge + OtherCharges == TotalCharge reconciliation
+        // (CLAUDE.md §23: "all calculations must be traceable").
+        var otherCharges = quote.AppliedCharges.Where(c => c.Type is AdditionalChargeType.Fuel or AdditionalChargeType.Other or AdditionalChargeType.COD).Sum(c => c.Amount);
         var deliveryCharge = quote.BaseRate;
 
         // Insert-and-catch-DbUpdateException-retry on the unique (OrganizationId, Awb) index —
