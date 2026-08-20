@@ -15,7 +15,8 @@ public record CreateBranchRequest(
     string? OperatingHours,
     decimal? Latitude,
     decimal? Longitude,
-    Guid? ParentBranchId);
+    Guid? ParentBranchId,
+    Guid? DeliveryZoneId = null);
 
 public record BranchResponse(
     Guid Id,
@@ -32,7 +33,10 @@ public record BranchResponse(
     decimal? Latitude,
     decimal? Longitude,
     Guid? ParentBranchId,
+    Guid? DeliveryZoneId,
     bool IsActive);
+
+public record AssignDeliveryZoneRequest(Guid DeliveryZoneId);
 
 public class BranchValidationException : Exception
 {

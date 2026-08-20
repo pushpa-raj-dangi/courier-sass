@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Courier.Branches.Application;
 
-public class BranchService
+public class BranchService : IBranchLookupService
 {
     private readonly DbContext _dbContext;
     private readonly ICurrentTenantProvider _currentTenantProvider;
@@ -66,6 +66,15 @@ public class BranchService
             }
         }
 
+        if (request.DeliveryZoneId is Guid deliveryZoneId)
+        {
+            var zoneExists = await _geographyLookupService.DeliveryZoneExistsAsync(deliveryZoneId, cancellationToken);
+            if (!zoneExists)
+            {
+                throw new BranchValidationException("Delivery zone was not found in this organization.");
+            }
+        }
+
         var branch = new Branch
         {
             Id = Guid.NewGuid(),
@@ -83,6 +92,7 @@ public class BranchService
             Latitude = request.Latitude,
             Longitude = request.Longitude,
             ParentBranchId = request.ParentBranchId,
+            DeliveryZoneId = request.DeliveryZoneId,
             IsActive = true
         };
         _dbContext.Set<Branch>().Add(branch);
@@ -114,9 +124,43 @@ public class BranchService
         return branches.Select(ToResponse).ToList();
     }
 
+    public async Task<BranchZoneInfo?> GetZoneInfoAsync(Guid branchId, CancellationToken cancellationToken = default)
+    {
+        var branch = await _dbContext.Set<Branch>().FirstOrDefaultAsync(b => b.Id == branchId, cancellationToken);
+        return branch is null ? null : new BranchZoneInfo(branch.Id, branch.DeliveryZoneId);
+    }
+
+    public async Task<BranchResponse?> AssignDeliveryZoneAsync(Guid branchId, AssignDeliveryZoneRequest request, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
+    {
+        var organizationId = _currentTenantProvider.OrganizationId
+            ?? throw new BranchValidationException("No active organization context.");
+        var actingUserId = actingUser.GetUserId()
+            ?? throw new BranchValidationException("Acting user could not be resolved.");
+
+        var branch = await _dbContext.Set<Branch>().FirstOrDefaultAsync(b => b.Id == branchId, cancellationToken);
+        if (branch is null)
+        {
+            return null;
+        }
+
+        var zoneExists = await _geographyLookupService.DeliveryZoneExistsAsync(request.DeliveryZoneId, cancellationToken);
+        if (!zoneExists)
+        {
+            throw new BranchValidationException("Delivery zone was not found in this organization.");
+        }
+
+        var before = branch.DeliveryZoneId?.ToString() ?? "(none)";
+        branch.DeliveryZoneId = request.DeliveryZoneId;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await _auditLogger.LogAsync(new AuditEntry(organizationId, actingUserId, "branch.delivery_zone_assigned", "Branch", branch.Id.ToString(), before, request.DeliveryZoneId.ToString()), cancellationToken);
+
+        return ToResponse(branch);
+    }
+
     private static BranchResponse ToResponse(Branch branch) => new(
         branch.Id, branch.Code, branch.Name, branch.Type,
         branch.ProvinceId, branch.DistrictId, branch.LocalLevelId, branch.WardNumber,
         branch.AddressLine, branch.Phone, branch.OperatingHours, branch.Latitude, branch.Longitude,
-        branch.ParentBranchId, branch.IsActive);
+        branch.ParentBranchId, branch.DeliveryZoneId, branch.IsActive);
 }

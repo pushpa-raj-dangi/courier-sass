@@ -90,6 +90,9 @@ namespace Persistence.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
+                    b.Property<Guid?>("DeliveryZoneId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid>("DistrictId")
                         .HasColumnType("uuid");
 
@@ -134,6 +137,8 @@ namespace Persistence.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("DeliveryZoneId");
 
                     b.HasIndex("DistrictId");
 
@@ -1867,6 +1872,11 @@ namespace Persistence.Migrations
 
             modelBuilder.Entity("Courier.Branches.Domain.Branch", b =>
                 {
+                    b.HasOne("Courier.Geography.Domain.DeliveryZone", null)
+                        .WithMany()
+                        .HasForeignKey("DeliveryZoneId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Courier.Geography.Domain.District", null)
                         .WithMany()
                         .HasForeignKey("DistrictId")

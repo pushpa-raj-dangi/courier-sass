@@ -24,5 +24,12 @@ public class Branch
     public string? Phone { get; set; }
     public string? OperatingHours { get; set; }
     public Guid? ParentBranchId { get; set; }
+
+    // Ops-assigned rating zone for the pricing engine (ROADMAP.md Phase 5) — not derived from
+    // ProvinceId/DistrictId/LocalLevelId/WardNumber above, since Branch has no Area-level FK to
+    // match against DeliveryZone.CoveredAreas (a Ward can hold multiple Areas with no way to tell
+    // which one a given branch is in).
+    public Guid? DeliveryZoneId { get; set; }
+
     public bool IsActive { get; set; } = true;
 }

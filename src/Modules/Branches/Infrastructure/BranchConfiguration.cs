@@ -26,6 +26,7 @@ public class BranchConfiguration : IEntityTypeConfiguration<Branch>
         builder.HasIndex(b => b.ProvinceId);
         builder.HasIndex(b => b.DistrictId);
         builder.HasIndex(b => b.LocalLevelId);
+        builder.HasIndex(b => b.DeliveryZoneId);
 
         // Self-referencing hierarchy FK. Restrict: a branch with children cannot be deleted
         // out from under them by a cascading delete.
@@ -48,6 +49,10 @@ public class BranchConfiguration : IEntityTypeConfiguration<Branch>
         builder.HasOne<LocalLevel>()
             .WithMany()
             .HasForeignKey(b => b.LocalLevelId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<DeliveryZone>()
+            .WithMany()
+            .HasForeignKey(b => b.DeliveryZoneId)
             .OnDelete(DeleteBehavior.Restrict);
 
         // No FK to Organization here: Branches has no project reference to Identity (see this

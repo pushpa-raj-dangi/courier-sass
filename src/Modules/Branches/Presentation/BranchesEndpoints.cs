@@ -44,5 +44,23 @@ public static class BranchesEndpoints
             var branch = await branchService.GetBranchAsync(id, cancellationToken);
             return branch is null ? Results.NotFound() : Results.Ok(branch);
         }).RequireBranchScopedPermission("branch.read");
+
+        group.MapPut("/{id:guid}/delivery-zone", async (Guid id, AssignDeliveryZoneRequest request, BranchService branchService, HttpContext httpContext) =>
+        {
+            if (httpContext.User.GetUserId() is null)
+            {
+                return Results.Unauthorized();
+            }
+
+            try
+            {
+                var result = await branchService.AssignDeliveryZoneAsync(id, request, httpContext.User, httpContext.RequestAborted);
+                return result is null ? Results.NotFound() : Results.Ok(result);
+            }
+            catch (BranchValidationException ex)
+            {
+                return Results.BadRequest(new { error = new { code = "BRANCH_VALIDATION_FAILED", message = ex.Message } });
+            }
+        }).RequireBranchScopedPermission("branch.update");
     }
 }

@@ -56,6 +56,7 @@ builder.Services.AddScoped<IPermissionChecker, Courier.Identity.Infrastructure.P
 builder.Services.AddScoped<IBranchHierarchyService, BranchHierarchyService>();
 builder.Services.AddScoped<IBranchAuthorizationChecker, Courier.Identity.Infrastructure.BranchAuthorizationChecker>();
 builder.Services.AddScoped<BranchService>();
+builder.Services.AddScoped<IBranchLookupService>(sp => sp.GetRequiredService<BranchService>());
 builder.Services.AddScoped<GeographyQueryService>();
 builder.Services.AddScoped<IGeographyLookupService>(sp => sp.GetRequiredService<GeographyQueryService>());
 builder.Services.AddScoped<DeliveryZoneService>();

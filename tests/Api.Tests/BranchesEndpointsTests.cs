@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Courier.Branches.Application;
 using Courier.Branches.Domain;
+using Courier.Geography.Application;
 using Courier.Geography.Infrastructure;
 using Courier.Identity.Application;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -18,6 +19,17 @@ public class BranchesEndpointsTests : IClassFixture<WebApplicationFactory<Progra
     private static readonly Guid KathmanduDistrictId = GeographyIds.DistrictId("Bagmati", "Kathmandu");
     private static readonly Guid KathmanduLocalLevelId = GeographyIds.LocalLevelId("Bagmati", "Kathmandu", "Kathmandu Metropolitan City");
     private const int KathmanduWardNumber = 1;
+
+    private static readonly List<Guid> KathmanduWard1Areas = new()
+    {
+        GeographyIds.AreaId("Bagmati", "Kathmandu", "Kathmandu Metropolitan City", 1, "Area A"),
+        GeographyIds.AreaId("Bagmati", "Kathmandu", "Kathmandu Metropolitan City", 1, "Area B"),
+    };
+
+    private static CreateBranchRequest ValidBranchRequest(string code) => new(
+        code, $"Branch {code}", BranchType.Hub,
+        KathmanduProvinceId, KathmanduDistrictId, KathmanduLocalLevelId, KathmanduWardNumber,
+        "New Road, Kathmandu", null, null, null, null, null);
 
     public BranchesEndpointsTests(WebApplicationFactory<Program> factory)
     {
@@ -133,5 +145,40 @@ public class BranchesEndpointsTests : IClassFixture<WebApplicationFactory<Progra
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var branches = await response.Content.ReadFromJsonAsync<List<BranchResponse>>();
         Assert.Contains(branches!, b => b.Code == "LST-01");
+    }
+
+    [Fact]
+    public async Task AssignDeliveryZone_UnknownZoneId_Returns400()
+    {
+        var client = _factory.CreateClient();
+        var auth = await RegisterOrgAsync(client);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth.AccessToken);
+
+        var createResponse = await client.PostAsJsonAsync("/api/v1/branches", ValidBranchRequest("KTM-ZONE-BAD"));
+        var branch = await createResponse.Content.ReadFromJsonAsync<BranchResponse>();
+
+        var response = await client.PutAsJsonAsync($"/api/v1/branches/{branch!.Id}/delivery-zone", new AssignDeliveryZoneRequest(Guid.NewGuid()));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AssignDeliveryZone_ValidZone_UpdatesBranch()
+    {
+        var client = _factory.CreateClient();
+        var auth = await RegisterOrgAsync(client);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth.AccessToken);
+
+        var createResponse = await client.PostAsJsonAsync("/api/v1/branches", ValidBranchRequest("KTM-ZONE-OK"));
+        var branch = await createResponse.Content.ReadFromJsonAsync<BranchResponse>();
+
+        var zoneResponse = await client.PostAsJsonAsync("/api/v1/delivery-zones", new CreateDeliveryZoneRequest("Zone A", KathmanduWard1Areas));
+        var zone = await zoneResponse.Content.ReadFromJsonAsync<DeliveryZoneResponse>();
+
+        var response = await client.PutAsJsonAsync($"/api/v1/branches/{branch!.Id}/delivery-zone", new AssignDeliveryZoneRequest(zone!.Id));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var updated = await response.Content.ReadFromJsonAsync<BranchResponse>();
+        Assert.Equal(zone.Id, updated!.DeliveryZoneId);
     }
 }
