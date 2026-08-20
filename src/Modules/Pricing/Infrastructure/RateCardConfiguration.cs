@@ -12,10 +12,10 @@ public class RateCardConfiguration : IEntityTypeConfiguration<RateCard>
         builder.HasKey(r => r.Id);
         builder.Property(r => r.Name).HasMaxLength(150).IsRequired();
 
-        // Every tenant-filtered query hits this column.
-        builder.HasIndex(r => r.OrganizationId);
         // RateCardService.CreateRateCardAsync queries "the org's current IsActive card" — this
-        // index makes that lookup and the "at most one active per org" check both cheap.
+        // index makes that lookup cheap, and (via leftmost-prefix) also serves plain
+        // "WHERE OrganizationId = X" tenant-filtered queries, so no separate single-column index
+        // on OrganizationId is needed.
         builder.HasIndex(r => new { r.OrganizationId, r.IsActive });
         // DB-enforced "at most one active RateCard per org" (CLAUDE.md §16's versioning
         // invariant) — RateCardService.CreateRateCardAsync's read-then-write of the previous

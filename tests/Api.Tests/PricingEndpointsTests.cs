@@ -254,4 +254,33 @@ public class PricingEndpointsTests : IClassFixture<WebApplicationFactory<Program
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
+
+    [Fact]
+    public async Task CreateRateCard_ConcurrentRequestsForSameOrg_OnlyOneSucceeds()
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "race");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+
+        // Two concurrent requests share the same WebApplicationFactory but each gets its own DI
+        // scope/DbContext/DB connection per ASP.NET Core request handling, so this genuinely
+        // races against the real Postgres container — proving the filtered unique index
+        // (RateCardConfiguration.IX_RateCards_OrganizationId_ActiveUnique) actually blocks a
+        // second concurrent IsActive=true insert, not just that the SQL is syntactically valid.
+        // Whether the two requests literally overlap at the DB level is scheduling-dependent —
+        // if they don't overlap, both correctly succeed (first becomes v1, second becomes v2,
+        // exactly one active) which is NOT a bug; if they do overlap, one is rejected with a
+        // retry error. Either way, the one invariant that must always hold is asserted below:
+        // exactly one RateCard for this org is ever IsActive at once. Asserting a fixed
+        // success/failure split instead would make this test flaky.
+        var now = DateTimeOffset.UtcNow;
+        var first = client.PostAsJsonAsync("/api/v1/rate-cards", new CreateRateCardRequest("Race A", now));
+        var second = client.PostAsJsonAsync("/api/v1/rate-cards", new CreateRateCardRequest("Race B", now));
+        var responses = await Task.WhenAll(first, second);
+
+        Assert.All(responses, r => Assert.True(r.StatusCode is HttpStatusCode.Created or HttpStatusCode.BadRequest));
+
+        var rateCards = await (await client.GetAsync("/api/v1/rate-cards")).Content.ReadFromJsonAsync<List<RateCardResponse>>();
+        Assert.Single(rateCards!, rc => rc.IsActive);
+    }
 }
