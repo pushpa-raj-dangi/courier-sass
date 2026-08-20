@@ -14,6 +14,8 @@ using Courier.Merchants.Application;
 using Courier.Merchants.Infrastructure;
 using Courier.Merchants.Presentation;
 using Courier.Persistence;
+using Courier.Pricing.Application;
+using Courier.Pricing.Presentation;
 using Courier.SharedKernel;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -57,6 +59,9 @@ builder.Services.AddScoped<IBranchHierarchyService, BranchHierarchyService>();
 builder.Services.AddScoped<IBranchAuthorizationChecker, Courier.Identity.Infrastructure.BranchAuthorizationChecker>();
 builder.Services.AddScoped<BranchService>();
 builder.Services.AddScoped<IBranchLookupService>(sp => sp.GetRequiredService<BranchService>());
+builder.Services.AddScoped<RateCardService>();
+builder.Services.AddScoped<PricingService>();
+builder.Services.AddScoped<ReferenceDataService>();
 builder.Services.AddScoped<GeographyQueryService>();
 builder.Services.AddScoped<IGeographyLookupService>(sp => sp.GetRequiredService<GeographyQueryService>());
 builder.Services.AddScoped<DeliveryZoneService>();
@@ -134,6 +139,7 @@ app.MapMerchantAuthEndpoints();
 app.MapMerchantProfileEndpoints();
 app.MapMerchantStaffEndpoints();
 app.MapMerchantKycEndpoints();
+app.MapPricingEndpoints();
 
 app.MapGet("/health/ping", () => Results.Ok(new { status = "ok" }));
 
