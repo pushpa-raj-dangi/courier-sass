@@ -150,6 +150,30 @@ come in Phase 9). Price snapshot at booking from Phase 5.
 *Exit:* full happy-path shipment lifecycle (`CREATED` → `DELIVERED`) works with
 correct append-only events and locked pricing.
 
+*Status (2026-08-20): Complete.* A new `Shipments` module implements `Shipment, ShipmentItem,
+ShipmentEvent` per `DOMAIN-MODEL.md`. Since `Manifest`/`Rider`/`DeliveryAttempt`/`DeliveryProof`
+don't exist until Phase 7/8, the full `Created → Delivered` path is driven by direct
+staff-triggered transition endpoints (`pickup-assign, pickup-scan, receive-origin, sort, dispatch,
+receive-dest, out-for-delivery, deliver`) gated by the exact permissions (`shipment.assign/scan/
+sort/transfer`, `delivery.assign/complete`) the real Phase 7/8 operations will eventually use —
+`deliver` takes plain recipient-name/notes fields, expected to be superseded by Phase 8's real POD.
+Every transition writes exactly one append-only `ShipmentEvent`, proven by
+`tests/Api.Tests/ShipmentsEndpointsTests.cs`'s `FullHappyPath_CreatedToDelivered_Succeeds` (9
+events, correct custody at every step) and `tests/Shipments.Tests/ShipmentServiceTransitionTests.cs`.
+Pricing is locked at booking: `POST /api/v1/shipments` calls `PricingService.QuoteAsync` (Phase 5)
+directly and snapshots `DeliveryCharge/InsuranceCharge/OtherCharges/TotalCharge` onto the
+`Shipment` row — `PricingSnapshot_RateCardSupersededAfterBooking_ShipmentTotalChargeUnchanged`
+proves a later `RateCard` version change doesn't alter an already-booked shipment's price. AWB
+format is `{OrgSlugPrefix}{yyyyMMdd}{6-digit sequence}`, generated with an insert-and-retry
+collision handler mirroring Phase 5's `RateCard` versioning race fix. Both staff and merchant JWT
+tracks can create/read/cancel shipments (merchant scoped to `MerchantId == self`, new
+`shipment.create/read/cancel` constants added to `MerchantPermissionCatalog` reusing the staff
+catalog's identical string keys) — `Merchant_CanCreateAndCancelOwnShipment_ButNotAnotherMerchants`
+proves merchant-to-merchant isolation within the same org, alongside `Shipments_
+OrgBCannotReadOrgAsShipment` for tenant isolation. Deferred to later phases: real barcode/manifest
+scan validation (Phase 7), `Rider`/POD (Phase 8), `NDR`/`RTO`/`DELIVERY_FAILED` (Phase 9),
+`ShipmentEvent` GPS population (Phase 8), webhooks (Phase 11), public `/track/{awb}` (Phase 12).
+
 ## Phase 7 — Barcode Scanning, Sorting, Manifests, Branch Transfers
 
 `Manifest, ManifestShipment, ShipmentTransfer`, the five scan validations from
