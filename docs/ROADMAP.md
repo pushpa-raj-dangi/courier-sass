@@ -118,6 +118,30 @@ MerchantRateCard`, versioning (CLAUDE.md §16).
 insurance/merchant combination, and is provably versioned (changing today's rate
 does not alter a previously computed quote).
 
+*Status (2026-08-20): Complete.* A new `Pricing` module implements `ServiceType, WeightSlab,
+RateCard, ZoneRate, AdditionalCharge, MerchantRateCard` per `DOMAIN-MODEL.md` — with two
+deliberate simplifications from the original design: no `RateCardRule` entity (the engine queries
+`ZoneRate`/`AdditionalCharge` directly by `RateCardId`, since neither needed an intermediate rule
+layer), and no separate `Pricing.Zone` entity (`ZoneRate` FKs directly into `Geography.DeliveryZone`,
+which already had the identical shape). `Branch` gained a new ops-assigned `DeliveryZoneId`
+(`PUT /api/v1/branches/{id}/delivery-zone`) to resolve a shipment's origin/destination to a rating
+zone. Versioning is enforced by construction, not convention: `POST /api/v1/rate-cards` supersedes
+the org's current default (`Version + 1`, previous row flips to `IsActive = false`), and no
+`PUT`/`PATCH`/`DELETE` exists anywhere on `RateCard`/`ZoneRate`/`AdditionalCharge` — proven by
+`tests/Api.Tests/PricingEndpointsTests.cs`'s `RateCardVersioning_SupersededCardRowsUnchanged_NewQuoteUsesNewNumbers`
+(old rows byte-for-byte unchanged after supersession, new quote uses new numbers) and
+`AddZoneRate_OnSupersededRateCard_Returns400`. `POST /api/v1/pricing/quote` resolves a rate card
+(merchant override via `MerchantRateCard` if present, else the org default), weight slab, and zone
+pair, then returns a fully itemized result (base rate, each applied charge, discount, total) —
+`MerchantOverride_UsedInsteadOfOrgDefault_DiscountApplied` proves the override path.
+`RateCard`/`MerchantRateCard` are tenant-isolated (`RateCards_OrgBCannotSeeOrgAsRateCards`). Every
+cross-module read (`Branch` zone data, `Merchant` existence, `DeliveryZone` existence) goes through
+a small Application-layer interface (`IBranchLookupService`, `IMerchantLookupService`,
+`IGeographyLookupService.DeliveryZoneExistsAsync`) rather than a direct cross-module `DbSet` query.
+Deferred to later phases: quote persistence (Phase 6 will snapshot the resolved charge fields onto
+`Shipment`), a "clone previous version" convenience endpoint, org-configurable `WeightSlab`, and
+`AsOf`/historical-timestamp quote resolution.
+
 ## Phase 6 — Shipments, AWB, Shipment Items, Lifecycle, Tracking Events
 
 Core `Shipment` aggregate, `ShipmentEvent`, the state machine and transition table
