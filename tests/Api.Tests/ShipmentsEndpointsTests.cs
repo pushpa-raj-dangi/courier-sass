@@ -77,9 +77,11 @@ public class ShipmentsEndpointsTests : IClassFixture<WebApplicationFactory<Progr
         var slab = weightSlabs!.Single(w => w.MinWeightKg == 0.5m && w.MaxWeightKg == 1m);
 
         var rateCardResponse = await client.PostAsJsonAsync("/api/v1/rate-cards", new CreateRateCardRequest($"Card-{Guid.NewGuid():N}", DateTimeOffset.UtcNow));
+        rateCardResponse.EnsureSuccessStatusCode();
         var rateCard = await rateCardResponse.Content.ReadFromJsonAsync<RateCardResponse>();
-        await client.PostAsJsonAsync($"/api/v1/rate-cards/{rateCard!.Id}/zone-rates",
+        var zoneRateResponse = await client.PostAsJsonAsync($"/api/v1/rate-cards/{rateCard!.Id}/zone-rates",
             new CreateZoneRateRequest(originBranch.DeliveryZoneId!.Value, destBranch.DeliveryZoneId!.Value, serviceTypeId, slab.Id, baseRate));
+        zoneRateResponse.EnsureSuccessStatusCode();
     }
 
     private static CreateShipmentRequest ValidShipmentRequest(Guid merchantId, Guid originBranchId, Guid destinationBranchId, Guid serviceTypeId) => new(
@@ -179,6 +181,13 @@ public class ShipmentsEndpointsTests : IClassFixture<WebApplicationFactory<Progr
 
         // Supersede the RateCard with a new, higher rate — same route/service/weight.
         await SeedRateCardAsync(client, originBranchId, destinationBranchId, serviceTypeId, 999m);
+
+        // Prove the new rate card is actually live for NEW bookings — without this, the test below
+        // (re-fetching the already-booked shipment and expecting 150m) would pass identically
+        // whether pricing is genuinely locked at booking OR the supersede call above silently
+        // no-op'd, since neither case would change the already-booked shipment's price.
+        var secondShipment = await (await client.PostAsJsonAsync("/api/v1/shipments", ValidShipmentRequest(merchantId, originBranchId, destinationBranchId, serviceTypeId))).Content.ReadFromJsonAsync<ShipmentResponse>();
+        Assert.Equal(999m, secondShipment!.TotalCharge);
 
         var reloaded = await (await client.GetAsync($"/api/v1/shipments/{shipment.Awb}")).Content.ReadFromJsonAsync<ShipmentResponse>();
         Assert.Equal(150m, reloaded!.TotalCharge);
