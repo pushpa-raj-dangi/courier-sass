@@ -66,6 +66,8 @@ builder.Services.AddScoped<MerchantAuthService>();
 builder.Services.AddScoped<MerchantOnboardingService>();
 builder.Services.AddScoped<MerchantStaffService>();
 builder.Services.AddScoped<MerchantKycService>();
+builder.Services.AddScoped<MerchantLookupService>();
+builder.Services.AddScoped<IMerchantLookupService>(sp => sp.GetRequiredService<MerchantLookupService>());
 builder.Services.AddSingleton<IObjectStorage>(_ =>
     new LocalFileSystemObjectStorage(builder.Configuration["ObjectStorage:LocalRootPath"] ?? Path.Combine(AppContext.BaseDirectory, "storage")));
 
