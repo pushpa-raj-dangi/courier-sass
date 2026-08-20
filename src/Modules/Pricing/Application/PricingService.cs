@@ -42,6 +42,22 @@ public class PricingService
         _ = _currentTenantProvider.OrganizationId
             ?? throw new PricingValidationException("No active organization context.");
 
+        // Never trust client-supplied numbers driving a price calculation (CLAUDE.md §33) — a
+        // negative DeclaredValue/CodAmount would otherwise flow straight into a Percentage
+        // AdditionalCharge's base amount below and silently reduce the quoted total.
+        if (request.WeightKg <= 0)
+        {
+            throw new PricingValidationException("WeightKg must be greater than zero.");
+        }
+        if (request.CodAmount < 0)
+        {
+            throw new PricingValidationException("CodAmount cannot be negative.");
+        }
+        if (request.DeclaredValue < 0)
+        {
+            throw new PricingValidationException("DeclaredValue cannot be negative.");
+        }
+
         var originZone = await _branchLookupService.GetZoneInfoAsync(request.OriginBranchId, cancellationToken)
             ?? throw new PricingValidationException("Origin branch was not found in this organization.");
         var destinationZone = await _branchLookupService.GetZoneInfoAsync(request.DestinationBranchId, cancellationToken)

@@ -222,6 +222,30 @@ public class PricingEndpointsTests : IClassFixture<WebApplicationFactory<Program
     }
 
     [Fact]
+    public async Task ZoneRatesAndAdditionalCharges_OrgBCannotReadOrgAsRateCardChildren()
+    {
+        var clientA = _factory.CreateClient();
+        var orgA = await RegisterOrgAsync(clientA, "iso-children-a");
+        clientA.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", orgA.AccessToken);
+        var (originBranchId, destinationBranchId, serviceTypeId) = await SeedRoutableBranchesAsync(clientA);
+        var rateCardA = await SeedRateCardWithZoneRateAsync(clientA, originBranchId, destinationBranchId, serviceTypeId, 100m);
+        await clientA.PostAsJsonAsync($"/api/v1/rate-cards/{rateCardA.Id}/additional-charges",
+            new CreateAdditionalChargeRequest(AdditionalChargeType.Fuel, ChargeCalculationType.Percentage, 5m));
+
+        var clientB = _factory.CreateClient();
+        var orgB = await RegisterOrgAsync(clientB, "iso-children-b");
+        clientB.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", orgB.AccessToken);
+
+        // Org B guesses/knows Org A's rate card id — must not be able to read its zone-rates or
+        // additional-charges (base rates and surcharge percentages are commercially sensitive).
+        var zoneRatesResponse = await clientB.GetAsync($"/api/v1/rate-cards/{rateCardA.Id}/zone-rates");
+        Assert.Equal(HttpStatusCode.NotFound, zoneRatesResponse.StatusCode);
+
+        var chargesResponse = await clientB.GetAsync($"/api/v1/rate-cards/{rateCardA.Id}/additional-charges");
+        Assert.Equal(HttpStatusCode.NotFound, chargesResponse.StatusCode);
+    }
+
+    [Fact]
     public async Task PostRateCards_Unauthenticated_Returns401()
     {
         var client = _factory.CreateClient();

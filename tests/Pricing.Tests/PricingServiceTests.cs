@@ -261,6 +261,59 @@ public class PricingServiceTests
         Assert.Equal(500m, result.BaseRate);
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task QuoteAsync_WeightNotPositive_Throws(decimal weightKg)
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var seed = SeedBasicRoute(dbContext, organizationId);
+        var service = CreateService(dbContext, organizationId, new()
+        {
+            [seed.OriginBranchId] = seed.OriginZoneId,
+            [seed.DestinationBranchId] = seed.DestinationZoneId
+        });
+        var serviceTypeId = dbContext.Set<ServiceType>().First(s => s.Code == ServiceTypeCode.Standard).Id;
+
+        await Assert.ThrowsAsync<PricingValidationException>(() =>
+            service.QuoteAsync(new PriceQuoteRequest(seed.OriginBranchId, seed.DestinationBranchId, weightKg, serviceTypeId, 0m, 0m, false, null)));
+    }
+
+    [Fact]
+    public async Task QuoteAsync_NegativeCodAmount_Throws()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var seed = SeedBasicRoute(dbContext, organizationId);
+        var service = CreateService(dbContext, organizationId, new()
+        {
+            [seed.OriginBranchId] = seed.OriginZoneId,
+            [seed.DestinationBranchId] = seed.DestinationZoneId
+        });
+        var serviceTypeId = dbContext.Set<ServiceType>().First(s => s.Code == ServiceTypeCode.Standard).Id;
+
+        await Assert.ThrowsAsync<PricingValidationException>(() =>
+            service.QuoteAsync(new PriceQuoteRequest(seed.OriginBranchId, seed.DestinationBranchId, 0.7m, serviceTypeId, -1m, 0m, false, null)));
+    }
+
+    [Fact]
+    public async Task QuoteAsync_NegativeDeclaredValue_Throws()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var seed = SeedBasicRoute(dbContext, organizationId);
+        var service = CreateService(dbContext, organizationId, new()
+        {
+            [seed.OriginBranchId] = seed.OriginZoneId,
+            [seed.DestinationBranchId] = seed.DestinationZoneId
+        });
+        var serviceTypeId = dbContext.Set<ServiceType>().First(s => s.Code == ServiceTypeCode.Standard).Id;
+
+        await Assert.ThrowsAsync<PricingValidationException>(() =>
+            service.QuoteAsync(new PriceQuoteRequest(seed.OriginBranchId, seed.DestinationBranchId, 0.7m, serviceTypeId, 0m, -1m, true, null)));
+    }
+
     [Fact]
     public async Task QuoteAsync_NoZoneRateForCombination_Throws()
     {

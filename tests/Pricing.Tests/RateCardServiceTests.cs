@@ -81,6 +81,19 @@ public class RateCardServiceTests
     }
 
     [Fact]
+    public async Task CreateRateCardAsync_EffectiveFromBeforePrevious_Throws()
+    {
+        await using var dbContext = CreateContext();
+        var service = CreateService(dbContext, Guid.NewGuid());
+        var actingUser = ActingUser(Guid.NewGuid());
+        var now = DateTimeOffset.UtcNow;
+        await service.CreateRateCardAsync(new CreateRateCardRequest("v1", now), actingUser);
+
+        await Assert.ThrowsAsync<PricingValidationException>(() =>
+            service.CreateRateCardAsync(new CreateRateCardRequest("v2", now.AddDays(-1)), actingUser));
+    }
+
+    [Fact]
     public async Task CreateRateCardAsync_SecondCardForOrg_SupersedesFirstWithoutMutatingItsChildren()
     {
         await using var dbContext = CreateContext();
@@ -105,8 +118,9 @@ public class RateCardServiceTests
         Assert.NotNull(firstReloaded.EffectiveTo);
 
         var firstZoneRates = await service.ListZoneRatesAsync(first.Id);
+        Assert.NotNull(firstZoneRates);
         Assert.Single(firstZoneRates);
-        Assert.Equal(100m, firstZoneRates[0].BaseRate);
+        Assert.Equal(100m, firstZoneRates![0].BaseRate);
     }
 
     [Fact]
@@ -124,6 +138,81 @@ public class RateCardServiceTests
 
         await Assert.ThrowsAsync<PricingValidationException>(() =>
             service.AddZoneRateAsync(first.Id, new CreateZoneRateRequest(Guid.NewGuid(), Guid.NewGuid(), serviceTypeId, weightSlabId, 50m), actingUser));
+    }
+
+    [Fact]
+    public async Task AddZoneRateAsync_NegativeBaseRate_Throws()
+    {
+        await using var dbContext = CreateContext();
+        var service = CreateService(dbContext, Guid.NewGuid());
+        var actingUser = ActingUser(Guid.NewGuid());
+        var rateCard = await service.CreateRateCardAsync(new CreateRateCardRequest("v1", DateTimeOffset.UtcNow), actingUser);
+        var serviceTypeId = dbContext.Set<ServiceType>().First().Id;
+        var weightSlabId = dbContext.Set<WeightSlab>().First().Id;
+
+        await Assert.ThrowsAsync<PricingValidationException>(() =>
+            service.AddZoneRateAsync(rateCard.Id, new CreateZoneRateRequest(Guid.NewGuid(), Guid.NewGuid(), serviceTypeId, weightSlabId, -1m), actingUser));
+    }
+
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public async Task AddAdditionalChargeAsync_UndefinedEnumValue_Throws(bool invalidType, bool invalidCalculationType)
+    {
+        await using var dbContext = CreateContext();
+        var service = CreateService(dbContext, Guid.NewGuid());
+        var actingUser = ActingUser(Guid.NewGuid());
+        var rateCard = await service.CreateRateCardAsync(new CreateRateCardRequest("v1", DateTimeOffset.UtcNow), actingUser);
+
+        var type = invalidType ? (AdditionalChargeType)999 : AdditionalChargeType.Fuel;
+        var calculationType = invalidCalculationType ? (ChargeCalculationType)999 : ChargeCalculationType.Flat;
+
+        await Assert.ThrowsAsync<PricingValidationException>(() =>
+            service.AddAdditionalChargeAsync(rateCard.Id, new CreateAdditionalChargeRequest(type, calculationType, 10m), actingUser));
+    }
+
+    [Fact]
+    public async Task AddAdditionalChargeAsync_NegativeValue_Throws()
+    {
+        await using var dbContext = CreateContext();
+        var service = CreateService(dbContext, Guid.NewGuid());
+        var actingUser = ActingUser(Guid.NewGuid());
+        var rateCard = await service.CreateRateCardAsync(new CreateRateCardRequest("v1", DateTimeOffset.UtcNow), actingUser);
+
+        await Assert.ThrowsAsync<PricingValidationException>(() =>
+            service.AddAdditionalChargeAsync(rateCard.Id, new CreateAdditionalChargeRequest(AdditionalChargeType.Fuel, ChargeCalculationType.Percentage, -5m), actingUser));
+    }
+
+    [Fact]
+    public async Task ListZoneRatesAsync_UnknownRateCard_ReturnsNull()
+    {
+        await using var dbContext = CreateContext();
+        var service = CreateService(dbContext, Guid.NewGuid());
+
+        Assert.Null(await service.ListZoneRatesAsync(Guid.NewGuid()));
+    }
+
+    [Fact]
+    public async Task ListAdditionalChargesAsync_UnknownRateCard_ReturnsNull()
+    {
+        await using var dbContext = CreateContext();
+        var service = CreateService(dbContext, Guid.NewGuid());
+
+        Assert.Null(await service.ListAdditionalChargesAsync(Guid.NewGuid()));
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(101)]
+    public async Task UpsertMerchantRateCardAsync_DiscountOutOfBounds_Throws(decimal discountPercent)
+    {
+        await using var dbContext = CreateContext();
+        var service = CreateService(dbContext, Guid.NewGuid());
+        var actingUser = ActingUser(Guid.NewGuid());
+        var rateCard = await service.CreateRateCardAsync(new CreateRateCardRequest("v1", DateTimeOffset.UtcNow), actingUser);
+
+        await Assert.ThrowsAsync<PricingValidationException>(() =>
+            service.UpsertMerchantRateCardAsync(Guid.NewGuid(), new UpsertMerchantRateCardRequest(rateCard.Id, discountPercent), actingUser));
     }
 
     [Fact]

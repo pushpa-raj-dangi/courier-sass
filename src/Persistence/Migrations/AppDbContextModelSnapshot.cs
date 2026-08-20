@@ -1925,7 +1925,10 @@ namespace Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("OrganizationId");
+                    b.HasIndex("OrganizationId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_RateCards_OrganizationId_ActiveUnique")
+                        .HasFilter("\"IsActive\" = true");
 
                     b.HasIndex("OrganizationId", "IsActive");
 

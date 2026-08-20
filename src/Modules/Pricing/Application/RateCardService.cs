@@ -39,6 +39,11 @@ public class RateCardService
 
         var previous = await _dbContext.Set<RateCard>().FirstOrDefaultAsync(rc => rc.IsActive, cancellationToken);
 
+        if (previous is not null && request.EffectiveFrom < previous.EffectiveFrom)
+        {
+            throw new PricingValidationException("EffectiveFrom must not be earlier than the current rate card's EffectiveFrom.");
+        }
+
         var rateCard = new RateCard
         {
             Id = Guid.NewGuid(),
@@ -57,7 +62,20 @@ public class RateCardService
             previous.EffectiveTo = request.EffectiveFrom;
         }
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        // A unique filtered index (RateCardConfiguration: OrganizationId WHERE IsActive) makes
+        // "at most one active RateCard per org" DB-enforced, not just read-then-write — two
+        // concurrent CreateRateCardAsync calls for the same org both reading the same `previous`
+        // card would otherwise both insert a new IsActive=true row, corrupting the versioning
+        // invariant PricingService.QuoteAsync depends on. The loser gets a clear retry error
+        // instead of silently creating a second "active" card.
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            throw new PricingValidationException("Another rate card was just created for this organization — please retry.");
+        }
 
         await _auditLogger.LogAsync(new AuditEntry(organizationId, actingUserId, "rate_card.created", "RateCard", rateCard.Id.ToString()), cancellationToken);
 
@@ -106,6 +124,10 @@ public class RateCardService
         {
             throw new PricingValidationException("Unknown weight slab.");
         }
+        if (request.BaseRate < 0)
+        {
+            throw new PricingValidationException("BaseRate cannot be negative.");
+        }
 
         var zoneRate = new ZoneRate
         {
@@ -125,8 +147,20 @@ public class RateCardService
         return ToResponse(zoneRate);
     }
 
-    public async Task<List<ZoneRateResponse>> ListZoneRatesAsync(Guid rateCardId, CancellationToken cancellationToken = default)
+    // Nullable return: ZoneRate carries no OrganizationId of its own (tenant isolation flows
+    // transitively through RateCardId -> RateCard.OrganizationId, see this plan's Architecture
+    // section) — so every accessor here MUST first prove the RateCard resolves within the
+    // caller's tenant via the RateCard DbSet's query filter, exactly like AddZoneRateAsync
+    // already does, or a caller could read another org's rate structure by guessing a
+    // RateCard id. Null means "not found in this organization", mapped to 404 by the endpoint.
+    public async Task<List<ZoneRateResponse>?> ListZoneRatesAsync(Guid rateCardId, CancellationToken cancellationToken = default)
     {
+        var rateCardExists = await _dbContext.Set<RateCard>().AnyAsync(rc => rc.Id == rateCardId, cancellationToken);
+        if (!rateCardExists)
+        {
+            return null;
+        }
+
         var zoneRates = await _dbContext.Set<ZoneRate>().Where(z => z.RateCardId == rateCardId).ToListAsync(cancellationToken);
         return zoneRates.Select(ToResponse).ToList();
     }
@@ -137,6 +171,19 @@ public class RateCardService
             ?? throw new PricingValidationException("No active organization context.");
         var actingUserId = actingUser.GetUserId()
             ?? throw new PricingValidationException("Acting user could not be resolved.");
+
+        if (!Enum.IsDefined(request.Type))
+        {
+            throw new PricingValidationException("Invalid additional charge type.");
+        }
+        if (!Enum.IsDefined(request.CalculationType))
+        {
+            throw new PricingValidationException("Invalid calculation type.");
+        }
+        if (request.Value < 0)
+        {
+            throw new PricingValidationException("Value cannot be negative.");
+        }
 
         var rateCard = await _dbContext.Set<RateCard>().FirstOrDefaultAsync(rc => rc.Id == rateCardId, cancellationToken)
             ?? throw new PricingValidationException("Rate card was not found in this organization.");
@@ -161,8 +208,16 @@ public class RateCardService
         return ToResponse(charge);
     }
 
-    public async Task<List<AdditionalChargeResponse>> ListAdditionalChargesAsync(Guid rateCardId, CancellationToken cancellationToken = default)
+    // Nullable return: same reasoning as ListZoneRatesAsync above — AdditionalCharge also carries
+    // no OrganizationId of its own.
+    public async Task<List<AdditionalChargeResponse>?> ListAdditionalChargesAsync(Guid rateCardId, CancellationToken cancellationToken = default)
     {
+        var rateCardExists = await _dbContext.Set<RateCard>().AnyAsync(rc => rc.Id == rateCardId, cancellationToken);
+        if (!rateCardExists)
+        {
+            return null;
+        }
+
         var charges = await _dbContext.Set<AdditionalCharge>().Where(c => c.RateCardId == rateCardId).ToListAsync(cancellationToken);
         return charges.Select(ToResponse).ToList();
     }
@@ -181,6 +236,10 @@ public class RateCardService
         if (!await _dbContext.Set<RateCard>().AnyAsync(rc => rc.Id == request.RateCardId, cancellationToken))
         {
             throw new PricingValidationException("Rate card was not found in this organization.");
+        }
+        if (request.OverrideDiscountPercent is < 0 or > 100)
+        {
+            throw new PricingValidationException("OverrideDiscountPercent must be between 0 and 100.");
         }
 
         var existing = await _dbContext.Set<MerchantRateCard>().FirstOrDefaultAsync(m => m.MerchantId == merchantId, cancellationToken);

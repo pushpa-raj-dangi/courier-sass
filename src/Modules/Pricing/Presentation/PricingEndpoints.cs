@@ -48,7 +48,10 @@ public static class PricingEndpoints
         }).RequirePermission("pricing.manage");
 
         rateCardsGroup.MapGet("/{id:guid}/zone-rates", async (Guid id, RateCardService rateCardService, CancellationToken cancellationToken) =>
-            Results.Ok(await rateCardService.ListZoneRatesAsync(id, cancellationToken))).RequirePermission("pricing.read");
+        {
+            var zoneRates = await rateCardService.ListZoneRatesAsync(id, cancellationToken);
+            return zoneRates is null ? Results.NotFound() : Results.Ok(zoneRates);
+        }).RequirePermission("pricing.read");
 
         rateCardsGroup.MapPost("/{id:guid}/zone-rates", async (Guid id, CreateZoneRateRequest request, RateCardService rateCardService, HttpContext httpContext) =>
         {
@@ -69,7 +72,10 @@ public static class PricingEndpoints
         }).RequirePermission("pricing.manage");
 
         rateCardsGroup.MapGet("/{id:guid}/additional-charges", async (Guid id, RateCardService rateCardService, CancellationToken cancellationToken) =>
-            Results.Ok(await rateCardService.ListAdditionalChargesAsync(id, cancellationToken))).RequirePermission("pricing.read");
+        {
+            var charges = await rateCardService.ListAdditionalChargesAsync(id, cancellationToken);
+            return charges is null ? Results.NotFound() : Results.Ok(charges);
+        }).RequirePermission("pricing.read");
 
         rateCardsGroup.MapPost("/{id:guid}/additional-charges", async (Guid id, CreateAdditionalChargeRequest request, RateCardService rateCardService, HttpContext httpContext) =>
         {
