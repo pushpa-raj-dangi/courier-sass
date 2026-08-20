@@ -56,7 +56,8 @@ shared geography); everything above it is shared reference data seeded once.
 Branch { Id, OrganizationId, Code, Name, Type (HeadOffice|Hub|Branch|PickupPoint|
          Warehouse), ProvinceId, DistrictId, LocalLevelId, WardNumber,       [C#2]
          AddressLine, Latitude, Longitude, Phone, OperatingHours,
-         ParentBranchId (nullable, self-FK), IsActive }
+         ParentBranchId (nullable, self-FK), DeliveryZoneId (nullable FK into
+         Geography.DeliveryZone, ops-assigned — Phase 5), IsActive }
 ```
 
 ## Merchants — `OrganizationId` present
@@ -81,22 +82,30 @@ ApiKey { Id, MerchantId, OrganizationId (denormalized, kept consistent with
 
 ```text
 ServiceType { Id, Code (Standard|Express|SameDay|Heavy|Special), Name }
-WeightSlab { Id, MinWeightKg, MaxWeightKg }
-Zone { Id, OrganizationId, Name }
-ZoneRate { Id, RateCardId, OriginZoneId, DestinationZoneId, ServiceTypeId,
-           WeightSlabId, BaseRate }
-AdditionalCharge { Id, RateCardId, Type (Insurance|COD|Fuel|Other), CalculationType
-                    (Flat|Percentage), Value }
+WeightSlab { Id, MinWeightKg, MaxWeightKg (nullable — open-ended top slab, e.g. "10kg+") }
 RateCard { Id, OrganizationId, Name, EffectiveFrom, EffectiveTo (nullable),
            Version, IsActive }
-RateCardRule { Id, RateCardId, ... } # composes ZoneRate/AdditionalCharge into an
-                                       # evaluable rule set for the pricing engine
-MerchantRateCard { Id, MerchantId, RateCardId, OverrideDiscountPercent (nullable) }
+ZoneRate { Id, RateCardId, OriginZoneId, DestinationZoneId (both FK straight into
+           Geography.DeliveryZone — Pricing has no separate Zone entity; DeliveryZone
+           already has the identical OrganizationId+Name+CoveredAreas shape),
+           ServiceTypeId, WeightSlabId, BaseRate }
+AdditionalCharge { Id, RateCardId, Type (Insurance|COD|Fuel|Other), CalculationType
+                    (Flat|Percentage), Value }
+MerchantRateCard { Id, MerchantId, OrganizationId, RateCardId,
+                    OverrideDiscountPercent (nullable) }
 ```
 
-`RateCard` is immutable once shipments have priced against it — a rate change is a
-new `RateCard` version with a new `EffectiveFrom`, never an in-place edit
-(CLAUDE.md §16).
+`RateCard` is immutable once created — a rate change is a new `RateCard` version with a new
+`EffectiveFrom` (`Version` incremented, previous row's `IsActive` flips to `false` and
+`EffectiveTo` is set), never an in-place edit (CLAUDE.md §16). `ZoneRate`/`AdditionalCharge` rows
+can only be added while their parent `RateCard` is still the org's active version; a superseded
+`RateCard`'s children are frozen forever. No `RateCardRule` entity exists — the pricing engine
+queries `ZoneRate`/`AdditionalCharge` directly by `RateCardId`, since both already carry it and no
+extra evaluable rule logic is needed beyond that direct lookup (ROADMAP.md Phase 5).
+
+`Branch` (see the Branches section above) gains a `DeliveryZoneId` (nullable FK into
+`Geography.DeliveryZone`) as part of Phase 5 — ops-assigned, used to resolve a shipment's
+origin/destination branch to a rating zone for `ZoneRate` lookup.
 
 ## Shipments & Tracking — `OrganizationId` present
 
@@ -254,6 +263,10 @@ User 1─* UserBranch *─1 Branch
 Organization 1─* Merchant 1─* MerchantUser
 Merchant 1─* ApiKey
 Organization 1─* RateCard 1─* ZoneRate
+RateCard 1─* AdditionalCharge
+Geography.DeliveryZone 1─* ZoneRate (as OriginZone, and separately as DestinationZone)
+Branch *─1 Geography.DeliveryZone
+Merchant 1─(0..1)─ MerchantRateCard *─1 RateCard
 Merchant 1─* Shipment *─1 Branch (origin/destination/current)
 Shipment 1─* ShipmentItem
 Shipment 1─* ShipmentEvent
