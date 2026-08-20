@@ -18,6 +18,7 @@ public class GeographyQueryServiceTests
             modelBuilder.ApplyConfiguration(new LocalLevelConfiguration());
             modelBuilder.ApplyConfiguration(new WardConfiguration());
             modelBuilder.ApplyConfiguration(new AreaConfiguration());
+            modelBuilder.ApplyConfiguration(new DeliveryZoneConfiguration());
         }
     }
 
@@ -140,5 +141,28 @@ public class GeographyQueryServiceTests
             wardNumber: 99);
 
         Assert.False(result);
+    }
+
+    [Fact]
+    public async Task DeliveryZoneExistsAsync_ZoneInCurrentOrg_ReturnsTrue()
+    {
+        await using var dbContext = CreateSeededContext();
+        var organizationId = Guid.NewGuid();
+        var zone = new DeliveryZone { Id = Guid.NewGuid(), OrganizationId = organizationId, Name = "Zone A" };
+        dbContext.Set<DeliveryZone>().Add(zone);
+        await dbContext.SaveChangesAsync();
+
+        var service = new GeographyQueryService(dbContext);
+
+        Assert.True(await service.DeliveryZoneExistsAsync(zone.Id));
+    }
+
+    [Fact]
+    public async Task DeliveryZoneExistsAsync_UnknownZoneId_ReturnsFalse()
+    {
+        await using var dbContext = CreateSeededContext();
+        var service = new GeographyQueryService(dbContext);
+
+        Assert.False(await service.DeliveryZoneExistsAsync(Guid.NewGuid()));
     }
 }

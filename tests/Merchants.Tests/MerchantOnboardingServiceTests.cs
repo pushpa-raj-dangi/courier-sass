@@ -32,6 +32,8 @@ file class StubGeographyLookupService : IGeographyLookupService
     public StubGeographyLookupService(bool result) => _result = result;
     public Task<bool> IsValidHierarchyAsync(Guid provinceId, Guid districtId, Guid localLevelId, int wardNumber, CancellationToken cancellationToken = default)
         => Task.FromResult(_result);
+    public Task<bool> DeliveryZoneExistsAsync(Guid zoneId, CancellationToken cancellationToken = default)
+        => Task.FromResult(_result);
 }
 
 public class MerchantOnboardingServiceTests

@@ -55,4 +55,7 @@ public class GeographyQueryService : IGeographyLookupService
             .Join(_dbContext.Set<District>(), l => l.DistrictId, d => d.Id, (l, d) => d)
             .AnyAsync(d => d.ProvinceId == provinceId, cancellationToken);
     }
+
+    public async Task<bool> DeliveryZoneExistsAsync(Guid zoneId, CancellationToken cancellationToken = default) =>
+        await _dbContext.Set<DeliveryZone>().AnyAsync(z => z.Id == zoneId, cancellationToken);
 }
