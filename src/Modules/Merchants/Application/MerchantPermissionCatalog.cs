@@ -11,15 +11,21 @@ public static class MerchantPermissionCatalog
     public const string ProfileUpdate = "merchant.profile.update";
     public const string StaffManage = "merchant.staff.manage";
     public const string KycUpload = "merchant.kyc.upload";
+    // Same string values as the staff PermissionCatalog's shipment.create/read/cancel —
+    // two independent catalogs/checkers (MerchantAuthorizationChecker vs PermissionChecker),
+    // same key names by design (ROADMAP.md Phase 6).
+    public const string ShipmentCreate = "shipment.create";
+    public const string ShipmentRead = "shipment.read";
+    public const string ShipmentCancel = "shipment.cancel";
 
     private static readonly string[] OwnerPermissions =
     {
-        ProfileRead, ProfileUpdate, StaffManage, KycUpload
+        ProfileRead, ProfileUpdate, StaffManage, KycUpload, ShipmentCreate, ShipmentRead, ShipmentCancel
     };
 
     private static readonly string[] StaffPermissions =
     {
-        ProfileRead, KycUpload
+        ProfileRead, KycUpload, ShipmentCreate, ShipmentRead, ShipmentCancel
     };
 
     public static readonly IReadOnlyDictionary<MerchantUserRole, IReadOnlySet<string>> RolePermissions =
