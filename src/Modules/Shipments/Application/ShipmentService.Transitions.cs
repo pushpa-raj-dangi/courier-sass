@@ -27,6 +27,7 @@ public partial class ShipmentService
         }
 
         var previousStatus = shipment.CurrentStatus;
+        var eventBranchId = shipment.CurrentBranchId;
         shipment.CurrentStatus = to;
         applyCustody(shipment);
 
@@ -37,7 +38,7 @@ public partial class ShipmentService
             EventType = eventType,
             PreviousStatus = previousStatus,
             NewStatus = to,
-            BranchId = shipment.CurrentBranchId,
+            BranchId = eventBranchId,
             UserId = actingUser.GetUserId(),
             Timestamp = DateTimeOffset.UtcNow
         });

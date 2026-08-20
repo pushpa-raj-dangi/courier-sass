@@ -185,6 +185,16 @@ public class ShipmentServiceTransitionTests
             ShipmentEventType.ReceivedAtOrigin, ShipmentEventType.Sorted, ShipmentEventType.Dispatched,
             ShipmentEventType.ReceivedAtDestination, ShipmentEventType.OutForDelivery, ShipmentEventType.Delivered
         }, events.Select(e => e.EventType));
+
+        // Regression: TransitionAsync must capture BranchId BEFORE applyCustody runs. Dispatch and
+        // AssignDelivery both null out Shipment.CurrentBranchId as part of their custody delta (the
+        // parcel is now in transit / with a rider, not "at" a branch) — but the event itself must
+        // still record which branch the operation was physically performed at, or the traceability
+        // chain (CLAUDE.md §11/§12/§39) silently loses that branch for these two events.
+        var dispatchedEvent = events.Single(e => e.EventType == ShipmentEventType.Dispatched);
+        Assert.Equal(originBranchId, dispatchedEvent.BranchId);
+        var outForDeliveryEvent = events.Single(e => e.EventType == ShipmentEventType.OutForDelivery);
+        Assert.Equal(destinationBranchId, outForDeliveryEvent.BranchId);
     }
 
     [Fact]
