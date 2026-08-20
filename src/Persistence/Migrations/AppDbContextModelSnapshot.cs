@@ -1840,6 +1840,251 @@ namespace Persistence.Migrations
                     b.ToTable("MerchantUsers", (string)null);
                 });
 
+            modelBuilder.Entity("Courier.Pricing.Domain.AdditionalCharge", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("CalculationType")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("RateCardId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("Value")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RateCardId");
+
+                    b.ToTable("AdditionalCharges", (string)null);
+                });
+
+            modelBuilder.Entity("Courier.Pricing.Domain.MerchantRateCard", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("MerchantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal?>("OverrideDiscountPercent")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)");
+
+                    b.Property<Guid>("RateCardId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MerchantId")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId");
+
+                    b.HasIndex("RateCardId");
+
+                    b.ToTable("MerchantRateCards", (string)null);
+                });
+
+            modelBuilder.Entity("Courier.Pricing.Domain.RateCard", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("EffectiveFrom")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("EffectiveTo")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.HasIndex("OrganizationId", "IsActive");
+
+                    b.ToTable("RateCards", (string)null);
+                });
+
+            modelBuilder.Entity("Courier.Pricing.Domain.ServiceType", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Code")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("ServiceTypes", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("d38aa0e3-a1ad-fb1c-0d5b-98583748a878"),
+                            Code = 0,
+                            Name = "Standard"
+                        },
+                        new
+                        {
+                            Id = new Guid("8dc124a1-a760-4e45-99b5-cf0151bc67f2"),
+                            Code = 1,
+                            Name = "Express"
+                        },
+                        new
+                        {
+                            Id = new Guid("d916f737-bf5d-bd13-03cd-e936dbd5fd80"),
+                            Code = 2,
+                            Name = "Same Day"
+                        },
+                        new
+                        {
+                            Id = new Guid("770222a2-ccaa-4f0a-44a3-a5a4fb234b24"),
+                            Code = 3,
+                            Name = "Heavy"
+                        },
+                        new
+                        {
+                            Id = new Guid("35f65696-78ca-dd69-3b4f-49e2f8b7d117"),
+                            Code = 4,
+                            Name = "Special"
+                        });
+                });
+
+            modelBuilder.Entity("Courier.Pricing.Domain.WeightSlab", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal?>("MaxWeightKg")
+                        .HasPrecision(10, 3)
+                        .HasColumnType("numeric(10,3)");
+
+                    b.Property<decimal>("MinWeightKg")
+                        .HasPrecision(10, 3)
+                        .HasColumnType("numeric(10,3)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("WeightSlabs", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("c9190fc8-1c64-36b9-6787-14c9470ac927"),
+                            MaxWeightKg = 0.5m,
+                            MinWeightKg = 0m
+                        },
+                        new
+                        {
+                            Id = new Guid("1ff8a68e-6f46-8023-939c-4ab33fd8d2ee"),
+                            MaxWeightKg = 1m,
+                            MinWeightKg = 0.5m
+                        },
+                        new
+                        {
+                            Id = new Guid("810737a0-46d8-02e3-f8f6-cf3d81326cb2"),
+                            MaxWeightKg = 2m,
+                            MinWeightKg = 1m
+                        },
+                        new
+                        {
+                            Id = new Guid("96fb9231-5071-24c2-1647-6196c10ccea0"),
+                            MaxWeightKg = 5m,
+                            MinWeightKg = 2m
+                        },
+                        new
+                        {
+                            Id = new Guid("b3fd6fc7-355b-9b72-38fa-c966ba2ec0e5"),
+                            MaxWeightKg = 10m,
+                            MinWeightKg = 5m
+                        },
+                        new
+                        {
+                            Id = new Guid("6d201205-54a0-2794-5765-daecaaa6c8b2"),
+                            MinWeightKg = 10m
+                        });
+                });
+
+            modelBuilder.Entity("Courier.Pricing.Domain.ZoneRate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("BaseRate")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("DestinationZoneId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("OriginZoneId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("RateCardId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ServiceTypeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("WeightSlabId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DestinationZoneId");
+
+                    b.HasIndex("OriginZoneId");
+
+                    b.HasIndex("RateCardId");
+
+                    b.HasIndex("ServiceTypeId");
+
+                    b.HasIndex("WeightSlabId");
+
+                    b.HasIndex("RateCardId", "OriginZoneId", "DestinationZoneId", "ServiceTypeId", "WeightSlabId")
+                        .IsUnique();
+
+                    b.ToTable("ZoneRates", (string)null);
+                });
+
             modelBuilder.Entity("DeliveryZoneAreas", b =>
                 {
                     b.Property<Guid>("CoveredAreasId")
@@ -2096,6 +2341,78 @@ namespace Persistence.Migrations
                     b.HasOne("Courier.Identity.Domain.Organization", null)
                         .WithMany()
                         .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Courier.Pricing.Domain.AdditionalCharge", b =>
+                {
+                    b.HasOne("Courier.Pricing.Domain.RateCard", null)
+                        .WithMany()
+                        .HasForeignKey("RateCardId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Courier.Pricing.Domain.MerchantRateCard", b =>
+                {
+                    b.HasOne("Courier.Merchants.Domain.Merchant", null)
+                        .WithMany()
+                        .HasForeignKey("MerchantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Courier.Identity.Domain.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Courier.Pricing.Domain.RateCard", null)
+                        .WithMany()
+                        .HasForeignKey("RateCardId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Courier.Pricing.Domain.RateCard", b =>
+                {
+                    b.HasOne("Courier.Identity.Domain.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Courier.Pricing.Domain.ZoneRate", b =>
+                {
+                    b.HasOne("Courier.Geography.Domain.DeliveryZone", null)
+                        .WithMany()
+                        .HasForeignKey("DestinationZoneId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Courier.Geography.Domain.DeliveryZone", null)
+                        .WithMany()
+                        .HasForeignKey("OriginZoneId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Courier.Pricing.Domain.RateCard", null)
+                        .WithMany()
+                        .HasForeignKey("RateCardId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Courier.Pricing.Domain.ServiceType", null)
+                        .WithMany()
+                        .HasForeignKey("ServiceTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Courier.Pricing.Domain.WeightSlab", null)
+                        .WithMany()
+                        .HasForeignKey("WeightSlabId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

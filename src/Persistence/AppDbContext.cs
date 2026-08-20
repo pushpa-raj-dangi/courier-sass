@@ -8,6 +8,8 @@ using Courier.Identity.Domain;
 using Courier.Identity.Infrastructure;
 using Courier.Merchants.Domain;
 using Courier.Merchants.Infrastructure;
+using Courier.Pricing.Domain;
+using Courier.Pricing.Infrastructure;
 using Courier.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 
@@ -43,6 +45,12 @@ public class AppDbContext : DbContext
     public DbSet<MerchantAddress> MerchantAddresses => Set<MerchantAddress>();
     public DbSet<MerchantKycDocument> MerchantKycDocuments => Set<MerchantKycDocument>();
     public DbSet<MerchantRefreshToken> MerchantRefreshTokens => Set<MerchantRefreshToken>();
+    public DbSet<ServiceType> ServiceTypes => Set<ServiceType>();
+    public DbSet<WeightSlab> WeightSlabs => Set<WeightSlab>();
+    public DbSet<RateCard> RateCards => Set<RateCard>();
+    public DbSet<ZoneRate> ZoneRates => Set<ZoneRate>();
+    public DbSet<AdditionalCharge> AdditionalCharges => Set<AdditionalCharge>();
+    public DbSet<MerchantRateCard> MerchantRateCards => Set<MerchantRateCard>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -66,6 +74,12 @@ public class AppDbContext : DbContext
         modelBuilder.ApplyConfiguration(new MerchantAddressConfiguration());
         modelBuilder.ApplyConfiguration(new MerchantKycDocumentConfiguration());
         modelBuilder.ApplyConfiguration(new MerchantRefreshTokenConfiguration());
+        modelBuilder.ApplyConfiguration(new ServiceTypeConfiguration());
+        modelBuilder.ApplyConfiguration(new WeightSlabConfiguration());
+        modelBuilder.ApplyConfiguration(new RateCardConfiguration());
+        modelBuilder.ApplyConfiguration(new ZoneRateConfiguration());
+        modelBuilder.ApplyConfiguration(new AdditionalChargeConfiguration());
+        modelBuilder.ApplyConfiguration(new MerchantRateCardConfiguration());
 
         // Branch.OrganizationId -> Organizations FK lives here rather than in
         // BranchConfiguration (Branches module) because Branches deliberately has no project
@@ -104,6 +118,17 @@ public class AppDbContext : DbContext
             .HasForeignKey(d => d.OrganizationId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // Same reasoning for RateCard/MerchantRateCard.OrganizationId: Pricing has no project
+        // reference to Identity either.
+        modelBuilder.Entity<RateCard>().HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(rc => rc.OrganizationId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<MerchantRateCard>().HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(mrc => mrc.OrganizationId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         // Tenant filters fail CLOSED: the explicit `OrganizationId != null` guard stops EF Core's
         // null-semantics translation from degrading these into `WHERE "OrganizationId" IS NULL`
         // when no tenant is resolved, which would otherwise match org-less rows (planned for
@@ -119,6 +144,8 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<MerchantUser>().HasQueryFilter(mu => _currentTenantProvider.OrganizationId != null && mu.OrganizationId == _currentTenantProvider.OrganizationId);
         modelBuilder.Entity<MerchantAddress>().HasQueryFilter(a => _currentTenantProvider.OrganizationId != null && a.OrganizationId == _currentTenantProvider.OrganizationId);
         modelBuilder.Entity<MerchantKycDocument>().HasQueryFilter(d => _currentTenantProvider.OrganizationId != null && d.OrganizationId == _currentTenantProvider.OrganizationId);
+        modelBuilder.Entity<RateCard>().HasQueryFilter(rc => _currentTenantProvider.OrganizationId != null && rc.OrganizationId == _currentTenantProvider.OrganizationId);
+        modelBuilder.Entity<MerchantRateCard>().HasQueryFilter(mrc => _currentTenantProvider.OrganizationId != null && mrc.OrganizationId == _currentTenantProvider.OrganizationId);
 
         // Defensive: nothing queries Organizations with a tenant context today (registration only
         // inserts), but without this a future `Organizations.ToListAsync()` would enumerate every
@@ -132,5 +159,13 @@ public class AppDbContext : DbContext
 
         // No tenant filter on Province/District/LocalLevel/Ward/Area: shared reference data,
         // identical across every tenant, per ARCHITECTURE.md §2's Geography module description.
+
+        // No tenant filter on ServiceType/WeightSlab: shared reference data, identical across
+        // every tenant (same reasoning as Province/District/LocalLevel/Ward/Area above).
+
+        // No tenant filter on ZoneRate/AdditionalCharge: neither carries its own OrganizationId —
+        // tenant isolation flows transitively through RateCardId -> RateCard.OrganizationId
+        // (which does have a filter, above). Every query against these two tables in
+        // Pricing.Application scopes through a RateCard the caller's tenant already owns.
     }
 }
