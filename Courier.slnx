@@ -11,6 +11,7 @@
     <Project Path="src/Modules/Identity/Identity.csproj" />
     <Project Path="src/Modules/Merchants/Merchants.csproj" />
     <Project Path="src/Modules/Pricing/Pricing.csproj" />
+    <Project Path="src/Modules/Shipments/Shipments.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Api.Tests/Api.Tests.csproj" />
@@ -21,5 +22,6 @@
     <Project Path="tests/Merchants.Tests/Merchants.Tests.csproj" />
     <Project Path="tests/Pricing.Tests/Pricing.Tests.csproj" />
     <Project Path="tests/SharedKernel.Tests/SharedKernel.Tests.csproj" />
+    <Project Path="tests/Shipments.Tests/Shipments.Tests.csproj" />
   </Folder>
 </Solution>

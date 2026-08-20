@@ -110,22 +110,40 @@ origin/destination branch to a rating zone for `ZoneRate` lookup.
 ## Shipments & Tracking — `OrganizationId` present
 
 ```text
-Shipment { Id (internal UUID), Awb (business identifier, unique per org),
+Shipment { Id (internal UUID), Awb (business identifier, unique per (OrganizationId, Awb),
+             format {OrgSlugPrefix}{yyyyMMdd}{6-digit sequence}, e.g. ACME20260820000001),
            OrganizationId, MerchantId,
-           OriginBranchId, DestinationBranchId, CurrentBranchId, CurrentCustodianId
-             (nullable FK — User or Rider, see Custody note below),
-           CurrentStatus, ServiceTypeId,
-           Weight, LengthCm, WidthCm, HeightCm, DeclaredValue,
-           CODAmount, DeliveryCharge, InsuranceCharge, OtherCharges, TotalCharge,
-             # ^ all locked at booking time from the RateCard/ZoneRate resolved
-           RecipientName, RecipientPhone, RecipientAddress (structured, geography FKs),
-           SenderName, SenderPhone, SenderAddress (structured, geography FKs) }
+           OriginBranchId, DestinationBranchId, CurrentBranchId (nullable),
+           CurrentCustodianUserId (nullable), CurrentCustodianRiderId (nullable — always
+             null until Phase 8 introduces Rider; kept as a real column now so Phase 8
+             needs no migration to add it),
+           CurrentStatus (Created|PickupAssigned|PickedUp|AtOriginBranch|Sorted|InTransit|
+             AtDestinationBranch|OutForDelivery|Delivered|Cancelled — NDR/RTO states added
+             Phase 9), ServiceTypeId,
+           WeightKg, LengthCm (nullable), WidthCm (nullable), HeightCm (nullable),
+           DeclaredValue (= sum of ShipmentItem.Quantity*UnitValue, server-computed),
+           CodAmount, WantsInsurance,
+           DeliveryCharge, InsuranceCharge, OtherCharges, TotalCharge,
+             # ^ all snapshotted from PricingService.QuoteAsync at booking time and
+             # never recalculated — DeliveryCharge+InsuranceCharge+OtherCharges equal the
+             # pre-discount Subtotal; TotalCharge is the actual post-discount amount, so the
+             # three charge fields will not sum to TotalCharge when a merchant discount
+             # applied (expected, not a bug — every component stays individually traceable
+             # per CLAUDE.md §23)
+           RecipientName, RecipientPhone, RecipientProvinceId, RecipientDistrictId,
+             RecipientLocalLevelId, RecipientWardNumber, RecipientAddressLine,
+           SenderName, SenderPhone, SenderProvinceId, SenderDistrictId, SenderLocalLevelId,
+             SenderWardNumber, SenderAddressLine }
 
 ShipmentItem { Id, ShipmentId, Description, Quantity, UnitValue }
 
-ShipmentEvent { Id, ShipmentId, EventType, PreviousStatus, NewStatus, BranchId,
-                UserId (nullable), RiderId (nullable), Timestamp, Latitude, Longitude,
-                Notes, Metadata } # append-only, never updated/deleted
+ShipmentEvent { Id, ShipmentId, EventType (Created|PickupAssigned|PickedUp|
+                ReceivedAtOrigin|Sorted|Dispatched|ReceivedAtDestination|OutForDelivery|
+                Delivered|Cancelled), PreviousStatus (nullable — null for the Created
+                event), NewStatus, BranchId (nullable), UserId (nullable), RiderId
+                (nullable — always null this phase), Timestamp, Latitude (nullable),
+                Longitude (nullable), Notes (nullable), Metadata (nullable) }
+                # append-only, never updated/deleted
 ```
 
 **Custody note:** `CurrentCustodianId` is polymorphic (a branch-based staff user or a
@@ -133,6 +151,10 @@ rider) in practice modeled as two nullable FKs (`CurrentCustodianUserId`,
 `CurrentCustodianRiderId`) with exactly one non-null at a time, rather than a true
 polymorphic FK — kept explicit for referential integrity rather than using a
 type+id pair.
+
+**RecipientAddress/SenderAddress** are structured geography FKs (Province/District/
+LocalLevel/WardNumber + AddressLine), the identical shape `Branch`/`MerchantAddress` already
+use — not the single free-text field an earlier draft of this section implied.
 
 ## Scanning & Manifests — `OrganizationId` present
 
@@ -268,6 +290,7 @@ Geography.DeliveryZone 1─* ZoneRate (as OriginZone, and separately as Destinat
 Branch *─1 Geography.DeliveryZone
 Merchant 1─(0..1)─ MerchantRateCard *─1 RateCard
 Merchant 1─* Shipment *─1 Branch (origin/destination/current)
+Shipment *─1 Pricing.ServiceType
 Shipment 1─* ShipmentItem
 Shipment 1─* ShipmentEvent
 Shipment 1─* DeliveryAttempt 1─(0..1)─ DeliveryProof
