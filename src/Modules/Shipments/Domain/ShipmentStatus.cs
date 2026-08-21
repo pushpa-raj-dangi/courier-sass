@@ -12,6 +12,7 @@ public enum ShipmentStatus
     InTransit,
     AtDestinationBranch,
     OutForDelivery,
+    DeliveryFailed,
     Delivered,
     Cancelled
 }

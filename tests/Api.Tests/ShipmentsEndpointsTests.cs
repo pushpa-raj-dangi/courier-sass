@@ -6,7 +6,6 @@ using Courier.Branches.Domain;
 using Courier.Geography.Application;
 using Courier.Geography.Infrastructure;
 using Courier.Identity.Application;
-using Courier.Manifests.Application;
 using Courier.Merchants.Application;
 using Courier.Pricing.Application;
 using Courier.Pricing.Domain;
@@ -85,18 +84,6 @@ public class ShipmentsEndpointsTests : IClassFixture<WebApplicationFactory<Progr
         zoneRateResponse.EnsureSuccessStatusCode();
     }
 
-    // Replaces the retired POST /shipments/{id}/{sort,dispatch,receive-dest} endpoints — walks a
-    // shipment already at AtOriginBranch through to AtDestinationBranch via a real single-shipment
-    // manifest, mirroring ManifestsEndpointsTests.FullManifestLifecycle_DraftToClosed's flow.
-    private async Task SortDispatchAndReceiveViaManifestAsync(HttpClient client, ShipmentResponse shipment, Guid originBranchId, Guid destinationBranchId)
-    {
-        var manifest = await (await client.PostAsJsonAsync("/api/v1/manifests", new CreateManifestRequest(originBranchId, destinationBranchId))).Content.ReadFromJsonAsync<ManifestResponse>();
-        await client.PostAsJsonAsync($"/api/v1/manifests/{manifest!.Id}/scan", new ScanShipmentRequest(shipment.Awb));
-        await client.PostAsync($"/api/v1/manifests/{manifest.Id}/seal", null);
-        await client.PostAsJsonAsync($"/api/v1/manifests/{manifest.Id}/dispatch", new DispatchManifestRequest("BA 2 KHA 1234", null));
-        await client.PostAsJsonAsync($"/api/v1/manifests/{manifest.Id}/receive-scan", new ScanShipmentRequest(shipment.Awb));
-    }
-
     private static CreateShipmentRequest ValidShipmentRequest(Guid merchantId, Guid originBranchId, Guid destinationBranchId, Guid serviceTypeId) => new(
         merchantId, originBranchId, destinationBranchId, serviceTypeId, 0.7m, null, null, null, 0m, false,
         "Recipient One", "9800000000", KathmanduProvinceId, KathmanduDistrictId, KathmanduLocalLevelId, KathmanduWardNumber, "Recipient Address",
@@ -111,67 +98,6 @@ public class ShipmentsEndpointsTests : IClassFixture<WebApplicationFactory<Progr
             KathmanduProvinceId, KathmanduDistrictId, KathmanduLocalLevelId, KathmanduWardNumber, "New Road, Kathmandu"));
         var merchant = await response.Content.ReadFromJsonAsync<MerchantResponse>();
         return merchant!.Id;
-    }
-
-    [Fact]
-    public async Task FullHappyPath_CreatedToDelivered_Succeeds()
-    {
-        var client = _factory.CreateClient();
-        var org = await RegisterOrgAsync(client, "happy");
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
-
-        var (originBranchId, destinationBranchId, serviceTypeId) = await SeedRoutableBranchesAsync(client);
-        await SeedRateCardAsync(client, originBranchId, destinationBranchId, serviceTypeId, 150m);
-        var merchantId = await CreateMerchantAsync(client);
-
-        var createResponse = await client.PostAsJsonAsync("/api/v1/shipments", ValidShipmentRequest(merchantId, originBranchId, destinationBranchId, serviceTypeId));
-        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
-        var shipment = await createResponse.Content.ReadFromJsonAsync<ShipmentResponse>();
-        Assert.Equal(1000m, shipment!.DeclaredValue);
-        Assert.Equal(150m, shipment.TotalCharge);
-
-        var riderUserId = Guid.NewGuid(); // no Rider entity yet — any Guid is accepted as the assignee this phase
-
-        var afterAssign = await (await client.PostAsJsonAsync($"/api/v1/shipments/{shipment.Id}/pickup-assign", new AssignPickupRequest(riderUserId))).Content.ReadFromJsonAsync<ShipmentResponse>();
-        Assert.Equal(ShipmentStatus.PickupAssigned, afterAssign!.CurrentStatus);
-
-        var afterScan = await (await client.PostAsJsonAsync($"/api/v1/shipments/{shipment.Id}/pickup-scan", new { })).Content.ReadFromJsonAsync<ShipmentResponse>();
-        Assert.Equal(ShipmentStatus.PickedUp, afterScan!.CurrentStatus);
-
-        var afterOrigin = await (await client.PostAsJsonAsync($"/api/v1/shipments/{shipment.Id}/receive-origin", new { })).Content.ReadFromJsonAsync<ShipmentResponse>();
-        Assert.Equal(ShipmentStatus.AtOriginBranch, afterOrigin!.CurrentStatus);
-
-        await SortDispatchAndReceiveViaManifestAsync(client, shipment, originBranchId, destinationBranchId);
-        var afterDest = await (await client.GetAsync($"/api/v1/shipments/{shipment.Awb}")).Content.ReadFromJsonAsync<ShipmentResponse>();
-        Assert.Equal(ShipmentStatus.AtDestinationBranch, afterDest!.CurrentStatus);
-
-        var afterOutForDelivery = await (await client.PostAsJsonAsync($"/api/v1/shipments/{shipment.Id}/out-for-delivery", new AssignDeliveryRequest(riderUserId))).Content.ReadFromJsonAsync<ShipmentResponse>();
-        Assert.Equal(ShipmentStatus.OutForDelivery, afterOutForDelivery!.CurrentStatus);
-
-        var deliverResponse = await client.PostAsJsonAsync($"/api/v1/shipments/{shipment.Id}/deliver", new DeliverShipmentRequest("Recipient One", "left with security guard"));
-        Assert.Equal(HttpStatusCode.OK, deliverResponse.StatusCode);
-        var delivered = await deliverResponse.Content.ReadFromJsonAsync<ShipmentResponse>();
-        Assert.Equal(ShipmentStatus.Delivered, delivered!.CurrentStatus);
-        Assert.Null(delivered.CurrentBranchId);
-        Assert.Null(delivered.CurrentCustodianUserId);
-    }
-
-    [Fact]
-    public async Task Deliver_FromCreatedStatus_Returns400WithInvalidTransitionDetails()
-    {
-        var client = _factory.CreateClient();
-        var org = await RegisterOrgAsync(client, "bad-transition");
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
-        var (originBranchId, destinationBranchId, serviceTypeId) = await SeedRoutableBranchesAsync(client);
-        await SeedRateCardAsync(client, originBranchId, destinationBranchId, serviceTypeId, 100m);
-        var merchantId = await CreateMerchantAsync(client);
-        var shipment = await (await client.PostAsJsonAsync("/api/v1/shipments", ValidShipmentRequest(merchantId, originBranchId, destinationBranchId, serviceTypeId))).Content.ReadFromJsonAsync<ShipmentResponse>();
-
-        var response = await client.PostAsJsonAsync($"/api/v1/shipments/{shipment!.Id}/deliver", new DeliverShipmentRequest("X", null));
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var body = await response.Content.ReadAsStringAsync();
-        Assert.Contains("SHIPMENT_INVALID_TRANSITION", body);
     }
 
     [Fact]
@@ -327,43 +253,4 @@ public class ShipmentsEndpointsTests : IClassFixture<WebApplicationFactory<Progr
         Assert.NotEqual(shipment1!.Awb, shipment2!.Awb);
     }
 
-    // Proves ShipmentConfiguration's xmin-based optimistic concurrency token (Fix 5) actually
-    // prevents a real double-delivery race: two concurrent POST /{id}/deliver calls for the same
-    // shipment must not both succeed — that would append two Delivered ShipmentEvent rows for one
-    // physical operation, corrupting the append-only event history's integrity (CLAUDE.md
-    // §11/§39) and, in a later phase, double-counting a COD collection. EF's InMemory provider
-    // (used by Shipments.Tests' unit tests) doesn't enforce concurrency tokens at all, so only a
-    // real-Postgres, real-concurrent-request test like this one exercises the DbUpdateConcurrencyException
-    // catch/translate path in ShipmentService.Transitions.cs's TransitionAsync. Mirrors
-    // CreateShipment_ConcurrentRequestsForSameOrg_BothSucceedWithDistinctAwbs's Task.WhenAll shape.
-    [Fact]
-    public async Task Deliver_ConcurrentRequestsForSameShipment_ExactlyOneSucceeds()
-    {
-        var client = _factory.CreateClient();
-        var org = await RegisterOrgAsync(client, "deliver-race");
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
-        var (originBranchId, destinationBranchId, serviceTypeId) = await SeedRoutableBranchesAsync(client);
-        await SeedRateCardAsync(client, originBranchId, destinationBranchId, serviceTypeId, 100m);
-        var merchantId = await CreateMerchantAsync(client);
-
-        var shipment = await (await client.PostAsJsonAsync("/api/v1/shipments", ValidShipmentRequest(merchantId, originBranchId, destinationBranchId, serviceTypeId))).Content.ReadFromJsonAsync<ShipmentResponse>();
-        var riderUserId = Guid.NewGuid();
-
-        await client.PostAsJsonAsync($"/api/v1/shipments/{shipment!.Id}/pickup-assign", new AssignPickupRequest(riderUserId));
-        await client.PostAsJsonAsync($"/api/v1/shipments/{shipment.Id}/pickup-scan", new { });
-        await client.PostAsJsonAsync($"/api/v1/shipments/{shipment.Id}/receive-origin", new { });
-        await SortDispatchAndReceiveViaManifestAsync(client, shipment, originBranchId, destinationBranchId);
-        await client.PostAsJsonAsync($"/api/v1/shipments/{shipment.Id}/out-for-delivery", new AssignDeliveryRequest(riderUserId));
-
-        var deliverRequest = new DeliverShipmentRequest("Recipient One", "race test");
-        var task1 = client.PostAsJsonAsync($"/api/v1/shipments/{shipment.Id}/deliver", deliverRequest);
-        var task2 = client.PostAsJsonAsync($"/api/v1/shipments/{shipment.Id}/deliver", deliverRequest);
-        var responses = await Task.WhenAll(task1, task2);
-
-        Assert.Single(responses, r => r.StatusCode == HttpStatusCode.OK);
-        Assert.Single(responses, r => r.StatusCode == HttpStatusCode.BadRequest);
-
-        var final = await (await client.GetAsync($"/api/v1/shipments/{shipment.Awb}")).Content.ReadFromJsonAsync<ShipmentResponse>();
-        Assert.Equal(ShipmentStatus.Delivered, final!.CurrentStatus);
-    }
 }

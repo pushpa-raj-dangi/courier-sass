@@ -260,7 +260,7 @@ public partial class ShipmentService : IShipmentTransitionService
 
     private static ShipmentResponse ToResponse(Shipment shipment, List<ShipmentItem> items) => new(
         shipment.Id, shipment.Awb, shipment.MerchantId, shipment.OriginBranchId, shipment.DestinationBranchId,
-        shipment.CurrentBranchId, shipment.CurrentCustodianUserId, shipment.CurrentStatus, shipment.ServiceTypeId,
+        shipment.CurrentBranchId, shipment.CurrentCustodianUserId, shipment.CurrentCustodianRiderId, shipment.CurrentStatus, shipment.ServiceTypeId,
         shipment.WeightKg, shipment.LengthCm, shipment.WidthCm, shipment.HeightCm,
         shipment.DeclaredValue, shipment.CodAmount, shipment.WantsInsurance,
         shipment.DeliveryCharge, shipment.InsuranceCharge, shipment.OtherCharges, shipment.TotalCharge,

@@ -10,6 +10,7 @@ public enum ShipmentEventType
     Dispatched,
     ReceivedAtDestination,
     OutForDelivery,
+    DeliveryFailed,
     Delivered,
     Cancelled
 }

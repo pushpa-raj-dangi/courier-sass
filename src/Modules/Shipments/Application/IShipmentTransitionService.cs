@@ -6,6 +6,8 @@ namespace Courier.Shipments.Application;
 // Read-only projection for the Manifests module's five-check scan validation
 // (BRANCH-OPERATIONS.md §1) — deliberately narrower than ShipmentResponse: only the fields a scan
 // check needs (state + custody), not pricing/recipient/sender data Manifests has no reason to see.
+// CurrentCustodianRiderId (Phase 8) lets Riders perform its own check 5 (custody consistency) the
+// same way Manifests already does with CurrentBranchId — Riders is the only caller that reads it.
 public record ShipmentScanInfo(
     Guid ShipmentId,
     Guid OrganizationId,
@@ -13,14 +15,14 @@ public record ShipmentScanInfo(
     ShipmentStatus CurrentStatus,
     Guid? CurrentBranchId,
     Guid OriginBranchId,
-    Guid DestinationBranchId);
+    Guid DestinationBranchId,
+    Guid? CurrentCustodianRiderId);
 
-// Lets the Manifests module drive real shipment-status transitions without touching Shipment's
-// DbSet directly, mirroring Phase 5's IBranchLookupService pattern. Manifests performs the
-// permission + branch-access + expected-operation checks itself (BRANCH-OPERATIONS.md §1 checks
-// 1/2/4) before calling these — the transition methods below only enforce the state-machine check
-// (#3, via the underlying TransitionAsync's expectedFrom guard) and are not separately
-// permission-gated, since that gate now lives one layer up in ManifestService.
+// Lets Manifests and Riders drive real shipment-status transitions without touching Shipment's
+// DbSet directly. Both callers perform the permission + branch-access + expected-operation +
+// custody checks themselves (BRANCH-OPERATIONS.md §1 checks 1/2/4/5) before calling these — the
+// methods below only enforce the state-machine check (#3, via the underlying TransitionAsync's
+// expectedFrom guard).
 public interface IShipmentTransitionService
 {
     Task<ShipmentScanInfo?> GetScanInfoAsync(Guid shipmentId, CancellationToken cancellationToken = default);
@@ -28,4 +30,11 @@ public interface IShipmentTransitionService
     Task<ShipmentResponse?> SortAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default);
     Task DispatchManyAsync(IReadOnlyCollection<Guid> shipmentIds, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default);
     Task<ShipmentResponse?> ReceiveAtDestinationAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default);
+
+    // Phase 8 — driven by Riders.Application.RiderService.
+    Task<ShipmentResponse?> AssignPickupToRiderAsync(Guid shipmentId, Guid riderId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default);
+    Task<ShipmentResponse?> RiderPickupScanAsync(Guid shipmentId, Guid riderId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default);
+    Task<ShipmentResponse?> AssignDeliveryToRiderAsync(Guid shipmentId, Guid riderId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default);
+    Task<ShipmentResponse?> CompleteDeliveryAsync(Guid shipmentId, Guid riderId, string recipientName, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default);
+    Task<ShipmentResponse?> FailDeliveryAsync(Guid shipmentId, Guid riderId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default);
 }

@@ -201,15 +201,15 @@ public class ShipmentServiceScanInfoTests
         var organizationId = Guid.NewGuid();
         var (service, shipmentId1, _, originBranchId, _) = await SeedCreatedShipmentAsync(dbContext, organizationId);
         var actingUser = ActingUser(Guid.NewGuid());
-        await service.AssignPickupAsync(shipmentId1, new AssignPickupRequest(Guid.NewGuid()), actingUser);
-        await service.PickupScanAsync(shipmentId1, actingUser);
+        await service.AssignPickupToRiderAsync(shipmentId1, Guid.NewGuid(), actingUser);
+        await service.RiderPickupScanAsync(shipmentId1, Guid.NewGuid(), actingUser);
         await service.ReceiveAtOriginAsync(shipmentId1, actingUser);
         await service.SortAsync(shipmentId1, actingUser);
 
         var seed2 = await SeedCreatedShipmentAsync(dbContext, organizationId);
         var shipmentId2 = seed2.ShipmentId;
-        await service.AssignPickupAsync(shipmentId2, new AssignPickupRequest(Guid.NewGuid()), actingUser);
-        await service.PickupScanAsync(shipmentId2, actingUser);
+        await service.AssignPickupToRiderAsync(shipmentId2, Guid.NewGuid(), actingUser);
+        await service.RiderPickupScanAsync(shipmentId2, Guid.NewGuid(), actingUser);
         await service.ReceiveAtOriginAsync(shipmentId2, actingUser);
         await service.SortAsync(shipmentId2, actingUser);
 

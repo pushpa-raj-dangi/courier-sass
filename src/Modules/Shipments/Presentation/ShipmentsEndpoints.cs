@@ -72,25 +72,9 @@ public static class ShipmentsEndpoints
             return Results.Ok(await service.ListAsync(httpContext.User, httpContext.RequestAborted));
         });
 
-        group.MapPost("/{id:guid}/pickup-assign", async (Guid id, AssignPickupRequest request, ShipmentService service, HttpContext httpContext) =>
-            await HandleTransitionAsync(() => service.AssignPickupAsync(id, request, httpContext.User, httpContext.RequestAborted), id))
-            .RequirePermission("shipment.assign");
-
-        group.MapPost("/{id:guid}/pickup-scan", async (Guid id, ShipmentService service, HttpContext httpContext) =>
-            await HandleTransitionAsync(() => service.PickupScanAsync(id, httpContext.User, httpContext.RequestAborted), id))
-            .RequirePermission("shipment.scan");
-
         group.MapPost("/{id:guid}/receive-origin", async (Guid id, ShipmentService service, HttpContext httpContext) =>
             await HandleTransitionAsync(() => service.ReceiveAtOriginAsync(id, httpContext.User, httpContext.RequestAborted), id))
             .RequirePermission("shipment.scan");
-
-        group.MapPost("/{id:guid}/out-for-delivery", async (Guid id, AssignDeliveryRequest request, ShipmentService service, HttpContext httpContext) =>
-            await HandleTransitionAsync(() => service.AssignDeliveryAsync(id, request, httpContext.User, httpContext.RequestAborted), id))
-            .RequirePermission("delivery.assign");
-
-        group.MapPost("/{id:guid}/deliver", async (Guid id, DeliverShipmentRequest request, ShipmentService service, HttpContext httpContext) =>
-            await HandleTransitionAsync(() => service.DeliverAsync(id, request, httpContext.User, httpContext.RequestAborted), id))
-            .RequirePermission("delivery.complete");
 
         group.MapPost("/{id:guid}/cancel", async (Guid id, ShipmentService service, HttpContext httpContext, IPermissionChecker permissionChecker, IMerchantAuthorizationChecker merchantAuthorizationChecker) =>
         {

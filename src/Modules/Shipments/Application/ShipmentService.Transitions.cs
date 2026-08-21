@@ -6,12 +6,21 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Courier.Shipments.Application;
 
+// This plan's resolved design decision: RiderDelivery is NOT a second call after assignment the
+// way RiderPickup is (assign -> PICKUP_ASSIGNED, then a separate pickup scan -> PICKED_UP).
+// SHIPMENT-LIFECYCLE.md's transition table has exactly one arrow into OUT_FOR_DELIVERY ("delivery
+// rider assignment + out-for-delivery scan"), matching Phase 6's AssignDeliveryAsync having no
+// sibling scan endpoint at all. So AssignDeliveryToRiderAsync below IS the RiderDelivery scan —
+// assigning a delivery task to a rider and scanning it out for delivery are the same action.
+// Pickup keeps its two-step shape (an explicit PICKUP_ASSIGNED status exists for dispatch boards
+// to show "assigned but not yet physically collected"); delivery has no equivalent named status
+// between "assigned" and "out for delivery", so there's nothing for a second step to represent.
 public partial class ShipmentService
 {
     private async Task<ShipmentResponse?> TransitionAsync(
         Guid shipmentId, ShipmentStatus expectedFrom, ShipmentStatus to, ShipmentEventType eventType,
         Action<Shipment> applyCustody, string auditAction, ClaimsPrincipal actingUser, CancellationToken cancellationToken,
-        string? notes = null)
+        string? notes = null, Guid? riderId = null)
     {
         var organizationId = _currentTenantProvider.OrganizationId
             ?? throw new ShipmentValidationException("No active organization context.");
@@ -41,6 +50,7 @@ public partial class ShipmentService
             NewStatus = to,
             BranchId = eventBranchId,
             UserId = actingUser.GetUserId(),
+            RiderId = riderId,
             Timestamp = DateTimeOffset.UtcNow,
             Notes = notes
         });
@@ -72,22 +82,19 @@ public partial class ShipmentService
         }
     }
 
-    public Task<ShipmentResponse?> AssignPickupAsync(Guid shipmentId, AssignPickupRequest request, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) =>
+    // Callers of every method below are Riders.Application.RiderService, which performs
+    // BRANCH-OPERATIONS.md §1 checks 1 (permission), 2 (branch access), 4 (expected operation), and
+    // 5 (custody consistency) itself before ever reaching here — exactly the same division of
+    // responsibility Phase 7 established between ManifestService and these Sort/Receive methods.
+    // Only check 3 (shipment state, via TransitionAsync's expectedFrom guard) happens here.
+
+    public Task<ShipmentResponse?> AssignPickupToRiderAsync(Guid shipmentId, Guid riderId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) =>
         TransitionAsync(shipmentId, ShipmentStatus.Created, ShipmentStatus.PickupAssigned, ShipmentEventType.PickupAssigned,
-            s => s.CurrentCustodianUserId = request.AssignedUserId, "shipment.pickup_assigned", actingUser, cancellationToken);
+            s => s.CurrentCustodianRiderId = riderId, "shipment.pickup_assigned", actingUser, cancellationToken, riderId: riderId);
 
-    public async Task<ShipmentResponse?> PickupScanAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
-    {
-        var shipment = await _dbContext.Set<Shipment>().FirstOrDefaultAsync(s => s.Id == shipmentId, cancellationToken);
-        if (shipment is null)
-        {
-            return null;
-        }
-        await CheckBranchAccessAsync(actingUser, "shipment.scan", shipment.OriginBranchId, cancellationToken);
-
-        return await TransitionAsync(shipmentId, ShipmentStatus.PickupAssigned, ShipmentStatus.PickedUp, ShipmentEventType.PickedUp,
-            _ => { }, "shipment.picked_up", actingUser, cancellationToken);
-    }
+    public Task<ShipmentResponse?> RiderPickupScanAsync(Guid shipmentId, Guid riderId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) =>
+        TransitionAsync(shipmentId, ShipmentStatus.PickupAssigned, ShipmentStatus.PickedUp, ShipmentEventType.PickedUp,
+            _ => { }, "shipment.picked_up", actingUser, cancellationToken, riderId: riderId);
 
     public async Task<ShipmentResponse?> ReceiveAtOriginAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
@@ -99,27 +106,18 @@ public partial class ShipmentService
         await CheckBranchAccessAsync(actingUser, "shipment.scan", shipment.OriginBranchId, cancellationToken);
 
         return await TransitionAsync(shipmentId, ShipmentStatus.PickedUp, ShipmentStatus.AtOriginBranch, ShipmentEventType.ReceivedAtOrigin,
-            s => { s.CurrentBranchId = s.OriginBranchId; s.CurrentCustodianUserId = null; }, "shipment.received_at_origin", actingUser, cancellationToken);
+            s => { s.CurrentBranchId = s.OriginBranchId; s.CurrentCustodianUserId = null; s.CurrentCustodianRiderId = null; }, "shipment.received_at_origin", actingUser, cancellationToken);
     }
 
-    // Branch-scope/permission enforcement for this operation now lives one layer up in
+    // Branch-scope/permission enforcement for this operation lives one layer up in
     // Manifests.Application.ManifestService.ScanAsync (BRANCH-OPERATIONS.md §1 checks 1/2), which
-    // is the only caller of this method as of Phase 7 — its own manifest.create permission and
-    // FromBranchId branch check happen before this is ever reached, so re-checking
-    // "shipment.sort"/branch access here would be redundant and would wrongly require callers to
-    // hold a permission this phase's design deliberately retired for this operation.
+    // is the only caller of this method as of Phase 7.
     public Task<ShipmentResponse?> SortAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) =>
         TransitionAsync(shipmentId, ShipmentStatus.AtOriginBranch, ShipmentStatus.Sorted, ShipmentEventType.Sorted,
             _ => { }, "shipment.sorted", actingUser, cancellationToken);
 
-    // Used exclusively by Manifests.Application.ManifestService.DispatchAsync to move every
-    // shipment on a manifest Sorted -> InTransit as one unit. Deliberately does NOT loop calling
-    // the single-shipment TransitionAsync helper (which SaveChangesAsync's per call) — that would
-    // commit N separate transactions for one manifest-level dispatch action. Instead every
-    // shipment's mutation + ShipmentEvent is staged in-memory and committed in exactly one
-    // SaveChangesAsync, which EF Core already wraps in a single implicit database transaction on a
-    // relational provider — true atomicity without introducing an explicit BeginTransactionAsync
-    // (which the in-memory provider this module's unit tests use does not support).
+    // Used exclusively by Manifests.Application.ManifestService.DispatchAsync — see Phase 7's
+    // reasoning in this same file's history for why this stages N shipments into one SaveChangesAsync.
     public async Task DispatchManyAsync(IReadOnlyCollection<Guid> shipmentIds, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
         var shipments = await _dbContext.Set<Shipment>().Where(s => shipmentIds.Contains(s.Id)).ToListAsync(cancellationToken);
@@ -161,38 +159,28 @@ public partial class ShipmentService
     }
 
     // Same reasoning as SortAsync above: Manifests.Application.ManifestService.ReceiveScanAsync is
-    // the only caller as of Phase 7, and it enforces manifest.receive + ToBranchId branch access
-    // itself before calling this.
+    // the only caller as of Phase 7.
     public Task<ShipmentResponse?> ReceiveAtDestinationAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) =>
         TransitionAsync(shipmentId, ShipmentStatus.InTransit, ShipmentStatus.AtDestinationBranch, ShipmentEventType.ReceivedAtDestination,
             s => s.CurrentBranchId = s.DestinationBranchId, "shipment.received_at_destination", actingUser, cancellationToken);
 
-    public async Task<ShipmentResponse?> AssignDeliveryAsync(Guid shipmentId, AssignDeliveryRequest request, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
-    {
-        var shipment = await _dbContext.Set<Shipment>().FirstOrDefaultAsync(s => s.Id == shipmentId, cancellationToken);
-        if (shipment is null)
-        {
-            return null;
-        }
-        await CheckBranchAccessAsync(actingUser, "delivery.assign", shipment.DestinationBranchId, cancellationToken);
+    // IS the RiderDelivery scan — see this file's top-of-namespace comment for why there's no
+    // separate second "delivery scan" step the way pickup has one.
+    public Task<ShipmentResponse?> AssignDeliveryToRiderAsync(Guid shipmentId, Guid riderId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) =>
+        TransitionAsync(shipmentId, ShipmentStatus.AtDestinationBranch, ShipmentStatus.OutForDelivery, ShipmentEventType.OutForDelivery,
+            s => { s.CurrentCustodianRiderId = riderId; s.CurrentBranchId = null; }, "shipment.out_for_delivery", actingUser, cancellationToken, riderId: riderId);
 
-        return await TransitionAsync(shipmentId, ShipmentStatus.AtDestinationBranch, ShipmentStatus.OutForDelivery, ShipmentEventType.OutForDelivery,
-            s => { s.CurrentCustodianUserId = request.AssignedUserId; s.CurrentBranchId = null; }, "shipment.out_for_delivery", actingUser, cancellationToken);
-    }
+    public Task<ShipmentResponse?> CompleteDeliveryAsync(Guid shipmentId, Guid riderId, string recipientName, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) =>
+        TransitionAsync(shipmentId, ShipmentStatus.OutForDelivery, ShipmentStatus.Delivered, ShipmentEventType.Delivered,
+            s => s.CurrentCustodianRiderId = null, "shipment.delivered", actingUser, cancellationToken,
+            notes: $"Delivered to: {recipientName}.", riderId: riderId);
 
-    public async Task<ShipmentResponse?> DeliverAsync(Guid shipmentId, DeliverShipmentRequest request, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
-    {
-        var shipment = await _dbContext.Set<Shipment>().FirstOrDefaultAsync(s => s.Id == shipmentId, cancellationToken);
-        if (shipment is null)
-        {
-            return null;
-        }
-        await CheckBranchAccessAsync(actingUser, "delivery.complete", shipment.DestinationBranchId, cancellationToken);
-
-        return await TransitionAsync(shipmentId, ShipmentStatus.OutForDelivery, ShipmentStatus.Delivered, ShipmentEventType.Delivered,
-            s => s.CurrentCustodianUserId = null, "shipment.delivered", actingUser, cancellationToken,
-            notes: $"Delivered to: {request.RecipientName}.{(string.IsNullOrWhiteSpace(request.Notes) ? string.Empty : " " + request.Notes)}");
-    }
+    // Custody deliberately stays with the rider (CurrentCustodianRiderId is NOT cleared) — the
+    // parcel is still in the rider's physical possession after a failed attempt, it hasn't gone
+    // back to a branch. Phase 9's NDR/reattempt/RTO flow is what eventually moves custody again.
+    public Task<ShipmentResponse?> FailDeliveryAsync(Guid shipmentId, Guid riderId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) =>
+        TransitionAsync(shipmentId, ShipmentStatus.OutForDelivery, ShipmentStatus.DeliveryFailed, ShipmentEventType.DeliveryFailed,
+            _ => { }, "shipment.delivery_failed", actingUser, cancellationToken, riderId: riderId);
 
     public async Task<ShipmentResponse?> CancelAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
@@ -218,6 +206,7 @@ public partial class ShipmentService
         var eventBranchId = shipment.CurrentBranchId;
         shipment.CurrentStatus = ShipmentStatus.Cancelled;
         shipment.CurrentCustodianUserId = null;
+        shipment.CurrentCustodianRiderId = null;
         shipment.CurrentBranchId = null;
 
         _dbContext.Set<ShipmentEvent>().Add(new ShipmentEvent

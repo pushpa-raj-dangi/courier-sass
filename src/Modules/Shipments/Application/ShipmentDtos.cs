@@ -41,6 +41,7 @@ public record ShipmentResponse(
     Guid DestinationBranchId,
     Guid? CurrentBranchId,
     Guid? CurrentCustodianUserId,
+    Guid? CurrentCustodianRiderId,
     ShipmentStatus CurrentStatus,
     Guid ServiceTypeId,
     decimal WeightKg,
@@ -61,10 +62,6 @@ public record ShipmentResponse(
     string SenderPhone,
     string SenderAddressLine,
     List<ShipmentItemResponse> Items);
-
-public record AssignPickupRequest(Guid AssignedUserId);
-public record AssignDeliveryRequest(Guid AssignedUserId);
-public record DeliverShipmentRequest(string RecipientName, string? Notes);
 
 public class ShipmentValidationException : Exception
 {

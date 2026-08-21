@@ -162,20 +162,20 @@ public class ShipmentServiceTransitionTests
         var organizationId = Guid.NewGuid();
         var (service, shipmentId, originBranchId, destinationBranchId) = await SeedCreatedShipmentAsync(dbContext, organizationId);
         var actingUser = ActingUser(Guid.NewGuid());
-        var riderUserId = Guid.NewGuid();
+        var riderId = Guid.NewGuid();
 
-        var afterAssign = await service.AssignPickupAsync(shipmentId, new AssignPickupRequest(riderUserId), actingUser);
+        var afterAssign = await service.AssignPickupToRiderAsync(shipmentId, riderId, actingUser);
         Assert.Equal(ShipmentStatus.PickupAssigned, afterAssign!.CurrentStatus);
-        Assert.Equal(riderUserId, afterAssign.CurrentCustodianUserId);
+        Assert.Equal(riderId, afterAssign.CurrentCustodianRiderId);
 
-        var afterScan = await service.PickupScanAsync(shipmentId, actingUser);
+        var afterScan = await service.RiderPickupScanAsync(shipmentId, riderId, actingUser);
         Assert.Equal(ShipmentStatus.PickedUp, afterScan!.CurrentStatus);
-        Assert.Equal(riderUserId, afterScan.CurrentCustodianUserId);
+        Assert.Equal(riderId, afterScan.CurrentCustodianRiderId);
 
         var afterReceiveOrigin = await service.ReceiveAtOriginAsync(shipmentId, actingUser);
         Assert.Equal(ShipmentStatus.AtOriginBranch, afterReceiveOrigin!.CurrentStatus);
         Assert.Equal(originBranchId, afterReceiveOrigin.CurrentBranchId);
-        Assert.Null(afterReceiveOrigin.CurrentCustodianUserId);
+        Assert.Null(afterReceiveOrigin.CurrentCustodianRiderId);
 
         var afterSort = await service.SortAsync(shipmentId, actingUser);
         Assert.Equal(ShipmentStatus.Sorted, afterSort!.CurrentStatus);
@@ -190,14 +190,14 @@ public class ShipmentServiceTransitionTests
         Assert.Equal(ShipmentStatus.AtDestinationBranch, afterReceiveDest!.CurrentStatus);
         Assert.Equal(destinationBranchId, afterReceiveDest.CurrentBranchId);
 
-        var afterOutForDelivery = await service.AssignDeliveryAsync(shipmentId, new AssignDeliveryRequest(riderUserId), actingUser);
+        var afterOutForDelivery = await service.AssignDeliveryToRiderAsync(shipmentId, riderId, actingUser);
         Assert.Equal(ShipmentStatus.OutForDelivery, afterOutForDelivery!.CurrentStatus);
-        Assert.Equal(riderUserId, afterOutForDelivery.CurrentCustodianUserId);
+        Assert.Equal(riderId, afterOutForDelivery.CurrentCustodianRiderId);
         Assert.Null(afterOutForDelivery.CurrentBranchId);
 
-        var afterDeliver = await service.DeliverAsync(shipmentId, new DeliverShipmentRequest("Recipient", "left at door"), actingUser);
+        var afterDeliver = await service.CompleteDeliveryAsync(shipmentId, riderId, "Recipient", actingUser);
         Assert.Equal(ShipmentStatus.Delivered, afterDeliver!.CurrentStatus);
-        Assert.Null(afterDeliver.CurrentCustodianUserId);
+        Assert.Null(afterDeliver.CurrentCustodianRiderId);
         Assert.Null(afterDeliver.CurrentBranchId);
 
         var events = await dbContext.Set<ShipmentEvent>().Where(e => e.ShipmentId == shipmentId).OrderBy(e => e.Timestamp).ToListAsync();
@@ -208,12 +208,9 @@ public class ShipmentServiceTransitionTests
             ShipmentEventType.ReceivedAtOrigin, ShipmentEventType.Sorted, ShipmentEventType.Dispatched,
             ShipmentEventType.ReceivedAtDestination, ShipmentEventType.OutForDelivery, ShipmentEventType.Delivered
         }, events.Select(e => e.EventType));
+        Assert.All(events.Where(e => e.EventType is ShipmentEventType.PickupAssigned or ShipmentEventType.PickedUp or ShipmentEventType.OutForDelivery or ShipmentEventType.Delivered),
+            e => Assert.Equal(riderId, e.RiderId));
 
-        // Regression: TransitionAsync must capture BranchId BEFORE applyCustody runs. Dispatch and
-        // AssignDelivery both null out Shipment.CurrentBranchId as part of their custody delta (the
-        // parcel is now in transit / with a rider, not "at" a branch) — but the event itself must
-        // still record which branch the operation was physically performed at, or the traceability
-        // chain (CLAUDE.md §11/§12/§39) silently loses that branch for these two events.
         var dispatchedEvent = events.Single(e => e.EventType == ShipmentEventType.Dispatched);
         Assert.Equal(originBranchId, dispatchedEvent.BranchId);
         var outForDeliveryEvent = events.Single(e => e.EventType == ShipmentEventType.OutForDelivery);
@@ -221,71 +218,47 @@ public class ShipmentServiceTransitionTests
     }
 
     [Fact]
-    public async Task DeliverAsync_WritesRecipientNameAndNotesOntoDeliveredEvent()
+    public async Task FailDeliveryAsync_FromOutForDelivery_TransitionsToDeliveryFailedAndKeepsRiderCustody()
     {
         await using var dbContext = CreateContext();
         var organizationId = Guid.NewGuid();
         var (service, shipmentId, _, _) = await SeedCreatedShipmentAsync(dbContext, organizationId);
         var actingUser = ActingUser(Guid.NewGuid());
-        var riderUserId = Guid.NewGuid();
-
-        await service.AssignPickupAsync(shipmentId, new AssignPickupRequest(riderUserId), actingUser);
-        await service.PickupScanAsync(shipmentId, actingUser);
+        var riderId = Guid.NewGuid();
+        await service.AssignPickupToRiderAsync(shipmentId, riderId, actingUser);
+        await service.RiderPickupScanAsync(shipmentId, riderId, actingUser);
         await service.ReceiveAtOriginAsync(shipmentId, actingUser);
         await service.SortAsync(shipmentId, actingUser);
         await service.DispatchManyAsync(new[] { shipmentId }, actingUser);
         await service.ReceiveAtDestinationAsync(shipmentId, actingUser);
-        await service.AssignDeliveryAsync(shipmentId, new AssignDeliveryRequest(riderUserId), actingUser);
+        await service.AssignDeliveryToRiderAsync(shipmentId, riderId, actingUser);
 
-        // Regression: DeliverAsync's custody-mutation lambda used to silently discard the caller
-        // supplied RecipientName/Notes instead of persisting them onto the Delivered ShipmentEvent.
-        await service.DeliverAsync(shipmentId, new DeliverShipmentRequest("Jane Doe", "left at door"), actingUser);
+        var result = await service.FailDeliveryAsync(shipmentId, riderId, actingUser);
 
-        var deliveredEvent = await dbContext.Set<ShipmentEvent>()
-            .Where(e => e.ShipmentId == shipmentId && e.EventType == ShipmentEventType.Delivered)
-            .SingleAsync();
-        Assert.NotNull(deliveredEvent.Notes);
-        Assert.Contains("Jane Doe", deliveredEvent.Notes);
-        Assert.Contains("left at door", deliveredEvent.Notes);
+        Assert.Equal(ShipmentStatus.DeliveryFailed, result!.CurrentStatus);
+        // Regression: custody must NOT be cleared on failure — the parcel is still physically with
+        // the rider, it hasn't gone back to a branch (this file's Task 2 design note).
+        Assert.Equal(riderId, result.CurrentCustodianRiderId);
     }
 
     [Fact]
-    public async Task PickupScanAsync_CallerDeniedBranchAccess_ThrowsShipmentValidationException()
+    public async Task PickupScanAsync_CallerDeniedBranchAccess_IsEnforcedByRidersModuleNotShipments()
     {
-        await using var dbContext = CreateContext();
-        var organizationId = Guid.NewGuid();
-        var (service, shipmentId, originBranchId, _) = await SeedCreatedShipmentAsync(dbContext, organizationId);
-        var actingUser = ActingUser(Guid.NewGuid());
-        await service.AssignPickupAsync(shipmentId, new AssignPickupRequest(Guid.NewGuid()), actingUser);
-
-        // Regression: PickupScanAsync is a scan operation (CLAUDE.md §13: "every scan must
-        // validate ... branch access") but previously skipped CheckBranchAccessAsync entirely,
-        // unlike its sibling transition methods.
-        var deniedService = CreateService(dbContext, organizationId, new(), new NoBranchesAuthorizationChecker());
-        await Assert.ThrowsAsync<ShipmentValidationException>(() => deniedService.PickupScanAsync(shipmentId, actingUser));
-    }
-
-    [Fact]
-    public async Task DeliverAsync_CallerDeniedBranchAccess_ThrowsShipmentValidationException()
-    {
+        // Regression guard for the Phase 7/8 division of responsibility: RiderPickupScanAsync no
+        // longer performs its own branch-access check (Riders.Application.RiderService does, before
+        // ever calling in) — proven here by showing a "denied" IBranchAuthorizationChecker has NO
+        // effect on this method, unlike the old PickupScanAsync it replaced.
         await using var dbContext = CreateContext();
         var organizationId = Guid.NewGuid();
         var (service, shipmentId, _, _) = await SeedCreatedShipmentAsync(dbContext, organizationId);
         var actingUser = ActingUser(Guid.NewGuid());
-        var riderUserId = Guid.NewGuid();
-        await service.AssignPickupAsync(shipmentId, new AssignPickupRequest(riderUserId), actingUser);
-        await service.PickupScanAsync(shipmentId, actingUser);
-        await service.ReceiveAtOriginAsync(shipmentId, actingUser);
-        await service.SortAsync(shipmentId, actingUser);
-        await service.DispatchManyAsync(new[] { shipmentId }, actingUser);
-        await service.ReceiveAtDestinationAsync(shipmentId, actingUser);
-        await service.AssignDeliveryAsync(shipmentId, new AssignDeliveryRequest(riderUserId), actingUser);
+        var riderId = Guid.NewGuid();
+        await service.AssignPickupToRiderAsync(shipmentId, riderId, actingUser);
 
-        // Regression: DeliverAsync previously went straight to TransitionAsync with no branch
-        // check at all, unlike AssignDeliveryAsync's "delivery.assign" check against
-        // DestinationBranchId immediately before it in the same lifecycle.
         var deniedService = CreateService(dbContext, organizationId, new(), new NoBranchesAuthorizationChecker());
-        await Assert.ThrowsAsync<ShipmentValidationException>(() => deniedService.DeliverAsync(shipmentId, new DeliverShipmentRequest("Jane Doe", null), actingUser));
+        var result = await deniedService.RiderPickupScanAsync(shipmentId, riderId, actingUser);
+
+        Assert.Equal(ShipmentStatus.PickedUp, result!.CurrentStatus);
     }
 
     [Fact]
@@ -295,7 +268,7 @@ public class ShipmentServiceTransitionTests
         var organizationId = Guid.NewGuid();
         var (service, shipmentId, _, _) = await SeedCreatedShipmentAsync(dbContext, organizationId);
 
-        var ex = await Assert.ThrowsAsync<ShipmentInvalidTransitionException>(() => service.PickupScanAsync(shipmentId, ActingUser(Guid.NewGuid())));
+        var ex = await Assert.ThrowsAsync<ShipmentInvalidTransitionException>(() => service.RiderPickupScanAsync(shipmentId, Guid.NewGuid(), ActingUser(Guid.NewGuid())));
         Assert.Equal(ShipmentStatus.Created, ex.From);
         Assert.Equal(ShipmentStatus.PickedUp, ex.To);
     }
@@ -311,10 +284,6 @@ public class ShipmentServiceTransitionTests
 
         Assert.Equal(ShipmentStatus.Cancelled, result!.CurrentStatus);
 
-        // Regression: CancelAsync is a hand-rolled code path (not routed through TransitionAsync)
-        // that must capture Shipment.CurrentBranchId BEFORE nulling it, same as TransitionAsync
-        // already does — otherwise the Cancelled event permanently loses the branch that held the
-        // parcel at cancellation time (CLAUDE.md §11/§12/§39 traceability chain).
         var cancelledEvent = await dbContext.Set<ShipmentEvent>()
             .Where(e => e.ShipmentId == shipmentId && e.EventType == ShipmentEventType.Cancelled)
             .SingleAsync();
@@ -328,8 +297,8 @@ public class ShipmentServiceTransitionTests
         var organizationId = Guid.NewGuid();
         var (service, shipmentId, _, _) = await SeedCreatedShipmentAsync(dbContext, organizationId);
         var actingUser = ActingUser(Guid.NewGuid());
-        await service.AssignPickupAsync(shipmentId, new AssignPickupRequest(Guid.NewGuid()), actingUser);
-        await service.PickupScanAsync(shipmentId, actingUser);
+        await service.AssignPickupToRiderAsync(shipmentId, Guid.NewGuid(), actingUser);
+        await service.RiderPickupScanAsync(shipmentId, Guid.NewGuid(), actingUser);
 
         await Assert.ThrowsAsync<ShipmentInvalidTransitionException>(() => service.CancelAsync(shipmentId, actingUser));
     }
