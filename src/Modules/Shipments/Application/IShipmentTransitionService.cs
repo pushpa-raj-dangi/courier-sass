@@ -22,7 +22,8 @@ public record ShipmentScanInfo(
 // DbSet directly. Both callers perform the permission + branch-access + expected-operation +
 // custody checks themselves (BRANCH-OPERATIONS.md §1 checks 1/2/4/5) before calling these — the
 // methods below only enforce the state-machine check (#3, via the underlying TransitionAsync's
-// expectedFrom guard).
+// expectedFrom guard). Phase 9 adds the NDR/RTO transition surface, driven by the new Ndr module
+// and by Manifests for the RTO transport leg only.
 public interface IShipmentTransitionService
 {
     Task<ShipmentScanInfo?> GetScanInfoAsync(Guid shipmentId, CancellationToken cancellationToken = default);
@@ -37,4 +38,13 @@ public interface IShipmentTransitionService
     Task<ShipmentResponse?> AssignDeliveryToRiderAsync(Guid shipmentId, Guid riderId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default);
     Task<ShipmentResponse?> CompleteDeliveryAsync(Guid shipmentId, Guid riderId, string recipientName, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default);
     Task<ShipmentResponse?> FailDeliveryAsync(Guid shipmentId, Guid riderId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default);
+
+    // Phase 9 — driven by Ndr.Application (NdrCreationService, NdrService) and Manifests.Application
+    // (ManifestService, for the RTO transport leg only).
+    Task<ShipmentResponse?> TransitionToNdrCreatedAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default);
+    Task<ShipmentResponse?> ReattemptDeliveryAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default);
+    Task<ShipmentResponse?> InitiateRtoAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default);
+    Task DispatchManyRtoAsync(IReadOnlyCollection<Guid> shipmentIds, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default);
+    Task<ShipmentResponse?> ReceiveRtoAtOriginAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default);
+    Task<ShipmentResponse?> ConfirmRtoDeliveredAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default);
 }

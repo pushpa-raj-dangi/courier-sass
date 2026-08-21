@@ -182,6 +182,86 @@ public partial class ShipmentService
         TransitionAsync(shipmentId, ShipmentStatus.OutForDelivery, ShipmentStatus.DeliveryFailed, ShipmentEventType.DeliveryFailed,
             _ => { }, "shipment.delivery_failed", actingUser, cancellationToken, riderId: riderId);
 
+    // Caller: Ndr.Application.NdrCreationService (this one only), immediately after
+    // Riders.Application.RiderService.RecordFailedAttemptAsync calls FailDeliveryAsync above, in
+    // the same request — SHIPMENT-LIFECYCLE.md's diagram shows DELIVERY_FAILED -> NDR_CREATED as an
+    // automatic system step, not a separate manual action.
+    public Task<ShipmentResponse?> TransitionToNdrCreatedAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) =>
+        TransitionAsync(shipmentId, ShipmentStatus.DeliveryFailed, ShipmentStatus.NdrCreated, ShipmentEventType.NdrCreated,
+            _ => { }, "shipment.ndr_created", actingUser, cancellationToken);
+
+    // Caller: Ndr.Application.NdrService.ResolveAsync, Resolution=Reattempt only. Goes straight to
+    // OUT_FOR_DELIVERY (CLARIFICATIONS.md #4 / SHIPMENT-LIFECYCLE.md's diagram show no intermediate
+    // status between NDR_CREATED and a reattempt). Custody is deliberately left untouched —
+    // CurrentCustodianRiderId already holds the same rider from the original failed attempt
+    // (FailDeliveryAsync never cleared it), so the parcel's physical custody chain stays accurate
+    // without this method needing to know which rider that was.
+    public Task<ShipmentResponse?> ReattemptDeliveryAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) =>
+        TransitionAsync(shipmentId, ShipmentStatus.NdrCreated, ShipmentStatus.OutForDelivery, ShipmentEventType.OutForDelivery,
+            _ => { }, "shipment.reattempt_scheduled", actingUser, cancellationToken);
+
+    // Caller: Ndr.Application.NdrService.ResolveAsync, Resolution=Rto or AutoRto. RTO is a
+    // back-office/staff action (NDR resolution), not something the rider does in the field, so
+    // custody moves OFF the rider and onto the destination branch — the branch that attempted
+    // delivery and is now the one that will process the physical return. This is also what makes
+    // Manifests.Application.ManifestService.ScanRtoAsync's custody check (CurrentBranchId ==
+    // Return-manifest's FromBranchId) work the same shape as the forward-path ScanAsync's.
+    public Task<ShipmentResponse?> InitiateRtoAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) =>
+        TransitionAsync(shipmentId, ShipmentStatus.NdrCreated, ShipmentStatus.RtoInitiated, ShipmentEventType.RtoInitiated,
+            s => { s.CurrentCustodianRiderId = null; s.CurrentBranchId = s.DestinationBranchId; }, "shipment.rto_initiated", actingUser, cancellationToken);
+
+    // Caller: Manifests.Application.ManifestService.DispatchAsync, Return-purpose manifests only —
+    // mirrors DispatchManyAsync's bulk-transaction shape exactly, just for the RTO status pair.
+    public async Task DispatchManyRtoAsync(IReadOnlyCollection<Guid> shipmentIds, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
+    {
+        var shipments = await _dbContext.Set<Shipment>().Where(s => shipmentIds.Contains(s.Id)).ToListAsync(cancellationToken);
+        var actingUserId = actingUser.GetUserId();
+        var now = DateTimeOffset.UtcNow;
+
+        foreach (var shipment in shipments)
+        {
+            if (shipment.CurrentStatus != ShipmentStatus.RtoInitiated)
+            {
+                throw new ShipmentInvalidTransitionException(shipment.Id, shipment.CurrentStatus, ShipmentStatus.RtoInTransit);
+            }
+            var previousStatus = shipment.CurrentStatus;
+            var eventBranchId = shipment.CurrentBranchId;
+            shipment.CurrentStatus = ShipmentStatus.RtoInTransit;
+            shipment.CurrentBranchId = null;
+
+            _dbContext.Set<ShipmentEvent>().Add(new ShipmentEvent
+            {
+                Id = Guid.NewGuid(),
+                ShipmentId = shipment.Id,
+                EventType = ShipmentEventType.RtoInTransit,
+                PreviousStatus = previousStatus,
+                NewStatus = ShipmentStatus.RtoInTransit,
+                BranchId = eventBranchId,
+                UserId = actingUserId,
+                Timestamp = now
+            });
+        }
+
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new ShipmentValidationException("One or more shipments on this return manifest were modified concurrently; dispatch was not applied.");
+        }
+    }
+
+    // Caller: Manifests.Application.ManifestService.ReceiveScanAsync, Return-purpose manifests only.
+    public Task<ShipmentResponse?> ReceiveRtoAtOriginAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) =>
+        TransitionAsync(shipmentId, ShipmentStatus.RtoInTransit, ShipmentStatus.RtoAtOrigin, ShipmentEventType.RtoAtOrigin,
+            s => s.CurrentBranchId = s.OriginBranchId, "shipment.rto_at_origin", actingUser, cancellationToken);
+
+    // Caller: Ndr.Application.ReturnShipmentService.ConfirmAsync. Terminal.
+    public Task<ShipmentResponse?> ConfirmRtoDeliveredAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) =>
+        TransitionAsync(shipmentId, ShipmentStatus.RtoAtOrigin, ShipmentStatus.RtoDelivered, ShipmentEventType.RtoDelivered,
+            _ => { }, "shipment.rto_delivered", actingUser, cancellationToken);
+
     public async Task<ShipmentResponse?> CancelAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
         var organizationId = _currentTenantProvider.OrganizationId
