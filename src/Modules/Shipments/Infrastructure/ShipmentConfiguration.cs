@@ -33,6 +33,13 @@ public class ShipmentConfiguration : IEntityTypeConfiguration<Shipment>
         builder.Property(s => s.OtherCharges).HasPrecision(18, 2);
         builder.Property(s => s.TotalCharge).HasPrecision(18, 2);
 
+        // PostgreSQL-native optimistic concurrency token — no new column, no schema change. Guards
+        // TransitionAsync/CancelAsync's read-check-write against two concurrent identical requests
+        // (e.g. two racing POST /{id}/deliver calls) both passing the expectedFrom check and both
+        // succeeding, which would append two ShipmentEvent rows for one physical operation and
+        // corrupt the append-only event history's integrity (CLAUDE.md §11/§39).
+        builder.Property<uint>("xmin").IsRowVersion();
+
         // Every tenant-filtered query hits this column.
         builder.HasIndex(s => s.OrganizationId);
         // AWB is unique per org (DOMAIN-MODEL.md) — this is also the index

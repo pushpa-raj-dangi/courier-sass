@@ -10,7 +10,8 @@ public partial class ShipmentService
 {
     private async Task<ShipmentResponse?> TransitionAsync(
         Guid shipmentId, ShipmentStatus expectedFrom, ShipmentStatus to, ShipmentEventType eventType,
-        Action<Shipment> applyCustody, string auditAction, ClaimsPrincipal actingUser, CancellationToken cancellationToken)
+        Action<Shipment> applyCustody, string auditAction, ClaimsPrincipal actingUser, CancellationToken cancellationToken,
+        string? notes = null)
     {
         var organizationId = _currentTenantProvider.OrganizationId
             ?? throw new ShipmentValidationException("No active organization context.");
@@ -40,10 +41,23 @@ public partial class ShipmentService
             NewStatus = to,
             BranchId = eventBranchId,
             UserId = actingUser.GetUserId(),
-            Timestamp = DateTimeOffset.UtcNow
+            Timestamp = DateTimeOffset.UtcNow,
+            Notes = notes
         });
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // Another concurrent request already moved this shipment out from under us (the xmin
+            // row-version token no longer matches) — semantically this IS an invalid-transition
+            // attempt from this caller's point of view, so it maps onto the same, already-wired
+            // SHIPMENT_INVALID_TRANSITION error shape (CLAUDE.md §11/§39: two racing identical
+            // transition requests must not both succeed and double-append ShipmentEvent rows).
+            throw new ShipmentInvalidTransitionException(shipmentId, expectedFrom, to);
+        }
         await _auditLogger.LogAsync(new AuditEntry(organizationId, actingUser.GetUserId(), auditAction, "Shipment", shipmentId.ToString()), cancellationToken);
 
         return await LoadResponseAsync(shipmentId, cancellationToken);
@@ -62,9 +76,18 @@ public partial class ShipmentService
         TransitionAsync(shipmentId, ShipmentStatus.Created, ShipmentStatus.PickupAssigned, ShipmentEventType.PickupAssigned,
             s => s.CurrentCustodianUserId = request.AssignedUserId, "shipment.pickup_assigned", actingUser, cancellationToken);
 
-    public Task<ShipmentResponse?> PickupScanAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) =>
-        TransitionAsync(shipmentId, ShipmentStatus.PickupAssigned, ShipmentStatus.PickedUp, ShipmentEventType.PickedUp,
+    public async Task<ShipmentResponse?> PickupScanAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
+    {
+        var shipment = await _dbContext.Set<Shipment>().FirstOrDefaultAsync(s => s.Id == shipmentId, cancellationToken);
+        if (shipment is null)
+        {
+            return null;
+        }
+        await CheckBranchAccessAsync(actingUser, "shipment.scan", shipment.OriginBranchId, cancellationToken);
+
+        return await TransitionAsync(shipmentId, ShipmentStatus.PickupAssigned, ShipmentStatus.PickedUp, ShipmentEventType.PickedUp,
             _ => { }, "shipment.picked_up", actingUser, cancellationToken);
+    }
 
     public async Task<ShipmentResponse?> ReceiveAtOriginAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
@@ -131,9 +154,19 @@ public partial class ShipmentService
             s => { s.CurrentCustodianUserId = request.AssignedUserId; s.CurrentBranchId = null; }, "shipment.out_for_delivery", actingUser, cancellationToken);
     }
 
-    public Task<ShipmentResponse?> DeliverAsync(Guid shipmentId, DeliverShipmentRequest request, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) =>
-        TransitionAsync(shipmentId, ShipmentStatus.OutForDelivery, ShipmentStatus.Delivered, ShipmentEventType.Delivered,
-            s => s.CurrentCustodianUserId = null, "shipment.delivered", actingUser, cancellationToken);
+    public async Task<ShipmentResponse?> DeliverAsync(Guid shipmentId, DeliverShipmentRequest request, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
+    {
+        var shipment = await _dbContext.Set<Shipment>().FirstOrDefaultAsync(s => s.Id == shipmentId, cancellationToken);
+        if (shipment is null)
+        {
+            return null;
+        }
+        await CheckBranchAccessAsync(actingUser, "delivery.complete", shipment.DestinationBranchId, cancellationToken);
+
+        return await TransitionAsync(shipmentId, ShipmentStatus.OutForDelivery, ShipmentStatus.Delivered, ShipmentEventType.Delivered,
+            s => s.CurrentCustodianUserId = null, "shipment.delivered", actingUser, cancellationToken,
+            notes: $"Delivered to: {request.RecipientName}.{(string.IsNullOrWhiteSpace(request.Notes) ? string.Empty : " " + request.Notes)}");
+    }
 
     public async Task<ShipmentResponse?> CancelAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
@@ -156,6 +189,7 @@ public partial class ShipmentService
         }
 
         var previousStatus = shipment.CurrentStatus;
+        var eventBranchId = shipment.CurrentBranchId;
         shipment.CurrentStatus = ShipmentStatus.Cancelled;
         shipment.CurrentCustodianUserId = null;
         shipment.CurrentBranchId = null;
@@ -167,11 +201,21 @@ public partial class ShipmentService
             EventType = ShipmentEventType.Cancelled,
             PreviousStatus = previousStatus,
             NewStatus = ShipmentStatus.Cancelled,
+            BranchId = eventBranchId,
             UserId = actingUser.GetUserId(),
             Timestamp = DateTimeOffset.UtcNow
         });
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // Same race-handling shape as TransitionAsync above: another concurrent request
+            // already mutated this shipment out from under us.
+            throw new ShipmentInvalidTransitionException(shipmentId, previousStatus, ShipmentStatus.Cancelled);
+        }
         await _auditLogger.LogAsync(new AuditEntry(organizationId, actingUser.GetUserId(), "shipment.cancelled", "Shipment", shipmentId.ToString()), cancellationToken);
 
         return await LoadResponseAsync(shipmentId, cancellationToken);

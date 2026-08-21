@@ -318,4 +318,46 @@ public class ShipmentsEndpointsTests : IClassFixture<WebApplicationFactory<Progr
         var shipment2 = await responses[1].Content.ReadFromJsonAsync<ShipmentResponse>();
         Assert.NotEqual(shipment1!.Awb, shipment2!.Awb);
     }
+
+    // Proves ShipmentConfiguration's xmin-based optimistic concurrency token (Fix 5) actually
+    // prevents a real double-delivery race: two concurrent POST /{id}/deliver calls for the same
+    // shipment must not both succeed — that would append two Delivered ShipmentEvent rows for one
+    // physical operation, corrupting the append-only event history's integrity (CLAUDE.md
+    // §11/§39) and, in a later phase, double-counting a COD collection. EF's InMemory provider
+    // (used by Shipments.Tests' unit tests) doesn't enforce concurrency tokens at all, so only a
+    // real-Postgres, real-concurrent-request test like this one exercises the DbUpdateConcurrencyException
+    // catch/translate path in ShipmentService.Transitions.cs's TransitionAsync. Mirrors
+    // CreateShipment_ConcurrentRequestsForSameOrg_BothSucceedWithDistinctAwbs's Task.WhenAll shape.
+    [Fact]
+    public async Task Deliver_ConcurrentRequestsForSameShipment_ExactlyOneSucceeds()
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "deliver-race");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (originBranchId, destinationBranchId, serviceTypeId) = await SeedRoutableBranchesAsync(client);
+        await SeedRateCardAsync(client, originBranchId, destinationBranchId, serviceTypeId, 100m);
+        var merchantId = await CreateMerchantAsync(client);
+
+        var shipment = await (await client.PostAsJsonAsync("/api/v1/shipments", ValidShipmentRequest(merchantId, originBranchId, destinationBranchId, serviceTypeId))).Content.ReadFromJsonAsync<ShipmentResponse>();
+        var riderUserId = Guid.NewGuid();
+
+        await client.PostAsJsonAsync($"/api/v1/shipments/{shipment!.Id}/pickup-assign", new AssignPickupRequest(riderUserId));
+        await client.PostAsJsonAsync($"/api/v1/shipments/{shipment.Id}/pickup-scan", new { });
+        await client.PostAsJsonAsync($"/api/v1/shipments/{shipment.Id}/receive-origin", new { });
+        await client.PostAsJsonAsync($"/api/v1/shipments/{shipment.Id}/sort", new { });
+        await client.PostAsJsonAsync($"/api/v1/shipments/{shipment.Id}/dispatch", new { });
+        await client.PostAsJsonAsync($"/api/v1/shipments/{shipment.Id}/receive-dest", new { });
+        await client.PostAsJsonAsync($"/api/v1/shipments/{shipment.Id}/out-for-delivery", new AssignDeliveryRequest(riderUserId));
+
+        var deliverRequest = new DeliverShipmentRequest("Recipient One", "race test");
+        var task1 = client.PostAsJsonAsync($"/api/v1/shipments/{shipment.Id}/deliver", deliverRequest);
+        var task2 = client.PostAsJsonAsync($"/api/v1/shipments/{shipment.Id}/deliver", deliverRequest);
+        var responses = await Task.WhenAll(task1, task2);
+
+        Assert.Single(responses, r => r.StatusCode == HttpStatusCode.OK);
+        Assert.Single(responses, r => r.StatusCode == HttpStatusCode.BadRequest);
+
+        var final = await (await client.GetAsync($"/api/v1/shipments/{shipment.Awb}")).Content.ReadFromJsonAsync<ShipmentResponse>();
+        Assert.Equal(ShipmentStatus.Delivered, final!.CurrentStatus);
+    }
 }
