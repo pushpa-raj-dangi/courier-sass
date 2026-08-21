@@ -10,6 +10,8 @@ using Courier.Manifests.Domain;
 using Courier.Manifests.Infrastructure;
 using Courier.Merchants.Domain;
 using Courier.Merchants.Infrastructure;
+using Courier.Ndr.Domain;
+using Courier.Ndr.Infrastructure;
 using Courier.Pricing.Domain;
 using Courier.Pricing.Infrastructure;
 using Courier.Riders.Domain;
@@ -69,6 +71,8 @@ public class AppDbContext : DbContext
     public DbSet<DeliveryTask> DeliveryTasks => Set<DeliveryTask>();
     public DbSet<DeliveryAttempt> DeliveryAttempts => Set<DeliveryAttempt>();
     public DbSet<DeliveryProof> DeliveryProofs => Set<DeliveryProof>();
+    public DbSet<NDR> Ndrs => Set<NDR>();
+    public DbSet<ReturnShipment> ReturnShipments => Set<ReturnShipment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -110,6 +114,8 @@ public class AppDbContext : DbContext
         modelBuilder.ApplyConfiguration(new DeliveryTaskConfiguration());
         modelBuilder.ApplyConfiguration(new DeliveryAttemptConfiguration());
         modelBuilder.ApplyConfiguration(new DeliveryProofConfiguration());
+        modelBuilder.ApplyConfiguration(new NdrConfiguration());
+        modelBuilder.ApplyConfiguration(new ReturnShipmentConfiguration());
 
         // Branch.OrganizationId -> Organizations FK lives here rather than in
         // BranchConfiguration (Branches module) because Branches deliberately has no project
@@ -193,6 +199,17 @@ public class AppDbContext : DbContext
             .HasForeignKey(p => p.OrganizationId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // Same reasoning for Ndr/ReturnShipment.OrganizationId: Ndr has no project reference to
+        // Identity.
+        modelBuilder.Entity<NDR>().HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(n => n.OrganizationId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<ReturnShipment>().HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(r => r.OrganizationId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         // Tenant filters fail CLOSED: the explicit `OrganizationId != null` guard stops EF Core's
         // null-semantics translation from degrading these into `WHERE "OrganizationId" IS NULL`
         // when no tenant is resolved, which would otherwise match org-less rows (planned for
@@ -216,6 +233,8 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Vehicle>().HasQueryFilter(v => _currentTenantProvider.OrganizationId != null && v.OrganizationId == _currentTenantProvider.OrganizationId);
         modelBuilder.Entity<DeliveryAttempt>().HasQueryFilter(a => _currentTenantProvider.OrganizationId != null && a.OrganizationId == _currentTenantProvider.OrganizationId);
         modelBuilder.Entity<DeliveryProof>().HasQueryFilter(p => _currentTenantProvider.OrganizationId != null && p.OrganizationId == _currentTenantProvider.OrganizationId);
+        modelBuilder.Entity<NDR>().HasQueryFilter(n => _currentTenantProvider.OrganizationId != null && n.OrganizationId == _currentTenantProvider.OrganizationId);
+        modelBuilder.Entity<ReturnShipment>().HasQueryFilter(r => _currentTenantProvider.OrganizationId != null && r.OrganizationId == _currentTenantProvider.OrganizationId);
 
         // Defensive: nothing queries Organizations with a tenant context today (registration only
         // inserts), but without this a future `Organizations.ToListAsync()` would enumerate every

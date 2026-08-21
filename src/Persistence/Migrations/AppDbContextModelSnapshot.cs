@@ -1960,6 +1960,101 @@ namespace Persistence.Migrations
                     b.ToTable("MerchantUsers", (string)null);
                 });
 
+            modelBuilder.Entity("Courier.Ndr.Domain.NDR", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AssignedStaffUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CustomerResponse")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTimeOffset?>("FollowUpAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("NextAction")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Reason")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("Resolution")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("ResolvedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ShipmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.HasIndex("ShipmentId");
+
+                    b.ToTable("Ndrs", (string)null);
+                });
+
+            modelBuilder.Entity("Courier.Ndr.Domain.ReturnShipment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("DestinationBranchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("MerchantConfirmedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("OriginBranchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("OriginalShipmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ReturnAwb")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<string>("RtoReason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DestinationBranchId");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.HasIndex("OriginBranchId");
+
+                    b.HasIndex("OriginalShipmentId")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "ReturnAwb")
+                        .IsUnique();
+
+                    b.ToTable("ReturnShipments", (string)null);
+                });
+
             modelBuilder.Entity("Courier.Pricing.Domain.AdditionalCharge", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3023,6 +3118,36 @@ namespace Persistence.Migrations
                     b.HasOne("Courier.Identity.Domain.Organization", null)
                         .WithMany()
                         .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Courier.Ndr.Domain.NDR", b =>
+                {
+                    b.HasOne("Courier.Identity.Domain.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Courier.Ndr.Domain.ReturnShipment", b =>
+                {
+                    b.HasOne("Courier.Branches.Domain.Branch", null)
+                        .WithMany()
+                        .HasForeignKey("DestinationBranchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Courier.Identity.Domain.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Courier.Branches.Domain.Branch", null)
+                        .WithMany()
+                        .HasForeignKey("OriginBranchId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

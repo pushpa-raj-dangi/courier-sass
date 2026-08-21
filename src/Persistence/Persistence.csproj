@@ -11,6 +11,7 @@
     <ProjectReference Include="..\Modules\Shipments\Shipments.csproj" />
     <ProjectReference Include="..\Modules\Manifests\Manifests.csproj" />
     <ProjectReference Include="..\Modules\Riders\Riders.csproj" />
+    <ProjectReference Include="..\Modules\Ndr\Ndr.csproj" />
   </ItemGroup>
 
   <ItemGroup>
