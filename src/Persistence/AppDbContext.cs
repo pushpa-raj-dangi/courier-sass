@@ -6,6 +6,8 @@ using Courier.Geography.Domain;
 using Courier.Geography.Infrastructure;
 using Courier.Identity.Domain;
 using Courier.Identity.Infrastructure;
+using Courier.Manifests.Domain;
+using Courier.Manifests.Infrastructure;
 using Courier.Merchants.Domain;
 using Courier.Merchants.Infrastructure;
 using Courier.Pricing.Domain;
@@ -56,6 +58,9 @@ public class AppDbContext : DbContext
     public DbSet<Shipment> Shipments => Set<Shipment>();
     public DbSet<ShipmentItem> ShipmentItems => Set<ShipmentItem>();
     public DbSet<ShipmentEvent> ShipmentEvents => Set<ShipmentEvent>();
+    public DbSet<Manifest> Manifests => Set<Manifest>();
+    public DbSet<ManifestShipment> ManifestShipments => Set<ManifestShipment>();
+    public DbSet<ShipmentTransfer> ShipmentTransfers => Set<ShipmentTransfer>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -88,6 +93,9 @@ public class AppDbContext : DbContext
         modelBuilder.ApplyConfiguration(new ShipmentConfiguration());
         modelBuilder.ApplyConfiguration(new ShipmentItemConfiguration());
         modelBuilder.ApplyConfiguration(new ShipmentEventConfiguration());
+        modelBuilder.ApplyConfiguration(new ManifestConfiguration());
+        modelBuilder.ApplyConfiguration(new ManifestShipmentConfiguration());
+        modelBuilder.ApplyConfiguration(new ShipmentTransferConfiguration());
 
         // Branch.OrganizationId -> Organizations FK lives here rather than in
         // BranchConfiguration (Branches module) because Branches deliberately has no project
@@ -144,6 +152,13 @@ public class AppDbContext : DbContext
             .HasForeignKey(s => s.OrganizationId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // Same reasoning for Manifest.OrganizationId: Manifests has no project reference to
+        // Identity either.
+        modelBuilder.Entity<Manifest>().HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(m => m.OrganizationId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         // Tenant filters fail CLOSED: the explicit `OrganizationId != null` guard stops EF Core's
         // null-semantics translation from degrading these into `WHERE "OrganizationId" IS NULL`
         // when no tenant is resolved, which would otherwise match org-less rows (planned for
@@ -162,6 +177,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<RateCard>().HasQueryFilter(rc => _currentTenantProvider.OrganizationId != null && rc.OrganizationId == _currentTenantProvider.OrganizationId);
         modelBuilder.Entity<MerchantRateCard>().HasQueryFilter(mrc => _currentTenantProvider.OrganizationId != null && mrc.OrganizationId == _currentTenantProvider.OrganizationId);
         modelBuilder.Entity<Shipment>().HasQueryFilter(s => _currentTenantProvider.OrganizationId != null && s.OrganizationId == _currentTenantProvider.OrganizationId);
+        modelBuilder.Entity<Manifest>().HasQueryFilter(m => _currentTenantProvider.OrganizationId != null && m.OrganizationId == _currentTenantProvider.OrganizationId);
 
         // Defensive: nothing queries Organizations with a tenant context today (registration only
         // inserts), but without this a future `Organizations.ToListAsync()` would enumerate every
@@ -189,5 +205,9 @@ public class AppDbContext : DbContext
         // ShipmentId -> Shipment.OrganizationId (which does have a filter, above). Every query
         // against these two tables in Shipments.Application scopes through a Shipment the
         // caller's tenant already owns.
+
+        // No tenant filter on ManifestShipment/ShipmentTransfer: neither carries its own
+        // OrganizationId — tenant isolation flows transitively through
+        // ManifestId -> Manifest.OrganizationId (which does have a filter, above).
     }
 }
