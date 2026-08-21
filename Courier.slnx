@@ -12,6 +12,7 @@
     <Project Path="src/Modules/Manifests/Manifests.csproj" />
     <Project Path="src/Modules/Merchants/Merchants.csproj" />
     <Project Path="src/Modules/Pricing/Pricing.csproj" />
+    <Project Path="src/Modules/Riders/Riders.csproj" />
     <Project Path="src/Modules/Shipments/Shipments.csproj" />
   </Folder>
   <Folder Name="/tests/">
