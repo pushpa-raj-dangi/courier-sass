@@ -181,8 +181,9 @@ public class ShipmentServiceTransitionTests
         Assert.Equal(ShipmentStatus.Sorted, afterSort!.CurrentStatus);
         Assert.Equal(originBranchId, afterSort.CurrentBranchId);
 
-        var afterDispatch = await service.DispatchAsync(shipmentId, actingUser);
-        Assert.Equal(ShipmentStatus.InTransit, afterDispatch!.CurrentStatus);
+        await service.DispatchManyAsync(new[] { shipmentId }, actingUser);
+        var afterDispatch = await dbContext.Set<Shipment>().FirstAsync(s => s.Id == shipmentId);
+        Assert.Equal(ShipmentStatus.InTransit, afterDispatch.CurrentStatus);
         Assert.Null(afterDispatch.CurrentBranchId);
 
         var afterReceiveDest = await service.ReceiveAtDestinationAsync(shipmentId, actingUser);
@@ -232,7 +233,7 @@ public class ShipmentServiceTransitionTests
         await service.PickupScanAsync(shipmentId, actingUser);
         await service.ReceiveAtOriginAsync(shipmentId, actingUser);
         await service.SortAsync(shipmentId, actingUser);
-        await service.DispatchAsync(shipmentId, actingUser);
+        await service.DispatchManyAsync(new[] { shipmentId }, actingUser);
         await service.ReceiveAtDestinationAsync(shipmentId, actingUser);
         await service.AssignDeliveryAsync(shipmentId, new AssignDeliveryRequest(riderUserId), actingUser);
 
@@ -276,7 +277,7 @@ public class ShipmentServiceTransitionTests
         await service.PickupScanAsync(shipmentId, actingUser);
         await service.ReceiveAtOriginAsync(shipmentId, actingUser);
         await service.SortAsync(shipmentId, actingUser);
-        await service.DispatchAsync(shipmentId, actingUser);
+        await service.DispatchManyAsync(new[] { shipmentId }, actingUser);
         await service.ReceiveAtDestinationAsync(shipmentId, actingUser);
         await service.AssignDeliveryAsync(shipmentId, new AssignDeliveryRequest(riderUserId), actingUser);
 

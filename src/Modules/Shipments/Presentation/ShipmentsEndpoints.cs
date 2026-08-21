@@ -84,18 +84,6 @@ public static class ShipmentsEndpoints
             await HandleTransitionAsync(() => service.ReceiveAtOriginAsync(id, httpContext.User, httpContext.RequestAborted), id))
             .RequirePermission("shipment.scan");
 
-        group.MapPost("/{id:guid}/sort", async (Guid id, ShipmentService service, HttpContext httpContext) =>
-            await HandleTransitionAsync(() => service.SortAsync(id, httpContext.User, httpContext.RequestAborted), id))
-            .RequirePermission("shipment.sort");
-
-        group.MapPost("/{id:guid}/dispatch", async (Guid id, ShipmentService service, HttpContext httpContext) =>
-            await HandleTransitionAsync(() => service.DispatchAsync(id, httpContext.User, httpContext.RequestAborted), id))
-            .RequirePermission("shipment.transfer");
-
-        group.MapPost("/{id:guid}/receive-dest", async (Guid id, ShipmentService service, HttpContext httpContext) =>
-            await HandleTransitionAsync(() => service.ReceiveAtDestinationAsync(id, httpContext.User, httpContext.RequestAborted), id))
-            .RequirePermission("shipment.scan");
-
         group.MapPost("/{id:guid}/out-for-delivery", async (Guid id, AssignDeliveryRequest request, ShipmentService service, HttpContext httpContext) =>
             await HandleTransitionAsync(() => service.AssignDeliveryAsync(id, request, httpContext.User, httpContext.RequestAborted), id))
             .RequirePermission("delivery.assign");

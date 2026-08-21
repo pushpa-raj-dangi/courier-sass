@@ -112,28 +112,14 @@ public partial class ShipmentService
         TransitionAsync(shipmentId, ShipmentStatus.AtOriginBranch, ShipmentStatus.Sorted, ShipmentEventType.Sorted,
             _ => { }, "shipment.sorted", actingUser, cancellationToken);
 
-    public async Task<ShipmentResponse?> DispatchAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
-    {
-        var shipment = await _dbContext.Set<Shipment>().FirstOrDefaultAsync(s => s.Id == shipmentId, cancellationToken);
-        if (shipment is null)
-        {
-            return null;
-        }
-        await CheckBranchAccessAsync(actingUser, "shipment.transfer", shipment.OriginBranchId, cancellationToken);
-
-        return await TransitionAsync(shipmentId, ShipmentStatus.Sorted, ShipmentStatus.InTransit, ShipmentEventType.Dispatched,
-            s => s.CurrentBranchId = null, "shipment.dispatched", actingUser, cancellationToken);
-    }
-
-    // Bulk counterpart to the single-shipment DispatchAsync above, used exclusively by
-    // Manifests.Application.ManifestService.DispatchAsync to move every shipment on a manifest
-    // Sorted -> InTransit as one unit. Deliberately does NOT loop calling the single-shipment
-    // TransitionAsync helper (which SaveChangesAsync's per call) — that would commit N separate
-    // transactions for one manifest-level dispatch action. Instead every shipment's mutation +
-    // ShipmentEvent is staged in-memory and committed in exactly one SaveChangesAsync, which EF
-    // Core already wraps in a single implicit database transaction on a relational provider — true
-    // atomicity without introducing an explicit BeginTransactionAsync (which the in-memory provider
-    // this module's unit tests use does not support).
+    // Used exclusively by Manifests.Application.ManifestService.DispatchAsync to move every
+    // shipment on a manifest Sorted -> InTransit as one unit. Deliberately does NOT loop calling
+    // the single-shipment TransitionAsync helper (which SaveChangesAsync's per call) — that would
+    // commit N separate transactions for one manifest-level dispatch action. Instead every
+    // shipment's mutation + ShipmentEvent is staged in-memory and committed in exactly one
+    // SaveChangesAsync, which EF Core already wraps in a single implicit database transaction on a
+    // relational provider — true atomicity without introducing an explicit BeginTransactionAsync
+    // (which the in-memory provider this module's unit tests use does not support).
     public async Task DispatchManyAsync(IReadOnlyCollection<Guid> shipmentIds, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
         var shipments = await _dbContext.Set<Shipment>().Where(s => shipmentIds.Contains(s.Id)).ToListAsync(cancellationToken);

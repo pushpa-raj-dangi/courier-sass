@@ -6,6 +6,7 @@ using Courier.Branches.Domain;
 using Courier.Geography.Application;
 using Courier.Geography.Infrastructure;
 using Courier.Identity.Application;
+using Courier.Manifests.Application;
 using Courier.Merchants.Application;
 using Courier.Pricing.Application;
 using Courier.Pricing.Domain;
@@ -84,6 +85,18 @@ public class ShipmentsEndpointsTests : IClassFixture<WebApplicationFactory<Progr
         zoneRateResponse.EnsureSuccessStatusCode();
     }
 
+    // Replaces the retired POST /shipments/{id}/{sort,dispatch,receive-dest} endpoints — walks a
+    // shipment already at AtOriginBranch through to AtDestinationBranch via a real single-shipment
+    // manifest, mirroring ManifestsEndpointsTests.FullManifestLifecycle_DraftToClosed's flow.
+    private async Task SortDispatchAndReceiveViaManifestAsync(HttpClient client, ShipmentResponse shipment, Guid originBranchId, Guid destinationBranchId)
+    {
+        var manifest = await (await client.PostAsJsonAsync("/api/v1/manifests", new CreateManifestRequest(originBranchId, destinationBranchId))).Content.ReadFromJsonAsync<ManifestResponse>();
+        await client.PostAsJsonAsync($"/api/v1/manifests/{manifest!.Id}/scan", new ScanShipmentRequest(shipment.Awb));
+        await client.PostAsync($"/api/v1/manifests/{manifest.Id}/seal", null);
+        await client.PostAsJsonAsync($"/api/v1/manifests/{manifest.Id}/dispatch", new DispatchManifestRequest("BA 2 KHA 1234", null));
+        await client.PostAsJsonAsync($"/api/v1/manifests/{manifest.Id}/receive-scan", new ScanShipmentRequest(shipment.Awb));
+    }
+
     private static CreateShipmentRequest ValidShipmentRequest(Guid merchantId, Guid originBranchId, Guid destinationBranchId, Guid serviceTypeId) => new(
         merchantId, originBranchId, destinationBranchId, serviceTypeId, 0.7m, null, null, null, 0m, false,
         "Recipient One", "9800000000", KathmanduProvinceId, KathmanduDistrictId, KathmanduLocalLevelId, KathmanduWardNumber, "Recipient Address",
@@ -128,13 +141,8 @@ public class ShipmentsEndpointsTests : IClassFixture<WebApplicationFactory<Progr
         var afterOrigin = await (await client.PostAsJsonAsync($"/api/v1/shipments/{shipment.Id}/receive-origin", new { })).Content.ReadFromJsonAsync<ShipmentResponse>();
         Assert.Equal(ShipmentStatus.AtOriginBranch, afterOrigin!.CurrentStatus);
 
-        var afterSort = await (await client.PostAsJsonAsync($"/api/v1/shipments/{shipment.Id}/sort", new { })).Content.ReadFromJsonAsync<ShipmentResponse>();
-        Assert.Equal(ShipmentStatus.Sorted, afterSort!.CurrentStatus);
-
-        var afterDispatch = await (await client.PostAsJsonAsync($"/api/v1/shipments/{shipment.Id}/dispatch", new { })).Content.ReadFromJsonAsync<ShipmentResponse>();
-        Assert.Equal(ShipmentStatus.InTransit, afterDispatch!.CurrentStatus);
-
-        var afterDest = await (await client.PostAsJsonAsync($"/api/v1/shipments/{shipment.Id}/receive-dest", new { })).Content.ReadFromJsonAsync<ShipmentResponse>();
+        await SortDispatchAndReceiveViaManifestAsync(client, shipment, originBranchId, destinationBranchId);
+        var afterDest = await (await client.GetAsync($"/api/v1/shipments/{shipment.Awb}")).Content.ReadFromJsonAsync<ShipmentResponse>();
         Assert.Equal(ShipmentStatus.AtDestinationBranch, afterDest!.CurrentStatus);
 
         var afterOutForDelivery = await (await client.PostAsJsonAsync($"/api/v1/shipments/{shipment.Id}/out-for-delivery", new AssignDeliveryRequest(riderUserId))).Content.ReadFromJsonAsync<ShipmentResponse>();
@@ -344,9 +352,7 @@ public class ShipmentsEndpointsTests : IClassFixture<WebApplicationFactory<Progr
         await client.PostAsJsonAsync($"/api/v1/shipments/{shipment!.Id}/pickup-assign", new AssignPickupRequest(riderUserId));
         await client.PostAsJsonAsync($"/api/v1/shipments/{shipment.Id}/pickup-scan", new { });
         await client.PostAsJsonAsync($"/api/v1/shipments/{shipment.Id}/receive-origin", new { });
-        await client.PostAsJsonAsync($"/api/v1/shipments/{shipment.Id}/sort", new { });
-        await client.PostAsJsonAsync($"/api/v1/shipments/{shipment.Id}/dispatch", new { });
-        await client.PostAsJsonAsync($"/api/v1/shipments/{shipment.Id}/receive-dest", new { });
+        await SortDispatchAndReceiveViaManifestAsync(client, shipment, originBranchId, destinationBranchId);
         await client.PostAsJsonAsync($"/api/v1/shipments/{shipment.Id}/out-for-delivery", new AssignDeliveryRequest(riderUserId));
 
         var deliverRequest = new DeliverShipmentRequest("Recipient One", "race test");
