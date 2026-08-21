@@ -69,6 +69,39 @@ public class AuthService
             ownerRole.Permissions.Add(permission);
         }
 
+        // Phase 8: PickupRider/DeliveryRider are seeded here (not lazily on first rider creation)
+        // so they exist from org registration onward, matching how OrganizationOwner already works
+        // — RiderService (Riders module) looks them up by name via IUserProvisioningService and
+        // never creates roles itself. Permission sets per RBAC.md §4 (DeliveryRider is explicit
+        // there) and CLARIFICATIONS.md's new Phase 8 entry (PickupRider — not itemized in RBAC.md,
+        // resolved to shipment.scan only, since a pickup rider's whole job is the pickup scan).
+        var deliveryRiderPermissionKeys = new[] { "delivery.attempt", "delivery.complete", "cod.collect", "shipment.scan" };
+        var deliveryRiderRole = new Role
+        {
+            Id = Guid.NewGuid(),
+            OrganizationId = organization.Id,
+            Name = "DeliveryRider",
+            IsSystemDefault = true
+        };
+        _dbContext.Set<Role>().Add(deliveryRiderRole);
+        foreach (var permission in allPermissions.Where(p => deliveryRiderPermissionKeys.Contains(p.Key)))
+        {
+            deliveryRiderRole.Permissions.Add(permission);
+        }
+
+        var pickupRiderRole = new Role
+        {
+            Id = Guid.NewGuid(),
+            OrganizationId = organization.Id,
+            Name = "PickupRider",
+            IsSystemDefault = true
+        };
+        _dbContext.Set<Role>().Add(pickupRiderRole);
+        foreach (var permission in allPermissions.Where(p => p.Key == "shipment.scan"))
+        {
+            pickupRiderRole.Permissions.Add(permission);
+        }
+
         var owner = new User
         {
             Id = Guid.NewGuid(),
