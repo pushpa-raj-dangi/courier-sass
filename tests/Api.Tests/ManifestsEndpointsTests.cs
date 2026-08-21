@@ -11,6 +11,8 @@ using Courier.Manifests.Domain;
 using Courier.Merchants.Application;
 using Courier.Pricing.Application;
 using Courier.Pricing.Domain;
+using Courier.Riders.Application;
+using Courier.Riders.Domain;
 using Courier.Shipments.Application;
 using Courier.Shipments.Domain;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -96,14 +98,21 @@ public class ManifestsEndpointsTests : IClassFixture<WebApplicationFactory<Progr
         "Sender One", "9800000001", KathmanduProvinceId, KathmanduDistrictId, KathmanduLocalLevelId, KathmanduWardNumber, "Sender Address",
         new List<CreateShipmentItemRequest> { new("Item A", 1, 500m) });
 
-    // Walks a freshly booked shipment through the still-live Phase 6 endpoints up to
-    // AtOriginBranch — the point at which this phase's /manifests/{id}/scan takes over.
+    // Walks a freshly booked shipment through Riders' real pickup flow up to AtOriginBranch — the
+    // point at which this phase's /manifests/{id}/scan takes over. Uses a throwaway rider created
+    // solely to satisfy the now-real (Phase 8) pickup-assignment requirement; Manifests' own tests
+    // don't otherwise care which rider performed the pickup.
     private async Task<ShipmentResponse> CreateShipmentAtOriginBranchAsync(HttpClient client, Guid merchantId, Guid originBranchId, Guid destinationBranchId, Guid serviceTypeId)
     {
         var createResponse = await client.PostAsJsonAsync("/api/v1/shipments", ValidShipmentRequest(merchantId, originBranchId, destinationBranchId, serviceTypeId));
         var shipment = await createResponse.Content.ReadFromJsonAsync<ShipmentResponse>();
-        await client.PostAsJsonAsync($"/api/v1/shipments/{shipment!.Id}/pickup-assign", new AssignPickupRequest(Guid.NewGuid()));
-        await client.PostAsJsonAsync($"/api/v1/shipments/{shipment.Id}/pickup-scan", new { });
+
+        var riderResponse = await client.PostAsJsonAsync("/api/v1/riders", new CreateRiderRequest(
+            $"rider-{Guid.NewGuid():N}@example.com", "P@ssw0rd123!", "Pickup Rider", null, $"LIC-{Guid.NewGuid():N}"[..12], originBranchId, RiderRoleType.PickupRider));
+        var rider = await riderResponse.Content.ReadFromJsonAsync<RiderResponse>();
+
+        await client.PostAsJsonAsync("/api/v1/riders/tasks", new AssignDeliveryTaskRequest(rider!.Id, shipment!.Id, DeliveryTaskType.Pickup));
+        await client.PostAsJsonAsync($"/api/v1/riders/{rider.Id}/scan/pickup", new RiderScanRequest(shipment.Awb));
         var afterOrigin = await (await client.PostAsJsonAsync($"/api/v1/shipments/{shipment.Id}/receive-origin", new { })).Content.ReadFromJsonAsync<ShipmentResponse>();
         return afterOrigin!;
     }

@@ -63,6 +63,11 @@ class ScanningFakeShipmentTransitionService : IShipmentTransitionService
 
     public Task DispatchManyAsync(IReadOnlyCollection<Guid> shipmentIds, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     public Task<ShipmentResponse?> ReceiveAtDestinationAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    public Task<ShipmentResponse?> AssignPickupToRiderAsync(Guid shipmentId, Guid riderId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    public Task<ShipmentResponse?> RiderPickupScanAsync(Guid shipmentId, Guid riderId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    public Task<ShipmentResponse?> AssignDeliveryToRiderAsync(Guid shipmentId, Guid riderId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    public Task<ShipmentResponse?> CompleteDeliveryAsync(Guid shipmentId, Guid riderId, string recipientName, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    public Task<ShipmentResponse?> FailDeliveryAsync(Guid shipmentId, Guid riderId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 }
 
 public class ManifestServiceScanningTests
@@ -101,7 +106,7 @@ public class ManifestServiceScanningTests
     }
 
     private static ShipmentScanInfo AtOriginInfo(Guid fromBranchId, Guid toBranchId, string awb = "AWB001") => new(
-        Guid.NewGuid(), Guid.NewGuid(), awb, ShipmentStatus.AtOriginBranch, fromBranchId, fromBranchId, toBranchId);
+        Guid.NewGuid(), Guid.NewGuid(), awb, ShipmentStatus.AtOriginBranch, fromBranchId, fromBranchId, toBranchId, null);
 
     [Fact]
     public async Task ScanAsync_ShipmentAtOriginBranch_AddsToManifestAndSortsShipment()

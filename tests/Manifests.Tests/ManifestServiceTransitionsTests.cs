@@ -81,6 +81,12 @@ class TransitionsFakeShipmentTransitionService : IShipmentTransitionService
         ShipmentsById[shipmentId] = info with { CurrentStatus = ShipmentStatus.AtDestinationBranch, CurrentBranchId = info.DestinationBranchId };
         return Task.FromResult<ShipmentResponse?>(null);
     }
+
+    public Task<ShipmentResponse?> AssignPickupToRiderAsync(Guid shipmentId, Guid riderId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    public Task<ShipmentResponse?> RiderPickupScanAsync(Guid shipmentId, Guid riderId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    public Task<ShipmentResponse?> AssignDeliveryToRiderAsync(Guid shipmentId, Guid riderId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    public Task<ShipmentResponse?> CompleteDeliveryAsync(Guid shipmentId, Guid riderId, string recipientName, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    public Task<ShipmentResponse?> FailDeliveryAsync(Guid shipmentId, Guid riderId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 }
 
 public class ManifestServiceTransitionsTests
@@ -117,7 +123,7 @@ public class ManifestServiceTransitionsTests
         var manifest = await service.CreateManifestAsync(new CreateManifestRequest(fromBranchId, toBranchId), ActingUser(Guid.NewGuid()));
         var shipmentId = Guid.NewGuid();
         var awb = "AWB001";
-        shipments.ShipmentsById[shipmentId] = new ShipmentScanInfo(shipmentId, organizationId, awb, ShipmentStatus.AtOriginBranch, fromBranchId, fromBranchId, toBranchId);
+        shipments.ShipmentsById[shipmentId] = new ShipmentScanInfo(shipmentId, organizationId, awb, ShipmentStatus.AtOriginBranch, fromBranchId, fromBranchId, toBranchId, null);
         await service.ScanAsync(manifest.Id, new ScanShipmentRequest(awb), ActingUser(Guid.NewGuid()));
         await service.SealAsync(manifest.Id, ActingUser(Guid.NewGuid()));
 
@@ -194,7 +200,7 @@ public class ManifestServiceTransitionsTests
         await service.DispatchAsync(manifestId, new DispatchManifestRequest("BA 2 KHA 1234", null), ActingUser(Guid.NewGuid()));
 
         var strangerId = Guid.NewGuid();
-        shipments.ShipmentsById[strangerId] = new ShipmentScanInfo(strangerId, organizationId, "AWB999", ShipmentStatus.InTransit, null, Guid.NewGuid(), Guid.NewGuid());
+        shipments.ShipmentsById[strangerId] = new ShipmentScanInfo(strangerId, organizationId, "AWB999", ShipmentStatus.InTransit, null, Guid.NewGuid(), Guid.NewGuid(), null);
 
         var ex = await Assert.ThrowsAsync<ManifestScanRejectedException>(() =>
             service.ReceiveScanAsync(manifestId, new ScanShipmentRequest("AWB999"), ActingUser(Guid.NewGuid())));
@@ -227,11 +233,11 @@ public class ManifestServiceTransitionsTests
         var manifest = await service.CreateManifestAsync(new CreateManifestRequest(fromBranchId, toBranchId), ActingUser(Guid.NewGuid()));
 
         var receivedShipmentId = Guid.NewGuid();
-        shipments.ShipmentsById[receivedShipmentId] = new ShipmentScanInfo(receivedShipmentId, organizationId, "AWB-RECEIVED", ShipmentStatus.AtOriginBranch, fromBranchId, fromBranchId, toBranchId);
+        shipments.ShipmentsById[receivedShipmentId] = new ShipmentScanInfo(receivedShipmentId, organizationId, "AWB-RECEIVED", ShipmentStatus.AtOriginBranch, fromBranchId, fromBranchId, toBranchId, null);
         await service.ScanAsync(manifest.Id, new ScanShipmentRequest("AWB-RECEIVED"), ActingUser(Guid.NewGuid()));
 
         var missingShipmentId = Guid.NewGuid();
-        shipments.ShipmentsById[missingShipmentId] = new ShipmentScanInfo(missingShipmentId, organizationId, "AWB-MISSING", ShipmentStatus.AtOriginBranch, fromBranchId, fromBranchId, toBranchId);
+        shipments.ShipmentsById[missingShipmentId] = new ShipmentScanInfo(missingShipmentId, organizationId, "AWB-MISSING", ShipmentStatus.AtOriginBranch, fromBranchId, fromBranchId, toBranchId, null);
         await service.ScanAsync(manifest.Id, new ScanShipmentRequest("AWB-MISSING"), ActingUser(Guid.NewGuid()));
 
         await service.SealAsync(manifest.Id, ActingUser(Guid.NewGuid()));
