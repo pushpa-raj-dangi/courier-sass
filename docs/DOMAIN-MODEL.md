@@ -159,14 +159,20 @@ use — not the single free-text field an earlier draft of this section implied.
 ## Scanning & Manifests — `OrganizationId` present
 
 ```text
-Manifest { Id, OrganizationId, Code, FromBranchId, ToBranchId, VehiclePlate,
-           DriverId (nullable FK to Rider or a Driver concept — reuse Rider unless a
-           dedicated Driver entity proves necessary), Status (Draft|Sealed|
-           Dispatched|InTransit|Received|Closed), ShipmentCount, CreatedByUserId }
+Manifest { Id, OrganizationId, Code (e.g. MNF-20260818-001, unique per (OrganizationId, Code)),
+           FromBranchId, ToBranchId, VehiclePlate (nullable until dispatch), DriverId (nullable —
+           no FK yet, Rider doesn't exist until Phase 8), Status (Draft|Sealed|InTransit|Received|
+           Closed — no separate "Dispatched" resting state; POST /manifests/{id}/dispatch moves
+           Sealed straight to InTransit in one action, recording VehiclePlate/DriverId at the same
+           time, since nothing distinguishes a dispatched-but-not-yet-in-transit state in practice),
+           ShipmentCount, CreatedByUserId, CreatedAt }
 
-ManifestShipment { Id, ManifestId, ShipmentId, ScannedAt, ReceivedAt (nullable) }
+ManifestShipment { Id, ManifestId, ShipmentId, ScannedAt, ReceivedAt (nullable — a null value on a
+                    Closed manifest IS the missing-shipment flag; no separate IsMissing column) }
 
 ShipmentTransfer { Id, ManifestId, ShipmentId, FromBranchId, ToBranchId, Timestamp }
+             # append-only physical-custody record, one row per shipment at receive-time,
+             # separate from Shipments.ShipmentEvent (SHIPMENT-LIFECYCLE.md §5)
 ```
 
 ## Riders & Delivery — `OrganizationId` present
@@ -297,6 +303,7 @@ Shipment 1─* DeliveryAttempt 1─(0..1)─ DeliveryProof
 Shipment 1─(0..1)─ NDR 1─(0..1)─ ReturnShipment
 Shipment 1─(0..1)─ CODCollection 1─(0..1)─ MerchantSettlementItem *─1 MerchantSettlement
 Manifest 1─* ManifestShipment *─1 Shipment
+Manifest 1─* ShipmentTransfer *─1 Shipment
 Rider 1─* DeliveryTask *─1 Shipment
 ```
 

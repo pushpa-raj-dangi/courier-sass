@@ -9,6 +9,7 @@
     <Project Path="src/Modules/Branches/Branches.csproj" />
     <Project Path="src/Modules/Geography/Geography.csproj" />
     <Project Path="src/Modules/Identity/Identity.csproj" />
+    <Project Path="src/Modules/Manifests/Manifests.csproj" />
     <Project Path="src/Modules/Merchants/Merchants.csproj" />
     <Project Path="src/Modules/Pricing/Pricing.csproj" />
     <Project Path="src/Modules/Shipments/Shipments.csproj" />
@@ -19,6 +20,7 @@
     <Project Path="tests/Branches.Tests/Branches.Tests.csproj" />
     <Project Path="tests/Geography.Tests/Geography.Tests.csproj" />
     <Project Path="tests/Identity.Tests/Identity.Tests.csproj" />
+    <Project Path="tests/Manifests.Tests/Manifests.Tests.csproj" />
     <Project Path="tests/Merchants.Tests/Merchants.Tests.csproj" />
     <Project Path="tests/Pricing.Tests/Pricing.Tests.csproj" />
     <Project Path="tests/SharedKernel.Tests/SharedKernel.Tests.csproj" />

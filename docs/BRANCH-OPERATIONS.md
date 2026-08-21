@@ -41,13 +41,15 @@ ShipmentTransfer { ManifestId, ShipmentId, FromBranchId, ToBranchId, Timestamp }
 ### Lifecycle
 
 ```text
-DRAFT → SEALED → DISPATCHED → IN_TRANSIT → RECEIVED → CLOSED
+DRAFT → SEALED → IN_TRANSIT → RECEIVED → CLOSED
 ```
 
 * **DRAFT**: shipments are added via sort/dispatch scans; can still be modified.
 * **SEALED**: no further shipments can be added; count is locked.
-* **DISPATCHED**: vehicle/driver recorded, shipments transition to `IN_TRANSIT`
-  (shipment-level) as part of this action.
+* **SEALED → IN_TRANSIT**: a single `dispatch` action records vehicle/driver and moves every
+  `ManifestShipment`'s shipment `Sorted → InTransit` — there is no separately observable
+  "dispatched but not yet in transit" resting state, so `Manifest.Status` goes straight to
+  `IN_TRANSIT` (Phase 7 plan's resolved design decision #2).
 * **IN_TRANSIT**: en route to `ToBranchId`.
 * **RECEIVED**: destination branch scans every shipment against the manifest.
   * Each successfully scanned shipment: `ManifestShipment.ReceivedAt` set,

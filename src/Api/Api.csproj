@@ -31,6 +31,7 @@
     <ProjectReference Include="..\Modules\Merchants\Merchants.csproj" />
     <ProjectReference Include="..\Modules\Pricing\Pricing.csproj" />
     <ProjectReference Include="..\Modules\Shipments\Shipments.csproj" />
+    <ProjectReference Include="..\Modules\Manifests\Manifests.csproj" />
   </ItemGroup>
 
 </Project>
