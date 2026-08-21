@@ -2,6 +2,8 @@ using System.Security.Claims;
 using Courier.Audit.Application;
 using Courier.Branches.Application;
 using Courier.Identity.Application;
+using Courier.Ndr.Application;
+using Courier.Ndr.Domain;
 using Courier.Riders.Application;
 using Courier.Riders.Domain;
 using Courier.Riders.Infrastructure;
@@ -69,6 +71,11 @@ file class NotSupportedObjectStorage : IObjectStorage
     public Task<Stream> OpenReadAsync(string key, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 }
 
+file class NotSupportedNdrCreationService : INdrCreationService
+{
+    public Task CreateFromFailedAttemptAsync(Guid shipmentId, Guid organizationId, NdrReason reason, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+}
+
 public class RiderServiceReadsTests
 {
     private class TestDbContext : DbContext
@@ -93,7 +100,7 @@ public class RiderServiceReadsTests
 
     private static RiderService CreateService(TestDbContext dbContext, Guid organizationId, IBranchAuthorizationChecker checker) =>
         new(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), new NotSupportedUserProvisioningService(),
-            new NotSupportedBranchLookup(), checker, new NotSupportedShipmentTransitionService(), new NotSupportedObjectStorage());
+            new NotSupportedBranchLookup(), checker, new NotSupportedShipmentTransitionService(), new NotSupportedObjectStorage(), new NotSupportedNdrCreationService());
 
     [Fact]
     public async Task ListAsync_RestrictedToOneBranch_OnlyReturnsRidersAtThatBranch()

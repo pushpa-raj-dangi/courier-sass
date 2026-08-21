@@ -2,6 +2,8 @@ using System.Security.Claims;
 using Courier.Audit.Application;
 using Courier.Branches.Application;
 using Courier.Identity.Application;
+using Courier.Ndr.Application;
+using Courier.Ndr.Domain;
 using Courier.Riders.Application;
 using Courier.Riders.Domain;
 using Courier.Riders.Infrastructure;
@@ -85,6 +87,11 @@ file class NullObjectStorage : IObjectStorage
     public Task<Stream> OpenReadAsync(string key, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 }
 
+file class NotSupportedNdrCreationService : INdrCreationService
+{
+    public Task CreateFromFailedAttemptAsync(Guid shipmentId, Guid organizationId, NdrReason reason, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+}
+
 public class RiderServiceCreationTests
 {
     private class TestDbContext : DbContext
@@ -113,7 +120,7 @@ public class RiderServiceCreationTests
         var service = new RiderService(
             dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), provisioning,
             new FakeBranchLookup(knownBranchId), new AllBranchesAuthorizationChecker(),
-            new NotSupportedShipmentTransitionService(), new NullObjectStorage());
+            new NotSupportedShipmentTransitionService(), new NullObjectStorage(), new NotSupportedNdrCreationService());
         return (service, provisioning);
     }
 

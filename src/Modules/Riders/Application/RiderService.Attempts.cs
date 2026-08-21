@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Courier.Audit.Application;
+using Courier.Ndr.Domain;
 using Courier.Riders.Domain;
 using Courier.Shipments.Domain;
 using Courier.SharedKernel;
@@ -37,6 +38,11 @@ public partial class RiderService
         // Transition first, then persist the attempt record — same "transition, then record"
         // ordering as AssignTaskAsync (Task 8).
         await _shipmentTransitionService.FailDeliveryAsync(request.ShipmentId, riderId, actingUser, cancellationToken);
+
+        // Phase 9: DELIVERY_FAILED -> NDR_CREATED happens automatically, in the same request, right
+        // after the failure transition above — SHIPMENT-LIFECYCLE.md's diagram shows this as a
+        // system step, not a separate manual action.
+        await _ndrCreationService.CreateFromFailedAttemptAsync(request.ShipmentId, organizationId, ToNdrReason(request.Reason), actingUser, cancellationToken);
 
         var attempt = new DeliveryAttempt
         {
@@ -152,4 +158,22 @@ public partial class RiderService
 
     private static DeliveryAttemptResponse ToAttemptResponse(DeliveryAttempt attempt) => new(
         attempt.Id, attempt.ShipmentId, attempt.RiderId, attempt.AttemptNumber, attempt.Succeeded, attempt.Reason, attempt.NextAction);
+
+    // Explicit switch, not a raw int cast — Riders.Domain.DeliveryAttemptReason and
+    // Ndr.Domain.NdrReason are deliberately separate, identically-valued enums (see NdrReason.cs's
+    // doc comment); a switch makes a future divergence between the two lists a compile error
+    // instead of a silent miscast.
+    private static NdrReason ToNdrReason(DeliveryAttemptReason reason) => reason switch
+    {
+        DeliveryAttemptReason.CustomerUnavailable => NdrReason.CustomerUnavailable,
+        DeliveryAttemptReason.PhoneUnreachable => NdrReason.PhoneUnreachable,
+        DeliveryAttemptReason.WrongAddress => NdrReason.WrongAddress,
+        DeliveryAttemptReason.IncompleteAddress => NdrReason.IncompleteAddress,
+        DeliveryAttemptReason.CustomerRefused => NdrReason.CustomerRefused,
+        DeliveryAttemptReason.CustomerRequestedReschedule => NdrReason.CustomerRequestedReschedule,
+        DeliveryAttemptReason.CashUnavailable => NdrReason.CashUnavailable,
+        DeliveryAttemptReason.DamagedParcel => NdrReason.DamagedParcel,
+        DeliveryAttemptReason.Other => NdrReason.Other,
+        _ => throw new ArgumentOutOfRangeException(nameof(reason))
+    };
 }

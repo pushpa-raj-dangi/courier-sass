@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Courier.Audit.Application;
 using Courier.Branches.Application;
 using Courier.Identity.Application;
+using Courier.Ndr.Application;
 using Courier.Riders.Domain;
 using Courier.Shipments.Application;
 using Courier.SharedKernel;
@@ -19,6 +20,7 @@ public partial class RiderService
     private readonly IBranchAuthorizationChecker _branchAuthorizationChecker;
     private readonly IShipmentTransitionService _shipmentTransitionService;
     private readonly IObjectStorage _objectStorage;
+    private readonly INdrCreationService _ndrCreationService;
 
     public RiderService(
         DbContext dbContext,
@@ -28,7 +30,8 @@ public partial class RiderService
         IBranchLookupService branchLookupService,
         IBranchAuthorizationChecker branchAuthorizationChecker,
         IShipmentTransitionService shipmentTransitionService,
-        IObjectStorage objectStorage)
+        IObjectStorage objectStorage,
+        INdrCreationService ndrCreationService)
     {
         _dbContext = dbContext;
         _currentTenantProvider = currentTenantProvider;
@@ -38,6 +41,7 @@ public partial class RiderService
         _branchAuthorizationChecker = branchAuthorizationChecker;
         _shipmentTransitionService = shipmentTransitionService;
         _objectStorage = objectStorage;
+        _ndrCreationService = ndrCreationService;
     }
 
     public async Task<RiderResponse> CreateRiderAsync(CreateRiderRequest request, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
