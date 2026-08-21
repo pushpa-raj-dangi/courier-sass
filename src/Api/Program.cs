@@ -10,6 +10,8 @@ using Courier.Geography.Presentation;
 using Courier.Identity.Application;
 using Courier.Identity.Infrastructure;
 using Courier.Identity.Presentation;
+using Courier.Manifests.Application;
+using Courier.Manifests.Presentation;
 using Courier.Merchants.Application;
 using Courier.Merchants.Infrastructure;
 using Courier.Merchants.Presentation;
@@ -66,6 +68,7 @@ builder.Services.AddScoped<PricingService>();
 builder.Services.AddScoped<ReferenceDataService>();
 builder.Services.AddScoped<ShipmentService>();
 builder.Services.AddScoped<IShipmentTransitionService>(sp => sp.GetRequiredService<ShipmentService>());
+builder.Services.AddScoped<ManifestService>();
 builder.Services.AddScoped<GeographyQueryService>();
 builder.Services.AddScoped<IGeographyLookupService>(sp => sp.GetRequiredService<GeographyQueryService>());
 builder.Services.AddScoped<DeliveryZoneService>();
@@ -149,6 +152,7 @@ app.MapMerchantStaffEndpoints();
 app.MapMerchantKycEndpoints();
 app.MapPricingEndpoints();
 app.MapShipmentsEndpoints();
+app.MapManifestsEndpoints();
 
 app.MapGet("/health/ping", () => Results.Ok(new { status = "ok" }));
 
