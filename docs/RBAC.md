@@ -34,7 +34,7 @@ and bypasses tenant/branch scoping entirely, but every action is written to
 | Dispatcher | Yes, branch-scoped | Manifest/transfer/dispatch permissions |
 | SortingStaff | Yes, branch-scoped | Scan/sort permissions |
 | CounterStaff | Yes, branch-scoped | Booking/counter shipment creation |
-| PickupRider | Yes, branch-scoped | Pickup task permissions |
+| PickupRider | Yes, branch-scoped | `shipment.scan` only — Phase 8 |
 | DeliveryRider | Yes, branch-scoped | Delivery task, POD, COD collection permissions |
 | FinanceManager | Yes | COD reconciliation, settlement approval, adjustments |
 | FinanceStaff | Yes | COD reconciliation, no adjustment approval |
@@ -110,6 +110,8 @@ table — but indicative of intent:
 * **DeliveryRider**: `delivery.attempt`, `delivery.complete`, `cod.collect`,
   `shipment.scan` (rider pickup/delivery scans only), branch-scoped to their base
   branch.
+* **PickupRider**: `shipment.scan` (rider pickup scan only), branch-scoped to their base branch —
+  the full permission set, not merely illustrative (`CLARIFICATIONS.md` #8).
 * **Merchant**: `shipment.create/read/cancel` limited to shipments where
   `Shipment.MerchantId == self`, `cod.read` limited to own settlements — enforced at
   the application-service query level, not just the permission catalog, since a

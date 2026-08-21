@@ -231,6 +231,45 @@ DeliveryProof`.
 *Exit:* a rider can be assigned a delivery, record a failed attempt with a reason
 from CLAUDE.md §19's list, or complete delivery with OTP/signature/photo/GPS POD.
 
+*Status (2026-08-21): Complete.* A new `Riders` module implements `Rider, Vehicle, DeliveryRun,
+DeliveryTask, DeliveryAttempt, DeliveryProof` per `DOMAIN-MODEL.md` — with `RiderAssignment` dropped
+from the original sketch (`Rider.BaseBranchId` is the sole branch scope; approved during
+brainstorming, `CLARIFICATIONS.md` #8 records the two other Phase 8 design ambiguities it resolved).
+A rider is a real `Identity.User` holding the `PickupRider`/`DeliveryRider` role — both roles are now
+seeded per-organization at registration alongside `OrganizationOwner`, and a new narrow
+`IUserProvisioningService` in `Identity.Application` closes the gap that nothing before this phase
+could create a second staff user at all. `RiderPickup`/`RiderDelivery` are the real scan
+operations `BRANCH-OPERATIONS.md` §4 earmarked for this module, implemented via five new methods on
+`Shipments`' `IShipmentTransitionService` (`AssignPickupToRiderAsync`, `RiderPickupScanAsync`,
+`AssignDeliveryToRiderAsync`, `CompleteDeliveryAsync`, `FailDeliveryAsync`) — `Riders` performs the
+full `BRANCH-OPERATIONS.md` §1 five-check validation itself before calling in, mirroring the
+`Manifests`/`Shipments` division of responsibility Phase 7 established. This retires the Phase 6
+placeholder `pickup-assign`/`pickup-scan`/`out-for-delivery`/`deliver` endpoints entirely — a
+shipment can no longer move through pickup or delivery outside a real rider. `DeliveryRun` is
+auto-created/reused (found-or-created per rider+branch+day the first time a task is assigned, no
+explicit "start my run" endpoint) and `DeliveryTask.Sequence` increments within it, proven by
+`tests/Riders.Tests/RiderServiceTasksTests.cs`'s
+`AssignTaskAsync_TwoPickupTasksSameRiderSameDay_ReuseSameRunWithIncrementingSequence`. A failed
+delivery attempt transitions the shipment to the newly-added `DeliveryFailed` status and
+deliberately leaves custody (`CurrentCustodianRiderId`) on the rider rather than clearing it — the
+parcel is still physically with them until Phase 9's NDR/reattempt/RTO flow moves it again; this
+phase stops exactly at `DELIVERY_FAILED` and does not build `NDR_CREATED` or the reattempt loop.
+`DeliveryProof.OtpVerified` is a client-reported boolean this phase (no server-side OTP generate/
+verify flow — that needs Phase 11's real SMS delivery to be meaningful); signature/photo uploads
+reuse the exact `IObjectStorage`/raw-body-upload pattern Phase 4 built for merchant KYC documents.
+The full success path (pickup scan through POD capture to `DELIVERED`) and the full failure path
+(assignment through a failed attempt to `DELIVERY_FAILED`, proving custody stays with the rider) are
+each proven end-to-end over real HTTP in `tests/Api.Tests/RidersEndpointsTests.cs`, alongside tenant
+isolation and a permission-scope test proving a `PickupRider` cannot call a `DeliveryRider`-only
+endpoint, and a concurrency test proving the `xmin` optimistic-concurrency token still blocks a
+double-delivery race through the new `delivery-attempts/complete` endpoint.
+`Rider`/`Vehicle`/`DeliveryAttempt`/`DeliveryProof` carry their own `OrganizationId`;
+`DeliveryRun`/`DeliveryTask` do not — isolation flows transitively through
+`RiderId -> Rider.OrganizationId`, the same pattern `ManifestShipment`/`ShipmentItem` already
+established. Deferred to later phases: `NDR`/`RTO` (Phase 9), real COD collection linkage (Phase
+10), real OTP delivery (Phase 11), and a general staff user-invite feature beyond the two rider
+roles this phase needed.
+
 ## Phase 9 — NDR, Reattempt, RTO
 
 `NDR` entity/workflow (CLAUDE.md §20), the reattempt loop back to

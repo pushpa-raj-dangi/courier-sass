@@ -175,32 +175,43 @@ ShipmentTransfer { Id, ManifestId, ShipmentId, FromBranchId, ToBranchId, Timesta
              # separate from Shipments.ShipmentEvent (SHIPMENT-LIFECYCLE.md §5)
 ```
 
-## Riders & Delivery — `OrganizationId` present
+## Riders & Delivery — `OrganizationId` present on Rider/Vehicle/DeliveryAttempt/DeliveryProof only
 
 ```text
 Rider { Id, OrganizationId, UserId (FK — a rider is also a User with the
-        PickupRider/DeliveryRider role), BaseBranchId, LicenseNumber, IsActive }
+        PickupRider/DeliveryRider role), BaseBranchId, LicenseNumber, RoleType, IsActive }
+        # No RiderAssignment entity (Phase 8's resolved design decision) — BaseBranchId is the
+        # sole branch scope.
 
 Vehicle { Id, OrganizationId, RiderId (nullable), Type, PlateNumber, Capacity }
 
-RiderAssignment { Id, RiderId, BranchId, AssignedAt, UnassignedAt (nullable) }
-
-DeliveryRun { Id, RiderId, BranchId, Date, Status }
+DeliveryRun { Id, RiderId, BranchId, Date, Status (Active|Completed) }
+             # No own OrganizationId — flows transitively through RiderId -> Rider.OrganizationId.
+             # Auto-created/reused per (RiderId, BranchId, Date) when the first task of the day is
+             # assigned; no explicit "start my run" endpoint (Phase 8).
 
 DeliveryTask { Id, DeliveryRunId, ShipmentId, Type (Pickup|Delivery), Sequence,
-               Status }
+               Status (Pending|Completed|Failed) }
+             # No own OrganizationId — flows transitively through DeliveryRunId -> DeliveryRun ->
+             # RiderId -> Rider.OrganizationId.
 
-DeliveryAttempt { Id, ShipmentId, RiderId, AttemptNumber, AttemptedAt,
+DeliveryAttempt { Id, OrganizationId, ShipmentId, RiderId, AttemptNumber, AttemptedAt, Succeeded,
                    Reason (CustomerUnavailable|PhoneUnreachable|WrongAddress|
                    IncompleteAddress|CustomerRefused|CustomerRequestedReschedule|
-                   CashUnavailable|DamagedParcel|Other),
-                   Notes, Latitude, Longitude, CustomerContacted, NextAction }
+                   CashUnavailable|DamagedParcel|Other — null iff Succeeded),
+                   Notes, Latitude, Longitude, CustomerContacted, NextAction (plain string) }
+                 # Succeeded is additive beyond this document's original sketch — one row per real
+                 # attempt (success or failure), disambiguated by this flag rather than a
+                 # nullable-Reason convention (Phase 8).
 
-DeliveryProof { Id, ShipmentId, DeliveryAttemptId, OtpVerified, SignatureStorageKey,
-                PhotoStorageKey, Latitude, Longitude, Timestamp, RiderId,
+DeliveryProof { Id, OrganizationId, ShipmentId, DeliveryAttemptId, RiderId, OtpVerified,
+                SignatureStorageKey, PhotoStorageKey, Latitude, Longitude, Timestamp,
                 RecipientName, CorrectedAt (nullable), CorrectionReason (nullable) }
-                # immutable after success except via the controlled correction
-                # fields above, which never overwrite the original capture
+                # Immutable after successful capture except via the correction fields above, which
+                # never overwrite the original capture. OtpVerified is a client-reported boolean —
+                # no server-side OTP generate/verify flow exists yet (Phase 8; needs Phase 11's real
+                # SMS delivery to be meaningful). No correction endpoint exists yet either — the
+                # columns exist now so a later phase adding one needs no migration.
 ```
 
 ## NDR — `OrganizationId` present

@@ -200,6 +200,45 @@ which §33 requires to happen entirely server-side.
 
 ---
 
+## 8. Phase 8 gaps: PickupRider's permission set, RiderDelivery's scan step, and staff user provisioning
+
+**Where:** §6/§17-19 (Rider domain), `RBAC.md` §4, `BRANCH-OPERATIONS.md` §4
+
+**Ambiguity 1:** `RBAC.md` §4 spells out `DeliveryRider`'s permission set explicitly but only
+describes `PickupRider` as "Pickup task permissions" — no concrete list.
+
+**Resolution 1:** `PickupRider` holds `shipment.scan` only. A pickup rider's entire job this phase
+is the pickup scan (`RiderPickupScanAsync`); nothing else in the v1 permission catalog is
+pickup-specific. `DeliveryRider` holds `delivery.attempt`, `delivery.complete`, `cod.collect`,
+`shipment.scan` exactly as `RBAC.md` §4 already specified. Both roles are seeded per-organization
+at registration (`AuthService.RegisterOrganizationAsync`), same as `OrganizationOwner`.
+
+**Ambiguity 2:** `BRANCH-OPERATIONS.md` §4 names `RiderDelivery` as if it were its own scan action
+distinct from assignment, but `SHIPMENT-LIFECYCLE.md`'s transition table has exactly one arrow into
+`OUT_FOR_DELIVERY` ("delivery rider assignment + out-for-delivery scan") — never two, unlike pickup
+which has two (`PICKUP_ASSIGNED` is a real, separately-observable status).
+
+**Resolution 2:** `RiderDelivery` is not a second call after assignment. Assigning a delivery task
+to a rider (`RiderService.AssignTaskAsync` with `Type = Delivery`) performs the
+`AtDestinationBranch -> OutForDelivery` transition in the same call — that assignment call IS the
+`RiderDelivery` scan. `RiderPickup` keeps its two-step shape (assign, then a separate physical scan)
+because `PICKUP_ASSIGNED` is a real status a dispatch board needs to show; there's no equivalent
+named status between "delivery assigned" and "out for delivery" for a second step to represent.
+
+**Ambiguity 3:** `DOMAIN-MODEL.md`'s `Rider.UserId` requires "a User with the PickupRider/
+DeliveryRider role", but nothing in Phases 1-7 ever creates a second staff `User` in an
+organization — `AuthService.RegisterOrganizationAsync` only creates the org-registration owner, and
+no endpoint anywhere invites/provisions additional staff.
+
+**Resolution 3:** Phase 8 adds a narrow `Identity.Application.IUserProvisioningService` (used only
+by `Riders.Application.RiderService.CreateRiderAsync`) that creates a `User` + `UserRole`
+(`BranchScope.SpecificBranches`) + `UserBranch` grant for one of the organization's already-seeded
+role names. This is deliberately NOT a general "invite any staff member with any role" feature — a
+real user-management/invite UI (covering `BranchManager`, `Dispatcher`, `SortingStaff`, etc.) is
+still deferred, tracked as a known gap for whichever future phase needs it.
+
+---
+
 ## Summary of schema additions implied by this document
 
 * `UserRole` (new entity) — resolves #1, carries `BranchScope` enum — resolves #6.
