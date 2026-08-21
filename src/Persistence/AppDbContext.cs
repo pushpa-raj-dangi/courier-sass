@@ -12,6 +12,8 @@ using Courier.Merchants.Domain;
 using Courier.Merchants.Infrastructure;
 using Courier.Pricing.Domain;
 using Courier.Pricing.Infrastructure;
+using Courier.Riders.Domain;
+using Courier.Riders.Infrastructure;
 using Courier.Shipments.Domain;
 using Courier.Shipments.Infrastructure;
 using Courier.SharedKernel;
@@ -61,6 +63,12 @@ public class AppDbContext : DbContext
     public DbSet<Manifest> Manifests => Set<Manifest>();
     public DbSet<ManifestShipment> ManifestShipments => Set<ManifestShipment>();
     public DbSet<ShipmentTransfer> ShipmentTransfers => Set<ShipmentTransfer>();
+    public DbSet<Rider> Riders => Set<Rider>();
+    public DbSet<Vehicle> Vehicles => Set<Vehicle>();
+    public DbSet<DeliveryRun> DeliveryRuns => Set<DeliveryRun>();
+    public DbSet<DeliveryTask> DeliveryTasks => Set<DeliveryTask>();
+    public DbSet<DeliveryAttempt> DeliveryAttempts => Set<DeliveryAttempt>();
+    public DbSet<DeliveryProof> DeliveryProofs => Set<DeliveryProof>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -96,6 +104,12 @@ public class AppDbContext : DbContext
         modelBuilder.ApplyConfiguration(new ManifestConfiguration());
         modelBuilder.ApplyConfiguration(new ManifestShipmentConfiguration());
         modelBuilder.ApplyConfiguration(new ShipmentTransferConfiguration());
+        modelBuilder.ApplyConfiguration(new RiderConfiguration());
+        modelBuilder.ApplyConfiguration(new VehicleConfiguration());
+        modelBuilder.ApplyConfiguration(new DeliveryRunConfiguration());
+        modelBuilder.ApplyConfiguration(new DeliveryTaskConfiguration());
+        modelBuilder.ApplyConfiguration(new DeliveryAttemptConfiguration());
+        modelBuilder.ApplyConfiguration(new DeliveryProofConfiguration());
 
         // Branch.OrganizationId -> Organizations FK lives here rather than in
         // BranchConfiguration (Branches module) because Branches deliberately has no project
@@ -159,6 +173,26 @@ public class AppDbContext : DbContext
             .HasForeignKey(m => m.OrganizationId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // Same reasoning for Rider/Vehicle/DeliveryAttempt/DeliveryProof.OrganizationId: Riders has
+        // no project reference to Identity's Infrastructure/Persistence layer (only Identity's
+        // Application-layer IUserProvisioningService interface).
+        modelBuilder.Entity<Rider>().HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(r => r.OrganizationId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Vehicle>().HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(v => v.OrganizationId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<DeliveryAttempt>().HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(a => a.OrganizationId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<DeliveryProof>().HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(p => p.OrganizationId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         // Tenant filters fail CLOSED: the explicit `OrganizationId != null` guard stops EF Core's
         // null-semantics translation from degrading these into `WHERE "OrganizationId" IS NULL`
         // when no tenant is resolved, which would otherwise match org-less rows (planned for
@@ -178,6 +212,10 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<MerchantRateCard>().HasQueryFilter(mrc => _currentTenantProvider.OrganizationId != null && mrc.OrganizationId == _currentTenantProvider.OrganizationId);
         modelBuilder.Entity<Shipment>().HasQueryFilter(s => _currentTenantProvider.OrganizationId != null && s.OrganizationId == _currentTenantProvider.OrganizationId);
         modelBuilder.Entity<Manifest>().HasQueryFilter(m => _currentTenantProvider.OrganizationId != null && m.OrganizationId == _currentTenantProvider.OrganizationId);
+        modelBuilder.Entity<Rider>().HasQueryFilter(r => _currentTenantProvider.OrganizationId != null && r.OrganizationId == _currentTenantProvider.OrganizationId);
+        modelBuilder.Entity<Vehicle>().HasQueryFilter(v => _currentTenantProvider.OrganizationId != null && v.OrganizationId == _currentTenantProvider.OrganizationId);
+        modelBuilder.Entity<DeliveryAttempt>().HasQueryFilter(a => _currentTenantProvider.OrganizationId != null && a.OrganizationId == _currentTenantProvider.OrganizationId);
+        modelBuilder.Entity<DeliveryProof>().HasQueryFilter(p => _currentTenantProvider.OrganizationId != null && p.OrganizationId == _currentTenantProvider.OrganizationId);
 
         // Defensive: nothing queries Organizations with a tenant context today (registration only
         // inserts), but without this a future `Organizations.ToListAsync()` would enumerate every
@@ -209,5 +247,10 @@ public class AppDbContext : DbContext
         // No tenant filter on ManifestShipment/ShipmentTransfer: neither carries its own
         // OrganizationId — tenant isolation flows transitively through
         // ManifestId -> Manifest.OrganizationId (which does have a filter, above).
+
+        // No tenant filter on DeliveryRun/DeliveryTask: neither carries its own OrganizationId —
+        // tenant isolation flows transitively through RiderId -> Rider.OrganizationId (which does
+        // have a filter, above). Every query against these two tables in Riders.Application scopes
+        // through a Rider the caller's tenant already owns.
     }
 }
