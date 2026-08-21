@@ -13,7 +13,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Courier.Shipments.Application;
 
-public partial class ShipmentService
+public partial class ShipmentService : IShipmentTransitionService
 {
     private readonly DbContext _dbContext;
     private readonly ICurrentTenantProvider _currentTenantProvider;

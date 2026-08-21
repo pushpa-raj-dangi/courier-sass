@@ -102,18 +102,15 @@ public partial class ShipmentService
             s => { s.CurrentBranchId = s.OriginBranchId; s.CurrentCustodianUserId = null; }, "shipment.received_at_origin", actingUser, cancellationToken);
     }
 
-    public async Task<ShipmentResponse?> SortAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
-    {
-        var shipment = await _dbContext.Set<Shipment>().FirstOrDefaultAsync(s => s.Id == shipmentId, cancellationToken);
-        if (shipment is null)
-        {
-            return null;
-        }
-        await CheckBranchAccessAsync(actingUser, "shipment.sort", shipment.OriginBranchId, cancellationToken);
-
-        return await TransitionAsync(shipmentId, ShipmentStatus.AtOriginBranch, ShipmentStatus.Sorted, ShipmentEventType.Sorted,
+    // Branch-scope/permission enforcement for this operation now lives one layer up in
+    // Manifests.Application.ManifestService.ScanAsync (BRANCH-OPERATIONS.md §1 checks 1/2), which
+    // is the only caller of this method as of Phase 7 — its own manifest.create permission and
+    // FromBranchId branch check happen before this is ever reached, so re-checking
+    // "shipment.sort"/branch access here would be redundant and would wrongly require callers to
+    // hold a permission this phase's design deliberately retired for this operation.
+    public Task<ShipmentResponse?> SortAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) =>
+        TransitionAsync(shipmentId, ShipmentStatus.AtOriginBranch, ShipmentStatus.Sorted, ShipmentEventType.Sorted,
             _ => { }, "shipment.sorted", actingUser, cancellationToken);
-    }
 
     public async Task<ShipmentResponse?> DispatchAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
@@ -128,18 +125,61 @@ public partial class ShipmentService
             s => s.CurrentBranchId = null, "shipment.dispatched", actingUser, cancellationToken);
     }
 
-    public async Task<ShipmentResponse?> ReceiveAtDestinationAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
+    // Bulk counterpart to the single-shipment DispatchAsync above, used exclusively by
+    // Manifests.Application.ManifestService.DispatchAsync to move every shipment on a manifest
+    // Sorted -> InTransit as one unit. Deliberately does NOT loop calling the single-shipment
+    // TransitionAsync helper (which SaveChangesAsync's per call) — that would commit N separate
+    // transactions for one manifest-level dispatch action. Instead every shipment's mutation +
+    // ShipmentEvent is staged in-memory and committed in exactly one SaveChangesAsync, which EF
+    // Core already wraps in a single implicit database transaction on a relational provider — true
+    // atomicity without introducing an explicit BeginTransactionAsync (which the in-memory provider
+    // this module's unit tests use does not support).
+    public async Task DispatchManyAsync(IReadOnlyCollection<Guid> shipmentIds, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
-        var shipment = await _dbContext.Set<Shipment>().FirstOrDefaultAsync(s => s.Id == shipmentId, cancellationToken);
-        if (shipment is null)
-        {
-            return null;
-        }
-        await CheckBranchAccessAsync(actingUser, "shipment.scan", shipment.DestinationBranchId, cancellationToken);
+        var shipments = await _dbContext.Set<Shipment>().Where(s => shipmentIds.Contains(s.Id)).ToListAsync(cancellationToken);
+        var actingUserId = actingUser.GetUserId();
+        var now = DateTimeOffset.UtcNow;
 
-        return await TransitionAsync(shipmentId, ShipmentStatus.InTransit, ShipmentStatus.AtDestinationBranch, ShipmentEventType.ReceivedAtDestination,
-            s => s.CurrentBranchId = s.DestinationBranchId, "shipment.received_at_destination", actingUser, cancellationToken);
+        foreach (var shipment in shipments)
+        {
+            if (shipment.CurrentStatus != ShipmentStatus.Sorted)
+            {
+                throw new ShipmentInvalidTransitionException(shipment.Id, shipment.CurrentStatus, ShipmentStatus.InTransit);
+            }
+            var previousStatus = shipment.CurrentStatus;
+            var eventBranchId = shipment.CurrentBranchId;
+            shipment.CurrentStatus = ShipmentStatus.InTransit;
+            shipment.CurrentBranchId = null;
+
+            _dbContext.Set<ShipmentEvent>().Add(new ShipmentEvent
+            {
+                Id = Guid.NewGuid(),
+                ShipmentId = shipment.Id,
+                EventType = ShipmentEventType.Dispatched,
+                PreviousStatus = previousStatus,
+                NewStatus = ShipmentStatus.InTransit,
+                BranchId = eventBranchId,
+                UserId = actingUserId,
+                Timestamp = now
+            });
+        }
+
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new ShipmentValidationException("One or more shipments on this manifest were modified concurrently; dispatch was not applied.");
+        }
     }
+
+    // Same reasoning as SortAsync above: Manifests.Application.ManifestService.ReceiveScanAsync is
+    // the only caller as of Phase 7, and it enforces manifest.receive + ToBranchId branch access
+    // itself before calling this.
+    public Task<ShipmentResponse?> ReceiveAtDestinationAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) =>
+        TransitionAsync(shipmentId, ShipmentStatus.InTransit, ShipmentStatus.AtDestinationBranch, ShipmentEventType.ReceivedAtDestination,
+            s => s.CurrentBranchId = s.DestinationBranchId, "shipment.received_at_destination", actingUser, cancellationToken);
 
     public async Task<ShipmentResponse?> AssignDeliveryAsync(Guid shipmentId, AssignDeliveryRequest request, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {

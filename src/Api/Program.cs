@@ -65,6 +65,7 @@ builder.Services.AddScoped<RateCardService>();
 builder.Services.AddScoped<PricingService>();
 builder.Services.AddScoped<ReferenceDataService>();
 builder.Services.AddScoped<ShipmentService>();
+builder.Services.AddScoped<IShipmentTransitionService>(sp => sp.GetRequiredService<ShipmentService>());
 builder.Services.AddScoped<GeographyQueryService>();
 builder.Services.AddScoped<IGeographyLookupService>(sp => sp.GetRequiredService<GeographyQueryService>());
 builder.Services.AddScoped<DeliveryZoneService>();

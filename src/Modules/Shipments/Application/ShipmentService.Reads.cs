@@ -61,4 +61,20 @@ public partial class ShipmentService
         }
         return responses;
     }
+
+    public async Task<ShipmentScanInfo?> GetScanInfoAsync(Guid shipmentId, CancellationToken cancellationToken = default)
+    {
+        var shipment = await _dbContext.Set<Shipment>().FirstOrDefaultAsync(s => s.Id == shipmentId, cancellationToken);
+        return shipment is null ? null : ToScanInfo(shipment);
+    }
+
+    public async Task<ShipmentScanInfo?> GetScanInfoByAwbAsync(string awb, CancellationToken cancellationToken = default)
+    {
+        var shipment = await _dbContext.Set<Shipment>().FirstOrDefaultAsync(s => s.Awb == awb, cancellationToken);
+        return shipment is null ? null : ToScanInfo(shipment);
+    }
+
+    private static ShipmentScanInfo ToScanInfo(Shipment shipment) => new(
+        shipment.Id, shipment.OrganizationId, shipment.Awb, shipment.CurrentStatus,
+        shipment.CurrentBranchId, shipment.OriginBranchId, shipment.DestinationBranchId);
 }
