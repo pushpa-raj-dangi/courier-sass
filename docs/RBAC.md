@@ -67,8 +67,8 @@ rto.read                 rto.manage
 cod.read                 cod.collect            cod.reconcile           cod.settle
 cod.adjust
 
-manifest.create          manifest.seal           manifest.dispatch
-manifest.receive         manifest.close
+manifest.read            manifest.create         manifest.seal
+manifest.dispatch        manifest.receive        manifest.close
 
 branch.read               branch.create           branch.update
 

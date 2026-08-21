@@ -28,6 +28,7 @@ public static class PermissionCatalog
         ("cod.reconcile", "Reconcile COD"),
         ("cod.settle", "Settle COD"),
         ("cod.adjust", "Adjust COD figures"),
+        ("manifest.read", "Read manifests"),
         ("manifest.create", "Create manifests"),
         ("manifest.seal", "Seal manifests"),
         ("manifest.dispatch", "Dispatch manifests"),

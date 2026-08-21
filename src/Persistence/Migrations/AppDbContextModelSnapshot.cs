@@ -1279,6 +1279,12 @@ namespace Persistence.Migrations
                         },
                         new
                         {
+                            Id = new Guid("b6f03426-7803-9980-1e6a-345f672e136d"),
+                            Description = "Read manifests",
+                            Key = "manifest.read"
+                        },
+                        new
+                        {
                             Id = new Guid("9a326c03-5ba6-0f3a-122e-74d87fdd64f0"),
                             Description = "Create manifests",
                             Key = "manifest.create"
