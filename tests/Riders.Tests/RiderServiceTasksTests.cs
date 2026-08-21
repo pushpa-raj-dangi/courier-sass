@@ -34,7 +34,7 @@ file class AllBranchesAuthorizationChecker : IBranchAuthorizationChecker
 
 // Not file-scoped: returned from SeedRiderAsync's tuple, same reasoning as
 // RiderServiceCreationTests.cs's FakeUserProvisioningService.
-class FakeShipmentTransitionService : IShipmentTransitionService
+class TasksFakeShipmentTransitionService : IShipmentTransitionService
 {
     public Dictionary<Guid, ShipmentScanInfo> ShipmentsById { get; } = new();
     public List<(Guid ShipmentId, Guid RiderId)> AssignPickupCalls { get; } = new();
@@ -119,13 +119,13 @@ public class RiderServiceTasksTests
 
     private static ClaimsPrincipal ActingUser(Guid userId) => new(new ClaimsIdentity(new[] { new Claim("sub", userId.ToString()) }, "test"));
 
-    private static async Task<(RiderService Service, FakeShipmentTransitionService Shipments, Guid RiderId)> SeedRiderAsync(TestDbContext dbContext, Guid organizationId, Guid branchId)
+    private static async Task<(RiderService Service, TasksFakeShipmentTransitionService Shipments, Guid RiderId)> SeedRiderAsync(TestDbContext dbContext, Guid organizationId, Guid branchId)
     {
         var rider = new Rider { Id = Guid.NewGuid(), OrganizationId = organizationId, UserId = Guid.NewGuid(), BaseBranchId = branchId, LicenseNumber = "LIC-001", RoleType = RiderRoleType.PickupRider, IsActive = true };
         dbContext.Set<Rider>().Add(rider);
         await dbContext.SaveChangesAsync();
 
-        var shipments = new FakeShipmentTransitionService();
+        var shipments = new TasksFakeShipmentTransitionService();
         var service = new RiderService(
             dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), new NotSupportedUserProvisioningService(),
             new NotSupportedBranchLookup(), new AllBranchesAuthorizationChecker(), shipments, new NotSupportedObjectStorage());
