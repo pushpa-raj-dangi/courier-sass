@@ -40,10 +40,15 @@ public partial class ShipmentService
             var accessibleBranchIds = await _branchAuthorizationChecker.GetAccessibleBranchIdsAsync(actingUser, "shipment.read", cancellationToken);
             if (accessibleBranchIds is not null)
             {
+                // Materialize to an array before use in the query — mirrors BranchService.cs's
+                // established pattern (ListBranchesAsync) for translating a caller's accessible-id
+                // set into a SQL predicate; an IReadOnlySet<Guid> is not the same translatable shape
+                // an array/List<T> is guaranteed to be.
+                var accessibleBranchIdsArray = accessibleBranchIds.ToArray();
                 query = query.Where(s =>
-                    accessibleBranchIds.Contains(s.OriginBranchId) ||
-                    accessibleBranchIds.Contains(s.DestinationBranchId) ||
-                    (s.CurrentBranchId != null && accessibleBranchIds.Contains(s.CurrentBranchId.Value)));
+                    accessibleBranchIdsArray.Contains(s.OriginBranchId) ||
+                    accessibleBranchIdsArray.Contains(s.DestinationBranchId) ||
+                    (s.CurrentBranchId != null && accessibleBranchIdsArray.Contains(s.CurrentBranchId.Value)));
             }
         }
 
