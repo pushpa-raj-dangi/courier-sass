@@ -25,7 +25,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
 using RabbitMQ.Client;
-using Scalar.AspNetCore;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -123,8 +122,12 @@ if (app.Environment.IsDevelopment())
     }
 
     app.MapOpenApi();
-    app.MapScalarApiReference();
-    app.MapGet("/", () => Results.Redirect("/scalar")).ExcludeFromDescription();
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/openapi/v1.json", "Courier API v1");
+        options.RoutePrefix = "swagger";
+    });
+    app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription();
 }
 
 app.UseSerilogRequestLogging();
