@@ -182,6 +182,48 @@ missing-shipment detection.
 *Exit:* a manifest can move shipments between two branches with correct custody
 updates and a provable missing-shipment exception path.
 
+*Status (2026-08-21): Complete.* A new `Manifests` module implements `Manifest, ManifestShipment,
+ShipmentTransfer` per `DOMAIN-MODEL.md`, with three deliberate simplifications from the original
+sketch (all approved during brainstorming and reflected in `DOMAIN-MODEL.md`/`BRANCH-OPERATIONS.md`):
+no separate "Dispatched" resting `ManifestStatus` (`POST /manifests/{id}/dispatch` moves `Sealed`
+straight to `InTransit` in one action, since nothing distinguishes a dispatched-but-not-yet-in-transit
+state in practice); a "sort scan" *is* "add to manifest" (`POST /manifests/{id}/scan` transitions the
+shipment `AtOriginBranch → Sorted` and creates the `ManifestShipment` row in one call, retiring the
+Phase 6 placeholder `POST /shipments/{id}/sort` endpoint entirely — a shipment can no longer be sorted
+outside a manifest); and no separate `Transfer` scan type (`Sort`/`Dispatch`/`Receive` are the complete
+branch-transfer scan surface this phase, `RiderPickup`/`RiderDelivery` are Phase 8, `RTO` is Phase 9).
+The five `BRANCH-OPERATIONS.md` §1 checks (permission → branch access → shipment state → expected
+operation → custody consistency) are enforced in `ManifestService.ScanAsync`/`ReceiveScanAsync`, proven
+by `tests/Manifests.Tests/ManifestServiceScanningTests.cs` and `ManifestServiceTransitionsTests.cs`
+rejecting each failure mode with a stable `ManifestScanRejectedException.ReasonCode`
+(`SHIPMENT_NOT_FOUND`, `WRONG_STATE`, `WRONG_CUSTODY`, `MANIFEST_NOT_OPEN`, `MANIFEST_NOT_RECEIVING`,
+`NOT_ON_MANIFEST`, `ALREADY_RECEIVED`) without writing a `ShipmentEvent`. Missing-shipment detection
+needs no new column: a `ManifestShipment.ReceivedAt` still `null` after `Close` *is* the exception,
+surfaced via `GET /manifests/{id}/missing-shipments` —
+`tests/Api.Tests/ManifestsEndpointsTests.cs`'s `FullManifestLifecycle_DraftToClosed_
+MovesShipmentThroughCustodyAndSurfacesMissingShipment` proves the full `Draft → Closed` lifecycle over
+real HTTP end to end, including that a dispatched-but-never-received shipment is left correctly
+`InTransit` (not silently reset) at close. `Manifests` never touches `Shipment`'s `DbSet` directly:
+`Shipments.Application` exposes a new narrow `IShipmentTransitionService` (mirroring Phase 5's
+`IBranchLookupService` pattern) that `ManifestService` calls only to *execute* transitions it has
+already validated itself — the permission/branch-access enforcement that used to live inside
+`ShipmentService.SortAsync`/`ReceiveAtDestinationAsync` moved up into `ManifestService`, and a new bulk
+`DispatchManyAsync` replaced the single-shipment `DispatchAsync` (dispatch is now inherently a
+manifest-wide action, batched into one `SaveChangesAsync` for true atomicity without introducing
+explicit database transactions, which the in-memory EF provider this project's unit tests use doesn't
+support). `Manifest`/`ManifestShipment`/`ShipmentTransfer` are tenant-isolated the same way
+`ShipmentItem`/`ShipmentEvent` were in Phase 6 (isolation flows transitively through
+`ManifestId → Manifest.OrganizationId`, with no child table carrying its own `OrganizationId`) —
+proven by `Manifests_OrgBCannotReadOrgAsManifest`. One genuinely new permission, `manifest.read`, was
+added (the original v1 catalog never included a manifest read permission); its own EF migration had to
+be generated and applied immediately rather than deferred to the `AddManifests` migration, since EF's
+`PendingModelChangesWarning` fails any integration test that runs `Database.Migrate()` as soon as the
+seeded permission catalog changes. Deferred to later phases: real barcode/QR hardware integration and
+bulk/continuous scan UX (CLAUDE.md §13 lists these as supported inputs; this phase implements the
+validation and state-machine plumbing every scan mode will share, not a scanning UI), the missing-shipment
+investigation workflow beyond the queryable exception list (`BRANCH-OPERATIONS.md` §2 explicitly flags
+this as out of scope for this phase), and `RiderPickup`/`RiderDelivery`/`RTO` scan types (Phase 8/9).
+
 ## Phase 8 — Riders, Assignments, Delivery, Delivery Attempts, POD
 
 `Rider, Vehicle, RiderAssignment, DeliveryRun, DeliveryTask, DeliveryAttempt,
