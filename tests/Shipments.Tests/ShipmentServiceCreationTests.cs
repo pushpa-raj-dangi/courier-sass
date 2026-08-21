@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Courier.Audit.Application;
 using Courier.Branches.Application;
 using Courier.Geography.Application;
+using Courier.Identity.Application;
 using Courier.Identity.Domain;
 using Courier.Identity.Infrastructure;
 using Courier.Merchants.Application;
@@ -55,6 +56,17 @@ file class AllBranchesAuthorizationChecker : IBranchAuthorizationChecker
         Task.FromResult(true);
 }
 
+// Replaces ShipmentService's former direct _dbContext.Set<Organization>() reach into Identity's
+// EF-mapped table (Fix 6) — returns a fixed slug so GenerateAwbAsync's primary (non-fallback)
+// path is still exercised without the test needing a real IOrganizationLookupService/DbContext
+// wiring.
+file class FixedOrganizationLookup : IOrganizationLookupService
+{
+    private readonly string? _slug;
+    public FixedOrganizationLookup(string? slug) => _slug = slug;
+    public Task<string?> GetSlugAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult(_slug);
+}
+
 public class ShipmentServiceCreationTests
 {
     private class TestDbContext : DbContext
@@ -62,13 +74,11 @@ public class ShipmentServiceCreationTests
         public TestDbContext(DbContextOptions<TestDbContext> options) : base(options) { }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            // Organization must be part of the model: ShipmentService.GenerateAwbAsync queries
-            // _dbContext.Set<Courier.Identity.Domain.Organization>() directly to derive the AWB
-            // prefix from the org's Slug (falling back to the OrganizationId when no row exists
-            // or the slug has no alphanumeric characters). EF Core's InMemory provider throws at
-            // query time for any Set<T>() whose entity type isn't reachable from OnModelCreating,
-            // so this configuration is required even though these tests never seed a matching row
-            // for most organizationIds (that's the fallback path being exercised).
+            // Organization is kept in the model/seeded below even though ShipmentService.GenerateAwbAsync
+            // no longer queries it directly (Fix 6: AWB-prefix derivation now goes through
+            // IOrganizationLookupService/FixedOrganizationLookup above) — retained so the seeded
+            // row remains a faithful stand-in for a real org and other RateCard-adjacent
+            // configurations below stay consistent with the production model.
             modelBuilder.ApplyConfiguration(new OrganizationConfiguration());
             modelBuilder.ApplyConfiguration(new ServiceTypeConfiguration());
             modelBuilder.ApplyConfiguration(new WeightSlabConfiguration());
@@ -106,9 +116,9 @@ public class ShipmentServiceCreationTests
         var serviceTypeId = dbContext.Set<ServiceType>().First(s => s.Code == ServiceTypeCode.Standard).Id;
         var weightSlabId = dbContext.Set<WeightSlab>().First(w => w.MinWeightKg == 0.5m && w.MaxWeightKg == 1m).Id;
 
-        // Seeds a real Organization row (with a Slug) so GenerateAwbAsync's primary path — deriving
-        // the AWB prefix from the org's slug rather than falling back to the OrganizationId — is
-        // exercised by these tests, not just its fallback branch.
+        // Seeds a real Organization row for model fidelity. GenerateAwbAsync's primary path
+        // (deriving the AWB prefix from the org's slug) is now exercised via CreateService's
+        // FixedOrganizationLookup(organizationSlug: "TESTORG") default, matching this row's Slug.
         dbContext.Set<Organization>().Add(new Organization { Id = organizationId, Name = "Test Org", Slug = "TESTORG" });
 
         var rateCard = new RateCard { Id = Guid.NewGuid(), OrganizationId = organizationId, Name = "Default", EffectiveFrom = DateTimeOffset.UtcNow, Version = 1, IsActive = true };
@@ -131,13 +141,14 @@ public class ShipmentServiceCreationTests
         return seed;
     }
 
-    private static ShipmentService CreateService(TestDbContext dbContext, Guid organizationId, Dictionary<Guid, Guid?> zonesByBranch)
+    private static ShipmentService CreateService(TestDbContext dbContext, Guid organizationId, Dictionary<Guid, Guid?> zonesByBranch, string? organizationSlug = "TESTORG")
     {
         var branchLookup = new FakeBranchLookup(zonesByBranch);
         var pricingService = new PricingService(dbContext, new FixedTenantProvider(organizationId), branchLookup, new AlwaysTrueMerchantLookup());
         return new ShipmentService(
             dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), branchLookup,
-            new AlwaysTrueGeographyLookup(), new AlwaysTrueMerchantLookup(), pricingService, new AllBranchesAuthorizationChecker());
+            new AlwaysTrueGeographyLookup(), new AlwaysTrueMerchantLookup(), pricingService, new AllBranchesAuthorizationChecker(),
+            new FixedOrganizationLookup(organizationSlug));
     }
 
     private static CreateShipmentRequest ValidRequest(Guid originBranchId, Guid destinationBranchId, Guid serviceTypeId, decimal weightKg = 0.7m, decimal codAmount = 0m, bool wantsInsurance = false, Guid? merchantId = null) => new(

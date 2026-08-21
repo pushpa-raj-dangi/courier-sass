@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using Courier.Audit.Application;
 using Courier.Branches.Application;
 using Courier.Geography.Application;
+using Courier.Identity.Application;
 using Courier.Merchants.Application;
 using Courier.Pricing.Application;
 using Courier.Pricing.Domain;
@@ -22,6 +23,7 @@ public partial class ShipmentService
     private readonly IMerchantLookupService _merchantLookupService;
     private readonly PricingService _pricingService;
     private readonly IBranchAuthorizationChecker _branchAuthorizationChecker;
+    private readonly IOrganizationLookupService _organizationLookupService;
 
     public ShipmentService(
         DbContext dbContext,
@@ -31,7 +33,8 @@ public partial class ShipmentService
         IGeographyLookupService geographyLookupService,
         IMerchantLookupService merchantLookupService,
         PricingService pricingService,
-        IBranchAuthorizationChecker branchAuthorizationChecker)
+        IBranchAuthorizationChecker branchAuthorizationChecker,
+        IOrganizationLookupService organizationLookupService)
     {
         _dbContext = dbContext;
         _currentTenantProvider = currentTenantProvider;
@@ -41,6 +44,7 @@ public partial class ShipmentService
         _merchantLookupService = merchantLookupService;
         _pricingService = pricingService;
         _branchAuthorizationChecker = branchAuthorizationChecker;
+        _organizationLookupService = organizationLookupService;
     }
 
     public async Task<ShipmentResponse> CreateShipmentAsync(CreateShipmentRequest request, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
@@ -230,8 +234,8 @@ public partial class ShipmentService
     // candidate always gets recomputed against the winner's now-committed row.
     private async Task<string> GenerateAwbAsync(Guid organizationId, CancellationToken cancellationToken)
     {
-        var organization = await _dbContext.Set<Courier.Identity.Domain.Organization>().FirstOrDefaultAsync(o => o.Id == organizationId, cancellationToken);
-        var rawPrefix = NonAlphanumericRegex().Replace(organization?.Slug.ToUpperInvariant() ?? string.Empty, string.Empty);
+        var slug = await _organizationLookupService.GetSlugAsync(organizationId, cancellationToken);
+        var rawPrefix = NonAlphanumericRegex().Replace(slug?.ToUpperInvariant() ?? string.Empty, string.Empty);
         var prefix = rawPrefix.Length > 0 ? rawPrefix[..Math.Min(6, rawPrefix.Length)] : organizationId.ToString("N")[..6].ToUpperInvariant();
         var datePart = DateTimeOffset.UtcNow.ToString("yyyyMMdd");
         var awbPrefix = $"{prefix}{datePart}";

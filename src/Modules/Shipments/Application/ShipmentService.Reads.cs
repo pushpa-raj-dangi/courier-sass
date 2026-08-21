@@ -29,6 +29,23 @@ public partial class ShipmentService
         {
             query = query.Where(s => s.MerchantId == callerMerchantId);
         }
+        else
+        {
+            // Staff caller: scope to branches the caller can access for shipment.read. null means
+            // "no filter applies" (BranchScope.AllBranches) per IBranchAuthorizationChecker's
+            // documented contract — a non-null set restricts to shipments touching any of those
+            // branches as origin, destination, or current physical location. CurrentBranchId is
+            // nullable (in-transit/with-rider shipments), so a restricted-branch caller can still
+            // see such a shipment via its origin/destination even while CurrentBranchId is null.
+            var accessibleBranchIds = await _branchAuthorizationChecker.GetAccessibleBranchIdsAsync(actingUser, "shipment.read", cancellationToken);
+            if (accessibleBranchIds is not null)
+            {
+                query = query.Where(s =>
+                    accessibleBranchIds.Contains(s.OriginBranchId) ||
+                    accessibleBranchIds.Contains(s.DestinationBranchId) ||
+                    (s.CurrentBranchId != null && accessibleBranchIds.Contains(s.CurrentBranchId.Value)));
+            }
+        }
 
         var shipments = await query.ToListAsync(cancellationToken);
         var responses = new List<ShipmentResponse>();

@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Courier.Audit.Application;
 using Courier.Branches.Application;
 using Courier.Geography.Application;
+using Courier.Identity.Application;
 using Courier.Identity.Domain;
 using Courier.Identity.Infrastructure;
 using Courier.Merchants.Application;
@@ -54,6 +55,29 @@ file class AllBranchesAuthorizationChecker : IBranchAuthorizationChecker
         Task.FromResult(true);
 }
 
+// Restricts to a fixed set of branch ids — used to prove ListAsync actually filters staff callers
+// by branch scope rather than ignoring _branchAuthorizationChecker entirely for reads.
+file class RestrictedBranchesAuthorizationChecker : IBranchAuthorizationChecker
+{
+    private readonly IReadOnlySet<Guid> _accessibleBranchIds;
+    public RestrictedBranchesAuthorizationChecker(IReadOnlySet<Guid> accessibleBranchIds) => _accessibleBranchIds = accessibleBranchIds;
+    public Task<IReadOnlySet<Guid>?> GetAccessibleBranchIdsAsync(ClaimsPrincipal user, string permission, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlySet<Guid>?>(_accessibleBranchIds);
+    public Task<bool> HasAccessAsync(ClaimsPrincipal user, string permission, Guid branchId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(_accessibleBranchIds.Contains(branchId));
+}
+
+// Replaces ShipmentService's former direct _dbContext.Set<Organization>() reach into Identity's
+// EF-mapped table (Fix 6) — returns a fixed slug so GenerateAwbAsync's primary (non-fallback)
+// path is still exercised without the test needing a real IOrganizationLookupService/DbContext
+// wiring.
+file class FixedOrganizationLookup : IOrganizationLookupService
+{
+    private readonly string? _slug;
+    public FixedOrganizationLookup(string? slug) => _slug = slug;
+    public Task<string?> GetSlugAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult(_slug);
+}
+
 public class ShipmentServiceReadTests
 {
     private class TestDbContext : DbContext
@@ -61,11 +85,9 @@ public class ShipmentServiceReadTests
         public TestDbContext(DbContextOptions<TestDbContext> options) : base(options) { }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            // Organization must be part of the model: ShipmentService.GenerateAwbAsync (invoked
-            // transitively via CreateShipmentAsync in SeedShipmentForMerchantAsync below) queries
-            // _dbContext.Set<Courier.Identity.Domain.Organization>() directly. EF Core's InMemory
-            // provider throws at query time for any Set<T>() whose entity type isn't reachable
-            // from OnModelCreating — same gap Tasks 6/7 hit, fixed the same way here.
+            // Organization is kept in the model/seeded below for fidelity, even though
+            // ShipmentService.GenerateAwbAsync no longer queries it directly (Fix 6: AWB-prefix
+            // derivation now goes through IOrganizationLookupService/FixedOrganizationLookup above).
             modelBuilder.ApplyConfiguration(new OrganizationConfiguration());
             modelBuilder.ApplyConfiguration(new ServiceTypeConfiguration());
             modelBuilder.ApplyConfiguration(new WeightSlabConfiguration());
@@ -90,13 +112,14 @@ public class ShipmentServiceReadTests
     private static ClaimsPrincipal StaffUser(Guid userId) => new(new ClaimsIdentity(new[] { new Claim("sub", userId.ToString()) }, "test"));
     private static ClaimsPrincipal MerchantUser(Guid merchantId) => new(new ClaimsIdentity(new[] { new Claim("merchant_id", merchantId.ToString()) }, "test"));
 
-    private static ShipmentService CreateService(TestDbContext dbContext, Guid organizationId, Dictionary<Guid, Guid?> zonesByBranch)
+    private static ShipmentService CreateService(TestDbContext dbContext, Guid organizationId, Dictionary<Guid, Guid?> zonesByBranch, IBranchAuthorizationChecker? branchAuthorizationChecker = null)
     {
         var branchLookup = new FakeBranchLookup(zonesByBranch);
         var pricingService = new PricingService(dbContext, new FixedTenantProvider(organizationId), branchLookup, new AlwaysTrueMerchantLookup());
         return new ShipmentService(
             dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), branchLookup,
-            new AlwaysTrueGeographyLookup(), new AlwaysTrueMerchantLookup(), pricingService, new AllBranchesAuthorizationChecker());
+            new AlwaysTrueGeographyLookup(), new AlwaysTrueMerchantLookup(), pricingService, branchAuthorizationChecker ?? new AllBranchesAuthorizationChecker(),
+            new FixedOrganizationLookup("testorg"));
     }
 
     private static async Task<ShipmentResponse> SeedShipmentForMerchantAsync(TestDbContext dbContext, Guid organizationId, Guid merchantId)
@@ -108,10 +131,10 @@ public class ShipmentServiceReadTests
         var serviceTypeId = dbContext.Set<ServiceType>().First(s => s.Code == ServiceTypeCode.Standard).Id;
         var weightSlabId = dbContext.Set<WeightSlab>().First(w => w.MinWeightKg == 0.5m && w.MaxWeightKg == 1m).Id;
 
-        // Seed a real Organization row (with a Slug) so GenerateAwbAsync (called transitively via
-        // CreateShipmentAsync below) has a row to query instead of throwing/falling back — same
-        // fix Tasks 6/7 applied. Only seed once per organizationId across the multiple
-        // SeedShipmentForMerchantAsync calls some tests make.
+        // Seeds a real Organization row for model fidelity; matches CreateService's
+        // FixedOrganizationLookup("testorg") default used by GenerateAwbAsync's primary path.
+        // Only seed once per organizationId across the multiple SeedShipmentForMerchantAsync
+        // calls some tests make.
         if (!dbContext.Set<Organization>().Any(o => o.Id == organizationId))
         {
             dbContext.Set<Organization>().Add(new Organization { Id = organizationId, Name = "Test Org", Slug = "testorg" });
@@ -202,5 +225,28 @@ public class ShipmentServiceReadTests
         var result = await service.ListAsync(StaffUser(Guid.NewGuid()));
 
         Assert.Equal(2, result.Count);
+    }
+
+    [Fact]
+    public async Task ListAsync_StaffCallerRestrictedToOneBranch_OnlySeesShipmentsTouchingThatBranch()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var inScope = await SeedShipmentForMerchantAsync(dbContext, organizationId, Guid.NewGuid());
+        var outOfScope = await SeedShipmentForMerchantAsync(dbContext, organizationId, Guid.NewGuid());
+
+        // Regression: ListAsync previously returned every shipment in the org for staff callers
+        // with no branch filtering at all, even though _branchAuthorizationChecker is already
+        // injected and used elsewhere. A BranchManager scoped to a single branch via UserBranch
+        // must only see shipments whose origin/destination/current branch is in their accessible
+        // set (CLAUDE.md §7).
+        var restrictedChecker = new RestrictedBranchesAuthorizationChecker(new HashSet<Guid> { inScope.OriginBranchId });
+        var service = CreateService(dbContext, organizationId, new(), restrictedChecker);
+
+        var result = await service.ListAsync(StaffUser(Guid.NewGuid()));
+
+        var resultIds = result.Select(s => s.Id).ToHashSet();
+        Assert.Contains(inScope.Id, resultIds);
+        Assert.DoesNotContain(outOfScope.Id, resultIds);
     }
 }
