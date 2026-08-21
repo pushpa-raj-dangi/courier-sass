@@ -24,6 +24,7 @@
     <Project Path="tests/Identity.Tests/Identity.Tests.csproj" />
     <Project Path="tests/Manifests.Tests/Manifests.Tests.csproj" />
     <Project Path="tests/Merchants.Tests/Merchants.Tests.csproj" />
+    <Project Path="tests/Ndr.Tests/Ndr.Tests.csproj" />
     <Project Path="tests/Pricing.Tests/Pricing.Tests.csproj" />
     <Project Path="tests/Riders.Tests/Riders.Tests.csproj" />
     <Project Path="tests/SharedKernel.Tests/SharedKernel.Tests.csproj" />
