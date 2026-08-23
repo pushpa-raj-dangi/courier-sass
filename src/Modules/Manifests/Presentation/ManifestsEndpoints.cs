@@ -41,6 +41,10 @@ public static class ManifestsEndpoints
             await HandleScanAsync(() => service.ScanAsync(id, request, httpContext.User, httpContext.RequestAborted)))
             .RequirePermission("manifest.create");
 
+        group.MapPost("/{id:guid}/rto-scan", async (Guid id, ScanShipmentRequest request, ManifestService service, HttpContext httpContext) =>
+            await HandleScanAsync(() => service.ScanRtoAsync(id, request, httpContext.User, httpContext.RequestAborted)))
+            .RequirePermission("manifest.create");
+
         group.MapPost("/{id:guid}/seal", async (Guid id, ManifestService service, HttpContext httpContext) =>
             await HandleManifestAsync(() => service.SealAsync(id, httpContext.User, httpContext.RequestAborted)))
             .RequirePermission("manifest.seal");

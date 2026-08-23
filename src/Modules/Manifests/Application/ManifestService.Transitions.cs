@@ -33,9 +33,16 @@ public partial class ManifestService
             .Select(ms => ms.ShipmentId)
             .ToListAsync(cancellationToken);
 
-        // This plan's resolved design decision #2: goes straight to InTransit, no separate
-        // persisted "Dispatched" resting state.
-        await _shipmentTransitionService.DispatchManyAsync(shipmentIds, actingUser, cancellationToken);
+        if (manifest.Purpose == ManifestPurpose.Forward)
+        {
+            // This plan's resolved design decision #2 (from Phase 7, still true): goes straight to
+            // InTransit, no separate persisted "Dispatched" resting state.
+            await _shipmentTransitionService.DispatchManyAsync(shipmentIds, actingUser, cancellationToken);
+        }
+        else
+        {
+            await _shipmentTransitionService.DispatchManyRtoAsync(shipmentIds, actingUser, cancellationToken);
+        }
 
         manifest.VehiclePlate = request.VehiclePlate;
         manifest.DriverId = request.DriverId;
@@ -78,22 +85,44 @@ public partial class ManifestService
         {
             throw new ManifestScanRejectedException("ALREADY_RECEIVED", "This shipment has already been receive-scanned on this manifest.");
         }
-        if (scanInfo.CurrentStatus != ShipmentStatus.InTransit)
+        if (manifest.Purpose == ManifestPurpose.Forward)
         {
-            throw new ManifestScanRejectedException("WRONG_STATE", $"Shipment must be InTransit to receive, was {scanInfo.CurrentStatus}.");
-        }
-        // Check 5 (custody consistency): an in-transit shipment has no current branch, and its
-        // declared destination must match where this manifest is actually headed.
-        if (scanInfo.CurrentBranchId is not null)
-        {
-            throw new ManifestScanRejectedException("WRONG_CUSTODY", "Shipment's custody is inconsistent with being in transit.");
-        }
-        if (scanInfo.DestinationBranchId != manifest.ToBranchId)
-        {
-            throw new ManifestScanRejectedException("WRONG_CUSTODY", "Shipment's destination branch does not match this manifest's ToBranchId.");
-        }
+            if (scanInfo.CurrentStatus != ShipmentStatus.InTransit)
+            {
+                throw new ManifestScanRejectedException("WRONG_STATE", $"Shipment must be InTransit to receive, was {scanInfo.CurrentStatus}.");
+            }
+            // Check 5 (custody consistency): an in-transit shipment has no current branch, and its
+            // declared destination must match where this manifest is actually headed.
+            if (scanInfo.CurrentBranchId is not null)
+            {
+                throw new ManifestScanRejectedException("WRONG_CUSTODY", "Shipment's custody is inconsistent with being in transit.");
+            }
+            if (scanInfo.DestinationBranchId != manifest.ToBranchId)
+            {
+                throw new ManifestScanRejectedException("WRONG_CUSTODY", "Shipment's destination branch does not match this manifest's ToBranchId.");
+            }
 
-        await _shipmentTransitionService.ReceiveAtDestinationAsync(scanInfo.ShipmentId, actingUser, cancellationToken);
+            await _shipmentTransitionService.ReceiveAtDestinationAsync(scanInfo.ShipmentId, actingUser, cancellationToken);
+        }
+        else
+        {
+            if (scanInfo.CurrentStatus != ShipmentStatus.RtoInTransit)
+            {
+                throw new ManifestScanRejectedException("WRONG_STATE", $"Shipment must be RtoInTransit to receive, was {scanInfo.CurrentStatus}.");
+            }
+            if (scanInfo.CurrentBranchId is not null)
+            {
+                throw new ManifestScanRejectedException("WRONG_CUSTODY", "Shipment's custody is inconsistent with being in transit.");
+            }
+            // For a return leg, ShipmentScanInfo.OriginBranchId still names the ORIGINAL shipment's
+            // origin branch — that's exactly where this return manifest is headed (manifest.ToBranchId).
+            if (scanInfo.OriginBranchId != manifest.ToBranchId)
+            {
+                throw new ManifestScanRejectedException("WRONG_CUSTODY", "Shipment's original origin branch does not match this return manifest's ToBranchId.");
+            }
+
+            await _shipmentTransitionService.ReceiveRtoAtOriginAsync(scanInfo.ShipmentId, actingUser, cancellationToken);
+        }
 
         manifestShipment.ReceivedAt = DateTimeOffset.UtcNow;
         if (manifest.Status == ManifestStatus.InTransit)

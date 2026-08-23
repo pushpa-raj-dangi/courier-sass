@@ -70,6 +70,62 @@ public partial class ManifestService
         return new ManifestShipmentResponse(manifestShipment.Id, scanInfo.ShipmentId, scanInfo.Awb, manifestShipment.ScannedAt, manifestShipment.ReceivedAt);
     }
 
+    // The RTO counterpart to ScanAsync above. Unlike the forward path (which sorts
+    // AtOriginBranch -> Sorted as part of adding to the manifest), RTO_INITIATED has no
+    // resting-status equivalent to move into here — the shipment stays RtoInitiated until Dispatch
+    // moves every shipment on this manifest to RtoInTransit at once (this plan's resolved design
+    // decision, CLARIFICATIONS.md's new Phase 9 entry).
+    public async Task<ManifestShipmentResponse> ScanRtoAsync(Guid manifestId, ScanShipmentRequest request, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
+    {
+        var organizationId = _currentTenantProvider.OrganizationId
+            ?? throw new ManifestValidationException("No active organization context.");
+        if (string.IsNullOrWhiteSpace(request.Awb))
+        {
+            throw new ManifestValidationException("Awb is required.");
+        }
+
+        var manifest = await _dbContext.Set<Manifest>().FirstOrDefaultAsync(m => m.Id == manifestId, cancellationToken)
+            ?? throw new ManifestNotFoundException(manifestId);
+
+        await CheckBranchAccessAsync(actingUser, "manifest.create", manifest.FromBranchId, cancellationToken);
+
+        if (manifest.Purpose != ManifestPurpose.Return)
+        {
+            throw new ManifestScanRejectedException("MANIFEST_WRONG_PURPOSE", "This manifest is a Forward manifest — use /scan instead of /rto-scan.");
+        }
+        if (manifest.Status != ManifestStatus.Draft)
+        {
+            throw new ManifestScanRejectedException("MANIFEST_NOT_OPEN", $"Manifest is {manifest.Status}, not open for adding shipments.");
+        }
+
+        var scanInfo = await _shipmentTransitionService.GetScanInfoByAwbAsync(request.Awb, cancellationToken)
+            ?? throw new ManifestScanRejectedException("SHIPMENT_NOT_FOUND", $"No shipment found for AWB '{request.Awb}'.");
+
+        if (scanInfo.CurrentStatus != ShipmentStatus.RtoInitiated)
+        {
+            throw new ManifestScanRejectedException("WRONG_STATE", $"Shipment must be RtoInitiated to add to a return manifest, was {scanInfo.CurrentStatus}.");
+        }
+        if (scanInfo.CurrentBranchId != manifest.FromBranchId)
+        {
+            throw new ManifestScanRejectedException("WRONG_CUSTODY", "Shipment's current branch does not match this return manifest's FromBranchId.");
+        }
+
+        var manifestShipment = new ManifestShipment
+        {
+            Id = Guid.NewGuid(),
+            ManifestId = manifestId,
+            ShipmentId = scanInfo.ShipmentId,
+            ScannedAt = DateTimeOffset.UtcNow,
+            ReceivedAt = null
+        };
+        _dbContext.Set<ManifestShipment>().Add(manifestShipment);
+        manifest.ShipmentCount += 1;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await _auditLogger.LogAsync(new AuditEntry(organizationId, actingUser.GetUserId(), "manifest.rto_shipment_scanned", "Manifest", manifestId.ToString()), cancellationToken);
+        return new ManifestShipmentResponse(manifestShipment.Id, scanInfo.ShipmentId, scanInfo.Awb, manifestShipment.ScannedAt, manifestShipment.ReceivedAt);
+    }
+
     public async Task<ManifestResponse> SealAsync(Guid manifestId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
         var organizationId = _currentTenantProvider.OrganizationId
