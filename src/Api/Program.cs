@@ -75,6 +75,7 @@ builder.Services.AddScoped<IShipmentTransitionService>(sp => sp.GetRequiredServi
 builder.Services.AddScoped<ManifestService>();
 builder.Services.AddScoped<RiderService>();
 builder.Services.AddScoped<INdrCreationService, NdrCreationService>();
+builder.Services.AddScoped<NdrService>();
 builder.Services.AddScoped<GeographyQueryService>();
 builder.Services.AddScoped<IGeographyLookupService>(sp => sp.GetRequiredService<GeographyQueryService>());
 builder.Services.AddScoped<DeliveryZoneService>();
