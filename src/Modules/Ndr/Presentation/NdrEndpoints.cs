@@ -31,6 +31,22 @@ public static class NdrEndpoints
         group.MapPost("/{id:guid}/resolve", async (Guid id, ResolveNdrRequest request, NdrService service, HttpContext httpContext) =>
             await HandleAsync(() => service.ResolveAsync(id, request, httpContext.User, httpContext.RequestAborted)))
             .RequirePermission("ndr.resolve");
+
+        var returnShipments = app.MapGroup("/api/v1/return-shipments").RequireAuthorization();
+
+        returnShipments.MapGet("/", async (NdrService service, HttpContext httpContext) =>
+            Results.Ok(await service.ListReturnShipmentsAsync(httpContext.RequestAborted)))
+            .RequirePermission("rto.read");
+
+        returnShipments.MapGet("/{id:guid}", async (Guid id, NdrService service, HttpContext httpContext) =>
+        {
+            var result = await service.GetReturnShipmentByIdAsync(id, httpContext.RequestAborted);
+            return result is null ? Results.NotFound() : Results.Ok(result);
+        }).RequirePermission("rto.read");
+
+        returnShipments.MapPost("/{id:guid}/confirm", async (Guid id, NdrService service, HttpContext httpContext) =>
+            await HandleAsync(() => service.ConfirmReturnShipmentAsync(id, httpContext.User, httpContext.RequestAborted)))
+            .RequirePermission("rto.manage");
     }
 
     private static async Task<IResult> HandleAsync<T>(Func<Task<T>> operation)
