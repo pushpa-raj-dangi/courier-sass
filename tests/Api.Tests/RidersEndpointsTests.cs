@@ -186,7 +186,7 @@ public class RidersEndpointsTests : IClassFixture<WebApplicationFactory<Program>
     }
 
     [Fact]
-    public async Task FullFailurePath_OutForDeliveryToDeliveryFailed_KeepsRiderCustodyAndRecordsAttempt()
+    public async Task FullFailurePath_OutForDeliveryToNdrCreated_KeepsRiderCustodyAndRecordsAttempt()
     {
         var client = _factory.CreateClient();
         var org = await RegisterOrgAsync(client, "failure");
@@ -207,8 +207,8 @@ public class RidersEndpointsTests : IClassFixture<WebApplicationFactory<Program>
         Assert.Equal(DeliveryAttemptReason.CustomerUnavailable, attempt.Reason);
 
         var afterFail = await (await client.GetAsync($"/api/v1/shipments/{shipment.Awb}")).Content.ReadFromJsonAsync<ShipmentResponse>();
-        Assert.Equal(ShipmentStatus.DeliveryFailed, afterFail!.CurrentStatus);
-        // Custody stays with the rider — the parcel is still physically with them (Task 2's design note).
+        Assert.Equal(ShipmentStatus.NdrCreated, afterFail!.CurrentStatus);
+        // Custody stays with the rider — the parcel is still physically with them (Phase 9's design: NDR creation does not transfer custody).
         Assert.Equal(deliveryRiderId, afterFail.CurrentCustodianRiderId);
     }
 
