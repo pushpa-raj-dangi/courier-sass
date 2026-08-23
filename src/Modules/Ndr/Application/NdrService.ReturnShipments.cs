@@ -15,9 +15,22 @@ public partial class NdrService
         return returnShipment is null ? null : await ToReturnShipmentResponseAsync(returnShipment, cancellationToken);
     }
 
-    public async Task<List<ReturnShipmentResponse>> ListReturnShipmentsAsync(CancellationToken cancellationToken = default)
+    // Branch-scoped the same way RiderService.ListAsync (Phase 8) and NdrService.ListAsync are:
+    // null from GetAccessibleBranchIdsAsync means AllBranches (no filter). Unlike NDR,
+    // ReturnShipment already stores DestinationBranchId as a real column, so the filter can be
+    // pushed into the SQL query itself — no per-row shipment lookup needed for the filter (though
+    // ToReturnShipmentResponseAsync still needs the live shipment status for the response body).
+    public async Task<List<ReturnShipmentResponse>> ListReturnShipmentsAsync(ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
-        var returnShipments = await _dbContext.Set<ReturnShipment>().ToListAsync(cancellationToken);
+        var query = _dbContext.Set<ReturnShipment>().AsQueryable();
+        var accessibleBranchIds = await _branchAuthorizationChecker.GetAccessibleBranchIdsAsync(actingUser, "rto.read", cancellationToken);
+        if (accessibleBranchIds is not null)
+        {
+            var accessibleBranchIdsArray = accessibleBranchIds.ToArray();
+            query = query.Where(r => accessibleBranchIdsArray.Contains(r.DestinationBranchId));
+        }
+
+        var returnShipments = await query.ToListAsync(cancellationToken);
         var responses = new List<ReturnShipmentResponse>();
         foreach (var returnShipment in returnShipments)
         {

@@ -15,7 +15,7 @@ public static class NdrEndpoints
         var group = app.MapGroup("/api/v1/ndrs").RequireAuthorization();
 
         group.MapGet("/", async (NdrStatus? status, NdrService service, HttpContext httpContext) =>
-            Results.Ok(await service.ListAsync(status, httpContext.RequestAborted)))
+            Results.Ok(await service.ListAsync(status, httpContext.User, httpContext.RequestAborted)))
             .RequirePermission("ndr.read");
 
         group.MapGet("/{id:guid}", async (Guid id, NdrService service, HttpContext httpContext) =>
@@ -35,7 +35,7 @@ public static class NdrEndpoints
         var returnShipments = app.MapGroup("/api/v1/return-shipments").RequireAuthorization();
 
         returnShipments.MapGet("/", async (NdrService service, HttpContext httpContext) =>
-            Results.Ok(await service.ListReturnShipmentsAsync(httpContext.RequestAborted)))
+            Results.Ok(await service.ListReturnShipmentsAsync(httpContext.User, httpContext.RequestAborted)))
             .RequirePermission("rto.read");
 
         returnShipments.MapGet("/{id:guid}", async (Guid id, NdrService service, HttpContext httpContext) =>
