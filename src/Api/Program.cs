@@ -13,6 +13,7 @@ using Courier.Identity.Presentation;
 using Courier.Manifests.Application;
 using Courier.Manifests.Presentation;
 using Courier.Ndr.Application;
+using Courier.Ndr.Presentation;
 using Courier.Riders.Application;
 using Courier.Riders.Presentation;
 using Courier.Merchants.Application;
@@ -161,6 +162,7 @@ app.MapPricingEndpoints();
 app.MapShipmentsEndpoints();
 app.MapManifestsEndpoints();
 app.MapRidersEndpoints();
+app.MapNdrEndpoints();
 
 app.MapGet("/health/ping", () => Results.Ok(new { status = "ok" }));
 
