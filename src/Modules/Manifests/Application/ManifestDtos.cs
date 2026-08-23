@@ -2,13 +2,14 @@ using Courier.Manifests.Domain;
 
 namespace Courier.Manifests.Application;
 
-public record CreateManifestRequest(Guid FromBranchId, Guid ToBranchId);
+public record CreateManifestRequest(Guid FromBranchId, Guid ToBranchId, ManifestPurpose Purpose = ManifestPurpose.Forward);
 
 public record ManifestResponse(
     Guid Id,
     string Code,
     Guid FromBranchId,
     Guid ToBranchId,
+    ManifestPurpose Purpose,
     string? VehiclePlate,
     Guid? DriverId,
     ManifestStatus Status,

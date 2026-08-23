@@ -25,6 +25,11 @@ public partial class ManifestService
         // check 2 (branch access) here.
         await CheckBranchAccessAsync(actingUser, "manifest.create", manifest.FromBranchId, cancellationToken);
 
+        if (manifest.Purpose != ManifestPurpose.Forward)
+        {
+            throw new ManifestScanRejectedException("MANIFEST_WRONG_PURPOSE", "This manifest is a Return manifest — use /rto-scan instead of /scan.");
+        }
+
         if (manifest.Status != ManifestStatus.Draft)
         {
             throw new ManifestScanRejectedException("MANIFEST_NOT_OPEN", $"Manifest is {manifest.Status}, not open for adding shipments.");

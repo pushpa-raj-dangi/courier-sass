@@ -14,6 +14,11 @@ public class ManifestConfiguration : IEntityTypeConfiguration<Manifest>
         builder.Property(m => m.Code).HasMaxLength(30).IsRequired();
         builder.Property(m => m.VehiclePlate).HasMaxLength(30);
 
+        // Explicit default so the generated migration backfills every pre-Phase-9 Manifest row as
+        // Forward (the only purpose that existed before this column did) without needing a manual
+        // data migration.
+        builder.Property(m => m.Purpose).HasDefaultValue(ManifestPurpose.Forward);
+
         // Every tenant-filtered query hits this column.
         builder.HasIndex(m => m.OrganizationId);
         // Code is unique per org — also the index GenerateManifestCodeAsync's collision-retry

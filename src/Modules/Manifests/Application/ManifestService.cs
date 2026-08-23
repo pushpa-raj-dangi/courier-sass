@@ -68,6 +68,7 @@ public partial class ManifestService
                 Id = Guid.NewGuid(),
                 OrganizationId = organizationId,
                 Code = code,
+                Purpose = request.Purpose,
                 FromBranchId = request.FromBranchId,
                 ToBranchId = request.ToBranchId,
                 Status = ManifestStatus.Draft,
@@ -129,6 +130,6 @@ public partial class ManifestService
     }
 
     private static ManifestResponse ToResponse(Manifest manifest) => new(
-        manifest.Id, manifest.Code, manifest.FromBranchId, manifest.ToBranchId,
+        manifest.Id, manifest.Code, manifest.FromBranchId, manifest.ToBranchId, manifest.Purpose,
         manifest.VehiclePlate, manifest.DriverId, manifest.Status, manifest.ShipmentCount, manifest.CreatedAt);
 }

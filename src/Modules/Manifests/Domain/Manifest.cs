@@ -7,6 +7,7 @@ public class Manifest
     public required string Code { get; set; }
     public Guid FromBranchId { get; set; }
     public Guid ToBranchId { get; set; }
+    public ManifestPurpose Purpose { get; set; }
     public string? VehiclePlate { get; set; }
     public Guid? DriverId { get; set; }
     public ManifestStatus Status { get; set; }
