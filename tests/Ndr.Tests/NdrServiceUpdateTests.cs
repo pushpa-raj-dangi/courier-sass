@@ -31,6 +31,20 @@ file class AllBranchesAuthorizationChecker : IBranchAuthorizationChecker
         Task.FromResult(true);
 }
 
+// Non-null GetAccessibleBranchIdsAsync result — the "caller is restricted to a specific set of
+// branches" counterpart to AllBranchesAuthorizationChecker above. Exercises the throw path in
+// NdrService.CheckBranchAccessAsync, which no existing test in this project covered before Phase 9's
+// final review.
+file class RestrictedBranchAuthorizationChecker : IBranchAuthorizationChecker
+{
+    private readonly IReadOnlySet<Guid> _accessibleBranchIds;
+    public RestrictedBranchAuthorizationChecker(params Guid[] accessibleBranchIds) => _accessibleBranchIds = accessibleBranchIds.ToHashSet();
+    public Task<IReadOnlySet<Guid>?> GetAccessibleBranchIdsAsync(ClaimsPrincipal user, string permission, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlySet<Guid>?>(_accessibleBranchIds);
+    public Task<bool> HasAccessAsync(ClaimsPrincipal user, string permission, Guid branchId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(_accessibleBranchIds.Contains(branchId));
+}
+
 file class FakeShipmentTransitionService : IShipmentTransitionService
 {
     public Dictionary<Guid, ShipmentScanInfo> ShipmentsById { get; } = new();
@@ -128,6 +142,26 @@ public class NdrServiceUpdateTests
         await service.UpdateAsync(ndr.Id, new UpdateNdrRequest(NdrStatus.Contacting, null, null, null), ActingUser(Guid.NewGuid()));
 
         await Assert.ThrowsAsync<NdrValidationException>(() => service.UpdateAsync(ndr.Id, new UpdateNdrRequest(NdrStatus.Open, null, null, null), ActingUser(Guid.NewGuid())));
+    }
+
+    [Fact]
+    public async Task UpdateAsync_BranchNotAccessible_ThrowsNdrValidationException()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var destinationBranchId = Guid.NewGuid();
+        var info = Info(Guid.NewGuid(), Guid.NewGuid(), destinationBranchId);
+        var ndr = new NDR { Id = Guid.NewGuid(), OrganizationId = organizationId, ShipmentId = info.ShipmentId, Reason = NdrReason.CustomerUnavailable, Status = NdrStatus.Open };
+        dbContext.Set<NDR>().Add(ndr);
+        await dbContext.SaveChangesAsync();
+
+        var shipments = new FakeShipmentTransitionService();
+        shipments.ShipmentsById[info.ShipmentId] = info;
+        // Restricted checker only grants access to some other, unrelated branch — never the NDR's
+        // shipment's DestinationBranchId — so CheckBranchAccessAsync must reject the update.
+        var service = new NdrService(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), shipments, new RestrictedBranchAuthorizationChecker(Guid.NewGuid()));
+
+        await Assert.ThrowsAsync<NdrValidationException>(() => service.UpdateAsync(ndr.Id, new UpdateNdrRequest(NdrStatus.Contacting, null, null, null), ActingUser(Guid.NewGuid())));
     }
 
     [Fact]
