@@ -18,8 +18,11 @@ public static class RidersEndpoints
 
     public static void MapRidersEndpoints(this IEndpointRouteBuilder app)
     {
-        var riders = app.MapGroup("/api/v1/riders").RequireAuthorization();
-        var vehicles = app.MapGroup("/api/v1/vehicles").RequireAuthorization();
+        var riders = app.MapGroup("/api/v1/riders").RequireAuthorization()
+        .WithTags("Rider Management");
+        var vehicles = app.MapGroup("/api/v1/vehicles")
+        .WithTags("Vehicles Management")
+        .RequireAuthorization();
 
         riders.MapPost("/", async (CreateRiderRequest request, RiderService service, HttpContext httpContext) =>
         {

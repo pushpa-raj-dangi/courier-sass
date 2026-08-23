@@ -19,6 +19,7 @@ public static class UsersEndpoints
                 .Select(u => new UserListItem(u.Id, u.Email, u.FullName, u.IsActive))
                 .ToListAsync();
             return Results.Ok(users);
-        }).RequirePermission("user.read");
+        }).RequirePermission("user.read")
+        .WithTags("Users Management");
     }
 }

@@ -9,7 +9,7 @@ public static class MerchantAuthEndpoints
 {
     public static void MapMerchantAuthEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/v1/merchant/auth");
+        var group = app.MapGroup("/api/v1/merchant/auth").WithTags("Merchant Auth Management");
 
         group.MapPost("/login", async (MerchantLoginRequest request, MerchantAuthService authService) =>
         {

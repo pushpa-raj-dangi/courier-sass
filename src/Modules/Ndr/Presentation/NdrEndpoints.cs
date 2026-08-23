@@ -12,7 +12,9 @@ public static class NdrEndpoints
 {
     public static void MapNdrEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/v1/ndrs").RequireAuthorization();
+        var group = app.MapGroup("/api/v1/ndrs")
+        .WithTags("NDRS Management")
+        .RequireAuthorization();
 
         group.MapGet("/", async (NdrStatus? status, NdrService service, HttpContext httpContext) =>
             Results.Ok(await service.ListAsync(status, httpContext.User, httpContext.RequestAborted)))
@@ -32,7 +34,9 @@ public static class NdrEndpoints
             await HandleAsync(() => service.ResolveAsync(id, request, httpContext.User, httpContext.RequestAborted)))
             .RequirePermission("ndr.resolve");
 
-        var returnShipments = app.MapGroup("/api/v1/return-shipments").RequireAuthorization();
+        var returnShipments = app.MapGroup("/api/v1/return-shipments")
+        .WithTags("Shipment Management")
+        .RequireAuthorization();
 
         returnShipments.MapGet("/", async (NdrService service, HttpContext httpContext) =>
             Results.Ok(await service.ListReturnShipmentsAsync(httpContext.User, httpContext.RequestAborted)))

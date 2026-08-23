@@ -11,7 +11,7 @@ public static class ShipmentsEndpoints
 {
     public static void MapShipmentsEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/v1/shipments").RequireAuthorization();
+        var group = app.MapGroup("/api/v1/shipments").RequireAuthorization().WithTags("Shipments Management");
 
         // POST / and /{id}/cancel accept EITHER a staff JWT (shipment.create/shipment.cancel via
         // IPermissionChecker) OR a merchant JWT (MerchantPermissionCatalog.ShipmentCreate/

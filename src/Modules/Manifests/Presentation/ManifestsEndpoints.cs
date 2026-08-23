@@ -10,7 +10,9 @@ public static class ManifestsEndpoints
 {
     public static void MapManifestsEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/v1/manifests").RequireAuthorization();
+        var group = app.MapGroup("/api/v1/manifests")
+        .WithTags("Manifests Management")
+        .RequireAuthorization();
 
         group.MapPost("/", async (CreateManifestRequest request, ManifestService service, HttpContext httpContext) =>
         {

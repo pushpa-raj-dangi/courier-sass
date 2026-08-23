@@ -13,12 +13,13 @@ public static class PricingEndpoints
         var referenceGroup = app.MapGroup("/api/v1");
 
         referenceGroup.MapGet("/service-types", async (ReferenceDataService referenceDataService, CancellationToken cancellationToken) =>
-            Results.Ok(await referenceDataService.ListServiceTypesAsync(cancellationToken))).RequirePermission("pricing.read");
+            Results.Ok(await referenceDataService.ListServiceTypesAsync(cancellationToken))).RequirePermission("pricing.read")
+            .WithTags("Price Management");
 
         referenceGroup.MapGet("/weight-slabs", async (ReferenceDataService referenceDataService, CancellationToken cancellationToken) =>
-            Results.Ok(await referenceDataService.ListWeightSlabsAsync(cancellationToken))).RequirePermission("pricing.read");
+            Results.Ok(await referenceDataService.ListWeightSlabsAsync(cancellationToken))).RequirePermission("pricing.read").WithTags("Price Management");
 
-        var rateCardsGroup = app.MapGroup("/api/v1/rate-cards");
+        var rateCardsGroup = app.MapGroup("/api/v1/rate-cards").WithTags("Rate Card Management");
 
         rateCardsGroup.MapGet("/", async (RateCardService rateCardService, CancellationToken cancellationToken) =>
             Results.Ok(await rateCardService.ListRateCardsAsync(cancellationToken))).RequirePermission("pricing.read");
@@ -95,7 +96,9 @@ public static class PricingEndpoints
             }
         }).RequirePermission("pricing.manage");
 
-        var merchantRateCardGroup = app.MapGroup("/api/v1/merchants");
+        var merchantRateCardGroup = app.MapGroup("/api/v1/merchants")
+        .WithTags("Merchant Rate Card")
+        ;
 
         merchantRateCardGroup.MapGet("/{merchantId:guid}/rate-card", async (Guid merchantId, RateCardService rateCardService, CancellationToken cancellationToken) =>
         {
@@ -121,7 +124,7 @@ public static class PricingEndpoints
             }
         }).RequirePermission("pricing.manage");
 
-        var quoteGroup = app.MapGroup("/api/v1/pricing");
+        var quoteGroup = app.MapGroup("/api/v1/pricing").WithTags("Price Quote");
 
         quoteGroup.MapPost("/quote", async (PriceQuoteRequest request, PricingService pricingService, HttpContext httpContext) =>
         {

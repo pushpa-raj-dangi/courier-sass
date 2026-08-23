@@ -10,7 +10,7 @@ public static class BranchesEndpoints
 {
     public static void MapBranchesEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/v1/branches");
+        var group = app.MapGroup("/api/v1/branches").WithTags("Branch Management");
 
         group.MapPost("/", async (CreateBranchRequest request, BranchService branchService, HttpContext httpContext) =>
         {

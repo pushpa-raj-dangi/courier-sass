@@ -10,7 +10,7 @@ public static class DeliveryZonesEndpoints
 {
     public static void MapDeliveryZonesEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/v1/delivery-zones");
+        var group = app.MapGroup("/api/v1/delivery-zones").WithTags("Delivery Zone Management");
 
         group.MapPost("/", async (CreateDeliveryZoneRequest request, DeliveryZoneService zoneService, HttpContext httpContext) =>
         {

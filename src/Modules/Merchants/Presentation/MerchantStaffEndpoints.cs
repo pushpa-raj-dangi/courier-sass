@@ -10,7 +10,7 @@ public static class MerchantStaffEndpoints
 {
     public static void MapMerchantStaffEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/v1/merchant/staff");
+        var group = app.MapGroup("/api/v1/merchant/staff").WithTags("Merchant Staff Management");
 
         group.MapPost("/", async (InviteMerchantStaffRequest request, MerchantStaffService staffService, HttpContext httpContext) =>
         {

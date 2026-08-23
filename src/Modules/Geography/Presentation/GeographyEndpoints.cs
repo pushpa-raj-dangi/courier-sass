@@ -10,7 +10,7 @@ public static class GeographyEndpoints
 {
     public static void MapGeographyEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/v1/geography");
+        var group = app.MapGroup("/api/v1/geography").WithTags("Geography Management");
 
         group.MapGet("/provinces", async (GeographyQueryService service, CancellationToken cancellationToken) =>
             Results.Ok(await service.ListProvincesAsync(cancellationToken))).RequirePermission("geography.read");

@@ -10,7 +10,7 @@ public static class MerchantProfileEndpoints
 {
     public static void MapMerchantProfileEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/v1/merchant/profile");
+        var group = app.MapGroup("/api/v1/merchant/profile").WithTags("Merchant Profile Management");
 
         group.MapGet("/", async (HttpContext httpContext, MerchantOnboardingService onboardingService, CancellationToken cancellationToken) =>
         {

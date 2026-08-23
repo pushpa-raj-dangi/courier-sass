@@ -164,7 +164,7 @@ app.MapManifestsEndpoints();
 app.MapRidersEndpoints();
 app.MapNdrEndpoints();
 
-app.MapGet("/health/ping", () => Results.Ok(new { status = "ok" }));
+app.MapGet("/health/ping", () => Results.Ok(new { status = "ok" })).WithTags("Health check");
 
 app.MapHealthChecks("/health/ready", new HealthCheckOptions
 {

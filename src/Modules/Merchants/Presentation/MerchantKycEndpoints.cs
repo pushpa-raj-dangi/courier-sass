@@ -23,7 +23,7 @@ public static class MerchantKycEndpoints
 
     public static void MapMerchantKycEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/v1/merchant/kyc-documents");
+        var group = app.MapGroup("/api/v1/merchant/kyc-documents").WithTags("Merchant Kyc Document Management");
 
         // Raw request body upload (not multipart/form-data): the client sends the file's bytes
         // directly as the request body with documentType on the query string. This sidesteps
