@@ -217,12 +217,14 @@ DeliveryProof { Id, OrganizationId, ShipmentId, DeliveryAttemptId, RiderId, OtpV
 ## NDR — `OrganizationId` present
 
 ```text
-Ndr { Id, OrganizationId, ShipmentId, Reason (Ndr.Domain.NdrReason — a fresh copy of
+NDR { Id, OrganizationId, ShipmentId, Reason (Ndr.Domain.NdrReason — a fresh copy of
       Riders.Domain.DeliveryAttemptReason's 9 values, not a shared reference; see
       CLARIFICATIONS.md #9), AssignedStaffUserId (nullable — set to whichever staff user first
       calls /update), Status (Open|Contacting|CustomerConfirmed|
       ReattemptScheduled|RtoRequested|Resolved), CustomerResponse, FollowUpAt,
       NextAction, Resolution (Reattempt|Rto|AutoRto|Other), ResolvedAt }         [C#4] [C#9]
+      # Entity name is the all-caps NDR, not Ndr — deliberate, to avoid a CS0118
+      # ('NDR' is a namespace but is used like a type) collision with the Courier.Ndr namespace.
       # Auto-created by Ndr.Application.NdrCreationService.CreateFromFailedAttemptAsync,
       # called from Riders.Application.RiderService.RecordFailedAttemptAsync immediately after
       # FailDeliveryAsync, in the same request (Phase 9) — DELIVERY_FAILED -> NDR_CREATED is a

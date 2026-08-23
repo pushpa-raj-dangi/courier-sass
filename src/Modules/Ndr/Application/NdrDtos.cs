@@ -19,13 +19,3 @@ public class NdrValidationException : Exception
 {
     public NdrValidationException(string message) : base(message) { }
 }
-
-public class NdrNotFoundException : Exception
-{
-    public NdrNotFoundException(Guid ndrId) : base($"NDR {ndrId} was not found.")
-    {
-        NdrId = ndrId;
-    }
-
-    public Guid NdrId { get; }
-}

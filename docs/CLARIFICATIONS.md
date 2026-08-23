@@ -253,13 +253,15 @@ seal/dispatch/receive/close lifecycle).
 **Resolution 1:** `Manifest` gains a `Purpose` field (`Forward | Return`, defaults to `Forward`).
 A `Return`-purpose manifest is created exactly like a forward one, just with `FromBranchId`/
 `ToBranchId` pointing the opposite direction (from the branch that attempted delivery back toward
-the branch the parcel originated at). The existing `/scan`, `/dispatch`, `/receive-scan` endpoints
-branch on `Purpose` to call the RTO-specific pair of `IShipmentTransitionService` methods
-(`DispatchManyRtoAsync`/`ReceiveRtoAtOriginAsync`) instead of the forward pair; a new `/rto-scan`
-endpoint (mirroring `/scan`) adds a shipment to a Return manifest without any status transition of
-its own — unlike the forward path's sort-scan, `RTO_INITIATED` has no resting-status equivalent to
-move into, so the shipment stays `RtoInitiated` until the whole manifest dispatches at once.
-`/seal`/`/close` need no branching — neither one touches shipment-specific state.
+the branch the parcel originated at). The existing `/dispatch`/`/receive-scan` endpoints branch on
+`Purpose` to call the RTO-specific pair of `IShipmentTransitionService` methods
+(`DispatchManyRtoAsync`/`ReceiveRtoAtOriginAsync`) instead of the forward pair; `/scan` instead
+rejects a Return-purpose manifest outright (`MANIFEST_WRONG_PURPOSE`) since a new `/rto-scan`
+endpoint (mirroring `/scan`) exists specifically for adding shipments to a Return manifest, without
+any status transition of its own — unlike the forward path's sort-scan, `RTO_INITIATED` has no
+resting-status equivalent to move into, so the shipment stays `RtoInitiated` until the whole
+manifest dispatches at once. `/seal`/`/close` need no branching — neither one touches
+shipment-specific state.
 
 **Ambiguity 2:** `DOMAIN-MODEL.md`'s original `ReturnShipment` sketch included `Status` and
 `ReceivedAt` columns, but the underlying `Shipment` (via `OriginalShipmentId`) is already the
