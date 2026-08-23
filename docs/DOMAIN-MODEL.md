@@ -217,18 +217,31 @@ DeliveryProof { Id, OrganizationId, ShipmentId, DeliveryAttemptId, RiderId, OtpV
 ## NDR — `OrganizationId` present
 
 ```text
-NDR { Id, ShipmentId, OrganizationId, Reason (from DeliveryAttempt.Reason),
-      AssignedStaffUserId, Status (Open|Contacting|CustomerConfirmed|
+Ndr { Id, OrganizationId, ShipmentId, Reason (Ndr.Domain.NdrReason — a fresh copy of
+      Riders.Domain.DeliveryAttemptReason's 9 values, not a shared reference; see
+      CLARIFICATIONS.md #9), AssignedStaffUserId (nullable — set to whichever staff user first
+      calls /update), Status (Open|Contacting|CustomerConfirmed|
       ReattemptScheduled|RtoRequested|Resolved), CustomerResponse, FollowUpAt,
-      NextAction, Resolution (Reattempt|Rto|AutoRto|Other), ResolvedAt }         [C#4]
+      NextAction, Resolution (Reattempt|Rto|AutoRto|Other), ResolvedAt }         [C#4] [C#9]
+      # Auto-created by Ndr.Application.NdrCreationService.CreateFromFailedAttemptAsync,
+      # called from Riders.Application.RiderService.RecordFailedAttemptAsync immediately after
+      # FailDeliveryAsync, in the same request (Phase 9) — DELIVERY_FAILED -> NDR_CREATED is a
+      # system step, never a separate manual action.
 ```
 
 ## RTO — `OrganizationId` present
 
 ```text
 ReturnShipment { Id, OriginalShipmentId, OrganizationId, ReturnAwb,
-                  RtoReason, OriginBranchId, DestinationBranchId, CurrentBranchId,
-                  Status, ReceivedAt (nullable), MerchantConfirmedAt (nullable) }
+                  RtoReason, OriginBranchId, DestinationBranchId,
+                  MerchantConfirmedAt (nullable) }         [C#9]
+                  # No Status/CurrentBranchId/ReceivedAt columns (unlike this section's original
+                  # sketch) — both are read live from the underlying Shipment (via
+                  # OriginalShipmentId) instead of cached here, CLARIFICATIONS.md #9. OriginBranchId
+                  # is the ORIGINAL shipment's DestinationBranchId (the return leg starts where
+                  # delivery was attempted); DestinationBranchId is the ORIGINAL shipment's
+                  # OriginBranchId (the return leg ends where the parcel came from) — the swap
+                  # happens once, at creation, in Ndr.Application.NdrService.ResolveAsync.
 ```
 
 ## COD & Finance — `OrganizationId` present

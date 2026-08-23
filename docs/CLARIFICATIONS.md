@@ -239,6 +239,70 @@ still deferred, tracked as a known gap for whichever future phase needs it.
 
 ---
 
+## 9. Phase 9: RTO transport reuse, `ReturnShipment`'s missing status column, and `NdrReason` duplication
+
+**Where:** §13/§14 (Scanning/Manifests), §20/§21 (NDR/RTO), `BRANCH-OPERATIONS.md` §1
+
+**Ambiguity 1:** `BRANCH-OPERATIONS.md` §1 lists `RTO` as one of the seven scan operation types
+alongside `Receive, Sort, Dispatch, Transfer, RiderPickup, RiderDelivery` — implying RTO needs its
+own transport mechanism — but `CLAUDE.md` §14/`BRANCH-OPERATIONS.md` §2 already define `Manifest`
+as the one branch-to-branch transport primitive, and building a second one for RTO alone would
+duplicate everything `Manifest` already does (missing-shipment detection, vehicle/driver capture,
+seal/dispatch/receive/close lifecycle).
+
+**Resolution 1:** `Manifest` gains a `Purpose` field (`Forward | Return`, defaults to `Forward`).
+A `Return`-purpose manifest is created exactly like a forward one, just with `FromBranchId`/
+`ToBranchId` pointing the opposite direction (from the branch that attempted delivery back toward
+the branch the parcel originated at). The existing `/scan`, `/dispatch`, `/receive-scan` endpoints
+branch on `Purpose` to call the RTO-specific pair of `IShipmentTransitionService` methods
+(`DispatchManyRtoAsync`/`ReceiveRtoAtOriginAsync`) instead of the forward pair; a new `/rto-scan`
+endpoint (mirroring `/scan`) adds a shipment to a Return manifest without any status transition of
+its own — unlike the forward path's sort-scan, `RTO_INITIATED` has no resting-status equivalent to
+move into, so the shipment stays `RtoInitiated` until the whole manifest dispatches at once.
+`/seal`/`/close` need no branching — neither one touches shipment-specific state.
+
+**Ambiguity 2:** `DOMAIN-MODEL.md`'s original `ReturnShipment` sketch included `Status` and
+`ReceivedAt` columns, but the underlying `Shipment` (via `OriginalShipmentId`) is already the
+single source of truth for both once `RtoInitiated`/`RtoInTransit`/`RtoAtOrigin`/`RtoDelivered`
+exist as real `ShipmentStatus` values — a second, independently-updated copy would need `Manifests`
+to gain a project reference to `Ndr` purely to keep it in sync (`Manifests`' RTO receive-scan is
+what actually knows when a return arrives).
+
+**Resolution 2:** `ReturnShipment` does not store `Status`/`CurrentBranchId`/`ReceivedAt`.
+`Ndr.Application.NdrService`'s `ReturnShipmentResponse` reads both live from
+`IShipmentTransitionService.GetScanInfoAsync(OriginalShipmentId)` at request time instead — the
+same "no cached copy of custody" principle CLAUDE.md §12 already states for `Shipment` itself,
+applied one level up. `MerchantConfirmedAt` is the one exception: it is a genuine
+`Ndr`-module-owned fact (when staff confirmed the merchant accepted the return) with no
+cross-module coordination needed, so it stays a real stored column.
+
+**Ambiguity 3:** `NDR.Reason` needs `DOMAIN-MODEL.md`'s "from `DeliveryAttempt.Reason`" list —
+identical to `Riders.Domain.DeliveryAttemptReason` (Phase 8) — but `Ndr` has no natural reason to
+depend on `Riders` (NDR resolution and RTO have nothing to do with rider assignment/tasks), and
+`Riders` already depends on `Ndr` (for `INdrCreationService`) — a reference the other way would be
+circular.
+
+**Resolution 3:** `Ndr.Domain.NdrReason` is a fresh, identically-valued copy of
+`Riders.Domain.DeliveryAttemptReason`, not a shared reference — the same choice
+`DeliveryAttemptReason` itself already made relative to `CLAUDE.md` §19 in Phase 8.
+`Riders.Application.RiderService` converts between the two via an explicit `switch` expression
+(not a raw enum-to-enum cast), so a future divergence between the two lists fails at compile time
+instead of silently miscasting.
+
+**Ambiguity 4:** `CLAUDE.md` §20 describes an "auto-return after N failed attempts" policy for
+`AutoRTO`, but no `N` is specified anywhere and no scheduled-job infrastructure exists yet in this
+codebase (Hangfire is in the tech stack per `CLAUDE.md` §1 but nothing uses it before Phase 11).
+
+**Resolution 4:** `NdrResolution.AutoRto` is a selectable resolution outcome only this phase —
+identical in every way to `NdrResolution.Rto` except the audit trail records which one a caller
+chose. No scheduled trigger exists to set it automatically; a human or a future automated caller
+(once Phase 11's background-job infrastructure lands and product defines `N`) must still call
+`POST /ndrs/{id}/resolve`. This still satisfies `CLARIFICATIONS.md` #4's single-auditable-trigger-
+point requirement — `AutoRTO` was never required to be automatic, only to remain a distinct,
+recorded resolution reason from an ordinary staff-initiated `Rto`.
+
+---
+
 ## Summary of schema additions implied by this document
 
 * `UserRole` (new entity) — resolves #1, carries `BranchScope` enum — resolves #6.

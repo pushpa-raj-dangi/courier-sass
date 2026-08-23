@@ -279,6 +279,36 @@ roles this phase needed.
 `RTO_DELIVERED`) are exercised by tests, with the direct
 `DELIVERY_FAILED → RTO_INITIATED` shortcut proven absent.
 
+*Status (2026-08-21): Complete.* A new `Ndr` module implements `NDR`/`ReturnShipment` per
+`DOMAIN-MODEL.md`, with `CLARIFICATIONS.md` #9 recording three deliberate simplifications
+(`ReturnShipment` has no stored status/branch/received-at columns — it reads them live from the
+underlying `Shipment`; `NdrReason` is a fresh copy of `Riders.Domain.DeliveryAttemptReason`, not a
+shared reference; `AutoRto` is a selectable resolution outcome only, no scheduled trigger exists).
+`DELIVERY_FAILED -> NDR_CREATED` happens automatically: `Riders.Application.RiderService.
+RecordFailedAttemptAsync` (Phase 8) calls a new narrow `INdrCreationService` in the same request,
+immediately after `FailDeliveryAsync` — proven by `tests/Riders.Tests/RiderServiceAttemptsTests.cs`.
+NDR's own workflow (`POST /ndrs/{id}/update` walking `Open -> Contacting -> CustomerConfirmed ->
+{ReattemptScheduled|RtoRequested}`, `POST /ndrs/{id}/resolve` performing the real side effect) and
+the reattempt loop (`NDR_CREATED -> OUT_FOR_DELIVERY` directly, custody untouched, no new
+`DeliveryTask` created — a deliberate scope simplification) are exercised end-to-end in
+`tests/Api.Tests/NdrEndpointsTests.cs`. `CLARIFICATIONS.md` #4's single-gateway-into-RTO guarantee
+(no direct `DELIVERY_FAILED -> RTO_INITIATED` transition anywhere) is proven by
+`tests/Shipments.Tests/ShipmentServiceNdrRtoTransitionTests.cs`'s
+`InitiateRtoAsync_FromDeliveryFailed_ThrowsInvalidTransition`. RTO's physical return leg reuses
+`Manifest` entirely — a new `Manifest.Purpose` field (`Forward|Return`, `CLARIFICATIONS.md` #9)
+lets the existing scan/dispatch/receive-scan endpoints drive the RTO status pair
+(`RtoInitiated -> RtoInTransit -> RtoAtOrigin`) through a new `/rto-scan` endpoint and
+`Purpose`-branched dispatch/receive, proven by `tests/Manifests.Tests/ManifestServicePurposeTests.cs`
+and the full `tests/Api.Tests/NdrEndpointsTests.cs`'s
+`FullRtoPath_FailedAttemptToRtoDelivered_MovesThroughEveryStatusViaManifests` test (book -> pickup
+-> sort/dispatch/receive -> out for delivery -> failed attempt -> NDR workflow -> `Rto` resolution
+-> return manifest -> `RTO_DELIVERED`, terminal, over real HTTP end to end). `NDR`/`ReturnShipment`
+are both tenant-isolated with their own `OrganizationId` (not transitive), proven by
+`Ndrs_OrgBCannotReadOrgAsNdr`. Deferred to later phases: `CODCollection`/rider cash settlement
+(Phase 10), a scheduled `AutoRTO` trigger (needs Phase 11's background-job infrastructure and a
+product-defined attempt threshold), and a real `DeliveryTask` row for reattempts (the existing
+`DeliveryAttempt` audit trail via `AttemptNumber` was judged sufficient for this phase's scope).
+
 ## Phase 10 — COD, Rider Settlements, Branch Reconciliation, Merchant Settlements
 
 Full `COD-LIFECYCLE.md` chain: `CODCollection, RiderCashSettlement,
