@@ -11,11 +11,11 @@ public enum ShipmentEventType
     ReceivedAtDestination,
     OutForDelivery,
     DeliveryFailed,
+    Delivered,
+    Cancelled,
     NdrCreated,
     RtoInitiated,
     RtoInTransit,
     RtoAtOrigin,
-    RtoDelivered,
-    Delivered,
-    Cancelled
+    RtoDelivered
 }

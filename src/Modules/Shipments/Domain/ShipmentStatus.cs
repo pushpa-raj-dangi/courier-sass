@@ -11,11 +11,11 @@ public enum ShipmentStatus
     AtDestinationBranch,
     OutForDelivery,
     DeliveryFailed,
+    Delivered,
+    Cancelled,
     NdrCreated,
     RtoInitiated,
     RtoInTransit,
     RtoAtOrigin,
-    RtoDelivered,
-    Delivered,
-    Cancelled
+    RtoDelivered
 }

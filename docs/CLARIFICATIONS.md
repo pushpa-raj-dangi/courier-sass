@@ -303,6 +303,24 @@ recorded resolution reason from an ordinary staff-initiated `Rto`.
 
 ---
 
+## 10. Phase 9 follow-up: `ShipmentStatus`/`ShipmentEventType` must only ever grow by appending
+
+**Where:** `src/Modules/Shipments/Domain/ShipmentStatus.cs`, `ShipmentEventType.cs`
+
+**Issue:** Both enums persist as plain PostgreSQL `integer` columns with no `HasConversion<string>()`.
+Phase 9's original implementation inserted five new members mid-list (between `DeliveryFailed` and
+`Delivered`), which silently reassigned `Delivered`'s ordinal from 9 to 14 and `Cancelled`'s from 10
+to 15 — corrupting the meaning of any already-persisted row. Caught in Phase 9's final whole-branch
+review, fixed by moving the new members after `Cancelled`.
+
+**Rule going forward:** new members MUST always be appended at the end of both enums, never inserted
+between existing members, for as long as they persist as raw integers. If a future phase needs to
+insert a member logically "in the middle" of the conceptual status list, append it physically at the
+end of the C# enum anyway — the enum's declaration order and the domain's logical status order are
+allowed to diverge; only the declaration order affects the database.
+
+---
+
 ## Summary of schema additions implied by this document
 
 * `UserRole` (new entity) — resolves #1, carries `BranchScope` enum — resolves #6.
