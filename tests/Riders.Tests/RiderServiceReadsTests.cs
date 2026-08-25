@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Courier.Audit.Application;
 using Courier.Branches.Application;
+using Courier.Cod.Application;
 using Courier.Identity.Application;
 using Courier.Ndr.Application;
 using Courier.Ndr.Domain;
@@ -76,6 +77,16 @@ file class NotSupportedNdrCreationService : INdrCreationService
     public Task CreateFromFailedAttemptAsync(Guid shipmentId, Guid organizationId, NdrReason reason, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 }
 
+file class NoopCodCollectionService : ICodCollectionService
+{
+    public Task MarkCollectedAsync(Guid shipmentId, decimal collectedAmount, Guid riderId, Guid deliveryProofId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => Task.CompletedTask;
+}
+
+file class AlwaysTruePermissionChecker : IPermissionChecker
+{
+    public Task<bool> HasPermissionAsync(ClaimsPrincipal user, string permission, CancellationToken cancellationToken = default) => Task.FromResult(true);
+}
+
 public class RiderServiceReadsTests
 {
     private class TestDbContext : DbContext
@@ -100,7 +111,8 @@ public class RiderServiceReadsTests
 
     private static RiderService CreateService(TestDbContext dbContext, Guid organizationId, IBranchAuthorizationChecker checker) =>
         new(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), new NotSupportedUserProvisioningService(),
-            new NotSupportedBranchLookup(), checker, new NotSupportedShipmentTransitionService(), new NotSupportedObjectStorage(), new NotSupportedNdrCreationService());
+            new NotSupportedBranchLookup(), checker, new NotSupportedShipmentTransitionService(), new NotSupportedObjectStorage(), new NotSupportedNdrCreationService(),
+            new NoopCodCollectionService(), new AlwaysTruePermissionChecker());
 
     [Fact]
     public async Task ListAsync_RestrictedToOneBranch_OnlyReturnsRidersAtThatBranch()

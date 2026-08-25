@@ -98,6 +98,21 @@ public partial class RiderService
         // check 2 (branch access) here.
         await CheckBranchAccessAsync(actingUser, "delivery.complete", scanInfo.DestinationBranchId, cancellationToken);
 
+        // Phase 10: a COD shipment additionally requires cod.collect — checked here at the
+        // Application layer via IPermissionChecker rather than the route, since the requirement is
+        // conditional on the shipment (scanInfo.CodAmount > 0), not a blanket route-level gate.
+        if (scanInfo.CodAmount > 0)
+        {
+            if (!await _permissionChecker.HasPermissionAsync(actingUser, "cod.collect", cancellationToken))
+            {
+                throw new RiderValidationException("cod.collect permission is required to complete a COD delivery.");
+            }
+            if (request.CollectedCodAmount is null)
+            {
+                throw new RiderValidationException("CollectedCodAmount is required to complete a COD delivery.");
+            }
+        }
+
         if (scanInfo.CurrentStatus != ShipmentStatus.OutForDelivery)
         {
             throw new RiderValidationException($"Shipment must be OutForDelivery to complete delivery, was {scanInfo.CurrentStatus}.");
@@ -143,6 +158,11 @@ public partial class RiderService
         };
         _dbContext.Set<DeliveryProof>().Add(proof);
         await _dbContext.SaveChangesAsync(cancellationToken);
+
+        if (scanInfo.CodAmount > 0)
+        {
+            await _codCollectionService.MarkCollectedAsync(request.ShipmentId, request.CollectedCodAmount!.Value, riderId, proof.Id, actingUser, cancellationToken);
+        }
 
         var task = await _dbContext.Set<DeliveryTask>()
             .FirstOrDefaultAsync(t => t.ShipmentId == request.ShipmentId && t.Type == DeliveryTaskType.Delivery && t.Status == DeliveryTaskStatus.Pending, cancellationToken);

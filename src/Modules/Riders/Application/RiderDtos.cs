@@ -22,7 +22,7 @@ public enum PodFileKind { Signature, Photo }
 
 public record UploadPodFileResponse(string StorageKey);
 
-public record CompleteDeliveryRequest(Guid ShipmentId, string RecipientName, bool OtpVerified, string? SignatureStorageKey, string? PhotoStorageKey, decimal? Latitude, decimal? Longitude);
+public record CompleteDeliveryRequest(Guid ShipmentId, string RecipientName, bool OtpVerified, string? SignatureStorageKey, string? PhotoStorageKey, decimal? Latitude, decimal? Longitude, decimal? CollectedCodAmount = null);
 
 public record DeliveryAttemptResponse(Guid Id, Guid ShipmentId, Guid RiderId, int AttemptNumber, bool Succeeded, DeliveryAttemptReason? Reason, string? NextAction);
 
