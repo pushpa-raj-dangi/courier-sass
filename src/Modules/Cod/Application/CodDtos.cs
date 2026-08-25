@@ -13,6 +13,12 @@ public record RiderCashSettlementResponse(
     Guid Id, Guid RiderId, Guid BranchId, decimal DeclaredAmount, int ShipmentCount,
     DateTimeOffset SettledAt, Guid ConfirmedByUserId, Guid? BranchCashSettlementId);
 
+public record CreateBranchSettlementRequest(Guid BranchId, List<Guid> RiderCashSettlementIds, decimal ConfirmedAmount);
+
+public record BranchCashSettlementResponse(
+    Guid Id, Guid BranchId, decimal ConfirmedAmount, Guid ReconciledByUserId, DateTimeOffset ReconciledAt,
+    List<Guid> RiderCashSettlementIds);
+
 public class CodValidationException : Exception
 {
     public CodValidationException(string message) : base(message) { }

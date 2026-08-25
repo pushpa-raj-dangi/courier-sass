@@ -89,4 +89,94 @@ public partial class CodService
     private static RiderCashSettlementResponse ToRiderSettlementResponse(RiderCashSettlement settlement) => new(
         settlement.Id, settlement.RiderId, settlement.BranchId, settlement.DeclaredAmount, settlement.ShipmentCount,
         settlement.SettledAt, settlement.ConfirmedByUserId, settlement.BranchCashSettlementId);
+
+    // Transactional, same reasoning as CreateRiderSettlementAsync — parent-row insert
+    // (BranchCashSettlement) plus a bulk FK-stamp on every named RiderCashSettlement plus a bulk
+    // status update on every CODCollection those rider settlements cover.
+    public async Task<BranchCashSettlementResponse> CreateBranchSettlementAsync(CreateBranchSettlementRequest request, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
+    {
+        var organizationId = _currentTenantProvider.OrganizationId
+            ?? throw new CodValidationException("No active organization context.");
+        var actingUserId = actingUser.GetUserId()
+            ?? throw new CodValidationException("Acting user could not be resolved.");
+
+        if (await _branchLookupService.GetZoneInfoAsync(request.BranchId, cancellationToken) is null)
+        {
+            throw new CodValidationException("BranchId does not refer to a branch in this organization.");
+        }
+        await CheckBranchAccessAsync(actingUser, "cod.reconcile", request.BranchId, cancellationToken);
+        if (request.RiderCashSettlementIds.Count == 0)
+        {
+            throw new CodValidationException("At least one RiderCashSettlementId is required.");
+        }
+
+        var riderSettlements = await _dbContext.Set<RiderCashSettlement>()
+            .Where(r => request.RiderCashSettlementIds.Contains(r.Id) && r.BranchId == request.BranchId && r.BranchCashSettlementId == null)
+            .ToListAsync(cancellationToken);
+        if (riderSettlements.Count != request.RiderCashSettlementIds.Count)
+        {
+            throw new CodValidationException("One or more RiderCashSettlementIds are invalid, belong to a different branch, or are already reconciled.");
+        }
+
+        var riderSettlementIds = riderSettlements.Select(r => r.Id).ToArray();
+        var collections = await _dbContext.Set<CODCollection>()
+            .Where(c => c.RiderCashSettlementId != null && riderSettlementIds.Contains(c.RiderCashSettlementId.Value) && c.Status == CodCollectionStatus.RiderDeposited)
+            .ToListAsync(cancellationToken);
+
+        // Transactional (this plan's Global Constraints): In-memory provider does not support transactions,
+        // so we check IsRelational() to gate transaction usage. Against Postgres (production), this always
+        // opens a transaction with no fallback path. Against in-memory (testing only), transaction stays null.
+        Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction? transaction = null;
+        if (_dbContext.Database.IsRelational())
+        {
+            transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+        }
+
+        try
+        {
+            var settlement = new BranchCashSettlement
+            {
+                Id = Guid.NewGuid(),
+                OrganizationId = organizationId,
+                BranchId = request.BranchId,
+                ConfirmedAmount = request.ConfirmedAmount,
+                ReconciledByUserId = actingUserId,
+                ReconciledAt = DateTimeOffset.UtcNow
+            };
+            _dbContext.Set<BranchCashSettlement>().Add(settlement);
+
+            foreach (var riderSettlement in riderSettlements)
+            {
+                riderSettlement.BranchCashSettlementId = settlement.Id;
+            }
+            foreach (var collection in collections)
+            {
+                collection.Status = CodCollectionStatus.BranchReconciled;
+            }
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            if (transaction is not null)
+            {
+                await transaction.CommitAsync(cancellationToken);
+            }
+
+            await _auditLogger.LogAsync(new AuditEntry(organizationId, actingUserId, "cod.branch_settlement_created", "BranchCashSettlement", settlement.Id.ToString()), cancellationToken);
+            return ToBranchSettlementResponse(settlement, riderSettlementIds.ToList());
+        }
+        catch
+        {
+            if (transaction is not null)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+            }
+            throw;
+        }
+        finally
+        {
+            transaction?.Dispose();
+        }
+    }
+
+    private static BranchCashSettlementResponse ToBranchSettlementResponse(BranchCashSettlement settlement, List<Guid> riderCashSettlementIds) => new(
+        settlement.Id, settlement.BranchId, settlement.ConfirmedAmount, settlement.ReconciledByUserId, settlement.ReconciledAt, riderCashSettlementIds);
 }
