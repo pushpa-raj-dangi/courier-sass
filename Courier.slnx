@@ -21,6 +21,7 @@
     <Project Path="tests/Api.Tests/Api.Tests.csproj" />
     <Project Path="tests/Audit.Tests/Audit.Tests.csproj" />
     <Project Path="tests/Branches.Tests/Branches.Tests.csproj" />
+    <Project Path="tests/Cod.Tests/Cod.Tests.csproj" />
     <Project Path="tests/Geography.Tests/Geography.Tests.csproj" />
     <Project Path="tests/Identity.Tests/Identity.Tests.csproj" />
     <Project Path="tests/Manifests.Tests/Manifests.Tests.csproj" />

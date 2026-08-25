@@ -5,6 +5,7 @@ using Courier.Audit.Infrastructure;
 using Courier.Branches.Application;
 using Courier.Branches.Infrastructure;
 using Courier.Branches.Presentation;
+using Courier.Cod.Application;
 using Courier.Geography.Application;
 using Courier.Geography.Presentation;
 using Courier.Identity.Application;
@@ -76,6 +77,9 @@ builder.Services.AddScoped<IShipmentTransitionService>(sp => sp.GetRequiredServi
 builder.Services.AddScoped<ManifestService>();
 builder.Services.AddScoped<RiderService>();
 builder.Services.AddScoped<INdrCreationService, NdrCreationService>();
+builder.Services.AddScoped<CodService>();
+builder.Services.AddScoped<ICodCollectionCreationService>(sp => sp.GetRequiredService<CodService>());
+builder.Services.AddScoped<ICodCollectionService>(sp => sp.GetRequiredService<CodService>());
 builder.Services.AddScoped<NdrService>();
 builder.Services.AddScoped<GeographyQueryService>();
 builder.Services.AddScoped<IGeographyLookupService>(sp => sp.GetRequiredService<GeographyQueryService>());
