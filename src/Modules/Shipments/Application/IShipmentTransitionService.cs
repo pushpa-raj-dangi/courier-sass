@@ -16,7 +16,14 @@ public record ShipmentScanInfo(
     Guid? CurrentBranchId,
     Guid OriginBranchId,
     Guid DestinationBranchId,
-    Guid? CurrentCustodianRiderId);
+    Guid? CurrentCustodianRiderId,
+    // Phase 10 — trailing optional parameter defaulting to 0m, exactly like Manifest.Purpose's
+    // precedent (CLARIFICATIONS.md #9): 11 existing `new ShipmentScanInfo(...)` call sites across
+    // Manifests.Tests/Ndr.Tests construct this record positionally with 8 arguments and must keep
+    // compiling unchanged. Only Riders.Application.RiderService.CompleteDeliveryAsync (Task 6)
+    // reads this field; every one of those 11 test call sites defaults to CodAmount = 0m, which is
+    // correct for all of them (none exercise COD collection).
+    decimal CodAmount = 0m);
 
 // Lets Manifests and Riders drive real shipment-status transitions without touching Shipment's
 // DbSet directly. Both callers perform the permission + branch-access + expected-operation +

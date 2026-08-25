@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Text.RegularExpressions;
 using Courier.Audit.Application;
 using Courier.Branches.Application;
+using Courier.Cod.Application;
 using Courier.Geography.Application;
 using Courier.Identity.Application;
 using Courier.Merchants.Application;
@@ -24,6 +25,7 @@ public partial class ShipmentService : IShipmentTransitionService
     private readonly PricingService _pricingService;
     private readonly IBranchAuthorizationChecker _branchAuthorizationChecker;
     private readonly IOrganizationLookupService _organizationLookupService;
+    private readonly ICodCollectionCreationService _codCollectionCreationService;
 
     public ShipmentService(
         DbContext dbContext,
@@ -34,7 +36,8 @@ public partial class ShipmentService : IShipmentTransitionService
         IMerchantLookupService merchantLookupService,
         PricingService pricingService,
         IBranchAuthorizationChecker branchAuthorizationChecker,
-        IOrganizationLookupService organizationLookupService)
+        IOrganizationLookupService organizationLookupService,
+        ICodCollectionCreationService codCollectionCreationService)
     {
         _dbContext = dbContext;
         _currentTenantProvider = currentTenantProvider;
@@ -45,6 +48,7 @@ public partial class ShipmentService : IShipmentTransitionService
         _pricingService = pricingService;
         _branchAuthorizationChecker = branchAuthorizationChecker;
         _organizationLookupService = organizationLookupService;
+        _codCollectionCreationService = codCollectionCreationService;
     }
 
     public async Task<ShipmentResponse> CreateShipmentAsync(CreateShipmentRequest request, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
@@ -214,6 +218,12 @@ public partial class ShipmentService : IShipmentTransitionService
         }
 
         await _auditLogger.LogAsync(new AuditEntry(organizationId, actingUser.GetUserId(), "shipment.created", "Shipment", shipment.Id.ToString()), cancellationToken);
+
+        if (shipment.CodAmount > 0)
+        {
+            await _codCollectionCreationService.CreateExpectedAsync(
+                shipment.Id, organizationId, merchantId, request.DestinationBranchId, shipment.CodAmount, shipment.TotalCharge, actingUser, cancellationToken);
+        }
 
         return await LoadResponseAsync(shipment.Id, cancellationToken);
     }

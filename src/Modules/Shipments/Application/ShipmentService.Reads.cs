@@ -77,5 +77,5 @@ public partial class ShipmentService
     private static ShipmentScanInfo ToScanInfo(Shipment shipment) => new(
         shipment.Id, shipment.OrganizationId, shipment.Awb, shipment.CurrentStatus,
         shipment.CurrentBranchId, shipment.OriginBranchId, shipment.DestinationBranchId,
-        shipment.CurrentCustodianRiderId);
+        shipment.CurrentCustodianRiderId, shipment.CodAmount);
 }

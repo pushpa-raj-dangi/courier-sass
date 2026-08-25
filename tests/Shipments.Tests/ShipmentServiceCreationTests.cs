@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Courier.Audit.Application;
 using Courier.Branches.Application;
+using Courier.Cod.Application;
 using Courier.Geography.Application;
 using Courier.Identity.Application;
 using Courier.Identity.Domain;
@@ -65,6 +66,13 @@ file class FixedOrganizationLookup : IOrganizationLookupService
     private readonly string? _slug;
     public FixedOrganizationLookup(string? slug) => _slug = slug;
     public Task<string?> GetSlugAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult(_slug);
+}
+
+// Phase 10 — this file doesn't exercise COD collection creation, just satisfies ShipmentService's
+// new constructor dependency (Task 5).
+file class NoopCodCollectionCreationService : ICodCollectionCreationService
+{
+    public Task CreateExpectedAsync(Guid shipmentId, Guid organizationId, Guid merchantId, Guid branchId, decimal expectedAmount, decimal shipmentTotalCharge, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => Task.CompletedTask;
 }
 
 public class ShipmentServiceCreationTests
@@ -148,7 +156,7 @@ public class ShipmentServiceCreationTests
         return new ShipmentService(
             dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), branchLookup,
             new AlwaysTrueGeographyLookup(), new AlwaysTrueMerchantLookup(), pricingService, new AllBranchesAuthorizationChecker(),
-            new FixedOrganizationLookup(organizationSlug));
+            new FixedOrganizationLookup(organizationSlug), new NoopCodCollectionCreationService());
     }
 
     private static CreateShipmentRequest ValidRequest(Guid originBranchId, Guid destinationBranchId, Guid serviceTypeId, decimal weightKg = 0.7m, decimal codAmount = 0m, bool wantsInsurance = false, Guid? merchantId = null) => new(
