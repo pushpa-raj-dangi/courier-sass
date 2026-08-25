@@ -156,6 +156,318 @@ namespace Persistence.Migrations
                     b.ToTable("Branches", (string)null);
                 });
 
+            modelBuilder.Entity("Courier.Cod.Domain.Adjustment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("AfterValue")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<bool>("Applied")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset?>("ApprovedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ApprovedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("BeforeValue")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("EntityId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("EntityType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTimeOffset>("RequestedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("RequestedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.HasIndex("EntityType", "EntityId");
+
+                    b.ToTable("Adjustments", (string)null);
+                });
+
+            modelBuilder.Entity("Courier.Cod.Domain.BranchCashSettlement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BranchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("ConfirmedAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("ReconciledAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ReconciledByUserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BranchId");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.ToTable("BranchCashSettlements", (string)null);
+                });
+
+            modelBuilder.Entity("Courier.Cod.Domain.CODCollection", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BranchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal?>("CollectedAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTimeOffset?>("CollectedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CollectedByRiderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("DeliveryProofId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("ExpectedAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("MerchantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("MerchantSettlementItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("RiderCashSettlementId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ShipmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("ShipmentTotalCharge")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BranchId");
+
+                    b.HasIndex("MerchantId");
+
+                    b.HasIndex("MerchantSettlementItemId");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.HasIndex("RiderCashSettlementId");
+
+                    b.HasIndex("ShipmentId")
+                        .IsUnique();
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("CODCollections", (string)null);
+                });
+
+            modelBuilder.Entity("Courier.Cod.Domain.FinancialTransaction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ReferenceEntityId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ReferenceEntityType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("VerifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("VerifiedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.HasIndex("ReferenceEntityType", "ReferenceEntityId")
+                        .IsUnique();
+
+                    b.ToTable("FinancialTransactions", (string)null);
+                });
+
+            modelBuilder.Entity("Courier.Cod.Domain.MerchantSettlement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("MerchantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("PeriodFrom")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("PeriodTo")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("SettledAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("TotalPayable")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MerchantId");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.ToTable("MerchantSettlements", (string)null);
+                });
+
+            modelBuilder.Entity("Courier.Cod.Domain.MerchantSettlementItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("CODAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("CourierFee")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("MerchantSettlementId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("NetPayable")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("OtherDeductions")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("ShipmentId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MerchantSettlementId");
+
+                    b.HasIndex("ShipmentId")
+                        .IsUnique();
+
+                    b.ToTable("MerchantSettlementItems", (string)null);
+                });
+
+            modelBuilder.Entity("Courier.Cod.Domain.RiderCashSettlement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("BranchCashSettlementId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BranchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ConfirmedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("DeclaredAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("RiderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("SettledAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("ShipmentCount")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BranchCashSettlementId");
+
+                    b.HasIndex("BranchId");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.HasIndex("RiderId");
+
+                    b.ToTable("RiderCashSettlements", (string)null);
+                });
+
             modelBuilder.Entity("Courier.Geography.Domain.Area", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2879,6 +3191,96 @@ namespace Persistence.Migrations
                     b.HasOne("Courier.Geography.Domain.Province", null)
                         .WithMany()
                         .HasForeignKey("ProvinceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Courier.Cod.Domain.Adjustment", b =>
+                {
+                    b.HasOne("Courier.Identity.Domain.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Courier.Cod.Domain.BranchCashSettlement", b =>
+                {
+                    b.HasOne("Courier.Branches.Domain.Branch", null)
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Courier.Identity.Domain.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Courier.Cod.Domain.CODCollection", b =>
+                {
+                    b.HasOne("Courier.Cod.Domain.MerchantSettlementItem", null)
+                        .WithMany()
+                        .HasForeignKey("MerchantSettlementItemId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Courier.Identity.Domain.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Courier.Cod.Domain.RiderCashSettlement", null)
+                        .WithMany()
+                        .HasForeignKey("RiderCashSettlementId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Courier.Cod.Domain.FinancialTransaction", b =>
+                {
+                    b.HasOne("Courier.Identity.Domain.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Courier.Cod.Domain.MerchantSettlement", b =>
+                {
+                    b.HasOne("Courier.Identity.Domain.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Courier.Cod.Domain.MerchantSettlementItem", b =>
+                {
+                    b.HasOne("Courier.Cod.Domain.MerchantSettlement", null)
+                        .WithMany()
+                        .HasForeignKey("MerchantSettlementId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Courier.Cod.Domain.RiderCashSettlement", b =>
+                {
+                    b.HasOne("Courier.Cod.Domain.BranchCashSettlement", null)
+                        .WithMany()
+                        .HasForeignKey("BranchCashSettlementId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Courier.Branches.Domain.Branch", null)
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Courier.Identity.Domain.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

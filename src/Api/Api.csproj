@@ -34,6 +34,7 @@
     <ProjectReference Include="..\Modules\Manifests\Manifests.csproj" />
     <ProjectReference Include="..\Modules\Riders\Riders.csproj" />
     <ProjectReference Include="..\Modules\Ndr\Ndr.csproj" />
+    <ProjectReference Include="..\Modules\Cod\Cod.csproj" />
   </ItemGroup>
 
 </Project>

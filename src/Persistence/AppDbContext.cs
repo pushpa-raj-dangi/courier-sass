@@ -12,6 +12,8 @@ using Courier.Merchants.Domain;
 using Courier.Merchants.Infrastructure;
 using Courier.Ndr.Domain;
 using Courier.Ndr.Infrastructure;
+using Courier.Cod.Domain;
+using Courier.Cod.Infrastructure;
 using Courier.Pricing.Domain;
 using Courier.Pricing.Infrastructure;
 using Courier.Riders.Domain;
@@ -73,6 +75,13 @@ public class AppDbContext : DbContext
     public DbSet<DeliveryProof> DeliveryProofs => Set<DeliveryProof>();
     public DbSet<NDR> Ndrs => Set<NDR>();
     public DbSet<ReturnShipment> ReturnShipments => Set<ReturnShipment>();
+    public DbSet<CODCollection> CODCollections => Set<CODCollection>();
+    public DbSet<RiderCashSettlement> RiderCashSettlements => Set<RiderCashSettlement>();
+    public DbSet<BranchCashSettlement> BranchCashSettlements => Set<BranchCashSettlement>();
+    public DbSet<FinancialTransaction> FinancialTransactions => Set<FinancialTransaction>();
+    public DbSet<MerchantSettlement> MerchantSettlements => Set<MerchantSettlement>();
+    public DbSet<MerchantSettlementItem> MerchantSettlementItems => Set<MerchantSettlementItem>();
+    public DbSet<Adjustment> Adjustments => Set<Adjustment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -116,6 +125,13 @@ public class AppDbContext : DbContext
         modelBuilder.ApplyConfiguration(new DeliveryProofConfiguration());
         modelBuilder.ApplyConfiguration(new NdrConfiguration());
         modelBuilder.ApplyConfiguration(new ReturnShipmentConfiguration());
+        modelBuilder.ApplyConfiguration(new CODCollectionConfiguration());
+        modelBuilder.ApplyConfiguration(new RiderCashSettlementConfiguration());
+        modelBuilder.ApplyConfiguration(new BranchCashSettlementConfiguration());
+        modelBuilder.ApplyConfiguration(new FinancialTransactionConfiguration());
+        modelBuilder.ApplyConfiguration(new MerchantSettlementConfiguration());
+        modelBuilder.ApplyConfiguration(new MerchantSettlementItemConfiguration());
+        modelBuilder.ApplyConfiguration(new AdjustmentConfiguration());
 
         // Branch.OrganizationId -> Organizations FK lives here rather than in
         // BranchConfiguration (Branches module) because Branches deliberately has no project
@@ -210,6 +226,34 @@ public class AppDbContext : DbContext
             .HasForeignKey(r => r.OrganizationId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // Same reasoning for the six Cod entities below that carry their own OrganizationId: Cod
+        // has no project reference to Identity. MerchantSettlementItem is excluded (no own
+        // OrganizationId — see MerchantSettlementItemConfiguration).
+        modelBuilder.Entity<CODCollection>().HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(c => c.OrganizationId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<RiderCashSettlement>().HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(r => r.OrganizationId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<BranchCashSettlement>().HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(b => b.OrganizationId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<FinancialTransaction>().HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(f => f.OrganizationId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<MerchantSettlement>().HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(m => m.OrganizationId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Adjustment>().HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(a => a.OrganizationId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         // Tenant filters fail CLOSED: the explicit `OrganizationId != null` guard stops EF Core's
         // null-semantics translation from degrading these into `WHERE "OrganizationId" IS NULL`
         // when no tenant is resolved, which would otherwise match org-less rows (planned for
@@ -235,6 +279,18 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<DeliveryProof>().HasQueryFilter(p => _currentTenantProvider.OrganizationId != null && p.OrganizationId == _currentTenantProvider.OrganizationId);
         modelBuilder.Entity<NDR>().HasQueryFilter(n => _currentTenantProvider.OrganizationId != null && n.OrganizationId == _currentTenantProvider.OrganizationId);
         modelBuilder.Entity<ReturnShipment>().HasQueryFilter(r => _currentTenantProvider.OrganizationId != null && r.OrganizationId == _currentTenantProvider.OrganizationId);
+        modelBuilder.Entity<CODCollection>().HasQueryFilter(c => _currentTenantProvider.OrganizationId != null && c.OrganizationId == _currentTenantProvider.OrganizationId);
+        modelBuilder.Entity<RiderCashSettlement>().HasQueryFilter(r => _currentTenantProvider.OrganizationId != null && r.OrganizationId == _currentTenantProvider.OrganizationId);
+        modelBuilder.Entity<BranchCashSettlement>().HasQueryFilter(b => _currentTenantProvider.OrganizationId != null && b.OrganizationId == _currentTenantProvider.OrganizationId);
+        modelBuilder.Entity<FinancialTransaction>().HasQueryFilter(f => _currentTenantProvider.OrganizationId != null && f.OrganizationId == _currentTenantProvider.OrganizationId);
+        modelBuilder.Entity<MerchantSettlement>().HasQueryFilter(m => _currentTenantProvider.OrganizationId != null && m.OrganizationId == _currentTenantProvider.OrganizationId);
+        modelBuilder.Entity<Adjustment>().HasQueryFilter(a => _currentTenantProvider.OrganizationId != null && a.OrganizationId == _currentTenantProvider.OrganizationId);
+
+        // No tenant filter on MerchantSettlementItem: no own OrganizationId — tenant isolation
+        // flows transitively through MerchantSettlementId -> MerchantSettlement.OrganizationId
+        // (which does have a filter, above). Every query against this table in
+        // Cod.Application.CodService scopes through a MerchantSettlement the caller's tenant
+        // already owns.
 
         // Defensive: nothing queries Organizations with a tenant context today (registration only
         // inserts), but without this a future `Organizations.ToListAsync()` would enumerate every
