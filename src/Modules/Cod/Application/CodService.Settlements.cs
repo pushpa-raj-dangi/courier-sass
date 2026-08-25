@@ -33,15 +33,13 @@ public partial class CodService
             throw new CodValidationException("No collected COD found for this rider at this branch.");
         }
 
+        // Transactional (this plan's Global Constraints): In-memory provider does not support transactions,
+        // so we check IsRelational() to gate transaction usage. Against Postgres (production), this always
+        // opens a transaction with no fallback path. Against in-memory (testing only), transaction stays null.
         Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction? transaction = null;
-        try
+        if (_dbContext.Database.IsRelational())
         {
             transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
-        }
-        catch (InvalidOperationException)
-        {
-            // In-memory provider or other databases that don't support transactions
-            // We'll proceed without a transaction; in production, Postgres will provide real ACID guarantees
         }
 
         try
@@ -66,7 +64,7 @@ public partial class CodService
             }
 
             await _dbContext.SaveChangesAsync(cancellationToken);
-            if (transaction != null)
+            if (transaction is not null)
             {
                 await transaction.CommitAsync(cancellationToken);
             }
@@ -76,7 +74,7 @@ public partial class CodService
         }
         catch
         {
-            if (transaction != null)
+            if (transaction is not null)
             {
                 await transaction.RollbackAsync(cancellationToken);
             }

@@ -7,7 +7,6 @@ using Courier.Cod.Infrastructure;
 using Courier.Merchants.Application;
 using Courier.SharedKernel;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
 using Xunit;
 
 namespace Courier.Cod.Tests;
@@ -47,11 +46,6 @@ public class CodServiceRiderSettlementsTests
     private class TestDbContext : DbContext
     {
         public TestDbContext(DbContextOptions<TestDbContext> options) : base(options) { }
-
-        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-        {
-            optionsBuilder.ConfigureWarnings(c => c.Default(WarningBehavior.Log));
-        }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
