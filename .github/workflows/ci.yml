@@ -37,10 +37,15 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 5
+      mailhog:
+        image: mailhog/mailhog:v1.0.1
+        ports: ["1025:1025", "8025:8025"]
     env:
       ConnectionStrings__Postgres: "Host=localhost;Port=5432;Database=courier;Username=courier;Password=courier_dev_password"
       ConnectionStrings__Redis: "localhost:6379"
       ConnectionStrings__RabbitMq: "amqp://guest:guest@localhost:5672"
+      Smtp__Host: "localhost"
+      Smtp__Port: "1025"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4

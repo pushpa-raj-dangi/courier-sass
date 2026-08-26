@@ -36,6 +36,17 @@ services:
       timeout: 5s
       retries: 5
 
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8025/api/v2/messages"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   api:
     build:
       context: .
@@ -47,12 +58,16 @@ services:
       ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=courier;Username=courier;Password=courier_dev_password"
       ConnectionStrings__Redis: "redis:6379"
       ConnectionStrings__RabbitMq: "amqp://guest:guest@rabbitmq:5672"
+      SMTP__HOST: "mailhog"
+      SMTP__PORT: "1025"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
       rabbitmq:
+        condition: service_healthy
+      mailhog:
         condition: service_healthy
 
   web:
