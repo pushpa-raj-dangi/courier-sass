@@ -192,7 +192,8 @@ public partial class CodService
         var actingUserId = actingUser.GetUserId()
             ?? throw new CodValidationException("Acting user could not be resolved.");
 
-        var branchCashSettlementExists = await _dbContext.Set<BranchCashSettlement>().AnyAsync(b => b.Id == request.BranchCashSettlementId, cancellationToken);
+        var branchCashSettlementExists = await _dbContext.Set<BranchCashSettlement>()
+            .AnyAsync(b => b.Id == request.BranchCashSettlementId && b.OrganizationId == organizationId, cancellationToken);
         if (!branchCashSettlementExists)
         {
             throw new CodValidationException("BranchCashSettlementId was not found.");
@@ -205,7 +206,7 @@ public partial class CodService
         }
 
         var riderSettlementIds = await _dbContext.Set<RiderCashSettlement>()
-            .Where(r => r.BranchCashSettlementId == request.BranchCashSettlementId)
+            .Where(r => r.BranchCashSettlementId == request.BranchCashSettlementId && r.OrganizationId == organizationId)
             .Select(r => r.Id)
             .ToArrayAsync(cancellationToken);
         var collections = await _dbContext.Set<CODCollection>()

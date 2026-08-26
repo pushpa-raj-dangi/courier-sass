@@ -121,4 +121,21 @@ public class CodServiceFinanceVerificationsTests
         await Assert.ThrowsAsync<CodValidationException>(() =>
             service.CreateFinanceVerificationAsync(new CreateFinanceVerificationRequest(branchSettlement.Id, 2500m), ActingUser(Guid.NewGuid())));
     }
+
+    [Fact]
+    public async Task CreateFinanceVerificationAsync_BranchCashSettlementBelongsToDifferentOrganization_ThrowsNotFound()
+    {
+        await using var dbContext = CreateContext();
+        var otherOrganizationId = Guid.NewGuid();
+        var branchSettlement = await SeedBranchReconciledAsync(dbContext, otherOrganizationId, 2500m);
+        var callingOrganizationId = Guid.NewGuid();
+        var service = CreateService(dbContext, callingOrganizationId);
+
+        var exception = await Assert.ThrowsAsync<CodValidationException>(() =>
+            service.CreateFinanceVerificationAsync(new CreateFinanceVerificationRequest(branchSettlement.Id, 2500m), ActingUser(Guid.NewGuid())));
+
+        Assert.Equal("BranchCashSettlementId was not found.", exception.Message);
+        var collection = await dbContext.Set<CODCollection>().SingleAsync();
+        Assert.Equal(CodCollectionStatus.BranchReconciled, collection.Status);
+    }
 }
