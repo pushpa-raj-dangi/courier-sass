@@ -137,6 +137,7 @@ builder.Services.AddScoped<WebhookService>();
 builder.Services.AddHttpClient("Webhooks", client => client.Timeout = TimeSpan.FromSeconds(10));
 builder.Services.AddScoped<IWebhookDeliveryAttemptService, WebhookDeliveryAttemptService>();
 builder.Services.AddHostedService<WebhooksConsumer>();
+builder.Services.AddScoped<WebhookRetryJob>();
 builder.Services.AddSingleton<IObjectStorage>(_ =>
     new LocalFileSystemObjectStorage(builder.Configuration["ObjectStorage:LocalRootPath"] ?? Path.Combine(AppContext.BaseDirectory, "storage")));
 
@@ -231,6 +232,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 });
 
 RecurringJob.AddOrUpdate<OutboxPublisherJob>("outbox-publisher", job => job.RunAsync(CancellationToken.None), "*/10 * * * * *");
+RecurringJob.AddOrUpdate<WebhookRetryJob>("webhook-retry", job => job.RunAsync(CancellationToken.None), "*/30 * * * * *");
 
 app.Run();
 
