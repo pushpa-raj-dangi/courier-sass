@@ -19,6 +19,12 @@ public record BranchCashSettlementResponse(
     Guid Id, Guid BranchId, decimal ConfirmedAmount, Guid ReconciledByUserId, DateTimeOffset ReconciledAt,
     List<Guid> RiderCashSettlementIds);
 
+public record CreateFinanceVerificationRequest(Guid BranchCashSettlementId, decimal Amount);
+
+public record FinancialTransactionResponse(
+    Guid Id, FinancialTransactionType Type, decimal Amount, string ReferenceEntityType, Guid ReferenceEntityId,
+    Guid VerifiedByUserId, DateTimeOffset VerifiedAt);
+
 public class CodValidationException : Exception
 {
     public CodValidationException(string message) : base(message) { }
