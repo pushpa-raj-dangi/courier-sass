@@ -325,8 +325,12 @@ public class RiderServiceAttemptsTests
         Assert.Empty(ndr.Calls);
     }
 
+    // Named for what this test actually asserts (ShipmentId, CollectedAmount, RiderId) — that
+    // MarkCollectedAsync is also called with the just-created DeliveryProof's Id is verified by code
+    // inspection (CompleteDeliveryAsync passes proof.Id, not a separate/stale value) rather than by
+    // an assertion here, since the created proof's Id isn't independently observable from this test.
     [Fact]
-    public async Task CompleteDeliveryAsync_CodShipmentWithAmount_CallsMarkCollectedWithProofId()
+    public async Task CompleteDeliveryAsync_CodShipmentWithAmount_CallsMarkCollectedWithShipmentAmountAndRider()
     {
         var (service, riderId, shipmentId, codRecorder) = await SeedCodShipmentOutForDeliveryAsync(2500m);
 
@@ -345,6 +349,16 @@ public class RiderServiceAttemptsTests
 
         await Assert.ThrowsAsync<RiderValidationException>(() =>
             service.CompleteDeliveryAsync(riderId, new CompleteDeliveryRequest(shipmentId, "Recipient", true, null, null, null, null, null), ActingUser(Guid.NewGuid())));
+    }
+
+    [Fact]
+    public async Task CompleteDeliveryAsync_CodShipmentWithNegativeCollectedAmount_Throws()
+    {
+        var (service, riderId, shipmentId, codRecorder) = await SeedCodShipmentOutForDeliveryAsync(2500m);
+
+        await Assert.ThrowsAsync<RiderValidationException>(() =>
+            service.CompleteDeliveryAsync(riderId, new CompleteDeliveryRequest(shipmentId, "Recipient", true, null, null, null, null, -100m), ActingUser(Guid.NewGuid())));
+        Assert.Empty(codRecorder.Calls);
     }
 
     [Fact]

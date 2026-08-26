@@ -7,14 +7,37 @@ namespace Courier.Cod.Application;
 
 public partial class CodService
 {
-    public async Task<CodCollectionResponse?> GetCollectionByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<CodCollectionResponse?> GetCollectionByIdAsync(Guid id, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
         var organizationId = _currentTenantProvider.OrganizationId
             ?? throw new CodValidationException("No active organization context.");
 
         var collection = await _dbContext.Set<CODCollection>()
             .FirstOrDefaultAsync(c => c.Id == id && c.OrganizationId == organizationId, cancellationToken);
-        return collection is null ? null : ToResponse(collection);
+        if (collection is null)
+        {
+            return null;
+        }
+
+        // Same scoping rules as ListCollectionsAsync below — a merchant-JWT caller is hard-scoped to
+        // their own id, a staff caller is scoped to cod.read-accessible branches.
+        if (actingUser.GetMerchantId() is Guid callerMerchantId)
+        {
+            if (collection.MerchantId != callerMerchantId)
+            {
+                return null;
+            }
+        }
+        else
+        {
+            var accessibleBranchIds = await _branchAuthorizationChecker.GetAccessibleBranchIdsAsync(actingUser, "cod.read", cancellationToken);
+            if (accessibleBranchIds is not null && !accessibleBranchIds.Contains(collection.BranchId))
+            {
+                return null;
+            }
+        }
+
+        return ToResponse(collection);
     }
 
     // BranchId lives directly on CODCollection (this plan's eager-creation snapshot design) — a
@@ -104,20 +127,22 @@ public partial class CodService
             query = query.Where(c => c.CollectedAt == null || c.CollectedAt <= toDate);
         }
 
-        var collections = await query.ToListAsync(cancellationToken);
+        // Pushed to SQL as five separate SumAsync calls against the same filtered `query` (rather
+        // than one ToListAsync() + five LINQ-to-objects sums) so an org's dashboard load never
+        // materializes the full CODCollection result set into memory.
         var reachedStatuses = new[] { CodCollectionStatus.RiderDeposited, CodCollectionStatus.BranchReconciled, CodCollectionStatus.FinanceVerified, CodCollectionStatus.MerchantSettlementCreated, CodCollectionStatus.Settled };
         var branchReceivedStatuses = new[] { CodCollectionStatus.BranchReconciled, CodCollectionStatus.FinanceVerified, CodCollectionStatus.MerchantSettlementCreated, CodCollectionStatus.Settled };
 
-        var expectedCod = collections.Where(c => c.Status == CodCollectionStatus.CodExpected).Sum(c => c.ExpectedAmount);
-        var collectedCod = collections.Where(c => c.CollectedAmount is not null).Sum(c => c.CollectedAmount!.Value);
-        var riderDepositedCod = collections.Where(c => reachedStatuses.Contains(c.Status)).Sum(c => c.CollectedAmount!.Value);
-        var branchReceivedCod = collections.Where(c => branchReceivedStatuses.Contains(c.Status)).Sum(c => c.CollectedAmount!.Value);
-        var totalCourierFees = collections.Where(c => c.CollectedAmount is not null).Sum(c => c.ShipmentTotalCharge);
+        var expectedCod = await query.Where(c => c.Status == CodCollectionStatus.CodExpected).SumAsync(c => c.ExpectedAmount, cancellationToken);
+        var collectedCod = await query.Where(c => c.CollectedAmount != null).SumAsync(c => c.CollectedAmount!.Value, cancellationToken);
+        var riderDepositedCod = await query.Where(c => reachedStatuses.Contains(c.Status)).SumAsync(c => c.CollectedAmount!.Value, cancellationToken);
+        var branchReceivedCod = await query.Where(c => branchReceivedStatuses.Contains(c.Status)).SumAsync(c => c.CollectedAmount!.Value, cancellationToken);
+        var totalCourierFees = await query.Where(c => c.CollectedAmount != null).SumAsync(c => c.ShipmentTotalCharge, cancellationToken);
 
         // OrganizationId filter is required here too — MerchantSettlementItem has no OrganizationId
         // column of its own, so this join relies on the settlementItemIds already having been
         // sourced from an org-scoped CODCollection query above rather than re-checking org here.
-        var settlementItemIds = collections.Where(c => c.MerchantSettlementItemId is not null).Select(c => c.MerchantSettlementItemId!.Value).ToArray();
+        var settlementItemIds = await query.Where(c => c.MerchantSettlementItemId != null).Select(c => c.MerchantSettlementItemId!.Value).ToArrayAsync(cancellationToken);
         var merchantPayableCod = settlementItemIds.Length == 0
             ? 0m
             : await _dbContext.Set<MerchantSettlementItem>().Where(i => settlementItemIds.Contains(i.Id)).SumAsync(i => i.NetPayable, cancellationToken);

@@ -120,6 +120,11 @@ public class CodEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
         var createResponse = await client.PostAsJsonAsync("/api/v1/shipments", CodShipmentRequest(merchantId, originBranchId, destinationBranchId, serviceTypeId, codAmount));
         var shipment = await createResponse.Content.ReadFromJsonAsync<ShipmentResponse>();
 
+        // CodExpected is set at booking time, before any pickup/delivery activity — checked here,
+        // before the rest of this helper walks the shipment through every later COD status.
+        var atBooking = await GetCollectionForShipmentAsync(client, shipment!.Id);
+        Assert.Equal(CodCollectionStatus.CodExpected, atBooking.Status);
+
         await client.PostAsJsonAsync("/api/v1/riders/tasks", new AssignDeliveryTaskRequest(pickupRiderId, shipment!.Id, DeliveryTaskType.Pickup));
         await client.PostAsJsonAsync($"/api/v1/riders/{pickupRiderId}/scan/pickup", new RiderScanRequest(shipment.Awb));
         await client.PostAsJsonAsync($"/api/v1/shipments/{shipment.Id}/receive-origin", new { });

@@ -138,8 +138,12 @@ public partial class CodService
 
         var items = await _dbContext.Set<MerchantSettlementItem>().Where(i => i.MerchantSettlementId == merchantSettlementId).ToListAsync(cancellationToken);
         var itemIds = items.Select(i => i.Id).ToArray();
+        // Guarded by expected precondition status, same as every other transition method in this
+        // module (e.g. CreateFinanceVerificationAsync's BranchReconciled filter) — only collections
+        // still at MerchantSettlementCreated are advanced to Settled here.
         var collections = await _dbContext.Set<CODCollection>()
-            .Where(c => c.OrganizationId == organizationId && c.MerchantSettlementItemId != null && itemIds.Contains(c.MerchantSettlementItemId.Value))
+            .Where(c => c.OrganizationId == organizationId && c.MerchantSettlementItemId != null && itemIds.Contains(c.MerchantSettlementItemId.Value)
+                        && c.Status == CodCollectionStatus.MerchantSettlementCreated)
             .ToListAsync(cancellationToken);
 
         // Transactional (this plan's Global Constraints): In-memory provider does not support transactions,

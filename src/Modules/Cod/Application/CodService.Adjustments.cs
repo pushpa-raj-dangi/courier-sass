@@ -28,6 +28,10 @@ public partial class CodService
         {
             throw new CodValidationException($"Adjustments are only supported for EntityType '{AdjustableEntityType}'.");
         }
+        if (string.IsNullOrWhiteSpace(request.Reason))
+        {
+            throw new CodValidationException("Reason is required for a financial adjustment (CLAUDE.md §23).");
+        }
 
         // MerchantSettlementItem has no own OrganizationId column — tenant isolation flows
         // transitively through MerchantSettlementId -> MerchantSettlement.OrganizationId, so the
@@ -104,7 +108,8 @@ public partial class CodService
                     // RequestAdjustmentAsync time (via the MerchantSettlement join above), and the
                     // Adjustment row itself was just re-scoped by OrganizationId, so this lookup is
                     // transitively org-safe without repeating the join.
-                    var item = await _dbContext.Set<MerchantSettlementItem>().FirstAsync(i => i.Id == adjustment.EntityId, cancellationToken);
+                    var item = await _dbContext.Set<MerchantSettlementItem>().FirstOrDefaultAsync(i => i.Id == adjustment.EntityId, cancellationToken)
+                        ?? throw new CodValidationException("The MerchantSettlementItem this adjustment targets no longer exists.");
                     item.OtherDeductions = adjustment.AfterValue;
                     item.NetPayable = item.CODAmount - item.CourierFee - item.OtherDeductions;
 

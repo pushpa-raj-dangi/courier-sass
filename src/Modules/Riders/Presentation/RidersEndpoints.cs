@@ -1,3 +1,4 @@
+using Courier.Cod.Application;
 using Courier.Riders.Application;
 using Courier.Riders.Domain;
 using Courier.Shipments.Application;
@@ -137,6 +138,14 @@ public static class RidersEndpoints
         catch (ShipmentValidationException ex)
         {
             return Results.BadRequest(new { error = new { code = "SHIPMENT_VALIDATION_FAILED", message = ex.Message } });
+        }
+        catch (CodValidationException ex)
+        {
+            // The shipment (and its DeliveryProof/DeliveryAttempt) is already committed as Delivered
+            // by the time CompleteDeliveryAsync calls ICodCollectionService.MarkCollectedAsync — this
+            // is a known, deliberately-deferred design gap (not fixed here), but a COD failure at
+            // that point must still surface as an actionable 400, not an opaque 500.
+            return Results.BadRequest(new { error = new { code = "COD_VALIDATION_FAILED", message = ex.Message } });
         }
     }
 }

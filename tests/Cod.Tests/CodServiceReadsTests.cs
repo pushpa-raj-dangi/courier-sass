@@ -175,7 +175,50 @@ public class CodServiceReadsTests
         var foreignCollection = await SeedCollectionAsync(dbContext, foreignOrganizationId, Guid.NewGuid(), Guid.NewGuid(), CodCollectionStatus.CodExpected, null);
         var service = CreateService(dbContext, organizationId, new AllBranchesAuthorizationChecker());
 
-        var result = await service.GetCollectionByIdAsync(foreignCollection.Id);
+        var result = await service.GetCollectionByIdAsync(foreignCollection.Id, StaffActingUser(Guid.NewGuid()));
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task GetCollectionByIdAsync_StaffWithoutBranchAccess_ReturnsNull()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var accessibleBranchId = Guid.NewGuid();
+        var otherBranchId = Guid.NewGuid();
+        var outOfScope = await SeedCollectionAsync(dbContext, organizationId, Guid.NewGuid(), otherBranchId, CodCollectionStatus.CodExpected, null);
+        var service = CreateService(dbContext, organizationId, new RestrictedBranchAuthorizationChecker(accessibleBranchId));
+
+        var result = await service.GetCollectionByIdAsync(outOfScope.Id, StaffActingUser(Guid.NewGuid()));
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task GetCollectionByIdAsync_StaffWithBranchAccess_ReturnsCollection()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var accessibleBranchId = Guid.NewGuid();
+        var accessible = await SeedCollectionAsync(dbContext, organizationId, Guid.NewGuid(), accessibleBranchId, CodCollectionStatus.CodExpected, null);
+        var service = CreateService(dbContext, organizationId, new RestrictedBranchAuthorizationChecker(accessibleBranchId));
+
+        var result = await service.GetCollectionByIdAsync(accessible.Id, StaffActingUser(Guid.NewGuid()));
+
+        Assert.NotNull(result);
+        Assert.Equal(accessible.Id, result!.Id);
+    }
+
+    [Fact]
+    public async Task GetCollectionByIdAsync_MerchantCallerForAnotherMerchantsCollection_ReturnsNull()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var otherMerchantsCollection = await SeedCollectionAsync(dbContext, organizationId, Guid.NewGuid(), Guid.NewGuid(), CodCollectionStatus.CodExpected, null);
+        var service = CreateService(dbContext, organizationId, new AllBranchesAuthorizationChecker());
+
+        var result = await service.GetCollectionByIdAsync(otherMerchantsCollection.Id, MerchantActingUser(Guid.NewGuid()));
 
         Assert.Null(result);
     }

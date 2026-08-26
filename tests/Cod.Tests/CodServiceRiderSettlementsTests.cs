@@ -144,4 +144,28 @@ public class CodServiceRiderSettlementsTests
         await Assert.ThrowsAsync<CodValidationException>(() =>
             service.CreateRiderSettlementAsync(new CreateRiderSettlementRequest(riderId, branchId, 2500m), ActingUser(Guid.NewGuid())));
     }
+
+    // Cross-tenant regression coverage — CodService is constructed against the generic DbContext
+    // type (not concretely AppDbContext), so the production global HasQueryFilter on OrganizationId
+    // is not guaranteed by the type system, and this test's TestDbContext above deliberately has no
+    // such filter — so this can only pass if the CODCollection query in CreateRiderSettlementAsync
+    // applies its own explicit OrganizationId filter (matching every other query in this module).
+    [Fact]
+    public async Task CreateRiderSettlementAsync_SameRiderAndBranchInDifferentOrganization_ExcludesForeignCollections()
+    {
+        await using var dbContext = CreateContext();
+        var foreignOrganizationId = Guid.NewGuid();
+        var callingOrganizationId = Guid.NewGuid();
+        var riderId = Guid.NewGuid();
+        var branchId = Guid.NewGuid();
+        // Same RiderId/BranchId, foreign organization — if the org filter were missing this would be
+        // folded into the calling organization's settlement below.
+        await SeedCollectedAsync(dbContext, foreignOrganizationId, riderId, branchId, 9999m);
+        var service = CreateService(dbContext, callingOrganizationId);
+
+        // No in-org collection exists for this rider/branch, so the call must throw rather than
+        // silently settling the foreign organization's collection.
+        await Assert.ThrowsAsync<CodValidationException>(() =>
+            service.CreateRiderSettlementAsync(new CreateRiderSettlementRequest(riderId, branchId, 9999m), ActingUser(Guid.NewGuid())));
+    }
 }

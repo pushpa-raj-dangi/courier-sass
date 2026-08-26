@@ -26,7 +26,7 @@ public partial class CodService
         await CheckBranchAccessAsync(actingUser, "cod.reconcile", request.BranchId, cancellationToken);
 
         var collections = await _dbContext.Set<CODCollection>()
-            .Where(c => c.CollectedByRiderId == request.RiderId && c.BranchId == request.BranchId && c.Status == CodCollectionStatus.CodCollected)
+            .Where(c => c.OrganizationId == organizationId && c.CollectedByRiderId == request.RiderId && c.BranchId == request.BranchId && c.Status == CodCollectionStatus.CodCollected)
             .ToListAsync(cancellationToken);
         if (collections.Count == 0)
         {
@@ -111,7 +111,7 @@ public partial class CodService
         }
 
         var riderSettlements = await _dbContext.Set<RiderCashSettlement>()
-            .Where(r => request.RiderCashSettlementIds.Contains(r.Id) && r.BranchId == request.BranchId && r.BranchCashSettlementId == null)
+            .Where(r => r.OrganizationId == organizationId && request.RiderCashSettlementIds.Contains(r.Id) && r.BranchId == request.BranchId && r.BranchCashSettlementId == null)
             .ToListAsync(cancellationToken);
         if (riderSettlements.Count != request.RiderCashSettlementIds.Count)
         {
@@ -120,7 +120,7 @@ public partial class CodService
 
         var riderSettlementIds = riderSettlements.Select(r => r.Id).ToArray();
         var collections = await _dbContext.Set<CODCollection>()
-            .Where(c => c.RiderCashSettlementId != null && riderSettlementIds.Contains(c.RiderCashSettlementId.Value) && c.Status == CodCollectionStatus.RiderDeposited)
+            .Where(c => c.OrganizationId == organizationId && c.RiderCashSettlementId != null && riderSettlementIds.Contains(c.RiderCashSettlementId.Value) && c.Status == CodCollectionStatus.RiderDeposited)
             .ToListAsync(cancellationToken);
 
         // Transactional (this plan's Global Constraints): In-memory provider does not support transactions,

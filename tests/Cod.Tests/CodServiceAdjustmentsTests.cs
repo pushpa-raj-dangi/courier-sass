@@ -115,6 +115,20 @@ public class CodServiceAdjustmentsTests
             service.RequestAdjustmentAsync(new RequestAdjustmentRequest("Shipment", Guid.NewGuid(), 50m, "n/a"), ActingUser(Guid.NewGuid())));
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task RequestAdjustmentAsync_EmptyOrWhitespaceReason_Throws(string reason)
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var (_, item) = await SeedSettlementItemAsync(dbContext, organizationId);
+        var service = CreateService(dbContext, organizationId);
+
+        await Assert.ThrowsAsync<CodValidationException>(() =>
+            service.RequestAdjustmentAsync(new RequestAdjustmentRequest("MerchantSettlementItem", item.Id, 100m, reason), ActingUser(Guid.NewGuid())));
+    }
+
     [Fact]
     public async Task ApproveAdjustmentAsync_RewritesOtherDeductionsAndRecomputesNetPayableAndTotalPayable()
     {

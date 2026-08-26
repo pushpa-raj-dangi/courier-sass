@@ -21,7 +21,7 @@ public static class CodEndpoints
 
         group.MapGet("/collections/{id:guid}", async (Guid id, CodService service, HttpContext httpContext) =>
         {
-            var result = await service.GetCollectionByIdAsync(id, httpContext.RequestAborted);
+            var result = await service.GetCollectionByIdAsync(id, httpContext.User, httpContext.RequestAborted);
             return result is null ? Results.NotFound() : Results.Ok(result);
         }).RequirePermission("cod.read");
 

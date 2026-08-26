@@ -111,6 +111,10 @@ public partial class RiderService
             {
                 throw new RiderValidationException("CollectedCodAmount is required to complete a COD delivery.");
             }
+            if (request.CollectedCodAmount < 0)
+            {
+                throw new RiderValidationException("CollectedCodAmount must not be negative.");
+            }
         }
 
         if (scanInfo.CurrentStatus != ShipmentStatus.OutForDelivery)
