@@ -16,6 +16,8 @@ using Courier.Cod.Domain;
 using Courier.Cod.Infrastructure;
 using Courier.Events.Domain;
 using Courier.Events.Infrastructure;
+using Courier.Notifications.Domain;
+using Courier.Notifications.Infrastructure;
 using Courier.Pricing.Domain;
 using Courier.Pricing.Infrastructure;
 using Courier.Riders.Domain;
@@ -85,6 +87,8 @@ public class AppDbContext : DbContext
     public DbSet<MerchantSettlementItem> MerchantSettlementItems => Set<MerchantSettlementItem>();
     public DbSet<Adjustment> Adjustments => Set<Adjustment>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
+    public DbSet<NotificationTemplate> NotificationTemplates => Set<NotificationTemplate>();
+    public DbSet<NotificationLog> NotificationLogs => Set<NotificationLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -136,6 +140,8 @@ public class AppDbContext : DbContext
         modelBuilder.ApplyConfiguration(new MerchantSettlementItemConfiguration());
         modelBuilder.ApplyConfiguration(new AdjustmentConfiguration());
         modelBuilder.ApplyConfiguration(new OutboxMessageConfiguration());
+        modelBuilder.ApplyConfiguration(new NotificationTemplateConfiguration());
+        modelBuilder.ApplyConfiguration(new NotificationLogConfiguration());
 
         // Branch.OrganizationId -> Organizations FK lives here rather than in
         // BranchConfiguration (Branches module) because Branches deliberately has no project
@@ -264,6 +270,14 @@ public class AppDbContext : DbContext
             .WithMany()
             .HasForeignKey(m => m.OrganizationId)
             .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<NotificationTemplate>().HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(t => t.OrganizationId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<NotificationLog>().HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(l => l.OrganizationId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         // Tenant filters fail CLOSED: the explicit `OrganizationId != null` guard stops EF Core's
         // null-semantics translation from degrading these into `WHERE "OrganizationId" IS NULL`
@@ -297,6 +311,8 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<MerchantSettlement>().HasQueryFilter(m => _currentTenantProvider.OrganizationId != null && m.OrganizationId == _currentTenantProvider.OrganizationId);
         modelBuilder.Entity<Adjustment>().HasQueryFilter(a => _currentTenantProvider.OrganizationId != null && a.OrganizationId == _currentTenantProvider.OrganizationId);
         modelBuilder.Entity<OutboxMessage>().HasQueryFilter(m => _currentTenantProvider.OrganizationId != null && m.OrganizationId == _currentTenantProvider.OrganizationId);
+        modelBuilder.Entity<NotificationTemplate>().HasQueryFilter(t => _currentTenantProvider.OrganizationId != null && t.OrganizationId == _currentTenantProvider.OrganizationId);
+        modelBuilder.Entity<NotificationLog>().HasQueryFilter(l => _currentTenantProvider.OrganizationId != null && l.OrganizationId == _currentTenantProvider.OrganizationId);
 
         // No tenant filter on MerchantSettlementItem: no own OrganizationId — tenant isolation
         // flows transitively through MerchantSettlementId -> MerchantSettlement.OrganizationId

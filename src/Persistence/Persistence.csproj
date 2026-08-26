@@ -14,6 +14,7 @@
     <ProjectReference Include="..\Modules\Ndr\Ndr.csproj" />
     <ProjectReference Include="..\Modules\Cod\Cod.csproj" />
     <ProjectReference Include="..\Modules\Events\Events.csproj" />
+    <ProjectReference Include="..\Modules\Notifications\Notifications.csproj" />
   </ItemGroup>
 
   <ItemGroup>

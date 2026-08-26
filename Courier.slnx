@@ -14,6 +14,7 @@
     <Project Path="src/Modules/Ndr/Ndr.csproj" />
     <Project Path="src/Modules/Cod/Cod.csproj" />
     <Project Path="src/Modules/Events/Events.csproj" />
+    <Project Path="src/Modules/Notifications/Notifications.csproj" />
     <Project Path="src/Modules/Pricing/Pricing.csproj" />
     <Project Path="src/Modules/Riders/Riders.csproj" />
     <Project Path="src/Modules/Shipments/Shipments.csproj" />
@@ -28,6 +29,7 @@
     <Project Path="tests/Identity.Tests/Identity.Tests.csproj" />
     <Project Path="tests/Manifests.Tests/Manifests.Tests.csproj" />
     <Project Path="tests/Merchants.Tests/Merchants.Tests.csproj" />
+    <Project Path="tests/Notifications.Tests/Notifications.Tests.csproj" />
     <Project Path="tests/Ndr.Tests/Ndr.Tests.csproj" />
     <Project Path="tests/Pricing.Tests/Pricing.Tests.csproj" />
     <Project Path="tests/Riders.Tests/Riders.Tests.csproj" />
