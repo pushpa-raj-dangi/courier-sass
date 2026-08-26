@@ -6,6 +6,7 @@ using Courier.Branches.Application;
 using Courier.Branches.Infrastructure;
 using Courier.Branches.Presentation;
 using Courier.Cod.Application;
+using Courier.Cod.Presentation;
 using Courier.Geography.Application;
 using Courier.Geography.Presentation;
 using Courier.Identity.Application;
@@ -167,6 +168,7 @@ app.MapShipmentsEndpoints();
 app.MapManifestsEndpoints();
 app.MapRidersEndpoints();
 app.MapNdrEndpoints();
+app.MapCodEndpoints();
 
 app.MapGet("/health/ping", () => Results.Ok(new { status = "ok" })).WithTags("Health check");
 
