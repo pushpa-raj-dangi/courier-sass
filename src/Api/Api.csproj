@@ -35,6 +35,7 @@
     <ProjectReference Include="..\Modules\Riders\Riders.csproj" />
     <ProjectReference Include="..\Modules\Ndr\Ndr.csproj" />
     <ProjectReference Include="..\Modules\Cod\Cod.csproj" />
+    <ProjectReference Include="..\Modules\Events\Events.csproj" />
   </ItemGroup>
 
 </Project>

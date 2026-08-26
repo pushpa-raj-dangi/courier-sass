@@ -14,6 +14,8 @@ using Courier.Ndr.Domain;
 using Courier.Ndr.Infrastructure;
 using Courier.Cod.Domain;
 using Courier.Cod.Infrastructure;
+using Courier.Events.Domain;
+using Courier.Events.Infrastructure;
 using Courier.Pricing.Domain;
 using Courier.Pricing.Infrastructure;
 using Courier.Riders.Domain;
@@ -82,6 +84,7 @@ public class AppDbContext : DbContext
     public DbSet<MerchantSettlement> MerchantSettlements => Set<MerchantSettlement>();
     public DbSet<MerchantSettlementItem> MerchantSettlementItems => Set<MerchantSettlementItem>();
     public DbSet<Adjustment> Adjustments => Set<Adjustment>();
+    public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -132,6 +135,7 @@ public class AppDbContext : DbContext
         modelBuilder.ApplyConfiguration(new MerchantSettlementConfiguration());
         modelBuilder.ApplyConfiguration(new MerchantSettlementItemConfiguration());
         modelBuilder.ApplyConfiguration(new AdjustmentConfiguration());
+        modelBuilder.ApplyConfiguration(new OutboxMessageConfiguration());
 
         // Branch.OrganizationId -> Organizations FK lives here rather than in
         // BranchConfiguration (Branches module) because Branches deliberately has no project
@@ -254,6 +258,13 @@ public class AppDbContext : DbContext
             .HasForeignKey(a => a.OrganizationId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // Same reasoning as every other OrganizationId-carrying entity above: Events has no
+        // project reference to Identity.
+        modelBuilder.Entity<OutboxMessage>().HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(m => m.OrganizationId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         // Tenant filters fail CLOSED: the explicit `OrganizationId != null` guard stops EF Core's
         // null-semantics translation from degrading these into `WHERE "OrganizationId" IS NULL`
         // when no tenant is resolved, which would otherwise match org-less rows (planned for
@@ -285,6 +296,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<FinancialTransaction>().HasQueryFilter(f => _currentTenantProvider.OrganizationId != null && f.OrganizationId == _currentTenantProvider.OrganizationId);
         modelBuilder.Entity<MerchantSettlement>().HasQueryFilter(m => _currentTenantProvider.OrganizationId != null && m.OrganizationId == _currentTenantProvider.OrganizationId);
         modelBuilder.Entity<Adjustment>().HasQueryFilter(a => _currentTenantProvider.OrganizationId != null && a.OrganizationId == _currentTenantProvider.OrganizationId);
+        modelBuilder.Entity<OutboxMessage>().HasQueryFilter(m => _currentTenantProvider.OrganizationId != null && m.OrganizationId == _currentTenantProvider.OrganizationId);
 
         // No tenant filter on MerchantSettlementItem: no own OrganizationId — tenant isolation
         // flows transitively through MerchantSettlementId -> MerchantSettlement.OrganizationId
