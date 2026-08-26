@@ -37,3 +37,9 @@ public class CodValidationException : Exception
 {
     public CodValidationException(string message) : base(message) { }
 }
+
+public record RequestAdjustmentRequest(string EntityType, Guid EntityId, decimal AfterValue, string Reason);
+
+public record AdjustmentResponse(
+    Guid Id, string EntityType, Guid EntityId, decimal BeforeValue, decimal AfterValue, string Reason,
+    Guid RequestedByUserId, DateTimeOffset RequestedAt, Guid? ApprovedByUserId, DateTimeOffset? ApprovedAt, bool Applied);
