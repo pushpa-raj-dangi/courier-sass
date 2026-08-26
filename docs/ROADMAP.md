@@ -318,6 +318,37 @@ FinancialTransaction`, plus the `Adjustment` record type.
 delivered COD shipment through to a settled merchant payout, with every step
 traceable and every adjustment audited.
 
+*Status (2026-08-25): Complete.* A new `Cod` module implements every entity from
+`DOMAIN-MODEL.md`'s "COD & Finance" section, with `CLARIFICATIONS.md` #11 recording four
+deliberate resolutions (`CODCollection.Status` carries the full seven-state lifecycle chain;
+`CODCollection` is created eagerly at booking, not lazily at delivery; `RiderCashSettlement.
+BranchCashSettlementId` replaces `BranchCashSettlement.RiderCashSettlementIds[]`; `Adjustment`
+always requires a separate approval step). `CODCollection` is created by a new narrow
+`ICodCollectionCreationService`, called from `Shipments.Application.ShipmentService.
+CreateShipmentAsync` for any shipment with `CodAmount > 0` — the same cross-module-write pattern
+`INdrCreationService` established in Phase 9. `Riders.Application.RiderService.
+CompleteDeliveryAsync` gained a conditional `cod.collect` permission check (via
+`SharedKernel.IPermissionChecker`, its first Application-layer consumer) and calls a second narrow
+`ICodCollectionService.MarkCollectedAsync` to record the actual collected amount against the
+`DeliveryProof` just created. `Cod` has no project reference to `Shipments` at all — every
+financial fact it needs (`MerchantId`, `BranchId`, `ShipmentTotalCharge`) is snapshotted onto
+`CODCollection` at creation, so the full rider-deposit -> branch-reconciliation ->
+finance-verification -> merchant-settlement -> payout chain never reads back into another module.
+Every multi-row step in that chain (`CreateRiderSettlementAsync` through `SettleMerchantSettlementAsync`,
+plus `ApproveAdjustmentAsync`) runs inside an explicit `Database.BeginTransactionAsync()` — the
+first use of an explicit transaction anywhere in this codebase, deliberately established here for
+financial correctness. `FinancialTransactionConfiguration`'s unique `(ReferenceEntityType,
+ReferenceEntityId)` index makes "verify the same `BranchCashSettlement` twice" impossible under
+concurrency (not just checked-then-written), proven by a real `Task.WhenAll` race test against
+Postgres — mirroring Phase 5's `RateCard` versioning fix. The full worked example from
+`COD-LIFECYCLE.md` §2 (COD 2500, courier fee from the shipment's own locked-in `TotalCharge`,
+net payable = the difference) is proven end-to-end over real HTTP in
+`tests/Api.Tests/CodEndpointsTests.cs`'s `FullCodChain_BookingToMerchantPayout_
+MatchesWorkedExampleAndMovesThroughEveryStatus` test. Deferred to later phases: scheduled/recurring
+merchant settlement generation (needs Phase 11's Hangfire infrastructure — this phase is on-demand
+only), and adjustment support for entity types other than `MerchantSettlementItem` (no other
+concrete business need exists yet).
+
 ## Phase 11 — Notifications, SMS, Email, Push, Webhooks
 
 Event-driven notification pipeline (CLAUDE.md §27) off the Phase-0/1 outbox, plus

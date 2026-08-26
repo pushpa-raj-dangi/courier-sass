@@ -246,31 +246,50 @@ ReturnShipment { Id, OriginalShipmentId, OrganizationId, ReturnAwb,
                   # happens once, at creation, in Ndr.Application.NdrService.ResolveAsync.
 ```
 
-## COD & Finance — `OrganizationId` present
+## COD & Finance — `OrganizationId` present (`MerchantSettlementItem` excepted — see below)
 
 ```text
-CODCollection { Id, ShipmentId, OrganizationId, ExpectedAmount, CollectedAmount,
-                 Status (Expected|Collected), CollectedByRiderId, CollectedAt,
-                 DeliveryProofId }
+CODCollection { Id, ShipmentId (unique), OrganizationId, MerchantId, BranchId, ExpectedAmount,
+                 ShipmentTotalCharge, CollectedAmount (nullable),
+                 Status (CodExpected|CodCollected|RiderDeposited|BranchReconciled|
+                 FinanceVerified|MerchantSettlementCreated|Settled),         [C#11]
+                 CollectedByRiderId (nullable), CollectedAt (nullable), DeliveryProofId (nullable),
+                 RiderCashSettlementId (nullable), MerchantSettlementItemId (nullable) }
+                 # Created eagerly at booking (CodExpected) by a new ICodCollectionCreationService,
+                 # called from Shipments.Application.ShipmentService.CreateShipmentAsync — MerchantId/
+                 # BranchId/ShipmentTotalCharge are snapshotted here, so Cod never reads back into
+                 # Shipments. Status carries the full lifecycle chain (COD-LIFECYCLE.md §1), not just
+                 # Expected/Collected. [C#11]
 
-RiderCashSettlement { Id, RiderId, BranchId, DeclaredAmount, ShipmentCount,
-                        SettledAt, ConfirmedByUserId }
+RiderCashSettlement { Id, OrganizationId, RiderId, BranchId, DeclaredAmount, ShipmentCount,
+                        SettledAt, ConfirmedByUserId, BranchCashSettlementId (nullable) }         [C#11]
 
-BranchCashSettlement { Id, BranchId, ConfirmedAmount, RiderCashSettlementIds[],
-                         ReconciledByUserId, ReconciledAt }
+BranchCashSettlement { Id, OrganizationId, BranchId, ConfirmedAmount, ReconciledByUserId,
+                         ReconciledAt }
+                         # No RiderCashSettlementIds[] array (unlike this section's original
+                         # sketch) — RiderCashSettlement.BranchCashSettlementId is the link. [C#11]
 
-FinancialTransaction { Id, OrganizationId, Type, Amount, ReferenceEntityType,
+FinancialTransaction { Id, OrganizationId, Type (CodVerification), Amount, ReferenceEntityType,
                          ReferenceEntityId, VerifiedByUserId, VerifiedAt }
+                         # (ReferenceEntityType, ReferenceEntityId) is a unique index — at most one
+                         # verification per BranchCashSettlement, DB-enforced. [C#11]
 
-MerchantSettlement { Id, MerchantId, OrganizationId, PeriodFrom, PeriodTo,
-                       TotalPayable, Status (Created|Settled), SettledAt }
+MerchantSettlement { Id, OrganizationId, MerchantId, PeriodFrom, PeriodTo,
+                       TotalPayable, Status (Created|Settled), SettledAt (nullable) }
 
-MerchantSettlementItem { Id, MerchantSettlementId, ShipmentId, CODAmount,
+MerchantSettlementItem { Id, MerchantSettlementId, ShipmentId (unique), CODAmount,
                            CourierFee, OtherDeductions, NetPayable }
+                           # No own OrganizationId — flows transitively through
+                           # MerchantSettlementId -> MerchantSettlement.OrganizationId. CourierFee is
+                           # copied from the covering CODCollection.ShipmentTotalCharge, never
+                           # recomputed from a current rate card (CLAUDE.md §16).
 
 Adjustment { Id, OrganizationId, EntityType, EntityId, BeforeValue, AfterValue,
               Reason, RequestedByUserId, RequestedAt, ApprovedByUserId (nullable),
-              ApprovedAt (nullable) }
+              ApprovedAt (nullable), Applied (bool) }
+              # v1 only supports EntityType = "MerchantSettlementItem". Applied stays false until a
+              # separate ApproveAdjustmentAsync call — approval is always required, no configurable
+              # threshold exists yet. [C#11]
 ```
 
 ## Notifications — `OrganizationId` present

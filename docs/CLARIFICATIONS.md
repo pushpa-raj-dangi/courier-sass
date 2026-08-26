@@ -323,6 +323,76 @@ allowed to diverge; only the declaration order affects the database.
 
 ---
 
+## 11. Phase 10: `CODCollection`'s full lifecycle status, eager creation, settlement linkage, and adjustment approval
+
+**Where:** `CLAUDE.md` §22-23, `COD-LIFECYCLE.md` (all sections), `DOMAIN-MODEL.md` "COD & Finance"
+
+**Ambiguity 1:** `DOMAIN-MODEL.md`'s `CODCollection` entity lists `Status (Expected|Collected)` —
+only the first of `COD-LIFECYCLE.md` §1's seven states — but that same document's prose states
+"the COD *lifecycle* status above lives on `CODCollection`, not on `Shipment`", naming all seven
+states as one chain.
+
+**Resolution 1:** `CODCollection.Status` is a seven-member enum
+(`CodExpected|CodCollected|RiderDeposited|BranchReconciled|FinanceVerified|
+MerchantSettlementCreated|Settled`), read literally from the prose rather than the narrower table.
+Every step in the chain (`Cod.Application.CodService.CreateRiderSettlementAsync`,
+`CreateBranchSettlementAsync`, `CreateFinanceVerificationAsync`, `CreateMerchantSettlementAsync`,
+`SettleMerchantSettlementAsync`) bulk-updates the `Status` of every `CODCollection` row it covers,
+so "where is this shipment's COD right now" is always a single-row read, never a join across the
+five downstream tables.
+
+**Ambiguity 2:** `COD-LIFECYCLE.md` §1's table says `CODCollection` is "created at delivery, linked
+to `DeliveryProof`" for the `COD_EXPECTED -> COD_COLLECTED` transition — but §3 separately defines
+"Expected COD" as `Σ Shipment.CODAmount` for not-yet-delivered shipments, implying `CODCollection`
+rows exist before delivery too.
+
+**Resolution 2:** `CODCollection` is created eagerly, at shipment-booking time (a new
+`ICodCollectionCreationService` — the same narrow cross-module-write interface shape
+`INdrCreationService` established in Phase 9 — called from
+`Shipments.Application.ShipmentService.CreateShipmentAsync` whenever `Shipment.CodAmount > 0`), at
+`CodExpected`. `RiderService.CompleteDeliveryAsync` (Phase 8) then calls a second narrow interface,
+`ICodCollectionService.MarkCollectedAsync`, to move the *existing* row to `CodCollected` at
+delivery — matching the "linked to `DeliveryProof`" half of the table literally (`DeliveryProofId`
+is stamped at that step) while resolving the apparent contradiction with §3. `MerchantId`,
+`BranchId` (the shipment's `DestinationBranchId` at booking), and `ShipmentTotalCharge` are
+snapshotted onto the row at creation — `Cod` has no project reference to `Shipments` at all as a
+result, a stricter version of the "no cached custody copy" principle (`CLAUDE.md` §12) applied to
+financial figures the same way `Shipment.TotalCharge` itself already locks pricing at booking
+(`CLAUDE.md` §16).
+
+**Ambiguity 3:** `DOMAIN-MODEL.md`'s `BranchCashSettlement` entity lists a
+`RiderCashSettlementIds[]` array field to link the rider settlements it covers, but this codebase's
+established one-to-many convention elsewhere (`ManifestShipment.ManifestId`,
+`DeliveryTask.DeliveryRunId`) is always a child-side foreign key, never a parent-side array column.
+
+**Resolution 3:** `RiderCashSettlement` gains a nullable `BranchCashSettlementId` foreign key
+instead; `BranchCashSettlement` has no array column. `CreateBranchSettlementAsync`'s response still
+returns the covered `RiderCashSettlementIds` as a `List<Guid>`, computed from the query, so no
+information is lost to API consumers — only the storage shape differs from the original sketch.
+
+**Ambiguity 4:** `CLAUDE.md` §23 says adjustments require approval "where appropriate" for amounts
+above "a configurable threshold", but no threshold configuration entity or setting exists anywhere
+in this codebase.
+
+**Resolution 4:** `Adjustment` always requires a separate approval step in v1 — `RequestAdjustmentAsync`
+only ever inserts an unapplied `Adjustment` row (`Applied = false`); a second call,
+`ApproveAdjustmentAsync`, is the only place that ever rewrites the target figure
+(`MerchantSettlementItem.OtherDeductions`/`NetPayable`, and the parent
+`MerchantSettlement.TotalPayable`). No threshold configuration was needed to resolve this — "where
+appropriate" resolves to "always" until a future phase introduces per-org configurable amounts.
+
+**Implementation note (not an ambiguity, but worth recording):** `Riders.Application.RiderService.
+CompleteDeliveryAsync`'s conditional `cod.collect` permission check (required only when the
+shipment being delivered carries COD) is the first Application-layer consumer of
+`SharedKernel.IPermissionChecker` — previously only the `RequirePermission` route filter used it.
+`FinancialTransactionConfiguration` gives `(ReferenceEntityType, ReferenceEntityId)` a *unique*
+index (not just a lookup index) so "verify the same `BranchCashSettlement` twice" is DB-enforced,
+not just caught by an `AnyAsync` pre-check — the same read-then-write race lesson as Phase 5's
+`RateCard` versioning fix (`CLAUDE.md`'s cross-phase rule), proven by a real `Task.WhenAll`
+concurrent-request test against Postgres.
+
+---
+
 ## Summary of schema additions implied by this document
 
 * `UserRole` (new entity) — resolves #1, carries `BranchScope` enum — resolves #6.
