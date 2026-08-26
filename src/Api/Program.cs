@@ -134,6 +134,9 @@ builder.Services.AddHostedService<NotificationsConsumer>();
 builder.Services.AddDataProtection();
 builder.Services.AddScoped<ISecretProtector, DataProtectionSecretProtector>();
 builder.Services.AddScoped<WebhookService>();
+builder.Services.AddHttpClient("Webhooks", client => client.Timeout = TimeSpan.FromSeconds(10));
+builder.Services.AddScoped<IWebhookDeliveryAttemptService, WebhookDeliveryAttemptService>();
+builder.Services.AddHostedService<WebhooksConsumer>();
 builder.Services.AddSingleton<IObjectStorage>(_ =>
     new LocalFileSystemObjectStorage(builder.Configuration["ObjectStorage:LocalRootPath"] ?? Path.Combine(AppContext.BaseDirectory, "storage")));
 
