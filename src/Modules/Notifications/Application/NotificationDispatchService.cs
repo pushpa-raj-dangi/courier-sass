@@ -39,13 +39,22 @@ public class NotificationDispatchService
             throw new NotificationValidationException($"Event '{eventType}' payload has no MerchantId — cannot resolve a recipient.");
         }
 
-        var template = await _dbContext.Set<NotificationTemplate>()
+        // IgnoreQueryFilters() is required here, not optional: this method's real caller
+        // (NotificationsConsumer) runs with no ICurrentTenantProvider context at all (a
+        // background service, not an HTTP request), so the tenant query filter's
+        // `_currentTenantProvider.OrganizationId != null && ...` guard would evaluate false for
+        // every row, silently hiding any org-specific override template — not a crash, just a
+        // template override that quietly never takes effect. The explicit .OrganizationId ==
+        // organizationId filter below is what actually scopes this read; bypassing the ambient
+        // filter doesn't weaken that, it only fixes the no-tenant-context caller (same bug shape
+        // and fix as Webhooks.Infrastructure.WebhookDeliveryAttemptService.AttemptAsync).
+        var template = await _dbContext.Set<NotificationTemplate>().IgnoreQueryFilters()
             .Where(t => t.OrganizationId == organizationId && t.EventType == eventType && t.Channel == NotificationChannel.Email && t.IsActive)
             .Select(t => t.Body)
             .FirstOrDefaultAsync(cancellationToken);
         var body = Render(template ?? defaultBody, payload);
 
-        var recipientEmail = await _merchantContactLookupService.GetContactEmailAsync(merchantId, cancellationToken);
+        var recipientEmail = await _merchantContactLookupService.GetContactEmailAsync(organizationId, merchantId, cancellationToken);
         if (recipientEmail is null)
         {
             await WriteLogAsync(organizationId, eventType, null, NotificationStatus.NoRecipient, null, cancellationToken);

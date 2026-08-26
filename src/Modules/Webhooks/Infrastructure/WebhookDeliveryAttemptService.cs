@@ -26,8 +26,18 @@ public class WebhookDeliveryAttemptService : IWebhookDeliveryAttemptService
 
     public async Task AttemptAsync(Guid deliveryId, CancellationToken cancellationToken = default)
     {
+        // IgnoreQueryFilters() on the WebhookSubscription side is required, not optional: most
+        // real callers of this method (WebhooksConsumer, WebhookRetryJob) run with no
+        // ICurrentTenantProvider context at all (background services, not HTTP requests), so
+        // the tenant query filter's `_currentTenantProvider.OrganizationId != null && ...` guard
+        // evaluates false for every row, silently hiding the subscription and making this whole
+        // method a no-op — no exception, nothing logged, the delivery just never advances past
+        // Attempt=0. WebhookService.ReplayAsync (the one HTTP-scoped caller) already resolved
+        // and verified tenant ownership itself before calling AttemptAsync, so bypassing the
+        // filter here doesn't weaken that check — it only fixes the two callers that have no
+        // tenant context to filter by in the first place.
         var result = await _dbContext.Set<WebhookDelivery>()
-            .Join(_dbContext.Set<WebhookSubscription>(), d => d.WebhookSubscriptionId, s => s.Id, (d, s) => new { Delivery = d, Subscription = s })
+            .Join(_dbContext.Set<WebhookSubscription>().IgnoreQueryFilters(), d => d.WebhookSubscriptionId, s => s.Id, (d, s) => new { Delivery = d, Subscription = s })
             .FirstOrDefaultAsync(x => x.Delivery.Id == deliveryId, cancellationToken);
         if (result is null)
         {

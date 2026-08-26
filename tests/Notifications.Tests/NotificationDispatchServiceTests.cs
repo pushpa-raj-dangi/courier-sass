@@ -10,7 +10,7 @@ namespace Courier.Notifications.Tests;
 file class FakeMerchantContactLookupService : IMerchantContactLookupService
 {
     public string? ContactEmail { get; set; }
-    public Task<string?> GetContactEmailAsync(Guid merchantId, CancellationToken cancellationToken = default) => Task.FromResult(ContactEmail);
+    public Task<string?> GetContactEmailAsync(Guid organizationId, Guid merchantId, CancellationToken cancellationToken = default) => Task.FromResult(ContactEmail);
 }
 
 file class RecordingEmailChannel : INotificationChannel
