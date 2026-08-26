@@ -10,6 +10,7 @@ using Courier.Cod.Presentation;
 using Courier.Events.Application;
 using Courier.Events.Infrastructure;
 using Courier.Geography.Application;
+using Courier.Notifications.Application;
 using Courier.Geography.Presentation;
 using Courier.Identity.Application;
 using Courier.Identity.Infrastructure;
@@ -120,6 +121,12 @@ builder.Services.AddScoped<MerchantStaffService>();
 builder.Services.AddScoped<MerchantKycService>();
 builder.Services.AddScoped<MerchantLookupService>();
 builder.Services.AddScoped<IMerchantLookupService>(sp => sp.GetRequiredService<MerchantLookupService>());
+builder.Services.AddScoped<IMerchantContactLookupService>(sp => sp.GetRequiredService<MerchantLookupService>());
+builder.Services.AddScoped<INotificationChannel, EmailNotificationChannel>();
+builder.Services.AddScoped<INotificationChannel, SmsNotificationChannel>();
+builder.Services.AddScoped<INotificationChannel, WhatsAppNotificationChannel>();
+builder.Services.AddScoped<INotificationChannel, PushNotificationChannel>();
+builder.Services.AddScoped<NotificationDispatchService>();
 builder.Services.AddSingleton<IObjectStorage>(_ =>
     new LocalFileSystemObjectStorage(builder.Configuration["ObjectStorage:LocalRootPath"] ?? Path.Combine(AppContext.BaseDirectory, "storage")));
 
