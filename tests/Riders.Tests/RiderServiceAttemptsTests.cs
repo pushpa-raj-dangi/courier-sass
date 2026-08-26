@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Courier.Audit.Application;
 using Courier.Branches.Application;
 using Courier.Cod.Application;
+using Courier.Events.Application;
 using Courier.Identity.Application;
 using Courier.Ndr.Application;
 using Courier.Ndr.Domain;
@@ -40,6 +41,7 @@ file class AllBranchesAuthorizationChecker : IBranchAuthorizationChecker
 class AttemptsFakeShipmentTransitionService : IShipmentTransitionService
 {
     public Dictionary<Guid, ShipmentScanInfo> ShipmentsById { get; } = new();
+    public Dictionary<Guid, Guid> MerchantIdByShipmentId { get; } = new();
     public List<Guid> FailCalls { get; } = new();
     public List<Guid> CompleteCalls { get; } = new();
 
@@ -58,7 +60,12 @@ class AttemptsFakeShipmentTransitionService : IShipmentTransitionService
         CompleteCalls.Add(shipmentId);
         var info = ShipmentsById[shipmentId];
         ShipmentsById[shipmentId] = info with { CurrentStatus = ShipmentStatus.Delivered, CurrentCustodianRiderId = null };
-        return Task.FromResult<ShipmentResponse?>(null);
+        var merchantId = MerchantIdByShipmentId.TryGetValue(shipmentId, out var m) ? m : Guid.NewGuid();
+        var response = new ShipmentResponse(
+            shipmentId, "TESTAWB1", merchantId, Guid.NewGuid(), Guid.NewGuid(), null, null, null,
+            ShipmentStatus.Delivered, Guid.NewGuid(), 1m, null, null, null, 100m, 0m, false, 100m, 0m, 0m, 100m,
+            recipientName, "9800000000", "Address", "Sender", "9800000001", "Address", new List<ShipmentItemResponse>());
+        return Task.FromResult<ShipmentResponse?>(response);
     }
 
     public Task<ShipmentResponse?> FailDeliveryAsync(Guid shipmentId, Guid riderId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
@@ -132,6 +139,18 @@ class ConfigurableCodPermissionChecker : IPermissionChecker
         Task.FromResult(permission != "cod.collect" || GrantCodCollect);
 }
 
+// Not file-scoped: returned from SeedAsync's tuple, same reasoning as the other recording fakes
+// above.
+class RecordingOutboxWriter : IOutboxWriter
+{
+    public List<(Guid OrganizationId, string EventType, object Payload)> Writes { get; } = new();
+    public Task WriteAsync(Guid organizationId, string eventType, object payload, CancellationToken cancellationToken = default)
+    {
+        Writes.Add((organizationId, eventType, payload));
+        return Task.CompletedTask;
+    }
+}
+
 public class RiderServiceAttemptsTests
 {
     private class TestDbContext : DbContext
@@ -157,7 +176,7 @@ public class RiderServiceAttemptsTests
 
     private static ClaimsPrincipal ActingUser(Guid userId) => new(new ClaimsIdentity(new[] { new Claim("sub", userId.ToString()) }, "test"));
 
-    private static async Task<(RiderService Service, AttemptsFakeShipmentTransitionService Shipments, RecordingObjectStorage Storage, RecordingNdrCreationService Ndr, RecordingCodCollectionService Cod, ConfigurableCodPermissionChecker PermissionChecker, Guid RiderId, Guid OrganizationId)> SeedAsync(TestDbContext dbContext)
+    private static async Task<(RiderService Service, AttemptsFakeShipmentTransitionService Shipments, RecordingObjectStorage Storage, RecordingNdrCreationService Ndr, RecordingCodCollectionService Cod, ConfigurableCodPermissionChecker PermissionChecker, Guid RiderId, Guid OrganizationId, RecordingOutboxWriter OutboxWriter)> SeedAsync(TestDbContext dbContext)
     {
         var organizationId = Guid.NewGuid();
         var rider = new Rider { Id = Guid.NewGuid(), OrganizationId = organizationId, UserId = Guid.NewGuid(), BaseBranchId = Guid.NewGuid(), LicenseNumber = "LIC-001", RoleType = RiderRoleType.DeliveryRider, IsActive = true };
@@ -169,10 +188,11 @@ public class RiderServiceAttemptsTests
         var ndr = new RecordingNdrCreationService();
         var cod = new RecordingCodCollectionService();
         var permissionChecker = new ConfigurableCodPermissionChecker();
+        var outboxWriter = new RecordingOutboxWriter();
         var service = new RiderService(
             dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), new NotSupportedUserProvisioningService(),
-            new NotSupportedBranchLookup(), new AllBranchesAuthorizationChecker(), shipments, storage, ndr, cod, permissionChecker);
-        return (service, shipments, storage, ndr, cod, permissionChecker, rider.Id, organizationId);
+            new NotSupportedBranchLookup(), new AllBranchesAuthorizationChecker(), shipments, storage, ndr, cod, permissionChecker, outboxWriter);
+        return (service, shipments, storage, ndr, cod, permissionChecker, rider.Id, organizationId, outboxWriter);
     }
 
     // Thin wrapper around SeedAsync that additionally seeds an OutForDelivery shipment carrying
@@ -211,7 +231,7 @@ public class RiderServiceAttemptsTests
     public async Task RecordFailedAttemptAsync_ValidRequest_CreatesFailedAttemptAndFailsTask()
     {
         await using var dbContext = CreateContext();
-        var (service, shipments, _, _, _, _, riderId, _) = await SeedAsync(dbContext);
+        var (service, shipments, _, _, _, _, riderId, _, _) = await SeedAsync(dbContext);
         var info = OutForDeliveryInfo(riderId);
         shipments.ShipmentsById[info.ShipmentId] = info;
         dbContext.Set<DeliveryTask>().Add(new DeliveryTask { Id = Guid.NewGuid(), DeliveryRunId = Guid.NewGuid(), ShipmentId = info.ShipmentId, Type = DeliveryTaskType.Delivery, Sequence = 1, Status = DeliveryTaskStatus.Pending });
@@ -233,7 +253,7 @@ public class RiderServiceAttemptsTests
     public async Task RecordFailedAttemptAsync_ShipmentNotAssignedToThisRider_ThrowsRiderValidationException()
     {
         await using var dbContext = CreateContext();
-        var (service, shipments, _, _, _, _, riderId, _) = await SeedAsync(dbContext);
+        var (service, shipments, _, _, _, _, riderId, _, _) = await SeedAsync(dbContext);
         var info = OutForDeliveryInfo(Guid.NewGuid());
         shipments.ShipmentsById[info.ShipmentId] = info;
 
@@ -247,7 +267,7 @@ public class RiderServiceAttemptsTests
     public async Task CompleteDeliveryAsync_ValidRequest_CreatesProofAndCompletesTask()
     {
         await using var dbContext = CreateContext();
-        var (service, shipments, storage, _, _, _, riderId, _) = await SeedAsync(dbContext);
+        var (service, shipments, storage, _, _, _, riderId, _, _) = await SeedAsync(dbContext);
         var info = OutForDeliveryInfo(riderId);
         shipments.ShipmentsById[info.ShipmentId] = info;
         dbContext.Set<DeliveryTask>().Add(new DeliveryTask { Id = Guid.NewGuid(), DeliveryRunId = Guid.NewGuid(), ShipmentId = info.ShipmentId, Type = DeliveryTaskType.Delivery, Sequence = 1, Status = DeliveryTaskStatus.Pending });
@@ -271,10 +291,29 @@ public class RiderServiceAttemptsTests
     }
 
     [Fact]
+    public async Task CompleteDeliveryAsync_WritesShipmentDeliveredOutboxMessage()
+    {
+        await using var dbContext = CreateContext();
+        var (service, shipments, _, _, _, _, riderId, organizationId, outboxWriter) = await SeedAsync(dbContext);
+        var info = OutForDeliveryInfo(riderId);
+        var merchantId = Guid.NewGuid();
+        shipments.ShipmentsById[info.ShipmentId] = info;
+        shipments.MerchantIdByShipmentId[info.ShipmentId] = merchantId;
+        dbContext.Set<DeliveryTask>().Add(new DeliveryTask { Id = Guid.NewGuid(), DeliveryRunId = Guid.NewGuid(), ShipmentId = info.ShipmentId, Type = DeliveryTaskType.Delivery, Sequence = 1, Status = DeliveryTaskStatus.Pending });
+        await dbContext.SaveChangesAsync();
+
+        await service.CompleteDeliveryAsync(riderId,
+            new CompleteDeliveryRequest(info.ShipmentId, "Jane Doe", true, null, null, null, null),
+            ActingUser(Guid.NewGuid()));
+
+        Assert.Single(outboxWriter.Writes, w => w.EventType == "shipment.delivered" && w.OrganizationId == organizationId);
+    }
+
+    [Fact]
     public async Task RecordFailedAttemptAsync_SecondAttemptOnSameShipment_IncrementsAttemptNumber()
     {
         await using var dbContext = CreateContext();
-        var (service, shipments, _, _, _, _, riderId, organizationId) = await SeedAsync(dbContext);
+        var (service, shipments, _, _, _, _, riderId, organizationId, _) = await SeedAsync(dbContext);
         var info = OutForDeliveryInfo(riderId);
         shipments.ShipmentsById[info.ShipmentId] = info;
         // Simulate a prior attempt already on record (a real second OutForDelivery attempt needs
@@ -294,7 +333,7 @@ public class RiderServiceAttemptsTests
     public async Task RecordFailedAttemptAsync_ValidRequest_CreatesOpenNdrWithMappedReason()
     {
         await using var dbContext = CreateContext();
-        var (service, shipments, _, ndr, _, _, riderId, organizationId) = await SeedAsync(dbContext);
+        var (service, shipments, _, ndr, _, _, riderId, organizationId, _) = await SeedAsync(dbContext);
         var info = OutForDeliveryInfo(riderId);
         shipments.ShipmentsById[info.ShipmentId] = info;
 
@@ -312,7 +351,7 @@ public class RiderServiceAttemptsTests
     public async Task CompleteDeliveryAsync_ValidRequest_NeverCreatesAnNdr()
     {
         await using var dbContext = CreateContext();
-        var (service, shipments, _, ndr, _, _, riderId, _) = await SeedAsync(dbContext);
+        var (service, shipments, _, ndr, _, _, riderId, _, _) = await SeedAsync(dbContext);
         var info = OutForDeliveryInfo(riderId);
         shipments.ShipmentsById[info.ShipmentId] = info;
         dbContext.Set<DeliveryTask>().Add(new DeliveryTask { Id = Guid.NewGuid(), DeliveryRunId = Guid.NewGuid(), ShipmentId = info.ShipmentId, Type = DeliveryTaskType.Delivery, Sequence = 1, Status = DeliveryTaskStatus.Pending });

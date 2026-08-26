@@ -23,6 +23,7 @@
     <ProjectReference Include="..\Ndr\Ndr.csproj" />
     <ProjectReference Include="..\Cod\Cod.csproj" />
     <ProjectReference Include="..\Shipments\Shipments.csproj" />
+    <ProjectReference Include="..\Events\Events.csproj" />
   </ItemGroup>
 
 </Project>

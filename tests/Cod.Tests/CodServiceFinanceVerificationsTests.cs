@@ -4,6 +4,7 @@ using Courier.Branches.Application;
 using Courier.Cod.Application;
 using Courier.Cod.Domain;
 using Courier.Cod.Infrastructure;
+using Courier.Events.Application;
 using Courier.Merchants.Application;
 using Courier.SharedKernel;
 using Microsoft.EntityFrameworkCore;
@@ -41,6 +42,11 @@ file class AlwaysTrueMerchantLookup : IMerchantLookupService
     public Task<bool> ExistsAsync(Guid merchantId, CancellationToken cancellationToken = default) => Task.FromResult(true);
 }
 
+file class NoopOutboxWriter : IOutboxWriter
+{
+    public Task WriteAsync(Guid organizationId, string eventType, object payload, CancellationToken cancellationToken = default) => Task.CompletedTask;
+}
+
 public class CodServiceFinanceVerificationsTests
 {
     private class TestDbContext : DbContext
@@ -67,7 +73,7 @@ public class CodServiceFinanceVerificationsTests
 
     private static CodService CreateService(TestDbContext dbContext, Guid organizationId) => new(
         dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), new AlwaysTrueBranchLookup(),
-        new AllBranchesAuthorizationChecker(), new AlwaysTrueMerchantLookup());
+        new AllBranchesAuthorizationChecker(), new AlwaysTrueMerchantLookup(), new NoopOutboxWriter());
 
     private static async Task<BranchCashSettlement> SeedBranchReconciledAsync(TestDbContext dbContext, Guid organizationId, decimal amount)
     {

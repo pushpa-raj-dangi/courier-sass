@@ -128,7 +128,7 @@ public partial class RiderService
 
         var attemptNumber = await _dbContext.Set<DeliveryAttempt>().CountAsync(a => a.ShipmentId == request.ShipmentId, cancellationToken) + 1;
 
-        await _shipmentTransitionService.CompleteDeliveryAsync(request.ShipmentId, riderId, request.RecipientName, actingUser, cancellationToken);
+        var deliveredShipment = await _shipmentTransitionService.CompleteDeliveryAsync(request.ShipmentId, riderId, request.RecipientName, actingUser, cancellationToken);
 
         var attempt = new DeliveryAttempt
         {
@@ -166,6 +166,12 @@ public partial class RiderService
         if (scanInfo.CodAmount > 0)
         {
             await _codCollectionService.MarkCollectedAsync(request.ShipmentId, request.CollectedCodAmount!.Value, riderId, proof.Id, actingUser, cancellationToken);
+        }
+
+        if (deliveredShipment is not null)
+        {
+            await _outboxWriter.WriteAsync(organizationId, "shipment.delivered", new { ShipmentId = request.ShipmentId, MerchantId = deliveredShipment.MerchantId, Awb = deliveredShipment.Awb }, cancellationToken);
+            await _dbContext.SaveChangesAsync(cancellationToken);
         }
 
         var task = await _dbContext.Set<DeliveryTask>()

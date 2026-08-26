@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Courier.Audit.Application;
 using Courier.Branches.Application;
 using Courier.Cod.Application;
+using Courier.Events.Application;
 using Courier.Geography.Application;
 using Courier.Identity.Application;
 using Courier.Identity.Domain;
@@ -80,6 +81,11 @@ class RecordingCodCollectionCreationService : ICodCollectionCreationService
     }
 }
 
+file class NoopOutboxWriter : IOutboxWriter
+{
+    public Task WriteAsync(Guid organizationId, string eventType, object payload, CancellationToken cancellationToken = default) => Task.CompletedTask;
+}
+
 public class ShipmentServiceCodTests
 {
     private class TestDbContext : DbContext
@@ -118,7 +124,7 @@ public class ShipmentServiceCodTests
         var service = new ShipmentService(
             dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), branchLookup,
             new AlwaysTrueGeographyLookup(), new AlwaysTrueMerchantLookup(), pricingService, new AllBranchesAuthorizationChecker(),
-            new FixedOrganizationLookup("testorg"), codRecorder);
+            new FixedOrganizationLookup("testorg"), codRecorder, new NoopOutboxWriter());
         return (service, codRecorder);
     }
 

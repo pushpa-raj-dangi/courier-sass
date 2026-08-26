@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Courier.Audit.Application;
+using Courier.Events.Application;
 using Courier.Ndr.Application;
 using Courier.Ndr.Domain;
 using Courier.Ndr.Infrastructure;
@@ -25,6 +26,8 @@ file class NoopAuditLogger : IAuditLogger
 class RecordingShipmentTransitionService : IShipmentTransitionService
 {
     public List<Guid> NdrTransitionCalls { get; } = new();
+    public Guid MerchantIdToReturn { get; set; } = Guid.NewGuid();
+    public string AwbToReturn { get; set; } = "TESTAWB1";
 
     public Task<ShipmentScanInfo?> GetScanInfoAsync(Guid shipmentId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     public Task<ShipmentScanInfo?> GetScanInfoByAwbAsync(string awb, CancellationToken cancellationToken = default) => throw new NotSupportedException();
@@ -40,13 +43,27 @@ class RecordingShipmentTransitionService : IShipmentTransitionService
     public Task<ShipmentResponse?> TransitionToNdrCreatedAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
         NdrTransitionCalls.Add(shipmentId);
-        return Task.FromResult<ShipmentResponse?>(null);
+        var response = new ShipmentResponse(
+            shipmentId, AwbToReturn, MerchantIdToReturn, Guid.NewGuid(), Guid.NewGuid(), null, null, null,
+            ShipmentStatus.NdrCreated, Guid.NewGuid(), 1m, null, null, null, 100m, 0m, false, 100m, 0m, 0m, 100m,
+            "Recipient", "9800000000", "Address", "Sender", "9800000001", "Address", new List<ShipmentItemResponse>());
+        return Task.FromResult<ShipmentResponse?>(response);
     }
     public Task<ShipmentResponse?> ReattemptDeliveryAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     public Task<ShipmentResponse?> InitiateRtoAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     public Task DispatchManyRtoAsync(IReadOnlyCollection<Guid> shipmentIds, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     public Task<ShipmentResponse?> ReceiveRtoAtOriginAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     public Task<ShipmentResponse?> ConfirmRtoDeliveredAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+}
+
+file class RecordingOutboxWriter : IOutboxWriter
+{
+    public List<(Guid OrganizationId, string EventType, object Payload)> Writes { get; } = new();
+    public Task WriteAsync(Guid organizationId, string eventType, object payload, CancellationToken cancellationToken = default)
+    {
+        Writes.Add((organizationId, eventType, payload));
+        return Task.CompletedTask;
+    }
 }
 
 public class NdrCreationServiceTests
@@ -77,7 +94,7 @@ public class NdrCreationServiceTests
         await using var dbContext = CreateContext();
         var shipmentTransitions = new RecordingShipmentTransitionService();
         var auditLogger = new NoopAuditLogger();
-        var service = new NdrCreationService(dbContext, auditLogger, shipmentTransitions);
+        var service = new NdrCreationService(dbContext, auditLogger, shipmentTransitions, new RecordingOutboxWriter());
 
         var organizationId = Guid.NewGuid();
         var shipmentId = Guid.NewGuid();
@@ -99,5 +116,20 @@ public class NdrCreationServiceTests
         Assert.Equal("ndr.created", auditLogger.Entries[0].Action);
         Assert.Equal(organizationId, auditLogger.Entries[0].OrganizationId);
         Assert.Equal(userId, auditLogger.Entries[0].UserId);
+    }
+
+    [Fact]
+    public async Task CreateFromFailedAttemptAsync_WritesShipmentNdrCreatedOutboxMessage()
+    {
+        await using var dbContext = CreateContext();
+        var shipmentTransitions = new RecordingShipmentTransitionService();
+        var outboxWriter = new RecordingOutboxWriter();
+        var service = new NdrCreationService(dbContext, new NoopAuditLogger(), shipmentTransitions, outboxWriter);
+        var organizationId = Guid.NewGuid();
+        var shipmentId = Guid.NewGuid();
+
+        await service.CreateFromFailedAttemptAsync(shipmentId, organizationId, NdrReason.CustomerUnavailable, ActingUser(Guid.NewGuid()));
+
+        Assert.Single(outboxWriter.Writes, w => w.EventType == "shipment.ndr_created" && w.OrganizationId == organizationId);
     }
 }

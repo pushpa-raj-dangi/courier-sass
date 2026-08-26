@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using Courier.Audit.Application;
 using Courier.Branches.Application;
 using Courier.Cod.Application;
+using Courier.Events.Application;
 using Courier.Geography.Application;
 using Courier.Identity.Application;
 using Courier.Merchants.Application;
@@ -26,6 +27,7 @@ public partial class ShipmentService : IShipmentTransitionService
     private readonly IBranchAuthorizationChecker _branchAuthorizationChecker;
     private readonly IOrganizationLookupService _organizationLookupService;
     private readonly ICodCollectionCreationService _codCollectionCreationService;
+    private readonly IOutboxWriter _outboxWriter;
 
     public ShipmentService(
         DbContext dbContext,
@@ -37,7 +39,8 @@ public partial class ShipmentService : IShipmentTransitionService
         PricingService pricingService,
         IBranchAuthorizationChecker branchAuthorizationChecker,
         IOrganizationLookupService organizationLookupService,
-        ICodCollectionCreationService codCollectionCreationService)
+        ICodCollectionCreationService codCollectionCreationService,
+        IOutboxWriter outboxWriter)
     {
         _dbContext = dbContext;
         _currentTenantProvider = currentTenantProvider;
@@ -49,6 +52,7 @@ public partial class ShipmentService : IShipmentTransitionService
         _branchAuthorizationChecker = branchAuthorizationChecker;
         _organizationLookupService = organizationLookupService;
         _codCollectionCreationService = codCollectionCreationService;
+        _outboxWriter = outboxWriter;
     }
 
     public async Task<ShipmentResponse> CreateShipmentAsync(CreateShipmentRequest request, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
@@ -224,6 +228,9 @@ public partial class ShipmentService : IShipmentTransitionService
             await _codCollectionCreationService.CreateExpectedAsync(
                 shipment.Id, organizationId, merchantId, request.DestinationBranchId, shipment.CodAmount, shipment.TotalCharge, actingUser, cancellationToken);
         }
+
+        await _outboxWriter.WriteAsync(organizationId, "shipment.created", new { ShipmentId = shipment.Id, MerchantId = merchantId, Awb = shipment.Awb }, cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         return await LoadResponseAsync(shipment.Id, cancellationToken);
     }

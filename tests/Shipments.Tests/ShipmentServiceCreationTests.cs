@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Courier.Audit.Application;
 using Courier.Branches.Application;
 using Courier.Cod.Application;
+using Courier.Events.Application;
 using Courier.Geography.Application;
 using Courier.Identity.Application;
 using Courier.Identity.Domain;
@@ -73,6 +74,21 @@ file class FixedOrganizationLookup : IOrganizationLookupService
 file class NoopCodCollectionCreationService : ICodCollectionCreationService
 {
     public Task CreateExpectedAsync(Guid shipmentId, Guid organizationId, Guid merchantId, Guid branchId, decimal expectedAmount, decimal shipmentTotalCharge, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => Task.CompletedTask;
+}
+
+file class NoopOutboxWriter : IOutboxWriter
+{
+    public Task WriteAsync(Guid organizationId, string eventType, object payload, CancellationToken cancellationToken = default) => Task.CompletedTask;
+}
+
+file class RecordingOutboxWriter : IOutboxWriter
+{
+    public List<(Guid OrganizationId, string EventType, object Payload)> Writes { get; } = new();
+    public Task WriteAsync(Guid organizationId, string eventType, object payload, CancellationToken cancellationToken = default)
+    {
+        Writes.Add((organizationId, eventType, payload));
+        return Task.CompletedTask;
+    }
 }
 
 public class ShipmentServiceCreationTests
@@ -149,14 +165,14 @@ public class ShipmentServiceCreationTests
         return seed;
     }
 
-    private static ShipmentService CreateService(TestDbContext dbContext, Guid organizationId, Dictionary<Guid, Guid?> zonesByBranch, string? organizationSlug = "TESTORG")
+    private static ShipmentService CreateService(TestDbContext dbContext, Guid organizationId, Dictionary<Guid, Guid?> zonesByBranch, string? organizationSlug = "TESTORG", IOutboxWriter? outboxWriter = null)
     {
         var branchLookup = new FakeBranchLookup(zonesByBranch);
         var pricingService = new PricingService(dbContext, new FixedTenantProvider(organizationId), branchLookup, new AlwaysTrueMerchantLookup());
         return new ShipmentService(
             dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), branchLookup,
             new AlwaysTrueGeographyLookup(), new AlwaysTrueMerchantLookup(), pricingService, new AllBranchesAuthorizationChecker(),
-            new FixedOrganizationLookup(organizationSlug), new NoopCodCollectionCreationService());
+            new FixedOrganizationLookup(organizationSlug), new NoopCodCollectionCreationService(), outboxWriter ?? new NoopOutboxWriter());
     }
 
     private static CreateShipmentRequest ValidRequest(Guid originBranchId, Guid destinationBranchId, Guid serviceTypeId, decimal weightKg = 0.7m, decimal codAmount = 0m, bool wantsInsurance = false, Guid? merchantId = null) => new(
@@ -178,6 +194,21 @@ public class ShipmentServiceCreationTests
         Assert.Equal(1000m, result.DeclaredValue); // 2 * 500
         Assert.Equal(150m, result.TotalCharge);
         Assert.Equal(ShipmentStatus.Created, result.CurrentStatus);
+    }
+
+    [Fact]
+    public async Task CreateShipmentAsync_WritesShipmentCreatedOutboxMessage()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var seed = SeedRoutableRateCard(dbContext, organizationId);
+        var recordingWriter = new RecordingOutboxWriter();
+        var service = CreateService(dbContext, organizationId, new() { [seed.OriginBranchId] = seed.OriginZoneId, [seed.DestinationBranchId] = seed.DestinationZoneId }, outboxWriter: recordingWriter);
+        var merchantId = Guid.NewGuid();
+
+        var result = await service.CreateShipmentAsync(ValidRequest(seed.OriginBranchId, seed.DestinationBranchId, seed.ServiceTypeId, merchantId: merchantId), ActingUser(Guid.NewGuid()));
+
+        Assert.Single(recordingWriter.Writes, w => w.EventType == "shipment.created" && w.OrganizationId == organizationId);
     }
 
     [Fact]

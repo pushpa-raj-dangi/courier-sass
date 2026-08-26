@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Courier.Audit.Application;
 using Courier.Branches.Application;
 using Courier.Cod.Application;
+using Courier.Events.Application;
 using Courier.Identity.Application;
 using Courier.Ndr.Application;
 using Courier.Riders.Domain;
@@ -24,6 +25,7 @@ public partial class RiderService
     private readonly INdrCreationService _ndrCreationService;
     private readonly ICodCollectionService _codCollectionService;
     private readonly IPermissionChecker _permissionChecker;
+    private readonly IOutboxWriter _outboxWriter;
 
     public RiderService(
         DbContext dbContext,
@@ -36,7 +38,8 @@ public partial class RiderService
         IObjectStorage objectStorage,
         INdrCreationService ndrCreationService,
         ICodCollectionService codCollectionService,
-        IPermissionChecker permissionChecker)
+        IPermissionChecker permissionChecker,
+        IOutboxWriter outboxWriter)
     {
         _dbContext = dbContext;
         _currentTenantProvider = currentTenantProvider;
@@ -49,6 +52,7 @@ public partial class RiderService
         _ndrCreationService = ndrCreationService;
         _codCollectionService = codCollectionService;
         _permissionChecker = permissionChecker;
+        _outboxWriter = outboxWriter;
     }
 
     public async Task<RiderResponse> CreateRiderAsync(CreateRiderRequest request, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)

@@ -24,6 +24,7 @@
     <ProjectReference Include="..\Pricing\Pricing.csproj" />
     <ProjectReference Include="..\Cod\Cod.csproj" />
     <ProjectReference Include="..\Identity\Identity.csproj" />
+    <ProjectReference Include="..\Events\Events.csproj" />
   </ItemGroup>
 
 </Project>

@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Courier.Audit.Application;
 using Courier.Branches.Application;
 using Courier.Cod.Application;
+using Courier.Events.Application;
 using Courier.Geography.Application;
 using Courier.Identity.Application;
 using Courier.Identity.Domain;
@@ -91,6 +92,11 @@ file class NoopCodCollectionCreationService : ICodCollectionCreationService
     public Task CreateExpectedAsync(Guid shipmentId, Guid organizationId, Guid merchantId, Guid branchId, decimal expectedAmount, decimal shipmentTotalCharge, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => Task.CompletedTask;
 }
 
+file class NoopOutboxWriter : IOutboxWriter
+{
+    public Task WriteAsync(Guid organizationId, string eventType, object payload, CancellationToken cancellationToken = default) => Task.CompletedTask;
+}
+
 public class ShipmentServiceTransitionTests
 {
     private class TestDbContext : DbContext
@@ -131,7 +137,7 @@ public class ShipmentServiceTransitionTests
         return new ShipmentService(
             dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), branchLookup,
             new AlwaysTrueGeographyLookup(), new AlwaysTrueMerchantLookup(), pricingService, branchAuthorizationChecker ?? new AllBranchesAuthorizationChecker(),
-            new FixedOrganizationLookup("testorg"), new NoopCodCollectionCreationService());
+            new FixedOrganizationLookup("testorg"), new NoopCodCollectionCreationService(), new NoopOutboxWriter());
     }
 
     private static async Task<(ShipmentService Service, Guid ShipmentId, Guid OriginBranchId, Guid DestinationBranchId)> SeedCreatedShipmentAsync(TestDbContext dbContext, Guid organizationId)

@@ -44,6 +44,7 @@ public partial class CodService
         collection.CollectedAt = DateTimeOffset.UtcNow;
         collection.DeliveryProofId = deliveryProofId;
         collection.Status = CodCollectionStatus.CodCollected;
+        await _outboxWriter.WriteAsync(organizationId, "cod.collected", new { ShipmentId = shipmentId, MerchantId = collection.MerchantId, CollectedAmount = collectedAmount }, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         await _auditLogger.LogAsync(new AuditEntry(organizationId, actingUser.GetUserId(), "cod.collected", "CODCollection", collection.Id.ToString()), cancellationToken);
