@@ -43,3 +43,7 @@ public record RequestAdjustmentRequest(string EntityType, Guid EntityId, decimal
 public record AdjustmentResponse(
     Guid Id, string EntityType, Guid EntityId, decimal BeforeValue, decimal AfterValue, string Reason,
     Guid RequestedByUserId, DateTimeOffset RequestedAt, Guid? ApprovedByUserId, DateTimeOffset? ApprovedAt, bool Applied);
+
+public record CodReconciliationSummaryResponse(
+    decimal ExpectedCod, decimal CollectedCod, decimal RiderDepositedCod, decimal BranchReceivedCod,
+    decimal MerchantPayableCod, decimal TotalCourierFees);
