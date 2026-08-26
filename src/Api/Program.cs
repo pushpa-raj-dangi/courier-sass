@@ -8,6 +8,7 @@ using Courier.Branches.Presentation;
 using Courier.Cod.Application;
 using Courier.Cod.Presentation;
 using Courier.Events.Application;
+using Courier.Events.Infrastructure;
 using Courier.Geography.Application;
 using Courier.Geography.Presentation;
 using Courier.Identity.Application;
@@ -104,6 +105,8 @@ builder.Services.AddScoped<CodService>();
 builder.Services.AddScoped<ICodCollectionCreationService>(sp => sp.GetRequiredService<CodService>());
 builder.Services.AddScoped<ICodCollectionService>(sp => sp.GetRequiredService<CodService>());
 builder.Services.AddScoped<IOutboxWriter, OutboxWriterService>();
+builder.Services.AddScoped<IEventPublisher, RabbitMqEventPublisher>();
+builder.Services.AddScoped<OutboxPublisherJob>();
 builder.Services.AddScoped<NdrService>();
 builder.Services.AddScoped<GeographyQueryService>();
 builder.Services.AddScoped<IGeographyLookupService>(sp => sp.GetRequiredService<GeographyQueryService>());
@@ -209,6 +212,8 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
         await context.Response.WriteAsync(JsonSerializer.Serialize(payload));
     }
 });
+
+RecurringJob.AddOrUpdate<OutboxPublisherJob>("outbox-publisher", job => job.RunAsync(CancellationToken.None), "*/10 * * * * *");
 
 app.Run();
 
