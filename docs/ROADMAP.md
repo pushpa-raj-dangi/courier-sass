@@ -357,6 +357,39 @@ Event-driven notification pipeline (CLAUDE.md §27) off the Phase-0/1 outbox, pl
 a configurable template; a webhook subscriber receives a correctly signed event and
 a forced failure demonstrably retries then logs.
 
+*Status (2026-08-26): Complete.* Three new modules: `Events` (owns `OutboxMessage` and the
+narrow `IOutboxWriter` interface every producing module calls, mirroring `Audit`'s `IAuditLogger`
+shape), `Notifications` (real SMTP for Email via MailKit, log-only stubs for SMS/WhatsApp/Push),
+`Webhooks` (merchant-managed subscriptions, signed delivery, exponential-backoff retry, replay).
+Four proving-set domain events wired: `shipment.created`, `shipment.delivered`,
+`shipment.ndr_created`, `cod.collected` — each an existing application-service call site gaining
+one `IOutboxWriter.WriteAsync` call in the same `SaveChangesAsync` as its business change. This
+phase is the first to actually use RabbitMQ and Hangfire (both provisioned since Phase 0 but
+unused before now, per `CLARIFICATIONS.md` #4): a Hangfire recurring job publishes unpublished
+outbox rows to a shared RabbitMQ topic exchange, and `Notifications`/`Webhooks` each run their
+own independent `BackgroundService` consumer bound to their own queue on that exchange — a real
+internal broker hop, not a simplified in-process shortcut, matching `ARCHITECTURE.md`'s
+already-committed design. `CLARIFICATIONS.md` #12 records three resolved ambiguities
+(`WebhookSubscription.Secret` encrypted not hashed; 5-attempt 1m/2m/4m/8m/16m retry backoff; no
+`NotificationTemplate` rows seeded, compiled-in defaults used instead) plus one real bug class
+found only by the end-to-end test: three background-context queries against tenant-filtered
+tables silently returned nothing (not an exception) because `ICurrentTenantProvider.OrganizationId`
+is null outside an HTTP request — fixed with `IgnoreQueryFilters()` plus an explicit trusted
+predicate, or (for the one general-purpose lookup interface) a required `organizationId`
+parameter, never a blanket bypass. `WebhookDelivery.SourceEventId` plus a unique
+`(WebhookSubscriptionId, SourceEventId)` index makes duplicate-delivery creation from a
+redelivered message DB-impossible, the same TOCTOU-guard lesson `FinancialTransaction`'s
+uniqueness constraint established in Phase 10. The full exit criteria — a real email landing in a
+dev-only mail-catcher (`docker-compose.yml`'s new `mailhog` service) and a forced-failure webhook
+target retrying then appearing failed in the delivery log, then succeeding on replay — is proven
+end-to-end over real HTTP, real Postgres, and real RabbitMQ in
+`tests/Api.Tests/NotificationsAndWebhooksEndToEndTests.cs`. Deferred to later phases: a
+`NotificationTemplate` management API, the six remaining `CLAUDE.md` §26 webhook event types
+(subscribable but never published this phase), and the Hangfire recurring jobs `ARCHITECTURE.md`
+separately brainstormed that this pipeline itself doesn't need (scheduled merchant-settlement
+generation, NDR SLA reminders, expired `UserBranch` cleanup) — all now unblocked by this phase's
+Hangfire wiring, none implemented by it.
+
 ## Phase 12 — Merchant Portal, Public Tracking, Merchant API
 
 Frontend merchant portal, `/track/{awb}` (`API-SPEC.md` §4), full Merchant API

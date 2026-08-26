@@ -292,29 +292,54 @@ Adjustment { Id, OrganizationId, EntityType, EntityId, BeforeValue, AfterValue,
               # threshold exists yet. [C#11]
 ```
 
+## Events & Outbox — `OrganizationId` present
+
+```text
+OutboxMessage { Id, OrganizationId, EventType, Payload, CreatedAt, PublishedAt
+                 (nullable), Attempts }   # backs both Notifications and Webhooks
+                                            # per ARCHITECTURE.md's outbox pattern.
+                 # Owned by the Courier.Events module — written by IOutboxWriter.WriteAsync
+                 # inside the same SaveChangesAsync as the business change that caused it. A
+                 # Hangfire recurring job (the "outbox publisher") reads unpublished rows and
+                 # publishes each, wrapped in an envelope ({EventId, OrganizationId, EventType,
+                 # Data}), to a shared RabbitMQ topic exchange (courier.domain-events, routing
+                 # key = EventType). Events has zero project reference to any other module —
+                 # Payload is an opaque JSON string it never interprets. [C#12]
+```
+
 ## Notifications — `OrganizationId` present
 
 ```text
 NotificationTemplate { Id, OrganizationId, EventType, Channel (SMS|Email|WhatsApp|
                          Push), Body, IsActive }
+                         # No rows are seeded anywhere — NotificationDispatchService falls back
+                         # to a compiled-in default body when no active override row exists for
+                         # an (OrganizationId, EventType, Channel) combination, which is every
+                         # combination as of this phase. [C#12]
 
-NotificationLog { Id, OrganizationId, EventType, Channel, RecipientAddress, Status,
-                    SentAt, ProviderResponse }
-
-OutboxMessage { Id, OrganizationId, EventType, Payload, CreatedAt, PublishedAt
-                 (nullable), Attempts }   # backs both Notifications and Webhooks
-                                            # per ARCHITECTURE.md's outbox pattern
+NotificationLog { Id, OrganizationId, EventType, Channel, RecipientAddress (nullable), Status
+                    (Sent|Logged|Failed|NoRecipient), SentAt, ProviderResponse }
+                    # RecipientAddress is nullable to accommodate NoRecipient (no
+                    # Merchant.ContactEmail on file) — a departure from this section's original
+                    # non-nullable sketch. Status's four values replace this section's original
+                    # unenumerated Status field: only Email is a real channel this phase (real
+                    # SMTP via MailKit); Sms/WhatsApp/Push always resolve to Logged, never
+                    # Sent/Failed, since no real provider is wired to them yet. [C#12]
 ```
 
 ## Webhooks — `OrganizationId` present
 
 ```text
-WebhookSubscription { Id, MerchantId, OrganizationId, TargetUrl, Secret (hashed at
-                        rest), Events[], IsActive }
+WebhookSubscription { Id, MerchantId, OrganizationId, TargetUrl, Secret (encrypted at rest, not
+                        hashed — see CLARIFICATIONS.md #12 resolution 1), Events[], IsActive }
 
-WebhookDelivery { Id, WebhookSubscriptionId, EventType, Payload, Attempt,
-                    ResponseStatus, ResponseSnippet, DeliveredAt (nullable),
+WebhookDelivery { Id, WebhookSubscriptionId, SourceEventId, EventType, Payload, Attempt,
+                    ResponseStatus (nullable), ResponseSnippet (nullable), DeliveredAt (nullable),
                     NextRetryAt (nullable) }
+                    # SourceEventId is the originating OutboxMessage.Id — a unique index on
+                    # (WebhookSubscriptionId, SourceEventId) makes duplicate-delivery-row
+                    # creation from a redelivered RabbitMQ message DB-impossible, not just
+                    # checked-then-written. [C#12]
 ```
 
 ## Audit — `OrganizationId` present (nullable for platform/cross-tenant rows)

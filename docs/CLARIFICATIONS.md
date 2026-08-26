@@ -393,6 +393,91 @@ concurrent-request test against Postgres.
 
 ---
 
+## 12. Phase 11: outbox envelope shape, webhook secret storage, retry policy, template seeding, and the background-context query-filter gotcha
+
+**Where:** `CLAUDE.md` §26-27, `ARCHITECTURE.md` "Domain events & reliability"/"Background jobs —
+Hangfire", `DOMAIN-MODEL.md` "Notifications"/"Webhooks", `API-SPEC.md` §5
+
+**Ambiguity 1:** `DOMAIN-MODEL.md`'s `WebhookSubscription` entity lists `Secret (hashed at rest)`,
+but HMAC-signing an outgoing payload requires the plaintext secret at send time — a one-way hash
+cannot produce a valid signature.
+
+**Resolution 1:** `WebhookSubscription.Secret` is encrypted at rest (ASP.NET Core Data
+Protection, `Courier.Webhooks.Infrastructure.DataProtectionSecretProtector`), not hashed — a
+reversible operation, decrypted only inside `WebhookDeliveryAttemptService`'s signing path. The
+plaintext is returned exactly once, in `POST /api/v1/webhooks`'s response body, and never
+appears in any `GET` response afterward.
+
+**Ambiguity 2:** No source document specifies a webhook retry attempt count or backoff schedule
+— `API-SPEC.md` §5 says only "exponential backoff... capped attempts."
+
+**Resolution 2:** 5 attempts, backoff 1m/2m/4m/8m/16m (attempt *N*'s delay is 2^(N-1) minutes),
+then the delivery is left in a terminal state (`NextRetryAt` null, `DeliveredAt` still null) —
+visible via `GET /webhooks/{id}/deliveries` and recoverable via `POST
+/webhooks/deliveries/{id}/replay`, which resets the attempt counter to 0 and re-sends
+immediately rather than continuing the old cycle.
+
+**Ambiguity 3:** `CLAUDE.md` §27 says notification templates "must be configurable," but no
+source document specifies whether default templates are seeded per-organization (like `Role`
+rows at registration) or resolved some other way.
+
+**Resolution 3:** No `NotificationTemplate` rows are seeded anywhere this phase — no
+org-registration-time seeding, no migration data seed. `NotificationDispatchService` checks for
+an active org-specific override row first; if none exists (every organization, every event, this
+phase), it falls back to a compiled-in default body
+(`Courier.Notifications.Application.NotificationDefaultTemplates`). This avoids a new
+`Identity -> Notifications` module dependency that eager per-org seeding at registration would
+have required, and a future template-management API (deferred, out of this phase's scope) simply
+inserts override rows into the same table this resolver already checks — no code change needed
+when that API lands.
+
+**Real bug class found only by the end-to-end test, not any unit test (recorded here because it
+will recur in a future phase's own background job/consumer unless watched for):**
+`AppDbContext`'s tenant query filters (`_currentTenantProvider.OrganizationId != null && ...`)
+evaluate to *false for every row* — not "unfiltered," silently *empty* — whenever
+`ICurrentTenantProvider.OrganizationId` is null, which is always true inside a `BackgroundService`
+or Hangfire job, since neither runs inside an HTTP request. Three call sites this phase queried a
+tenant-filtered table from exactly such a context and got silently-empty results back — no
+exception, nothing logged, just a feature that quietly never works:
+`WebhookDeliveryAttemptService.AttemptAsync`'s `WebhookSubscription` join (every delivery attempt
+was a no-op, stuck at `Attempt = 0` forever), `NotificationDispatchService`'s `NotificationTemplate`
+lookup (an org's override template would never be found), and
+`IMerchantContactLookupService.GetContactEmailAsync`'s `Merchant` lookup (every dispatch resolved
+to `NoRecipient` regardless of a real `ContactEmail` on file). All three were invisible to unit
+tests, because this project's unit-test `DbContext` fixtures never configure the tenant filter in
+the first place (per this project's own established pattern) — only a real `AppDbContext`-backed
+integration test exercising the actual background code path could catch it, which is exactly what
+`NotificationsAndWebhooksEndToEndTests.cs` did. Fixed two ways depending on the caller's shape:
+`OutboxPublisherJob`/`WebhooksConsumer`'s own subscription-matching query (both already correct,
+predating this bug) and `WebhookDeliveryAttemptService`/`NotificationDispatchService`'s internal
+queries use `.IgnoreQueryFilters()` directly, since the caller already resolved and trusts
+`organizationId` from the outbox envelope; `IMerchantContactLookupService.GetContactEmailAsync`
+instead gained `organizationId` as an explicit required parameter (not just an internal
+`IgnoreQueryFilters()` bypass), since it is a general-purpose, potentially-shared lookup interface
+where a silent unconditional bypass could become a real cross-tenant leak for some future
+HTTP-scoped caller that assumed the ambient filter still applied. **General rule for any future
+phase adding a `BackgroundService` or Hangfire job:** grep every query that job/consumer reaches,
+transitively, against every entity carrying `HasQueryFilter` in `AppDbContext`, and add an explicit
+scope (either `IgnoreQueryFilters()` plus a trusted explicit predicate, or a required
+`organizationId` parameter) — never assume "it compiled and the unit tests passed" proves a
+background-context query is correct, since this project's unit-test fixtures cannot catch this
+class of bug by construction.
+
+**Implementation note (not an ambiguity, but worth recording):** `WebhookDelivery` gains one
+field beyond `DOMAIN-MODEL.md`'s original sketch: `SourceEventId` (the originating
+`OutboxMessage.Id`), with a unique index on `(WebhookSubscriptionId, SourceEventId)` — this is
+the concrete mechanism behind "a redelivered RabbitMQ message can't double-create delivery rows,"
+the same DB-enforced-not-just-checked-then-written lesson `FinancialTransaction`'s uniqueness
+constraint established in Phase 10. `NotificationLog.RecipientAddress` is nullable (`string?`),
+accommodating the `NoRecipient` status (no `Merchant.ContactEmail` on file) — also a departure
+from the literal, non-nullable field `DOMAIN-MODEL.md`'s original sketch showed. The outbox
+publisher wraps each `OutboxMessage`'s bare JSON payload in a small envelope
+(`{ EventId, OrganizationId, EventType, Data }`) before publishing to RabbitMQ — `OrganizationId`
+and `EventId` are separate columns on `OutboxMessage`, not part of the payload each producing
+module built, and both consumers need them (tenant scoping, idempotency respectively).
+
+---
+
 ## Summary of schema additions implied by this document
 
 * `UserRole` (new entity) — resolves #1, carries `BranchScope` enum — resolves #6.
