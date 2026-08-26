@@ -28,6 +28,8 @@ using Courier.Pricing.Presentation;
 using Courier.Shipments.Application;
 using Courier.Shipments.Presentation;
 using Courier.SharedKernel;
+using Hangfire;
+using Hangfire.PostgreSql;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
@@ -50,6 +52,25 @@ builder.Services.AddHealthChecks()
         var factory = new ConnectionFactory { Uri = new Uri(builder.Configuration.GetConnectionString("RabbitMq")!) };
         return await factory.CreateConnectionAsync();
     }, name: "rabbitmq");
+
+// One shared connection for the whole process — every publisher/consumer opens its own
+// channel from this (channels are cheap and not thread-safe to share; connections are
+// expensive and safe to share). Registered as a factory-created singleton so Program.cs's own
+// startup path doesn't block on an async connection open before the host is ready to serve
+// health checks — the first real user of the connection (Task 4's publisher job, or either
+// consumer) is the first thing that actually needs it live.
+builder.Services.AddSingleton<RabbitMQ.Client.IConnection>(sp =>
+{
+    var factory = new RabbitMQ.Client.ConnectionFactory { Uri = new Uri(builder.Configuration.GetConnectionString("RabbitMq")!) };
+    return factory.CreateConnectionAsync().GetAwaiter().GetResult();
+});
+
+builder.Services.AddHangfire(config => config
+    .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+    .UseSimpleAssemblyNameTypeSerializer()
+    .UseRecommendedSerializerSettings()
+    .UsePostgreSqlStorage(options => options.UseNpgsqlConnection(builder.Configuration.GetConnectionString("Postgres"))));
+builder.Services.AddHangfireServer();
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 builder.Services.Configure<MerchantJwtOptions>(builder.Configuration.GetSection("Jwt"));
@@ -147,6 +168,7 @@ if (app.Environment.IsDevelopment())
         options.RoutePrefix = "swagger";
     });
     app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription();
+    app.UseHangfireDashboard("/hangfire");
 }
 
 app.UseSerilogRequestLogging();
