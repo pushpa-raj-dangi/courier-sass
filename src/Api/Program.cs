@@ -14,6 +14,7 @@ using Courier.Notifications.Application;
 using Courier.Notifications.Infrastructure;
 using Courier.Webhooks.Application;
 using Courier.Webhooks.Infrastructure;
+using Courier.Webhooks.Presentation;
 using Courier.Geography.Presentation;
 using Courier.Identity.Application;
 using Courier.Identity.Infrastructure;
@@ -214,6 +215,7 @@ app.MapManifestsEndpoints();
 app.MapRidersEndpoints();
 app.MapNdrEndpoints();
 app.MapCodEndpoints();
+app.MapWebhooksEndpoints();
 
 app.MapGet("/health/ping", () => Results.Ok(new { status = "ok" })).WithTags("Health check");
 
