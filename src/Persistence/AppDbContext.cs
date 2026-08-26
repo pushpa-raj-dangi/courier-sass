@@ -19,6 +19,8 @@ using Courier.Events.Infrastructure;
 using Courier.Notifications.Domain;
 using Courier.Notifications.Infrastructure;
 using Courier.Pricing.Domain;
+using Courier.Webhooks.Domain;
+using Courier.Webhooks.Infrastructure;
 using Courier.Pricing.Infrastructure;
 using Courier.Riders.Domain;
 using Courier.Riders.Infrastructure;
@@ -89,6 +91,8 @@ public class AppDbContext : DbContext
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
     public DbSet<NotificationTemplate> NotificationTemplates => Set<NotificationTemplate>();
     public DbSet<NotificationLog> NotificationLogs => Set<NotificationLog>();
+    public DbSet<WebhookSubscription> WebhookSubscriptions => Set<WebhookSubscription>();
+    public DbSet<WebhookDelivery> WebhookDeliveries => Set<WebhookDelivery>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -142,6 +146,8 @@ public class AppDbContext : DbContext
         modelBuilder.ApplyConfiguration(new OutboxMessageConfiguration());
         modelBuilder.ApplyConfiguration(new NotificationTemplateConfiguration());
         modelBuilder.ApplyConfiguration(new NotificationLogConfiguration());
+        modelBuilder.ApplyConfiguration(new WebhookSubscriptionConfiguration());
+        modelBuilder.ApplyConfiguration(new WebhookDeliveryConfiguration());
 
         // Branch.OrganizationId -> Organizations FK lives here rather than in
         // BranchConfiguration (Branches module) because Branches deliberately has no project
@@ -278,6 +284,13 @@ public class AppDbContext : DbContext
             .WithMany()
             .HasForeignKey(l => l.OrganizationId)
             .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<WebhookSubscription>().HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(s => s.OrganizationId)
+            .OnDelete(DeleteBehavior.Restrict);
+        // No FK to Merchant — Webhooks' project reference to Merchants is Application-layer only
+        // (validating a caller-supplied MerchantId exists, Task 10), not its EF model, same
+        // cross-module precedent as Shipment.MerchantId (Phase 6).
 
         // Tenant filters fail CLOSED: the explicit `OrganizationId != null` guard stops EF Core's
         // null-semantics translation from degrading these into `WHERE "OrganizationId" IS NULL`
@@ -313,6 +326,10 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<OutboxMessage>().HasQueryFilter(m => _currentTenantProvider.OrganizationId != null && m.OrganizationId == _currentTenantProvider.OrganizationId);
         modelBuilder.Entity<NotificationTemplate>().HasQueryFilter(t => _currentTenantProvider.OrganizationId != null && t.OrganizationId == _currentTenantProvider.OrganizationId);
         modelBuilder.Entity<NotificationLog>().HasQueryFilter(l => _currentTenantProvider.OrganizationId != null && l.OrganizationId == _currentTenantProvider.OrganizationId);
+        modelBuilder.Entity<WebhookSubscription>().HasQueryFilter(s => _currentTenantProvider.OrganizationId != null && s.OrganizationId == _currentTenantProvider.OrganizationId);
+        // No tenant filter on WebhookDelivery: no own OrganizationId — tenant isolation flows
+        // transitively through WebhookSubscriptionId -> WebhookSubscription.OrganizationId
+        // (which does have a filter, above), same pattern as MerchantSettlementItem.
 
         // No tenant filter on MerchantSettlementItem: no own OrganizationId — tenant isolation
         // flows transitively through MerchantSettlementId -> MerchantSettlement.OrganizationId

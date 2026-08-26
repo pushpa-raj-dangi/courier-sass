@@ -15,6 +15,7 @@
     <ProjectReference Include="..\Modules\Cod\Cod.csproj" />
     <ProjectReference Include="..\Modules\Events\Events.csproj" />
     <ProjectReference Include="..\Modules\Notifications\Notifications.csproj" />
+    <ProjectReference Include="..\Modules\Webhooks\Webhooks.csproj" />
   </ItemGroup>
 
   <ItemGroup>

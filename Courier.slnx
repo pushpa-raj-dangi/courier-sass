@@ -18,6 +18,7 @@
     <Project Path="src/Modules/Pricing/Pricing.csproj" />
     <Project Path="src/Modules/Riders/Riders.csproj" />
     <Project Path="src/Modules/Shipments/Shipments.csproj" />
+    <Project Path="src/Modules/Webhooks/Webhooks.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Api.Tests/Api.Tests.csproj" />
@@ -35,5 +36,6 @@
     <Project Path="tests/Riders.Tests/Riders.Tests.csproj" />
     <Project Path="tests/SharedKernel.Tests/SharedKernel.Tests.csproj" />
     <Project Path="tests/Shipments.Tests/Shipments.Tests.csproj" />
+    <Project Path="tests/Webhooks.Tests/Webhooks.Tests.csproj" />
   </Folder>
 </Solution>
