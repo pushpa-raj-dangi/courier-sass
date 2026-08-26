@@ -25,6 +25,14 @@ public record FinancialTransactionResponse(
     Guid Id, FinancialTransactionType Type, decimal Amount, string ReferenceEntityType, Guid ReferenceEntityId,
     Guid VerifiedByUserId, DateTimeOffset VerifiedAt);
 
+public record CreateMerchantSettlementRequest(Guid MerchantId, DateTimeOffset PeriodFrom, DateTimeOffset PeriodTo);
+
+public record MerchantSettlementItemResponse(Guid Id, Guid ShipmentId, decimal CODAmount, decimal CourierFee, decimal OtherDeductions, decimal NetPayable);
+
+public record MerchantSettlementResponse(
+    Guid Id, Guid MerchantId, DateTimeOffset PeriodFrom, DateTimeOffset PeriodTo, decimal TotalPayable,
+    MerchantSettlementStatus Status, DateTimeOffset? SettledAt, List<MerchantSettlementItemResponse> Items);
+
 public class CodValidationException : Exception
 {
     public CodValidationException(string message) : base(message) { }
