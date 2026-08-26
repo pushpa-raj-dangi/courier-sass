@@ -7,19 +7,22 @@ namespace Courier.Merchants.Tests;
 public class MerchantPermissionCatalogTests
 {
     [Fact]
-    public void Owner_HoldsAllFourPermissions()
+    public void Owner_HoldsAllEightPermissions()
     {
         var ownerPermissions = MerchantPermissionCatalog.RolePermissions[MerchantUserRole.Owner];
 
-        Assert.Equal(7, ownerPermissions.Count);
+        // 8, not 7: Phase 11 added WebhooksManage as an Owner-only permission (same sensitivity
+        // tier as StaffManage/ProfileUpdate).
+        Assert.Equal(8, ownerPermissions.Count);
         Assert.Contains(MerchantPermissionCatalog.ProfileRead, ownerPermissions);
         Assert.Contains(MerchantPermissionCatalog.ProfileUpdate, ownerPermissions);
         Assert.Contains(MerchantPermissionCatalog.StaffManage, ownerPermissions);
         Assert.Contains(MerchantPermissionCatalog.KycUpload, ownerPermissions);
+        Assert.Contains(MerchantPermissionCatalog.WebhooksManage, ownerPermissions);
     }
 
     [Fact]
-    public void Staff_LacksStaffManageAndProfileUpdate()
+    public void Staff_LacksStaffManageAndProfileUpdateAndWebhooksManage()
     {
         var staffPermissions = MerchantPermissionCatalog.RolePermissions[MerchantUserRole.Staff];
 
@@ -27,6 +30,7 @@ public class MerchantPermissionCatalogTests
         Assert.Contains(MerchantPermissionCatalog.KycUpload, staffPermissions);
         Assert.DoesNotContain(MerchantPermissionCatalog.StaffManage, staffPermissions);
         Assert.DoesNotContain(MerchantPermissionCatalog.ProfileUpdate, staffPermissions);
+        Assert.DoesNotContain(MerchantPermissionCatalog.WebhooksManage, staffPermissions);
     }
 
     [Theory]

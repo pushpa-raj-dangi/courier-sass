@@ -12,6 +12,8 @@ using Courier.Events.Infrastructure;
 using Courier.Geography.Application;
 using Courier.Notifications.Application;
 using Courier.Notifications.Infrastructure;
+using Courier.Webhooks.Application;
+using Courier.Webhooks.Infrastructure;
 using Courier.Geography.Presentation;
 using Courier.Identity.Application;
 using Courier.Identity.Infrastructure;
@@ -129,6 +131,9 @@ builder.Services.AddScoped<INotificationChannel, WhatsAppNotificationChannel>();
 builder.Services.AddScoped<INotificationChannel, PushNotificationChannel>();
 builder.Services.AddScoped<NotificationDispatchService>();
 builder.Services.AddHostedService<NotificationsConsumer>();
+builder.Services.AddDataProtection();
+builder.Services.AddScoped<ISecretProtector, DataProtectionSecretProtector>();
+builder.Services.AddScoped<WebhookService>();
 builder.Services.AddSingleton<IObjectStorage>(_ =>
     new LocalFileSystemObjectStorage(builder.Configuration["ObjectStorage:LocalRootPath"] ?? Path.Combine(AppContext.BaseDirectory, "storage")));
 

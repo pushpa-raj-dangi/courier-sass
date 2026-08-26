@@ -17,10 +17,13 @@ public static class MerchantPermissionCatalog
     public const string ShipmentCreate = "shipment.create";
     public const string ShipmentRead = "shipment.read";
     public const string ShipmentCancel = "shipment.cancel";
+    // Webhook subscription management is an account-level integration setting, same sensitivity
+    // tier as StaffManage/ProfileUpdate — Owner-only, not shared with Staff (Phase 11).
+    public const string WebhooksManage = "merchant.webhooks.manage";
 
     private static readonly string[] OwnerPermissions =
     {
-        ProfileRead, ProfileUpdate, StaffManage, KycUpload, ShipmentCreate, ShipmentRead, ShipmentCancel
+        ProfileRead, ProfileUpdate, StaffManage, KycUpload, ShipmentCreate, ShipmentRead, ShipmentCancel, WebhooksManage
     };
 
     private static readonly string[] StaffPermissions =
