@@ -133,6 +133,7 @@ builder.Services.AddScoped<MerchantAuthService>();
 builder.Services.AddScoped<MerchantOnboardingService>();
 builder.Services.AddScoped<MerchantStaffService>();
 builder.Services.AddScoped<MerchantKycService>();
+builder.Services.AddScoped<ApiKeyService>();
 builder.Services.AddScoped<MerchantLookupService>();
 builder.Services.AddScoped<IMerchantLookupService>(sp => sp.GetRequiredService<MerchantLookupService>());
 builder.Services.AddScoped<IMerchantContactLookupService>(sp => sp.GetRequiredService<MerchantLookupService>());
