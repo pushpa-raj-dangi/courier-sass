@@ -90,6 +90,24 @@ public class ShipmentsEndpointsTests : IClassFixture<WebApplicationFactory<Progr
         "Sender One", "9800000001", KathmanduProvinceId, KathmanduDistrictId, KathmanduLocalLevelId, KathmanduWardNumber, "Sender Address",
         new List<CreateShipmentItemRequest> { new("Item A", 2, 500m) });
 
+    // Merchant-track callers (merchant JWT or API key) are gated by IdempotencyMiddleware (Task 7)
+    // on POST /api/v1/shipments and POST /api/v1/shipments/{id}/cancel — every merchant-client POST
+    // in this file must carry an Idempotency-Key header or the middleware short-circuits with 400
+    // before the request ever reaches the handler under test.
+    private static async Task<HttpResponseMessage> PostIdempotentAsync<T>(HttpClient client, string url, T body, string idempotencyKey)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = JsonContent.Create(body) };
+        request.Headers.Add("Idempotency-Key", idempotencyKey);
+        return await client.SendAsync(request);
+    }
+
+    private static async Task<HttpResponseMessage> PostIdempotentAsync(HttpClient client, string url, string idempotencyKey)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, url);
+        request.Headers.Add("Idempotency-Key", idempotencyKey);
+        return await client.SendAsync(request);
+    }
+
     private async Task<Guid> CreateMerchantAsync(HttpClient staffClient)
     {
         var response = await staffClient.PostAsJsonAsync("/api/v1/merchants", new CreateMerchantRequest(
@@ -182,12 +200,12 @@ public class ShipmentsEndpointsTests : IClassFixture<WebApplicationFactory<Progr
         // Merchant JWT callers never supply MerchantId in the body — it's forced server-side from
         // the token's merchant_id claim, so Guid.Empty here proves that (a real value would only
         // matter if the server trusted it, which it must not per CLAUDE.md §33).
-        var createResponse = await merchantAClient.PostAsJsonAsync("/api/v1/shipments", ValidShipmentRequest(Guid.Empty, originBranchId, destinationBranchId, serviceTypeId));
+        var createResponse = await PostIdempotentAsync(merchantAClient, "/api/v1/shipments", ValidShipmentRequest(Guid.Empty, originBranchId, destinationBranchId, serviceTypeId), "merchant-flow-create-a1");
         Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
         var shipmentA = await createResponse.Content.ReadFromJsonAsync<ShipmentResponse>();
         Assert.Equal(merchantAAuth.MerchantId, shipmentA!.MerchantId);
 
-        var cancelResponse = await merchantAClient.PostAsync($"/api/v1/shipments/{shipmentA.Id}/cancel", null);
+        var cancelResponse = await PostIdempotentAsync(merchantAClient, $"/api/v1/shipments/{shipmentA.Id}/cancel", "merchant-flow-cancel-a1");
         Assert.Equal(HttpStatusCode.OK, cancelResponse.StatusCode);
         var cancelled = await cancelResponse.Content.ReadFromJsonAsync<ShipmentResponse>();
         Assert.Equal(ShipmentStatus.Cancelled, cancelled!.CurrentStatus);
@@ -204,13 +222,13 @@ public class ShipmentsEndpointsTests : IClassFixture<WebApplicationFactory<Progr
         // shipmentA is already Cancelled at this point, so re-cancelling from B would 400 even if
         // isolation were broken — create a second, still-cancellable shipment for A to make this
         // a real isolation check rather than a coincidental transition-guard pass.
-        var secondCreateResponse = await merchantAClient.PostAsJsonAsync("/api/v1/shipments", ValidShipmentRequest(Guid.Empty, originBranchId, destinationBranchId, serviceTypeId));
+        var secondCreateResponse = await PostIdempotentAsync(merchantAClient, "/api/v1/shipments", ValidShipmentRequest(Guid.Empty, originBranchId, destinationBranchId, serviceTypeId), "merchant-flow-create-a2");
         var shipmentA2 = await secondCreateResponse.Content.ReadFromJsonAsync<ShipmentResponse>();
 
         var readAsB = await merchantBClient.GetAsync($"/api/v1/shipments/{shipmentA2!.Awb}");
         Assert.Equal(HttpStatusCode.NotFound, readAsB.StatusCode);
 
-        var cancelAsB = await merchantBClient.PostAsync($"/api/v1/shipments/{shipmentA2.Id}/cancel", null);
+        var cancelAsB = await PostIdempotentAsync(merchantBClient, $"/api/v1/shipments/{shipmentA2.Id}/cancel", "merchant-flow-cancel-b1");
         Assert.Equal(HttpStatusCode.NotFound, cancelAsB.StatusCode);
     }
 

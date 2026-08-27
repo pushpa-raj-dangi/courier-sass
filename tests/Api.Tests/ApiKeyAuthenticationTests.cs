@@ -123,6 +123,18 @@ public class ApiKeyAuthenticationTests : IClassFixture<WebApplicationFactory<Pro
         zoneRateResponse.EnsureSuccessStatusCode();
     }
 
+    // API-key callers are merchant-track (GetMerchantId() is not null via the "merchant_id" claim
+    // ApiKeyAuthenticationHandler sets), so they're gated by IdempotencyMiddleware (Task 7) on
+    // POST /api/v1/shipments exactly like a merchant JWT caller — every API-key POST to that route
+    // in this file must carry an Idempotency-Key header or the middleware short-circuits with 400
+    // before the request reaches the authorization/handler logic under test here.
+    private static async Task<HttpResponseMessage> PostIdempotentAsync<T>(HttpClient client, string url, T body, string idempotencyKey)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = JsonContent.Create(body) };
+        request.Headers.Add("Idempotency-Key", idempotencyKey);
+        return await client.SendAsync(request);
+    }
+
     private static CreateShipmentRequest ValidShipmentRequest(Guid originBranchId, Guid destinationBranchId, Guid serviceTypeId) => new(
         null, originBranchId, destinationBranchId, serviceTypeId, 0.7m, null, null, null, 0m, false,
         "Recipient One", "9800000000", KathmanduProvinceId, KathmanduDistrictId, KathmanduLocalLevelId, KathmanduWardNumber, "Recipient Address",
@@ -175,7 +187,7 @@ public class ApiKeyAuthenticationTests : IClassFixture<WebApplicationFactory<Pro
         var apiKeyClient = _factory.CreateClient();
         apiKeyClient.DefaultRequestHeaders.Add("X-Api-Key", apiKey!.PlaintextKey);
 
-        var shipmentResponse = await apiKeyClient.PostAsJsonAsync("/api/v1/shipments", ValidShipmentRequest(originBranchId, destinationBranchId, serviceTypeId));
+        var shipmentResponse = await PostIdempotentAsync(apiKeyClient, "/api/v1/shipments", ValidShipmentRequest(originBranchId, destinationBranchId, serviceTypeId), "xheader-create-1");
 
         Assert.Equal(HttpStatusCode.Created, shipmentResponse.StatusCode);
         var shipment = await shipmentResponse.Content.ReadFromJsonAsync<ShipmentResponse>();
@@ -209,7 +221,7 @@ public class ApiKeyAuthenticationTests : IClassFixture<WebApplicationFactory<Pro
         var apiKeyClient = _factory.CreateClient();
         apiKeyClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey!.PlaintextKey);
 
-        var shipmentResponse = await apiKeyClient.PostAsJsonAsync("/api/v1/shipments", ValidShipmentRequest(originBranchId, destinationBranchId, serviceTypeId));
+        var shipmentResponse = await PostIdempotentAsync(apiKeyClient, "/api/v1/shipments", ValidShipmentRequest(originBranchId, destinationBranchId, serviceTypeId), "abearer-create-1");
 
         Assert.Equal(HttpStatusCode.Created, shipmentResponse.StatusCode);
     }
@@ -277,7 +289,7 @@ public class ApiKeyAuthenticationTests : IClassFixture<WebApplicationFactory<Pro
         var apiKeyClient = _factory.CreateClient();
         apiKeyClient.DefaultRequestHeaders.Add("X-Api-Key", apiKey!.PlaintextKey);
 
-        var shipmentResponse = await apiKeyClient.PostAsJsonAsync("/api/v1/shipments", ValidShipmentRequest(originBranchId, destinationBranchId, serviceTypeId));
+        var shipmentResponse = await PostIdempotentAsync(apiKeyClient, "/api/v1/shipments", ValidShipmentRequest(originBranchId, destinationBranchId, serviceTypeId), "noscope-create-1");
 
         Assert.Equal(HttpStatusCode.Forbidden, shipmentResponse.StatusCode);
     }

@@ -211,6 +211,7 @@ app.UseMiddleware<Courier.Api.Middleware.ExceptionHandlingMiddleware>();
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<Courier.Api.Middleware.IdempotencyMiddleware>();
 
 app.MapAuthEndpoints();
 app.MapUsersEndpoints();
