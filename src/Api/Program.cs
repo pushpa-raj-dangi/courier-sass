@@ -227,6 +227,7 @@ app.MapApiKeyEndpoints();
 app.MapMerchantKycEndpoints();
 app.MapPricingEndpoints();
 app.MapShipmentsEndpoints();
+app.MapPickupsEndpoints();
 app.MapManifestsEndpoints();
 app.MapRidersEndpoints();
 app.MapNdrEndpoints();
