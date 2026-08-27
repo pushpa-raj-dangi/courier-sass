@@ -114,6 +114,7 @@ builder.Services.AddScoped<PricingService>();
 builder.Services.AddScoped<ReferenceDataService>();
 builder.Services.AddScoped<ShipmentService>();
 builder.Services.AddScoped<IShipmentTransitionService>(sp => sp.GetRequiredService<ShipmentService>());
+builder.Services.AddScoped<PickupRequestService>();
 builder.Services.AddScoped<ManifestService>();
 builder.Services.AddScoped<RiderService>();
 builder.Services.AddScoped<INdrCreationService, NdrCreationService>();
