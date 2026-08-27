@@ -60,6 +60,7 @@ public class AppDbContext : DbContext
     public DbSet<MerchantUser> MerchantUsers => Set<MerchantUser>();
     public DbSet<MerchantAddress> MerchantAddresses => Set<MerchantAddress>();
     public DbSet<MerchantKycDocument> MerchantKycDocuments => Set<MerchantKycDocument>();
+    public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
     public DbSet<MerchantRefreshToken> MerchantRefreshTokens => Set<MerchantRefreshToken>();
     public DbSet<ServiceType> ServiceTypes => Set<ServiceType>();
     public DbSet<WeightSlab> WeightSlabs => Set<WeightSlab>();
@@ -115,6 +116,7 @@ public class AppDbContext : DbContext
         modelBuilder.ApplyConfiguration(new MerchantUserConfiguration());
         modelBuilder.ApplyConfiguration(new MerchantAddressConfiguration());
         modelBuilder.ApplyConfiguration(new MerchantKycDocumentConfiguration());
+        modelBuilder.ApplyConfiguration(new ApiKeyConfiguration());
         modelBuilder.ApplyConfiguration(new MerchantRefreshTokenConfiguration());
         modelBuilder.ApplyConfiguration(new ServiceTypeConfiguration());
         modelBuilder.ApplyConfiguration(new WeightSlabConfiguration());
@@ -184,6 +186,10 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<MerchantKycDocument>().HasOne<Organization>()
             .WithMany()
             .HasForeignKey(d => d.OrganizationId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<ApiKey>().HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(k => k.OrganizationId)
             .OnDelete(DeleteBehavior.Restrict);
 
         // Same reasoning for RateCard/MerchantRateCard.OrganizationId: Pricing has no project
@@ -307,6 +313,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<MerchantUser>().HasQueryFilter(mu => _currentTenantProvider.OrganizationId != null && mu.OrganizationId == _currentTenantProvider.OrganizationId);
         modelBuilder.Entity<MerchantAddress>().HasQueryFilter(a => _currentTenantProvider.OrganizationId != null && a.OrganizationId == _currentTenantProvider.OrganizationId);
         modelBuilder.Entity<MerchantKycDocument>().HasQueryFilter(d => _currentTenantProvider.OrganizationId != null && d.OrganizationId == _currentTenantProvider.OrganizationId);
+        modelBuilder.Entity<ApiKey>().HasQueryFilter(k => _currentTenantProvider.OrganizationId != null && k.OrganizationId == _currentTenantProvider.OrganizationId);
         modelBuilder.Entity<RateCard>().HasQueryFilter(rc => _currentTenantProvider.OrganizationId != null && rc.OrganizationId == _currentTenantProvider.OrganizationId);
         modelBuilder.Entity<MerchantRateCard>().HasQueryFilter(mrc => _currentTenantProvider.OrganizationId != null && mrc.OrganizationId == _currentTenantProvider.OrganizationId);
         modelBuilder.Entity<Shipment>().HasQueryFilter(s => _currentTenantProvider.OrganizationId != null && s.OrganizationId == _currentTenantProvider.OrganizationId);

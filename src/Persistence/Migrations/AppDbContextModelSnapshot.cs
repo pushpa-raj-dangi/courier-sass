@@ -2105,6 +2105,55 @@ namespace Persistence.Migrations
                     b.ToTable("ShipmentTransfers", (string)null);
                 });
 
+            modelBuilder.Entity("Courier.Merchants.Domain.ApiKey", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("HashedKey")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastUsedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("MerchantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Prefix")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<DateTime?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.PrimitiveCollection<string[]>("Scopes")
+                        .IsRequired()
+                        .HasColumnType("text[]");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MerchantId");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.HasIndex("Prefix")
+                        .IsUnique();
+
+                    b.ToTable("ApiKeys", (string)null);
+                });
+
             modelBuilder.Entity("Courier.Merchants.Domain.Merchant", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3647,6 +3696,21 @@ namespace Persistence.Migrations
                     b.HasOne("Courier.Branches.Domain.Branch", null)
                         .WithMany()
                         .HasForeignKey("ToBranchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Courier.Merchants.Domain.ApiKey", b =>
+                {
+                    b.HasOne("Courier.Merchants.Domain.Merchant", null)
+                        .WithMany()
+                        .HasForeignKey("MerchantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Courier.Identity.Domain.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
