@@ -74,8 +74,16 @@ MerchantAddress { Id, MerchantId, Label, ProvinceId, DistrictId, LocalLevelId,
 MerchantKycDocument { Id, MerchantId, DocumentType, StorageKey, Status, ReviewedByUserId }
 
 ApiKey { Id, MerchantId, OrganizationId (denormalized, kept consistent with
-         Merchant.OrganizationId), HashedKey, Prefix, Scopes[], IsActive,
-         CreatedAt, RevokedAt }                                              [C#7]
+         Merchant.OrganizationId), HashedKey (SHA-256 of the secret half of
+         "{Prefix}.{Secret}"; plaintext shown once, at creation), Prefix (8 hex
+         chars, unique, unhashed — O(1) lookup before the secret is hashed and
+         compared), Scopes[], IsActive, CreatedAt, RevokedAt (nullable),
+         LastUsedAt (nullable) }                                     [C#7] [C#13]
+         # MerchantId's FK was missing from the original plan (C#13); shipped as
+         # builder.HasOne<Merchant>().WithMany().HasForeignKey(k => k.MerchantId)
+         # .OnDelete(Restrict), matching every other Merchants child entity's
+         # own local FK-declaration convention (MerchantKycDocument,
+         # MerchantAddress, MerchantUser).
 ```
 
 ## Pricing — `OrganizationId` present (except shared `ServiceType`/`WeightSlab` templates)
@@ -144,6 +152,19 @@ ShipmentEvent { Id, ShipmentId, EventType (Created|PickupAssigned|PickedUp|
                 (nullable — always null this phase), Timestamp, Latitude (nullable),
                 Longitude (nullable), Notes (nullable), Metadata (nullable) }
                 # append-only, never updated/deleted
+
+PickupRequest { Id, OrganizationId, MerchantId, BranchId (resolved server-side from
+                the requested shipments' shared OriginBranchId at creation — every
+                ShipmentId in one request must share one OriginBranchId; a validated
+                denormalization, never caller-supplied), ShipmentIds (Guid[]),
+                RequestedForDate (DateOnly), Notes (nullable),
+                Status (Requested|Scheduled|Completed|Cancelled), CreatedAt,
+                UpdatedAt }
+                # Phase 12. No rider/DeliveryRun linkage yet (out of this phase's
+                # scope) — Status only ever reaches Cancelled via the merchant this
+                # phase; Scheduled/Completed exist as columns now so no migration is
+                # needed once the Phase 8 DeliveryRun wiring is extended to pickup
+                # requests, but nothing transitions a row into them yet.
 ```
 
 **Custody note:** `CurrentCustodianId` is polymorphic (a branch-based staff user or a

@@ -399,6 +399,17 @@ idempotency.
 settlement purely through the documented Merchant API; public tracking correctly
 withholds the excluded fields.
 
+*Status (2026-08-27): Complete — backend slice only.* API keys (`ApiKey` entity +
+`ApiKey`/`Bearer` dual-scheme auth), Redis-backed rate limiting and idempotency (first real
+Redis use in this codebase), a real `PickupRequest` feature, merchant-scoped COD settlement
+reads, and public `/track/{awb}` are all implemented and proven end-to-end
+(`tests/Api.Tests/MerchantApiExitCriteriaEndToEndTests.cs`). `CLARIFICATIONS.md` #13 records
+seven resolved design ambiguities/fixes, including a self-escalation carve-out that keeps API-key
+management itself JWT-only, and a fail-closed fix for a cross-tenant AWB-collision risk on the
+new anonymous tracking endpoint. The frontend merchant portal (`src/web`, still an untouched
+`create-next-app` skeleton) is deliberately deferred to a follow-up Phase 12b — this phase's
+scope decision, made explicit up front in the design spec's scope note.
+
 ## Phase 13 — Reports, Analytics, Advanced Dashboards
 
 Org dashboard (CLAUDE.md §29) and branch dashboard (`BRANCH-OPERATIONS.md` §3) fully

@@ -478,6 +478,83 @@ module built, and both consumers need them (tenant scoping, idempotency respecti
 
 ---
 
+## 13. Phase 12: self-escalation carve-out, ApiKey credential format, two public-tracking status-mapping corrections, and three implementation-time fixes
+
+**Where:** §15/§25 (Merchant Domain, Merchant API), §24 (Public Tracking), §33 (Security)
+
+**Self-escalation carve-out.** `RequireMerchantPermission` (JWT-only) and the new
+`RequireMerchantPermissionAnyCredential` (JWT or API key) are two separate SharedKernel
+extensions, not one widened filter. API-key management itself, merchant staff invite, KYC
+upload, and profile update stay on the JWT-only extension deliberately — an API key's default
+scope is every permission its creating Owner holds, so if key-management endpoints accepted API-key
+auth, a key could create, list, or revoke other keys (including itself). Only Shipments, Webhooks,
+Cod settlement reads, and Pickups were switched onto the any-credential extension.
+
+**`ApiKey` credential format.** `{Prefix}.{Secret}` where `Prefix` is 8 random hex characters
+(globally unique, indexed, used for O(1) lookup) and `Secret` is a 32-byte
+`RandomNumberGenerator`-sourced value, SHA-256 hashed at rest — same hash-at-rest pattern as
+`RefreshToken` (Phase 1) and `WebhookSubscription.Secret`'s pre-Phase-11 hashing precedent. The
+plaintext is shown exactly once, in the creation response.
+
+**Public tracking status mapping corrections.** The design spec's §9 table was written against
+CLAUDE.md's illustrative state names, not the real 16-value `ShipmentStatus` enum. Three
+corrections made during implementation (Task 12): `AtOriginBranch` was regrouped from the
+spec's `Received` bucket into `InTransit` — it happens chronologically *after* `PickedUp`, so
+the original grouping would have made the public status visibly regress; `PickupAssigned`
+(unmentioned in the spec table) joins `Created` under `Received`; `Cancelled` (also unmentioned)
+got its own new 8th public status rather than being folded into `DeliveryAttemptUnsuccessful`,
+since collapsing a genuine cancellation into that bucket would misleadingly imply a retry is
+still coming. See `PublicTrackingStatusMapper.Map` for the authoritative, exhaustive mapping —
+`PublicTrackingStatusMapperTests.Map_EveryDefinedShipmentStatus_HasAMapping` guards against a
+future `ShipmentStatus` value ever landing unmapped.
+
+**Idempotency and rate limiting scope, confirmed as designed.** Idempotency-Key enforcement and
+rate limiting are both self-selecting on *credential kind* (merchant JWT/API key vs staff JWT vs
+anonymous), not on route ownership — every existing staff-facing test from prior phases needed
+zero changes, confirmed by the full-solution test run staying green after every task in this
+phase's plan.
+
+**`ApiKey.MerchantId` foreign key gap (Task 2).** The plan's own brief omitted a required FK —
+`ApiKey.MerchantId` needed an explicit `.HasOne<Merchant>()` registration in
+`ApiKeyConfiguration.cs`, matching every other Merchants-module child entity's established
+convention (`MerchantKycDocument`, `MerchantAddress`, `MerchantUser` all declare this locally).
+Caught by task review, fixed in a follow-up round before the migration was finalized —
+`ApiKeyConfiguration.cs` now has `builder.HasOne<Merchant>().WithMany().HasForeignKey(k =>
+k.MerchantId).OnDelete(DeleteBehavior.Restrict)` alongside its indexes on `OrganizationId`,
+`MerchantId`, and a unique index on `Prefix`.
+
+**Cross-tenant AWB collision risk on `/track/{awb}` (Task 12).** `Shipment.Awb` uniqueness is
+enforced only per-`(OrganizationId, Awb)` (a pre-existing Phase 6 design —
+`ShipmentConfiguration.cs`'s unique index), not globally. This was safe until Phase 12 because
+every prior lookup path went through the tenant query filter; the new anonymous `/track/{awb}`
+endpoint is the first lookup with zero tenant scope, making a same-day cross-org AWB collision
+(plausible given the org-slug-prefix + date + per-org-daily-sequence generation algorithm) a real
+cross-tenant data leak risk. Resolution: `PublicTrackingService.GetByAwbAsync` fails closed — if
+more than one `Shipment` row matches the AWB, it returns not-found rather than arbitrarily
+picking one. The ROOT CAUSE (making AWB actually globally unique) is explicitly deferred to a
+future phase — it's Phase 6 schema/generation logic requiring its own migration and rollout, out
+of Phase 12's scope. A related, smaller follow-up item: `ShipmentConfiguration.cs` also has no
+standalone index on `Awb` alone (only the composite `(OrganizationId, Awb)`), so the anonymous
+tracking endpoint's lookup can't use an efficient leading-column index seek — worth revisiting
+alongside the uniqueness fix.
+
+**Serilog `writeToProviders`/`preserveStaticLogger` interaction (Task 13).** Implementing the
+required test technique (a custom `ILoggerProvider` capturing `ILogger<T>` output) required
+adding `writeToProviders: true` to the existing `builder.Host.UseSerilog(...)` call in
+`Program.cs` (Serilog doesn't forward to DI-registered `ILoggerProvider`s by default) plus
+`preserveStaticLogger: true` (to fix a cross-host static-`Log.Logger`-clobbering race across
+`WebApplicationFactory`'s parallel test-host construction — an established pattern in this
+codebase, see the `MigrationLock` precedent). `preserveStaticLogger: true` alone would have
+silently broken the pre-existing `app.UseSerilogRequestLogging()`'s production
+request-completion logging (that middleware falls back to the static `Log.Logger` when no
+explicit `Logger` option is given, and `preserveStaticLogger: true` stops that static field from
+ever being assigned). Caught by task review before merge. Resolution: `UseSerilogRequestLogging`
+is now called with an explicit `options.Logger` resolved from DI
+(`app.Services.GetRequiredService<Serilog.ILogger>()`), so it no longer depends on the static
+field at all, while `preserveStaticLogger: true` is kept for the test-race fix it was added for.
+
+---
+
 ## Summary of schema additions implied by this document
 
 * `UserRole` (new entity) — resolves #1, carries `BranchScope` enum — resolves #6.
