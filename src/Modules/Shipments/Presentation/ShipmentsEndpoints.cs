@@ -11,7 +11,15 @@ public static class ShipmentsEndpoints
 {
     public static void MapShipmentsEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/v1/shipments").RequireAuthorization().WithTags("Shipments Management");
+        // Multi-scheme so API-key merchant callers (Task 5) reach the same manual dual-auth
+        // branching below as merchant JWT callers already did — per-route permission checks are
+        // unchanged and still fail closed for any credential that resolves neither GetMerchantId()
+        // nor GetUserId() (e.g. a staff-only route reached by an API key, which has no User row).
+        var group = app.MapGroup("/api/v1/shipments")
+            .RequireAuthorization(policy => policy
+                .AddAuthenticationSchemes(AuthSchemes.Bearer, AuthSchemes.ApiKey)
+                .RequireAssertion(ctx => ctx.User.Identity?.IsAuthenticated == true))
+            .WithTags("Shipments Management");
 
         // POST / and /{id}/cancel accept EITHER a staff JWT (shipment.create/shipment.cancel via
         // IPermissionChecker) OR a merchant JWT (MerchantPermissionCatalog.ShipmentCreate/

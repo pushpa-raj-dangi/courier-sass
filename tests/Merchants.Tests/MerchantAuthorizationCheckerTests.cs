@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Courier.Merchants.Application;
 using Courier.Merchants.Domain;
 using Courier.Merchants.Infrastructure;
 using Microsoft.EntityFrameworkCore;
@@ -25,6 +26,12 @@ public class MerchantAuthorizationCheckerTests
     private static ClaimsPrincipal PrincipalFor(Guid userId) => new(new ClaimsIdentity(new[]
     {
         new Claim("sub", userId.ToString())
+    }, "test"));
+
+    private static ClaimsPrincipal ApiKeyPrincipal(params string[] scopes) => new(new ClaimsIdentity(new[]
+    {
+        new Claim("sub", Guid.NewGuid().ToString()),
+        new Claim("api_key_scopes", string.Join(' ', scopes))
     }, "test"));
 
     private static MerchantUser NewMerchantUser(Guid id, MerchantUserRole role, bool isActive = true, Guid? merchantId = null) => new()
@@ -131,6 +138,28 @@ public class MerchantAuthorizationCheckerTests
         var anonymous = new ClaimsPrincipal(new ClaimsIdentity());
 
         var result = await checker.HasPermissionAsync(anonymous, "merchant.profile.read");
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    public async Task HasPermissionAsync_ApiKeyPrincipalWithScope_ReturnsTrue()
+    {
+        await using var dbContext = CreateContext();
+        var checker = new MerchantAuthorizationChecker(dbContext);
+
+        var result = await checker.HasPermissionAsync(ApiKeyPrincipal("shipment.create", "shipment.read"), "shipment.read");
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public async Task HasPermissionAsync_ApiKeyPrincipalWithoutScope_ReturnsFalse()
+    {
+        await using var dbContext = CreateContext();
+        var checker = new MerchantAuthorizationChecker(dbContext);
+
+        var result = await checker.HasPermissionAsync(ApiKeyPrincipal("shipment.read"), MerchantPermissionCatalog.ApiKeysManage);
 
         Assert.False(result);
     }

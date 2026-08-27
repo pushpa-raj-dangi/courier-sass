@@ -18,14 +18,14 @@ public static class WebhooksEndpoints
             var (organizationId, merchantId, unauthorized) = ResolveCaller(tenantProvider, httpContext);
             if (unauthorized is not null) return unauthorized;
             return await HandleAsync(() => service.CreateSubscriptionAsync(organizationId, merchantId, request, httpContext.RequestAborted));
-        }).RequireMerchantPermission(MerchantPermissionCatalog.WebhooksManage);
+        }).RequireMerchantPermissionAnyCredential(MerchantPermissionCatalog.WebhooksManage);
 
         group.MapGet("/", async (WebhookService service, ICurrentTenantProvider tenantProvider, HttpContext httpContext) =>
         {
             var (organizationId, merchantId, unauthorized) = ResolveCaller(tenantProvider, httpContext);
             if (unauthorized is not null) return unauthorized;
             return Results.Ok(await service.ListAsync(organizationId, merchantId, httpContext.RequestAborted));
-        }).RequireMerchantPermission(MerchantPermissionCatalog.WebhooksManage);
+        }).RequireMerchantPermissionAnyCredential(MerchantPermissionCatalog.WebhooksManage);
 
         group.MapDelete("/{id:guid}", async (Guid id, WebhookService service, ICurrentTenantProvider tenantProvider, HttpContext httpContext) =>
         {
@@ -33,7 +33,7 @@ public static class WebhooksEndpoints
             if (unauthorized is not null) return unauthorized;
             var deleted = await service.DeleteAsync(organizationId, merchantId, id, httpContext.RequestAborted);
             return deleted ? Results.NoContent() : Results.NotFound();
-        }).RequireMerchantPermission(MerchantPermissionCatalog.WebhooksManage);
+        }).RequireMerchantPermissionAnyCredential(MerchantPermissionCatalog.WebhooksManage);
 
         group.MapGet("/{id:guid}/deliveries", async (Guid id, WebhookService service, ICurrentTenantProvider tenantProvider, HttpContext httpContext) =>
         {
@@ -41,7 +41,7 @@ public static class WebhooksEndpoints
             if (unauthorized is not null) return unauthorized;
             var deliveries = await service.ListDeliveriesAsync(organizationId, merchantId, id, httpContext.RequestAborted);
             return deliveries is null ? Results.NotFound() : Results.Ok(deliveries);
-        }).RequireMerchantPermission(MerchantPermissionCatalog.WebhooksManage);
+        }).RequireMerchantPermissionAnyCredential(MerchantPermissionCatalog.WebhooksManage);
 
         group.MapPost("/deliveries/{id:guid}/replay", async (Guid id, WebhookService service, IWebhookDeliveryAttemptService attemptService, ICurrentTenantProvider tenantProvider, HttpContext httpContext) =>
         {
@@ -49,7 +49,7 @@ public static class WebhooksEndpoints
             if (unauthorized is not null) return unauthorized;
             var result = await service.ReplayAsync(organizationId, merchantId, id, attemptService, httpContext.RequestAborted);
             return result is null ? Results.NotFound() : Results.Ok(result);
-        }).RequireMerchantPermission(MerchantPermissionCatalog.WebhooksManage);
+        }).RequireMerchantPermissionAnyCredential(MerchantPermissionCatalog.WebhooksManage);
     }
 
     private static (Guid OrganizationId, Guid MerchantId, IResult? Unauthorized) ResolveCaller(ICurrentTenantProvider tenantProvider, HttpContext httpContext)

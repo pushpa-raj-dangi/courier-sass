@@ -37,3 +37,17 @@ public static class MerchantPermissionEndpointExtensions
             .AddEndpointFilter(new RequireMerchantPermissionFilter(permission));
     }
 }
+
+public static class MerchantPermissionAnyCredentialEndpointExtensions
+{
+    // Explicitly opt-in, separate from RequireMerchantPermission (JWT-only) above — see
+    // ApiKeyEndpoints.cs's comment on why key-management endpoints must NOT use this.
+    public static RouteHandlerBuilder RequireMerchantPermissionAnyCredential(this RouteHandlerBuilder builder, string permission)
+    {
+        return builder
+            .RequireAuthorization(policy => policy
+                .AddAuthenticationSchemes(AuthSchemes.Bearer, AuthSchemes.ApiKey)
+                .RequireAssertion(ctx => ctx.User.Identity?.IsAuthenticated == true))
+            .AddEndpointFilter(new RequireMerchantPermissionFilter(permission));
+    }
+}

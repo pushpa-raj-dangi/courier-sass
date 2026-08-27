@@ -17,6 +17,15 @@ public class MerchantAuthorizationChecker : IMerchantAuthorizationChecker
 
     public async Task<bool> HasPermissionAsync(ClaimsPrincipal user, string permission, CancellationToken cancellationToken = default)
     {
+        // An ApiKey-authenticated principal (Task 5) carries its granted scopes directly on the
+        // claim, not a MerchantUser row — checked here and nowhere else, so both credential types
+        // share this one entry point.
+        var scopesClaim = user.FindFirst("api_key_scopes")?.Value;
+        if (scopesClaim is not null)
+        {
+            return scopesClaim.Split(' ', StringSplitOptions.RemoveEmptyEntries).Contains(permission);
+        }
+
         var merchantUserId = user.GetUserId();
         if (merchantUserId is null)
         {
