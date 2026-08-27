@@ -553,6 +553,99 @@ is now called with an explicit `options.Logger` resolved from DI
 (`app.Services.GetRequiredService<Serilog.ILogger>()`), so it no longer depends on the static
 field at all, while `preserveStaticLogger: true` is kept for the test-race fix it was added for.
 
+### Follow-ups identified in final review (not fixed this phase)
+
+*Recorded 2026-08-27, from the final whole-branch review of Phase 12.* Five of that review's
+findings were fixed in the same fix wave (see the commit `fix: address final-review findings …` —
+idempotency no longer caching non-2xx responses, the API-key path enforcing `Merchant.IsActive`,
+`PickupRequest.MerchantId`'s missing FK, `ApiKeyAuthenticationHandler`'s
+`API_KEY_REVOKED`/`API_KEY_INVALID` mislabeling, and `merchant.apikeys.manage` being excluded from
+every issued key). The seven items below were deliberately **not** fixed and are recorded here so
+they are carried forward rather than silently dropped.
+
+**13.1 Public tracking's `IpRateLimitFilter` has no reverse-proxy awareness.** `IpRateLimitFilter`
+partitions on `HttpContext.Connection.RemoteIpAddress`, and `Program.cs` never calls
+`UseForwardedHeaders()`. Behind any load balancer or ingress — this project's stated deployment
+target (`ARCHITECTURE.md`) — every caller presents the proxy's address, so all public traffic
+collapses into a single shared rate-limit bucket and the first busy client locks everyone out of
+`/track/{awb}`: a self-inflicted DoS. Not fixed now because `UseForwardedHeaders()` is only safe
+with `KnownProxies`/`KnownNetworks` populated for the real topology (an unrestricted forwarded-header
+middleware lets any caller spoof `X-Forwarded-For` and evade the limiter entirely), and that
+topology hasn't been chosen yet. A future phase must configure forwarded headers against the actual
+infrastructure — and verify the limiter partitions on the real client IP — **before** `/track/{awb}`
+is served through a proxy in production.
+
+**13.2 `API_KEY_INVALID`/`API_KEY_REVOKED` are never delivered to the client.** The design spec's
+§11 error contract names both codes, but `ApiKeyAuthenticationHandler`'s
+`AuthenticateResult.Fail("…")` message strings are not surfaced anywhere in the pipeline — a caller
+presenting a bad or revoked key gets a generic, empty-body `401`, with no way to tell "this key was
+revoked" from "this key never existed". The fix wave corrected which of the two strings each branch
+reports, but that is internal semantics only; the delivery mechanism is still missing. Not fixed now
+because delivering them correctly needs a custom `HandleChallengeAsync` override, and with two
+authentication schemes registered against the same policy (`Bearer` + `ApiKey`) both schemes'
+challenge handlers run on failure — sequencing the response writes so one handler doesn't clobber the
+other's body needs more care than a same-day fix round allows. A future phase should implement this
+properly: most likely have only the scheme that was actually attempted write a body, or centralize
+the error-envelope writing in one place shared by both schemes.
+
+**13.3 No in-flight reservation for `Idempotency-Key` — concurrent retries with the same key can
+both execute.** `IdempotencyMiddleware` reads the store before the request and writes to it only
+after the response is produced. Two requests carrying the same key that arrive before the first
+completes therefore both miss the cache and both run, e.g. creating two shipments with two COD
+amounts under one key. This is the single most common real-world trigger for idempotency — a
+client-side timeout followed by an immediate retry — so the mechanism does not yet protect against
+its primary case. Not fixed now because it requires a new atomic primitive on `IIdempotencyStore`
+(a Redis `SETNX`-style pending marker claimed before `_next` and converted to the real record
+afterwards, with a TTL so a crashed request can't wedge a key), plus a product decision on what the
+second concurrent caller should see while the first is still in flight — block and wait, `409`, or
+`202` with a poll location. That is real design work, not a fix-round change. A future phase should
+design and add it.
+
+**13.4 Extra `ApiKeys` lookup (and occasional write) on every JWT request to the four multi-scheme
+groups.** `ApiKeyAuthenticationHandler.ExtractCredential` also reads `Authorization: Bearer …`, and
+`raw.Split('.', 2)` yields two parts for a three-segment JWT as readily as for a real
+`{Prefix}.{Secret}` key. Every staff- or merchant-JWT call to Shipments, Webhooks, Pickups, or the
+COD-settlement reads consequently issues a `WHERE "Prefix" = …` query against `ApiKeys` (whose
+result is a guaranteed miss, and on a freak match would also `SaveChangesAsync` a `LastUsedAt`
+update) before the JWT scheme succeeds. Correctness is unaffected — this is a performance note only,
+which is why it was left alone in a pre-merge fix round. A future pass could add a cheap shape
+pre-check (the prefix is exactly 8 lowercase hex characters) and skip the database entirely when the
+candidate can't possibly be a key.
+
+**13.5 Failed API-key authentication attempts aren't logged.** `ApiKeyRequestLoggingMiddleware` is
+gated on the `api_key_scopes` claim, which only a *successfully* authenticated key ever carries, so
+a rejected key produces no log line at all. `API-SPEC.md` §2 names this logging as the feed for
+abuse detection, yet brute-force and credential-stuffing attempts against the Merchant API are
+currently invisible. Deferred because it needs its own design decision about where failed-auth
+logging belongs in the pipeline: the existing middleware sits after authentication/authorization has
+already resolved, so a rejected credential never reaches it as currently gated, and the natural
+alternatives (an `OnAuthenticationFailed`-style hook on the scheme, or a dedicated middleware ahead
+of the gate) have different access to the request context. A future phase should pick one and cover
+it with tests.
+
+**13.6 `ShipmentEvent.UserId`/`AuditLog.UserId` can now hold an `ApiKey.Id`, with no discriminator.**
+Those columns already conflated staff `User.Id` with `MerchantUser.Id` (a pre-existing condition —
+merchant JWTs have written `MerchantUser.Id` there since Phase 4), but Phase 12 is the first time
+the stored value can identify a **non-person** actor: `ApiKeyAuthenticationHandler` puts `ApiKey.Id`
+in the `sub` claim, so an API-key-driven shipment creation records a key, not a human. This bears
+directly on CLAUDE.md §39's "who performed the operation" traceability requirement — reading such a
+row back cannot currently answer whether a person or an integration acted. Recorded as a
+documentation note only; no code change is proposed here, because adding an actor-type discriminator
+touches the audit and event schemas across every prior phase. Any future phase revisiting audit or
+event actor identity should start from the fact that a `UserId` column is not always a person.
+
+**13.7 Redis is now a hard, fail-closed availability dependency on the shipment-creation and
+public-tracking paths.** `IRateLimiter` and `IIdempotencyStore` are both Redis-backed and neither
+has a degraded-service fallback, so a Redis outage turns `POST /api/v1/shipments`,
+`POST /api/v1/pickups`, and `/track/{awb}` into `500`s rather than gracefully bypassing rate
+limiting and idempotency. This is very likely the *correct* behaviour — silently skipping
+idempotency on a financial write path would risk duplicate COD shipments, and failing closed on
+rate limiting is defensible — but it is a new single point of failure on the revenue path that was
+never explicitly adopted as policy anywhere in the docs. Recorded here as a deliberate decision, now
+written down. Revisit only if Redis availability becomes a real operational concern, and if so
+decide per-concern (idempotency should almost certainly stay fail-closed even if rate limiting is
+allowed to fail open).
+
 ---
 
 ## Summary of schema additions implied by this document
