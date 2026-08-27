@@ -71,6 +71,7 @@ public class AppDbContext : DbContext
     public DbSet<Shipment> Shipments => Set<Shipment>();
     public DbSet<ShipmentItem> ShipmentItems => Set<ShipmentItem>();
     public DbSet<ShipmentEvent> ShipmentEvents => Set<ShipmentEvent>();
+    public DbSet<PickupRequest> PickupRequests => Set<PickupRequest>();
     public DbSet<Manifest> Manifests => Set<Manifest>();
     public DbSet<ManifestShipment> ManifestShipments => Set<ManifestShipment>();
     public DbSet<ShipmentTransfer> ShipmentTransfers => Set<ShipmentTransfer>();
@@ -127,6 +128,7 @@ public class AppDbContext : DbContext
         modelBuilder.ApplyConfiguration(new ShipmentConfiguration());
         modelBuilder.ApplyConfiguration(new ShipmentItemConfiguration());
         modelBuilder.ApplyConfiguration(new ShipmentEventConfiguration());
+        modelBuilder.ApplyConfiguration(new PickupRequestConfiguration());
         modelBuilder.ApplyConfiguration(new ManifestConfiguration());
         modelBuilder.ApplyConfiguration(new ManifestShipmentConfiguration());
         modelBuilder.ApplyConfiguration(new ShipmentTransferConfiguration());
@@ -208,6 +210,17 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Shipment>().HasOne<Organization>()
             .WithMany()
             .HasForeignKey(s => s.OrganizationId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Same reasoning for PickupRequest.OrganizationId and PickupRequest.BranchId: Shipments
+        // has no project reference to Identity either.
+        modelBuilder.Entity<PickupRequest>().HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(p => p.OrganizationId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<PickupRequest>().HasOne<Branch>()
+            .WithMany()
+            .HasForeignKey(p => p.BranchId)
             .OnDelete(DeleteBehavior.Restrict);
 
         // Same reasoning for Manifest.OrganizationId: Manifests has no project reference to
@@ -317,6 +330,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<RateCard>().HasQueryFilter(rc => _currentTenantProvider.OrganizationId != null && rc.OrganizationId == _currentTenantProvider.OrganizationId);
         modelBuilder.Entity<MerchantRateCard>().HasQueryFilter(mrc => _currentTenantProvider.OrganizationId != null && mrc.OrganizationId == _currentTenantProvider.OrganizationId);
         modelBuilder.Entity<Shipment>().HasQueryFilter(s => _currentTenantProvider.OrganizationId != null && s.OrganizationId == _currentTenantProvider.OrganizationId);
+        modelBuilder.Entity<PickupRequest>().HasQueryFilter(p => _currentTenantProvider.OrganizationId != null && p.OrganizationId == _currentTenantProvider.OrganizationId);
         modelBuilder.Entity<Manifest>().HasQueryFilter(m => _currentTenantProvider.OrganizationId != null && m.OrganizationId == _currentTenantProvider.OrganizationId);
         modelBuilder.Entity<Rider>().HasQueryFilter(r => _currentTenantProvider.OrganizationId != null && r.OrganizationId == _currentTenantProvider.OrganizationId);
         modelBuilder.Entity<Vehicle>().HasQueryFilter(v => _currentTenantProvider.OrganizationId != null && v.OrganizationId == _currentTenantProvider.OrganizationId);

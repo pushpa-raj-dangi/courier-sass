@@ -1664,6 +1664,12 @@ namespace Persistence.Migrations
                         },
                         new
                         {
+                            Id = new Guid("499b2256-8505-1d78-9f51-0558ca0eb36e"),
+                            Description = "Read merchant pickup requests",
+                            Key = "pickup.read"
+                        },
+                        new
+                        {
                             Id = new Guid("7bdf80ef-d0b1-a6b1-20f3-c629d4c3f98d"),
                             Description = "Read branches",
                             Key = "branch.read"
@@ -3029,6 +3035,52 @@ namespace Persistence.Migrations
                     b.ToTable("Vehicles", (string)null);
                 });
 
+            modelBuilder.Entity("Courier.Shipments.Domain.PickupRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BranchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("MerchantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly>("RequestedForDate")
+                        .HasColumnType("date");
+
+                    b.PrimitiveCollection<Guid[]>("ShipmentIds")
+                        .IsRequired()
+                        .HasColumnType("uuid[]");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BranchId");
+
+                    b.HasIndex("MerchantId");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.ToTable("PickupRequests", (string)null);
+                });
+
             modelBuilder.Entity("Courier.Shipments.Domain.Shipment", b =>
                 {
                     b.Property<Guid>("Id")
@@ -4003,6 +4055,21 @@ namespace Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("RiderId")
                         .OnDelete(DeleteBehavior.SetNull);
+                });
+
+            modelBuilder.Entity("Courier.Shipments.Domain.PickupRequest", b =>
+                {
+                    b.HasOne("Courier.Branches.Domain.Branch", null)
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Courier.Identity.Domain.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Courier.Shipments.Domain.Shipment", b =>

@@ -34,6 +34,7 @@ public static class PermissionCatalog
         ("manifest.dispatch", "Dispatch manifests"),
         ("manifest.receive", "Receive manifests"),
         ("manifest.close", "Close manifests"),
+        ("pickup.read", "Read merchant pickup requests"),
         ("branch.read", "Read branches"),
         ("branch.create", "Create branches"),
         ("branch.update", "Update branches"),

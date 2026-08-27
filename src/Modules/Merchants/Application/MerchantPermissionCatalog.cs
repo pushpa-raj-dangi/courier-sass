@@ -25,15 +25,18 @@ public static class MerchantPermissionCatalog
     // (enforced by keeping key-management endpoints JWT-only in Task 4, not by this catalog),
     // which is what keeps an API key from managing/revoking other API keys.
     public const string ApiKeysManage = "merchant.apikeys.manage";
+    public const string PickupsCreate = "merchant.pickups.create";
+    public const string PickupsRead = "merchant.pickups.read";
+    public const string PickupsCancel = "merchant.pickups.cancel";
 
     private static readonly string[] OwnerPermissions =
     {
-        ProfileRead, ProfileUpdate, StaffManage, KycUpload, ShipmentCreate, ShipmentRead, ShipmentCancel, WebhooksManage, ApiKeysManage
+        ProfileRead, ProfileUpdate, StaffManage, KycUpload, ShipmentCreate, ShipmentRead, ShipmentCancel, WebhooksManage, ApiKeysManage, PickupsCreate, PickupsRead, PickupsCancel
     };
 
     private static readonly string[] StaffPermissions =
     {
-        ProfileRead, KycUpload, ShipmentCreate, ShipmentRead, ShipmentCancel
+        ProfileRead, KycUpload, ShipmentCreate, ShipmentRead, ShipmentCancel, PickupsCreate, PickupsRead, PickupsCancel
     };
 
     public static readonly IReadOnlyDictionary<MerchantUserRole, IReadOnlySet<string>> RolePermissions =
