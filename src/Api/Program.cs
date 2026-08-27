@@ -47,10 +47,33 @@ using RabbitMQ.Client;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+// writeToProviders: true — Serilog does not forward events to other ILoggerProvider instances
+// registered in DI by default. Without this, ILogger<T> calls (e.g.
+// ApiKeyRequestLoggingMiddleware, Task 13) would be invisible to any ILoggerProvider a test host
+// or future OpenTelemetry logging exporter registers via AddSingleton<ILoggerProvider>, even
+// though they still reach the Console sink either way. No effect on production output today,
+// since no other ILoggerProvider is currently registered there.
+// preserveStaticLogger: true — without this, UseSerilog also overwrites the process-wide static
+// Serilog.Log.Logger as a side effect of every host build. WebApplicationFactory-based tests
+// build many hosts (often concurrently, one per test class), and each host's default UseSerilog
+// call would otherwise race to clobber the same static field — causing a request handled by one
+// test host's pipeline to be logged through a DIFFERENT host's (or no host's) writeToProviders
+// wiring. Keeping each host's logger private to its own DI container avoids that cross-host race.
+//
+// CAUTION: app.UseSerilogRequestLogging() below (RequestLoggingOptions.Logger left null) falls
+// back to the static Log.Logger by default (Serilog.AspNetCore's documented behavior). With
+// preserveStaticLogger: true, that static field is never assigned, so it would silently stay at
+// Serilog's no-op default and swallow every request-completion log — this is NOT a test-only
+// concern, it would break production output too. The fix is at the UseSerilogRequestLogging call
+// site itself: pass this host's real Serilog.ILogger (resolved from DI) via
+// RequestLoggingOptions.Logger, rather than relying on the static field at all. See the comment
+// there.
 builder.Host.UseSerilog((context, services, configuration) => configuration
     .ReadFrom.Configuration(context.Configuration)
     .Enrich.FromLogContext()
-    .WriteTo.Console());
+    .WriteTo.Console(),
+    writeToProviders: true,
+    preserveStaticLogger: true);
 
 builder.Services.AddHealthChecks()
     .AddNpgSql(builder.Configuration.GetConnectionString("Postgres")!, name: "postgres")
@@ -208,11 +231,22 @@ if (app.Environment.IsDevelopment())
     app.UseHangfireDashboard("/hangfire");
 }
 
-app.UseSerilogRequestLogging();
+// Explicit Logger, not the default (options.Logger left null, which falls back to the static
+// Serilog.Log.Logger): UseSerilog(...) above is configured with preserveStaticLogger: true, so it
+// no longer assigns Log.Logger as a side effect — that static field stays at Serilog's silent
+// no-op default. Resolving this host's own Serilog.ILogger from DI (registered by the 3-arg
+// UseSerilog(...) overload's internal AddSerilog call) and passing it explicitly keeps
+// UseSerilogRequestLogging's per-request completion log wired to the real configured logger
+// regardless of the static field's state.
+app.UseSerilogRequestLogging(options =>
+{
+    options.Logger = app.Services.GetRequiredService<Serilog.ILogger>();
+});
 app.UseMiddleware<Courier.Api.Middleware.ExceptionHandlingMiddleware>();
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<Courier.Api.Middleware.ApiKeyRequestLoggingMiddleware>();
 app.UseMiddleware<Courier.Api.Middleware.IdempotencyMiddleware>();
 
 app.MapAuthEndpoints();
