@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using StackExchange.Redis;
 using Courier.Audit.Application;
 using Courier.Audit.Infrastructure;
 using Courier.Branches.Application;
@@ -70,6 +71,15 @@ builder.Services.AddSingleton<RabbitMQ.Client.IConnection>(sp =>
     var factory = new RabbitMQ.Client.ConnectionFactory { Uri = new Uri(builder.Configuration.GetConnectionString("RabbitMq")!) };
     return factory.CreateConnectionAsync().GetAwaiter().GetResult();
 });
+
+// First real (non-health-check) use of Redis in this codebase — backs the new
+// IRateLimiter/IIdempotencyStore (Phase 12). Registered as a singleton the same way the
+// RabbitMQ connection above is: ConnectionMultiplexer is thread-safe and expensive to open,
+// so the whole process shares one.
+builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
+    ConnectionMultiplexer.Connect(builder.Configuration.GetConnectionString("Redis")!));
+builder.Services.AddSingleton<IRateLimiter, RedisRateLimiter>();
+builder.Services.AddSingleton<IIdempotencyStore, RedisIdempotencyStore>();
 
 builder.Services.AddHangfire(config => config
     .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
