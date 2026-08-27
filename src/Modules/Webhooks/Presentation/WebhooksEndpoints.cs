@@ -11,7 +11,7 @@ public static class WebhooksEndpoints
 {
     public static void MapWebhooksEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/v1/webhooks").WithTags("Webhooks");
+        var group = app.MapGroup("/api/v1/webhooks").RequireApiKeyRateLimit().WithTags("Webhooks");
 
         group.MapPost("/", async (CreateWebhookSubscriptionRequest request, WebhookService service, ICurrentTenantProvider tenantProvider, HttpContext httpContext) =>
         {

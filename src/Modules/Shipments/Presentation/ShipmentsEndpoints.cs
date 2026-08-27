@@ -19,6 +19,7 @@ public static class ShipmentsEndpoints
             .RequireAuthorization(policy => policy
                 .AddAuthenticationSchemes(AuthSchemes.Bearer, AuthSchemes.ApiKey)
                 .RequireAssertion(ctx => ctx.User.Identity?.IsAuthenticated == true))
+            .RequireApiKeyRateLimit()
             .WithTags("Shipments Management");
 
         // POST / and /{id}/cancel accept EITHER a staff JWT (shipment.create/shipment.cancel via
