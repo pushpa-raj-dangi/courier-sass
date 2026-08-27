@@ -219,6 +219,7 @@ app.MapMerchantsEndpoints();
 app.MapMerchantAuthEndpoints();
 app.MapMerchantProfileEndpoints();
 app.MapMerchantStaffEndpoints();
+app.MapApiKeyEndpoints();
 app.MapMerchantKycEndpoints();
 app.MapPricingEndpoints();
 app.MapShipmentsEndpoints();
