@@ -27,11 +27,12 @@ using Courier.Riders.Infrastructure;
 using Courier.Shipments.Domain;
 using Courier.Shipments.Infrastructure;
 using Courier.SharedKernel;
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace Courier.Persistence;
 
-public class AppDbContext : DbContext
+public class AppDbContext : DbContext, IDataProtectionKeyContext
 {
     private readonly ICurrentTenantProvider _currentTenantProvider;
 
@@ -95,6 +96,15 @@ public class AppDbContext : DbContext
     public DbSet<NotificationLog> NotificationLogs => Set<NotificationLog>();
     public DbSet<WebhookSubscription> WebhookSubscriptions => Set<WebhookSubscription>();
     public DbSet<WebhookDelivery> WebhookDeliveries => Set<WebhookDelivery>();
+
+    // IDataProtectionKeyContext requires a settable property; the setter is never exercised at
+    // runtime (PersistKeysToDbContext only ever reads via Set<DataProtectionKey>()) but is kept
+    // to satisfy the interface contract without relying on undocumented reflection behavior.
+    public DbSet<DataProtectionKey> DataProtectionKeys
+    {
+        get => Set<DataProtectionKey>();
+        set { }
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

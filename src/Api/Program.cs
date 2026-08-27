@@ -37,6 +37,8 @@ using Courier.Shipments.Presentation;
 using Courier.SharedKernel;
 using Hangfire;
 using Hangfire.PostgreSql;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -169,7 +171,12 @@ builder.Services.AddScoped<INotificationChannel, WhatsAppNotificationChannel>();
 builder.Services.AddScoped<INotificationChannel, PushNotificationChannel>();
 builder.Services.AddScoped<NotificationDispatchService>();
 builder.Services.AddHostedService<NotificationsConsumer>();
-builder.Services.AddDataProtection();
+// Keys persisted to Postgres (via AppDbContext) so the key ring survives container
+// restarts/recreates — without this, ciphertext produced before a restart (e.g. webhook
+// secrets) becomes permanently undecryptable once the in-container default key store is wiped.
+builder.Services.AddDataProtection()
+    .SetApplicationName("Courier")
+    .PersistKeysToDbContext<AppDbContext>();
 builder.Services.AddScoped<ISecretProtector, DataProtectionSecretProtector>();
 builder.Services.AddScoped<WebhookService>();
 builder.Services.AddHttpClient("Webhooks", client => client.Timeout = TimeSpan.FromSeconds(10));
@@ -229,6 +236,19 @@ if (app.Environment.IsDevelopment())
     });
     app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription();
     app.UseHangfireDashboard("/hangfire");
+}
+
+// Forces the Data Protection key ring to materialize now (reading/creating its key row in
+// Postgres via PersistKeysToDbContext) rather than lazily on the first real Protect/Unprotect
+// call. Without this, that first call pays a one-time DB round trip inline wherever it happens
+// to occur first — e.g. WebhooksConsumer's synchronous first-delivery-attempt path — which
+// widens the pre-existing window between WebhooksConsumer's initial WebhookDelivery insert and
+// its follow-up attempt update (Task 10) enough to be observed by a caller polling in between.
+using (var warmupScope = app.Services.CreateScope())
+{
+    warmupScope.ServiceProvider.GetRequiredService<IDataProtectionProvider>()
+        .CreateProtector("Webhooks.Secret")
+        .Protect("startup-warmup");
 }
 
 // Explicit Logger, not the default (options.Logger left null, which falls back to the static
