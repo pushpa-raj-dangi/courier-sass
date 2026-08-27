@@ -28,15 +28,19 @@ public static class MerchantPermissionCatalog
     public const string PickupsCreate = "merchant.pickups.create";
     public const string PickupsRead = "merchant.pickups.read";
     public const string PickupsCancel = "merchant.pickups.cancel";
+    // Merchant Staff already sees COD amounts embedded in their own shipments via GET
+    // /shipments — a settlements read for the same merchant is no new sensitive exposure, so
+    // this sits at the same Owner+Staff tier as ShipmentRead, not the Owner-only management tier.
+    public const string CodSettlementsRead = "merchant.cod.read";
 
     private static readonly string[] OwnerPermissions =
     {
-        ProfileRead, ProfileUpdate, StaffManage, KycUpload, ShipmentCreate, ShipmentRead, ShipmentCancel, WebhooksManage, ApiKeysManage, PickupsCreate, PickupsRead, PickupsCancel
+        ProfileRead, ProfileUpdate, StaffManage, KycUpload, ShipmentCreate, ShipmentRead, ShipmentCancel, WebhooksManage, ApiKeysManage, PickupsCreate, PickupsRead, PickupsCancel, CodSettlementsRead
     };
 
     private static readonly string[] StaffPermissions =
     {
-        ProfileRead, KycUpload, ShipmentCreate, ShipmentRead, ShipmentCancel, PickupsCreate, PickupsRead, PickupsCancel
+        ProfileRead, KycUpload, ShipmentCreate, ShipmentRead, ShipmentCancel, PickupsCreate, PickupsRead, PickupsCancel, CodSettlementsRead
     };
 
     public static readonly IReadOnlyDictionary<MerchantUserRole, IReadOnlySet<string>> RolePermissions =

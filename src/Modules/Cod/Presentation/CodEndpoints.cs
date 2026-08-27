@@ -1,5 +1,6 @@
 using Courier.Cod.Application;
 using Courier.Cod.Domain;
+using Courier.Merchants.Application;
 using Courier.SharedKernel;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -66,6 +67,27 @@ public static class CodEndpoints
         group.MapPost("/adjustments/{id:guid}/approve", async (Guid id, CodService service, HttpContext httpContext) =>
             await HandleAsync(() => service.ApproveAdjustmentAsync(id, httpContext.User, httpContext.RequestAborted)))
             .RequirePermission("cod.adjust");
+
+        // Additive merchant-facing read path — the existing /merchant-settlements routes above
+        // stay staff-only and untouched. Reuses the exact same CodService methods, which already
+        // self-scope a merchant-JWT-or-API-key caller to GetMerchantId() (confirmed in Task 11's
+        // exploration) — no service change needed, only these new route registrations.
+        var merchantGroup = app.MapGroup("/api/v1/cod/settlements")
+            .RequireAuthorization(policy => policy
+                .AddAuthenticationSchemes(AuthSchemes.Bearer, AuthSchemes.ApiKey)
+                .RequireAssertion(ctx => ctx.User.Identity?.IsAuthenticated == true))
+            .RequireApiKeyRateLimit()
+            .WithTags("COD Management");
+
+        merchantGroup.MapGet("/", async (CodService service, HttpContext httpContext) =>
+            Results.Ok(await service.ListMerchantSettlementsAsync(null, httpContext.User, httpContext.RequestAborted)))
+            .RequireMerchantPermissionAnyCredential(MerchantPermissionCatalog.CodSettlementsRead);
+
+        merchantGroup.MapGet("/{id:guid}", async (Guid id, CodService service, HttpContext httpContext) =>
+        {
+            var result = await service.GetMerchantSettlementByIdAsync(id, httpContext.User, httpContext.RequestAborted);
+            return result is null ? Results.NotFound() : Results.Ok(result);
+        }).RequireMerchantPermissionAnyCredential(MerchantPermissionCatalog.CodSettlementsRead);
     }
 
     private static async Task<IResult> HandleAsync<T>(Func<Task<T>> operation)

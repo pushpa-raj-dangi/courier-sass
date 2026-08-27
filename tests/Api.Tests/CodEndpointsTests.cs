@@ -94,6 +94,56 @@ public class CodEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
         return merchant!.Id;
     }
 
+    // Task 11: mirrors PickupsEndpointsTests.cs's CreateMerchantWithLoginAsync/LoginMerchantAsync —
+    // the plain CreateMerchantAsync above only hands back the new merchant's Id (fine for the
+    // staff-only settlement-creation flow), but the new merchant-facing GET /api/v1/cod/settlements
+    // routes need an authenticated merchant JWT to call as.
+    private async Task<(Guid MerchantId, string OwnerEmail, string Password)> CreateMerchantWithLoginAsync(HttpClient staffClient, string label)
+    {
+        var ownerEmail = $"cod-owner-{label}-{Guid.NewGuid():N}@example.com";
+        var request = new CreateMerchantRequest(
+            $"Cod Shipper {label} Pvt. Ltd.", $"Cod Shipper {label}", "01-4444444", $"cod-shipper-{label}@example.com",
+            ownerEmail, "P@ssw0rd123!", "Owner",
+            KathmanduProvinceId, KathmanduDistrictId, KathmanduLocalLevelId, KathmanduWardNumber, $"Address {label}");
+        var response = await staffClient.PostAsJsonAsync("/api/v1/merchants", request);
+        response.EnsureSuccessStatusCode();
+        var merchant = await response.Content.ReadFromJsonAsync<MerchantResponse>();
+        return (merchant!.Id, ownerEmail, "P@ssw0rd123!");
+    }
+
+    private async Task<HttpClient> LoginMerchantAsync(string ownerEmail, string password)
+    {
+        var client = _factory.CreateClient();
+        var loginResponse = await client.PostAsJsonAsync("/api/v1/merchant/auth/login", new MerchantLoginRequest(ownerEmail, password));
+        loginResponse.EnsureSuccessStatusCode();
+        var auth = await loginResponse.Content.ReadFromJsonAsync<MerchantAuthResult>();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth!.AccessToken);
+        return client;
+    }
+
+    // Books+delivers a COD shipment for the given merchant and walks the resulting COD collection
+    // all the way through rider/branch/finance settlement into a Created MerchantSettlement, using
+    // the existing staff-only creation flow proven by FullCodChain_... above. Used by Task 11's
+    // merchant-facing settlement-read tests as a way to seed a real MerchantSettlement row.
+    private async Task<MerchantSettlementResponse> SeedMerchantSettlementAsync(
+        HttpClient staffClient, Guid merchantId, Guid originBranchId, Guid destinationBranchId, Guid serviceTypeId,
+        Guid pickupRiderId, Guid deliveryRiderId, decimal codAmount)
+    {
+        await BookAndCompleteCodDeliveryAsync(staffClient, merchantId, originBranchId, destinationBranchId, serviceTypeId, pickupRiderId, deliveryRiderId, codAmount);
+
+        var riderSettlement = await (await staffClient.PostAsJsonAsync("/api/v1/cod/rider-settlements",
+            new CreateRiderSettlementRequest(deliveryRiderId, destinationBranchId, codAmount))).Content.ReadFromJsonAsync<RiderCashSettlementResponse>();
+        var branchSettlement = await (await staffClient.PostAsJsonAsync("/api/v1/cod/branch-settlements",
+            new CreateBranchSettlementRequest(destinationBranchId, new List<Guid> { riderSettlement!.Id }, codAmount))).Content.ReadFromJsonAsync<BranchCashSettlementResponse>();
+        var financeVerifyResponse = await staffClient.PostAsJsonAsync("/api/v1/cod/finance-verifications", new CreateFinanceVerificationRequest(branchSettlement!.Id, codAmount));
+        financeVerifyResponse.EnsureSuccessStatusCode();
+
+        var merchantSettlementResponse = await staffClient.PostAsJsonAsync("/api/v1/cod/merchant-settlements",
+            new CreateMerchantSettlementRequest(merchantId, DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(1)));
+        merchantSettlementResponse.EnsureSuccessStatusCode();
+        return (await merchantSettlementResponse.Content.ReadFromJsonAsync<MerchantSettlementResponse>())!;
+    }
+
     private async Task<Guid> CreateRiderAsync(HttpClient client, Guid branchId, RiderRoleType roleType)
     {
         var suffix = Guid.NewGuid().ToString("N");
@@ -234,5 +284,146 @@ public class CodEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
         Assert.Equal(4, responses.Count(r => r.StatusCode == HttpStatusCode.BadRequest));
         var afterRace = await GetCollectionForShipmentAsync(client, shipment.Id);
         Assert.Equal(CodCollectionStatus.FinanceVerified, afterRace.Status);
+    }
+
+    // ---- Task 11: merchant-facing GET /api/v1/cod/settlements, GET /api/v1/cod/settlements/{id} ----
+
+    [Fact]
+    public async Task MerchantSettlements_MerchantJwt_SeesOwnSettlement()
+    {
+        var staffClient = _factory.CreateClient();
+        var org = await RegisterOrgAsync(staffClient, "merchant-own");
+        staffClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (originBranchId, destinationBranchId, serviceTypeId) = await SeedBranchesAsync(staffClient);
+        var pickupRiderId = await CreateRiderAsync(staffClient, originBranchId, RiderRoleType.PickupRider);
+        var deliveryRiderId = await CreateRiderAsync(staffClient, destinationBranchId, RiderRoleType.DeliveryRider);
+        var (merchantId, ownerEmail, password) = await CreateMerchantWithLoginAsync(staffClient, "own");
+
+        var settlement = await SeedMerchantSettlementAsync(staffClient, merchantId, originBranchId, destinationBranchId, serviceTypeId, pickupRiderId, deliveryRiderId, 2500m);
+
+        var merchantClient = await LoginMerchantAsync(ownerEmail, password);
+
+        var listResponse = await merchantClient.GetAsync("/api/v1/cod/settlements");
+        Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
+        var list = await listResponse.Content.ReadFromJsonAsync<List<MerchantSettlementResponse>>();
+        Assert.Contains(list!, s => s.Id == settlement.Id);
+
+        var getResponse = await merchantClient.GetAsync($"/api/v1/cod/settlements/{settlement.Id}");
+        Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
+        var fetched = await getResponse.Content.ReadFromJsonAsync<MerchantSettlementResponse>();
+        Assert.Equal(settlement.Id, fetched!.Id);
+        Assert.Equal(merchantId, fetched.MerchantId);
+    }
+
+    [Fact]
+    public async Task MerchantSettlements_MerchantJwt_NoSettlements_Returns200Empty()
+    {
+        var staffClient = _factory.CreateClient();
+        var org = await RegisterOrgAsync(staffClient, "merchant-empty");
+        staffClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (merchantId, ownerEmail, password) = await CreateMerchantWithLoginAsync(staffClient, "empty");
+        _ = merchantId;
+
+        var merchantClient = await LoginMerchantAsync(ownerEmail, password);
+
+        var listResponse = await merchantClient.GetAsync("/api/v1/cod/settlements");
+
+        // Must be 200 + empty, not an error — a merchant with no settlements yet is a normal,
+        // expected state, not a failure.
+        Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
+        var list = await listResponse.Content.ReadFromJsonAsync<List<MerchantSettlementResponse>>();
+        Assert.Empty(list!);
+    }
+
+    [Fact]
+    public async Task MerchantSettlements_MerchantJwt_ForeignSettlementId_Returns404NotForbidden()
+    {
+        var staffClient = _factory.CreateClient();
+        var org = await RegisterOrgAsync(staffClient, "merchant-foreign");
+        staffClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (originBranchId, destinationBranchId, serviceTypeId) = await SeedBranchesAsync(staffClient);
+        var pickupRiderId = await CreateRiderAsync(staffClient, originBranchId, RiderRoleType.PickupRider);
+        var deliveryRiderId = await CreateRiderAsync(staffClient, destinationBranchId, RiderRoleType.DeliveryRider);
+
+        var (merchantAId, ownerEmailA, passwordA) = await CreateMerchantWithLoginAsync(staffClient, "foreign-a");
+        var settlementA = await SeedMerchantSettlementAsync(staffClient, merchantAId, originBranchId, destinationBranchId, serviceTypeId, pickupRiderId, deliveryRiderId, 2500m);
+
+        var (_, ownerEmailB, passwordB) = await CreateMerchantWithLoginAsync(staffClient, "foreign-b");
+        var merchantBClient = await LoginMerchantAsync(ownerEmailB, passwordB);
+
+        var getResponse = await merchantBClient.GetAsync($"/api/v1/cod/settlements/{settlementA.Id}");
+
+        // 404, not 403: a 403 would confirm the id exists but belongs to someone else, leaking
+        // its existence. CodService.GetMerchantSettlementByIdAsync returns null (not a
+        // forbidden-style signal) for a settlement owned by a different merchant, same as it does
+        // for a genuinely nonexistent id — the two cases must be indistinguishable to the caller.
+        Assert.Equal(HttpStatusCode.NotFound, getResponse.StatusCode);
+
+        // Cross-check: a truly nonexistent id produces the identical 404, proving the foreign-id
+        // response above isn't coincidentally a 404 for some unrelated reason.
+        var getMissingResponse = await merchantBClient.GetAsync($"/api/v1/cod/settlements/{Guid.NewGuid()}");
+        Assert.Equal(HttpStatusCode.NotFound, getMissingResponse.StatusCode);
+
+        // Merchant B's list must not contain A's settlement either.
+        var listResponse = await merchantBClient.GetAsync("/api/v1/cod/settlements");
+        Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
+        var list = await listResponse.Content.ReadFromJsonAsync<List<MerchantSettlementResponse>>();
+        Assert.DoesNotContain(list!, s => s.Id == settlementA.Id);
+    }
+
+    [Fact]
+    public async Task MerchantSettlements_ApiKeyCallerScopedForCodSettlementsRead_CanList()
+    {
+        var staffClient = _factory.CreateClient();
+        var org = await RegisterOrgAsync(staffClient, "merchant-apikey");
+        staffClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (originBranchId, destinationBranchId, serviceTypeId) = await SeedBranchesAsync(staffClient);
+        var pickupRiderId = await CreateRiderAsync(staffClient, originBranchId, RiderRoleType.PickupRider);
+        var deliveryRiderId = await CreateRiderAsync(staffClient, destinationBranchId, RiderRoleType.DeliveryRider);
+        var (merchantId, ownerEmail, password) = await CreateMerchantWithLoginAsync(staffClient, "apikey");
+
+        var settlement = await SeedMerchantSettlementAsync(staffClient, merchantId, originBranchId, destinationBranchId, serviceTypeId, pickupRiderId, deliveryRiderId, 2500m);
+
+        var merchantClient = await LoginMerchantAsync(ownerEmail, password);
+        var createKeyResponse = await merchantClient.PostAsJsonAsync("/api/v1/merchant/api-keys",
+            new CreateApiKeyRequest(new[] { MerchantPermissionCatalog.CodSettlementsRead }));
+        createKeyResponse.EnsureSuccessStatusCode();
+        var apiKey = await createKeyResponse.Content.ReadFromJsonAsync<ApiKeyCreatedResponse>();
+
+        var apiKeyClient = _factory.CreateClient();
+        apiKeyClient.DefaultRequestHeaders.Add("X-Api-Key", apiKey!.PlaintextKey);
+
+        var listResponse = await apiKeyClient.GetAsync("/api/v1/cod/settlements");
+
+        Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
+        var list = await listResponse.Content.ReadFromJsonAsync<List<MerchantSettlementResponse>>();
+        Assert.Contains(list!, s => s.Id == settlement.Id);
+    }
+
+    // Regression guard: proves this task's additive route group left the existing staff-only
+    // /api/v1/cod/merchant-settlements route (single-scheme .RequireAuthorization() +
+    // .RequirePermission("cod.read")) untouched — a staff JWT can still call it exactly as before.
+    [Fact]
+    public async Task ExistingStaffMerchantSettlementsRoute_StillWorks_Unmodified()
+    {
+        var staffClient = _factory.CreateClient();
+        var org = await RegisterOrgAsync(staffClient, "staff-regression");
+        staffClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (originBranchId, destinationBranchId, serviceTypeId) = await SeedBranchesAsync(staffClient);
+        var pickupRiderId = await CreateRiderAsync(staffClient, originBranchId, RiderRoleType.PickupRider);
+        var deliveryRiderId = await CreateRiderAsync(staffClient, destinationBranchId, RiderRoleType.DeliveryRider);
+        var (merchantId, _, _) = await CreateMerchantWithLoginAsync(staffClient, "staff-regression");
+
+        var settlement = await SeedMerchantSettlementAsync(staffClient, merchantId, originBranchId, destinationBranchId, serviceTypeId, pickupRiderId, deliveryRiderId, 2500m);
+
+        var listResponse = await staffClient.GetAsync("/api/v1/cod/merchant-settlements");
+        Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
+        var list = await listResponse.Content.ReadFromJsonAsync<List<MerchantSettlementResponse>>();
+        Assert.Contains(list!, s => s.Id == settlement.Id);
+
+        var getResponse = await staffClient.GetAsync($"/api/v1/cod/merchant-settlements/{settlement.Id}");
+        Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
+        var fetched = await getResponse.Content.ReadFromJsonAsync<MerchantSettlementResponse>();
+        Assert.Equal(settlement.Id, fetched!.Id);
     }
 }
