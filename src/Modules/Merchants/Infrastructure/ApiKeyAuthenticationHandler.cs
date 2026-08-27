@@ -45,7 +45,14 @@ public class ApiKeyAuthenticationHandler : AuthenticationHandler<AuthenticationS
         // Global Constraints, same reasoning as public tracking (Task 12).
         var apiKey = await _dbContext.Set<ApiKey>().IgnoreQueryFilters()
             .FirstOrDefaultAsync(k => k.Prefix == prefix);
-        if (apiKey is null || !apiKey.IsActive || apiKey.RevokedAt is not null)
+        // API_KEY_INVALID = the credential does not exist / is malformed; API_KEY_REVOKED = it
+        // existed but was explicitly revoked or deactivated. A prefix that was never issued was
+        // never revoked, so the two cases are kept distinct.
+        if (apiKey is null)
+        {
+            return AuthenticateResult.Fail("API_KEY_INVALID");
+        }
+        if (!apiKey.IsActive || apiKey.RevokedAt is not null)
         {
             return AuthenticateResult.Fail("API_KEY_REVOKED");
         }

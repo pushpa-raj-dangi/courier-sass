@@ -31,7 +31,27 @@ public class ApiKeyService
             ?? throw new MerchantValidationException("Acting merchant user could not be resolved.");
 
         var grantablePermissions = MerchantPermissionCatalog.RolePermissions[actingMerchantUser.Role];
-        var scopes = request.Scopes is { Length: > 0 } ? request.Scopes : grantablePermissions.ToArray();
+
+        // An API key can never manage other API keys — key management is JWT-only by design
+        // (ApiKeyEndpoints stays on the JWT-only RequireMerchantPermission extension). Enforcing
+        // it here too means that carve-out no longer rests on a single layer: even if those routes
+        // were ever widened to the any-credential extension, no issued key would hold the scope.
+        // An explicit request is rejected loudly rather than silently stripped; the defaulted
+        // grant just drops it.
+        string[] scopes;
+        if (request.Scopes is { Length: > 0 })
+        {
+            if (request.Scopes.Contains(MerchantPermissionCatalog.ApiKeysManage))
+            {
+                throw new MerchantValidationException($"API keys can never be granted {MerchantPermissionCatalog.ApiKeysManage} — key management is JWT-only by design.");
+            }
+            scopes = request.Scopes;
+        }
+        else
+        {
+            scopes = grantablePermissions.Where(p => p != MerchantPermissionCatalog.ApiKeysManage).ToArray();
+        }
+
         var invalidScope = scopes.FirstOrDefault(s => !grantablePermissions.Contains(s));
         if (invalidScope is not null)
         {

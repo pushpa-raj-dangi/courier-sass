@@ -88,9 +88,20 @@ public class IdempotencyMiddleware
         capturedBody.Position = 0;
         var responseText = await new StreamReader(capturedBody).ReadToEndAsync();
         capturedBody.Position = 0;
+        // The caller always sees the real response, cached or not — only the *caching* below is
+        // conditional.
         await capturedBody.CopyToAsync(originalBody);
 
-        await idempotencyStore.StoreAsync(storeKey, new IdempotencyRecord(bodyHash, context.Response.StatusCode, responseText), TimeSpan.FromHours(24), context.RequestAborted);
+        // Cache only a successful response. A non-2xx isn't "the same operation succeeded twice",
+        // it's a request that never really completed — most importantly a 429 from
+        // ApiKeyRateLimitFilter, which short-circuits *inside* the region captured here and returns
+        // normally (no exception), so without this gate a rate-limited merchant would have their
+        // Idempotency-Key poisoned with that 429 for 24 hours and every legitimate retry would
+        // replay the failure (minus the Retry-After header) instead of actually retrying.
+        if (context.Response.StatusCode is >= 200 and < 300)
+        {
+            await idempotencyStore.StoreAsync(storeKey, new IdempotencyRecord(bodyHash, context.Response.StatusCode, responseText), TimeSpan.FromHours(24), context.RequestAborted);
+        }
     }
 
     private static bool IsIdempotentRoute(HttpRequest request)

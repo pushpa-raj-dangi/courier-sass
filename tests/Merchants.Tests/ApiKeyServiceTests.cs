@@ -56,7 +56,7 @@ public class ApiKeyServiceTests
     }
 
     [Fact]
-    public async Task CreateApiKeyAsync_NoScopesRequested_DefaultsToAllOfCreatorsPermissions()
+    public async Task CreateApiKeyAsync_NoScopesRequested_DefaultsToAllOfCreatorsPermissionsExceptApiKeysManage()
     {
         await using var dbContext = CreateContext();
         var merchantId = Guid.NewGuid();
@@ -65,7 +65,49 @@ public class ApiKeyServiceTests
 
         var result = await service.CreateApiKeyAsync(new CreateApiKeyRequest(), OwnerPrincipal(owner.Id, merchantId));
 
-        Assert.Equal(MerchantPermissionCatalog.RolePermissions[MerchantUserRole.Owner].OrderBy(s => s), result.Scopes.OrderBy(s => s));
+        var expected = MerchantPermissionCatalog.RolePermissions[MerchantUserRole.Owner]
+            .Where(s => s != MerchantPermissionCatalog.ApiKeysManage)
+            .OrderBy(s => s);
+        Assert.Equal(expected, result.Scopes.OrderBy(s => s));
+    }
+
+    // Defense-in-depth for the "an API key can never manage other API keys" carve-out: an Owner
+    // holds merchant.apikeys.manage, but a key defaulted from that Owner's permissions must not
+    // carry it, so the carve-out no longer rests solely on ApiKeyEndpoints staying JWT-only.
+    [Fact]
+    public async Task CreateApiKeyAsync_NoScopesRequested_NeverGrantsApiKeysManage()
+    {
+        await using var dbContext = CreateContext();
+        var merchantId = Guid.NewGuid();
+        var owner = await SeedOwnerAsync(dbContext, merchantId, Guid.NewGuid());
+        var service = new ApiKeyService(dbContext, new NoopAuditLogger());
+
+        var result = await service.CreateApiKeyAsync(new CreateApiKeyRequest(), OwnerPrincipal(owner.Id, merchantId));
+
+        // The Owner role genuinely holds it — this is not a vacuous assertion.
+        Assert.Contains(MerchantPermissionCatalog.ApiKeysManage, MerchantPermissionCatalog.RolePermissions[MerchantUserRole.Owner]);
+        Assert.DoesNotContain(MerchantPermissionCatalog.ApiKeysManage, result.Scopes);
+        var stored = await dbContext.Set<ApiKey>().SingleAsync(k => k.Id == result.Id);
+        Assert.DoesNotContain(MerchantPermissionCatalog.ApiKeysManage, stored.Scopes);
+    }
+
+    // Explicitly asking for it fails loudly rather than being silently stripped — the caller asked
+    // for something that will never be honoured.
+    [Fact]
+    public async Task CreateApiKeyAsync_ExplicitlyRequestsApiKeysManage_ThrowsValidationException()
+    {
+        await using var dbContext = CreateContext();
+        var merchantId = Guid.NewGuid();
+        var owner = await SeedOwnerAsync(dbContext, merchantId, Guid.NewGuid());
+        var service = new ApiKeyService(dbContext, new NoopAuditLogger());
+
+        var exception = await Assert.ThrowsAsync<MerchantValidationException>(() =>
+            service.CreateApiKeyAsync(
+                new CreateApiKeyRequest(new[] { MerchantPermissionCatalog.ShipmentRead, MerchantPermissionCatalog.ApiKeysManage }),
+                OwnerPrincipal(owner.Id, merchantId)));
+
+        Assert.Contains(MerchantPermissionCatalog.ApiKeysManage, exception.Message);
+        Assert.Empty(await dbContext.Set<ApiKey>().ToListAsync());
     }
 
     [Fact]

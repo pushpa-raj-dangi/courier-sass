@@ -23,6 +23,23 @@ public class MerchantAuthorizationChecker : IMerchantAuthorizationChecker
         var scopesClaim = user.FindFirst("api_key_scopes")?.Value;
         if (scopesClaim is not null)
         {
+            // The owning Merchant must still be active for an API-key credential too — the same
+            // invariant the MerchantUser path below enforces. Declaring it for only one credential
+            // type would mean a future merchant-deactivation feature silently leaves every issued
+            // API key working.
+            var apiKeyMerchantId = user.GetMerchantId();
+            if (apiKeyMerchantId is null)
+            {
+                return false;
+            }
+
+            var apiKeyMerchant = await _dbContext.Set<Merchant>()
+                .FirstOrDefaultAsync(m => m.Id == apiKeyMerchantId, cancellationToken);
+            if (apiKeyMerchant is null || !apiKeyMerchant.IsActive)
+            {
+                return false;
+            }
+
             return scopesClaim.Split(' ', StringSplitOptions.RemoveEmptyEntries).Contains(permission);
         }
 

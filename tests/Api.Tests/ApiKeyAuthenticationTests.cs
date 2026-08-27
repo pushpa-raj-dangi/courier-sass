@@ -322,25 +322,44 @@ public class ApiKeyAuthenticationTests : IClassFixture<WebApplicationFactory<Pro
         Assert.Equal(HttpStatusCode.Forbidden, forbiddenResponse.StatusCode);
     }
 
-    // Security carve-out proof (Global Constraints / Task 5 brief): RequireMerchantPermission
-    // (used by ApiKeyEndpoints, unlike RequireMerchantPermissionAnyCredential used by Webhooks and
-    // Shipments' manual dual-auth branch) accepts only the "Bearer" scheme — an API key must never
-    // be able to create/list/revoke another API key, even one scoped with ApiKeysManage.
+    // Security carve-out proof (Global Constraints / Task 5 brief), first layer: no API key can
+    // ever be issued carrying ApiKeysManage at all — an explicit request for it is rejected
+    // outright rather than silently stripped.
     [Fact]
-    public async Task ApiKeyWithApiKeysManageScope_CannotCreateAnotherApiKey_Returns401()
+    public async Task CreatingApiKeyWithApiKeysManageScope_IsRejected_Returns400()
     {
-        var ownerClient = await CreateOwnerClientAsync("selfescalation");
+        var ownerClient = await CreateOwnerClientAsync("scoperejected");
 
         var keyResponse = await ownerClient.PostAsJsonAsync("/api/v1/merchant/api-keys",
             new CreateApiKeyRequest(new[] { MerchantPermissionCatalog.ApiKeysManage }));
+
+        Assert.Equal(HttpStatusCode.BadRequest, keyResponse.StatusCode);
+        var body = await keyResponse.Content.ReadAsStringAsync();
+        Assert.Contains(MerchantPermissionCatalog.ApiKeysManage, body);
+    }
+
+    // Second (independent) layer: RequireMerchantPermission (used by ApiKeyEndpoints, unlike
+    // RequireMerchantPermissionAnyCredential used by Webhooks and Shipments' manual dual-auth
+    // branch) accepts only the "Bearer" scheme — an API key must never be able to create/list/
+    // revoke another API key, whatever scopes it holds.
+    [Fact]
+    public async Task ApiKey_CannotCreateAnotherApiKey_Returns401()
+    {
+        var ownerClient = await CreateOwnerClientAsync("selfescalation");
+
+        var keyResponse = await ownerClient.PostAsJsonAsync("/api/v1/merchant/api-keys", new CreateApiKeyRequest());
         keyResponse.EnsureSuccessStatusCode();
         var apiKey = await keyResponse.Content.ReadFromJsonAsync<ApiKeyCreatedResponse>();
+        // Belt-and-braces: the default grant really did drop ApiKeysManage.
+        Assert.DoesNotContain(MerchantPermissionCatalog.ApiKeysManage, apiKey!.Scopes);
 
         var apiKeyClient = _factory.CreateClient();
-        apiKeyClient.DefaultRequestHeaders.Add("X-Api-Key", apiKey!.PlaintextKey);
+        apiKeyClient.DefaultRequestHeaders.Add("X-Api-Key", apiKey.PlaintextKey);
 
         var selfEscalationAttempt = await apiKeyClient.PostAsJsonAsync("/api/v1/merchant/api-keys", new CreateApiKeyRequest());
+        var listAttempt = await apiKeyClient.GetAsync("/api/v1/merchant/api-keys");
 
         Assert.Equal(HttpStatusCode.Unauthorized, selfEscalationAttempt.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, listAttempt.StatusCode);
     }
 }

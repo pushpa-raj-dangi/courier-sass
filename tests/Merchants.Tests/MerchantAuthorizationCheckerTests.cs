@@ -28,9 +28,10 @@ public class MerchantAuthorizationCheckerTests
         new Claim("sub", userId.ToString())
     }, "test"));
 
-    private static ClaimsPrincipal ApiKeyPrincipal(params string[] scopes) => new(new ClaimsIdentity(new[]
+    private static ClaimsPrincipal ApiKeyPrincipal(Guid merchantId, params string[] scopes) => new(new ClaimsIdentity(new[]
     {
         new Claim("sub", Guid.NewGuid().ToString()),
+        new Claim("merchant_id", merchantId.ToString()),
         new Claim("api_key_scopes", string.Join(' ', scopes))
     }, "test"));
 
@@ -146,9 +147,12 @@ public class MerchantAuthorizationCheckerTests
     public async Task HasPermissionAsync_ApiKeyPrincipalWithScope_ReturnsTrue()
     {
         await using var dbContext = CreateContext();
+        var merchantId = Guid.NewGuid();
+        dbContext.Set<Merchant>().Add(NewMerchant(merchantId));
+        await dbContext.SaveChangesAsync();
         var checker = new MerchantAuthorizationChecker(dbContext);
 
-        var result = await checker.HasPermissionAsync(ApiKeyPrincipal("shipment.create", "shipment.read"), "shipment.read");
+        var result = await checker.HasPermissionAsync(ApiKeyPrincipal(merchantId, "shipment.create", "shipment.read"), "shipment.read");
 
         Assert.True(result);
     }
@@ -157,9 +161,56 @@ public class MerchantAuthorizationCheckerTests
     public async Task HasPermissionAsync_ApiKeyPrincipalWithoutScope_ReturnsFalse()
     {
         await using var dbContext = CreateContext();
+        var merchantId = Guid.NewGuid();
+        dbContext.Set<Merchant>().Add(NewMerchant(merchantId));
+        await dbContext.SaveChangesAsync();
         var checker = new MerchantAuthorizationChecker(dbContext);
 
-        var result = await checker.HasPermissionAsync(ApiKeyPrincipal("shipment.read"), MerchantPermissionCatalog.ApiKeysManage);
+        var result = await checker.HasPermissionAsync(ApiKeyPrincipal(merchantId, "shipment.read"), MerchantPermissionCatalog.ApiKeysManage);
+
+        Assert.False(result);
+    }
+
+    // An API-key credential must be subject to the same Merchant.IsActive invariant the
+    // MerchantUser path enforces — otherwise a future merchant-deactivation feature would silently
+    // leave every issued API key fully working.
+    [Fact]
+    public async Task HasPermissionAsync_ApiKeyPrincipalUnderInactiveMerchant_ReturnsFalse()
+    {
+        await using var dbContext = CreateContext();
+        var merchantId = Guid.NewGuid();
+        dbContext.Set<Merchant>().Add(NewMerchant(merchantId, isActive: false));
+        await dbContext.SaveChangesAsync();
+        var checker = new MerchantAuthorizationChecker(dbContext);
+
+        var result = await checker.HasPermissionAsync(ApiKeyPrincipal(merchantId, "shipment.create", "shipment.read"), "shipment.read");
+
+        Assert.False(result);
+    }
+
+    // Control for the case above: identical principal and scope, merchant active — still true.
+    [Fact]
+    public async Task HasPermissionAsync_ApiKeyPrincipalUnderActiveMerchant_ReturnsTrue()
+    {
+        await using var dbContext = CreateContext();
+        var merchantId = Guid.NewGuid();
+        dbContext.Set<Merchant>().Add(NewMerchant(merchantId, isActive: true));
+        await dbContext.SaveChangesAsync();
+        var checker = new MerchantAuthorizationChecker(dbContext);
+
+        var result = await checker.HasPermissionAsync(ApiKeyPrincipal(merchantId, "shipment.create", "shipment.read"), "shipment.read");
+
+        Assert.True(result);
+    }
+
+    // A key whose merchant row no longer exists at all is likewise denied.
+    [Fact]
+    public async Task HasPermissionAsync_ApiKeyPrincipalWithUnknownMerchant_ReturnsFalse()
+    {
+        await using var dbContext = CreateContext();
+        var checker = new MerchantAuthorizationChecker(dbContext);
+
+        var result = await checker.HasPermissionAsync(ApiKeyPrincipal(Guid.NewGuid(), "shipment.read"), "shipment.read");
 
         Assert.False(result);
     }

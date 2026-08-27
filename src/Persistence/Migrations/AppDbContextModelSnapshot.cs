@@ -4065,6 +4065,12 @@ namespace Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Courier.Merchants.Domain.Merchant", null)
+                        .WithMany()
+                        .HasForeignKey("MerchantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("Courier.Identity.Domain.Organization", null)
                         .WithMany()
                         .HasForeignKey("OrganizationId")

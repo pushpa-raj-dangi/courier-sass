@@ -26,7 +26,12 @@ public class WebhooksEndpointsTests : IClassFixture<WebApplicationFactory<Progra
 
     private async Task<string> RegisterOrgAndGetStaffTokenAsync(HttpClient client, string label)
     {
-        var suffix = $"{label}-{Guid.NewGuid():N}"[..12];
+        // Truncate the GUID, not the whole label+GUID string: with a 9-character label like
+        // "lifecycle", [..12] left only 2 random hex characters, i.e. 256 possible org slugs/owner
+        // emails across the shared dev database's whole lifetime — this test was failing a growing
+        // fraction of runs on a duplicate-slug 400 from /api/v1/auth/register. Matches the helper
+        // convention already used in IdempotencyTests.cs and RateLimitingTests.cs.
+        var suffix = $"{label}-{Guid.NewGuid().ToString("N")[..12]}";
         var request = new RegisterOrganizationRequest(
             $"Webhooks Org {suffix}", $"webhooks-org-{suffix}", $"owner-{suffix}@example.com", "P@ssw0rd123!", "Owner Person");
         var response = await client.PostAsJsonAsync("/api/v1/auth/register", request);

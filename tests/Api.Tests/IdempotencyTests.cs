@@ -11,7 +11,11 @@ using Courier.Merchants.Application;
 using Courier.Pricing.Application;
 using Courier.Pricing.Domain;
 using Courier.Shipments.Application;
+using Courier.SharedKernel;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace Courier.Api.Tests;
@@ -48,7 +52,7 @@ public class IdempotencyTests : IClassFixture<WebApplicationFactory<Program>>
         return auth.AccessToken;
     }
 
-    private async Task<(string OwnerEmail, string Password)> CreateMerchantAsync(HttpClient staffClient, string label)
+    private async Task<(Guid MerchantId, string OwnerEmail, string Password)> CreateMerchantAsync(HttpClient staffClient, string label)
     {
         var ownerEmail = $"owner-{label}-{Guid.NewGuid():N}@example.com";
         var request = new CreateMerchantRequest(
@@ -57,8 +61,19 @@ public class IdempotencyTests : IClassFixture<WebApplicationFactory<Program>>
             KathmanduProvinceId, KathmanduDistrictId, KathmanduLocalLevelId, KathmanduWardNumber, "New Road, Kathmandu");
         var response = await staffClient.PostAsJsonAsync("/api/v1/merchants", request);
         response.EnsureSuccessStatusCode();
-        return (ownerEmail, "P@ssw0rd123!");
+        var merchant = await response.Content.ReadFromJsonAsync<MerchantResponse>();
+        return (merchant!.Id, ownerEmail, "P@ssw0rd123!");
     }
+
+    // Scoped host with a small ApiKeyRequestsPerMinute limit so a test can trip
+    // ApiKeyRateLimitFilter in a handful of requests instead of the real default of 60.
+    // Mirrors RateLimitingTests.cs's CreateFactoryWithLowLimit helper.
+    private WebApplicationFactory<Program> CreateFactoryWithLowApiKeyRateLimit(int limit) =>
+        _factory.WithWebHostBuilder(builder => builder.ConfigureAppConfiguration((_, cfg) =>
+            cfg.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["RateLimiting:ApiKeyRequestsPerMinute"] = limit.ToString()
+            })));
 
     private static CreateBranchRequest ValidBranchRequest(string code, Guid? deliveryZoneId = null) => new(
         code, $"Branch {code}", BranchType.Hub, KathmanduProvinceId, KathmanduDistrictId, KathmanduLocalLevelId, KathmanduWardNumber,
@@ -126,28 +141,29 @@ public class IdempotencyTests : IClassFixture<WebApplicationFactory<Program>>
 
     // Full setup: a fresh org, a routable branch pair with a rate card, and a merchant owner
     // logged in and ready to POST /api/v1/shipments.
-    private async Task<(HttpClient StaffClient, HttpClient OwnerClient, Guid OriginBranchId, Guid DestinationBranchId, Guid ServiceTypeId)> SeedMerchantWithRouteAsync(string label)
+    private async Task<(HttpClient StaffClient, HttpClient OwnerClient, Guid MerchantId, Guid OriginBranchId, Guid DestinationBranchId, Guid ServiceTypeId)> SeedMerchantWithRouteAsync(string label, WebApplicationFactory<Program>? factory = null)
     {
-        var staffClient = _factory.CreateClient();
+        var host = factory ?? _factory;
+        var staffClient = host.CreateClient();
         var staffToken = await RegisterOrgAndGetStaffTokenAsync(staffClient, label);
         staffClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", staffToken);
         var (originBranchId, destinationBranchId, serviceTypeId) = await SeedRoutableBranchesAsync(staffClient);
         await SeedRateCardAsync(staffClient, originBranchId, destinationBranchId, serviceTypeId, 100m);
-        var (ownerEmail, ownerPassword) = await CreateMerchantAsync(staffClient, label);
+        var (merchantId, ownerEmail, ownerPassword) = await CreateMerchantAsync(staffClient, label);
 
-        var ownerClient = _factory.CreateClient();
+        var ownerClient = host.CreateClient();
         var ownerLogin = await ownerClient.PostAsJsonAsync("/api/v1/merchant/auth/login", new MerchantLoginRequest(ownerEmail, ownerPassword));
         ownerLogin.EnsureSuccessStatusCode();
         var ownerAuth = await ownerLogin.Content.ReadFromJsonAsync<MerchantAuthResult>();
         ownerClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ownerAuth!.AccessToken);
 
-        return (staffClient, ownerClient, originBranchId, destinationBranchId, serviceTypeId);
+        return (staffClient, ownerClient, merchantId, originBranchId, destinationBranchId, serviceTypeId);
     }
 
     [Fact]
     public async Task MerchantJwt_SameKeySameBody_ReplaysExactResponse_NoSecondShipmentCreated()
     {
-        var (_, ownerClient, originBranchId, destinationBranchId, serviceTypeId) = await SeedMerchantWithRouteAsync("replay");
+        var (_, ownerClient, _, originBranchId, destinationBranchId, serviceTypeId) = await SeedMerchantWithRouteAsync("replay");
         var request = ValidShipmentRequest(Guid.Empty, originBranchId, destinationBranchId, serviceTypeId);
 
         using var httpRequest1 = new HttpRequestMessage(HttpMethod.Post, "/api/v1/shipments") { Content = JsonContent.Create(request) };
@@ -178,7 +194,7 @@ public class IdempotencyTests : IClassFixture<WebApplicationFactory<Program>>
     [Fact]
     public async Task MerchantJwt_SameKeyDifferentBody_Returns409()
     {
-        var (_, ownerClient, originBranchId, destinationBranchId, serviceTypeId) = await SeedMerchantWithRouteAsync("conflict");
+        var (_, ownerClient, _, originBranchId, destinationBranchId, serviceTypeId) = await SeedMerchantWithRouteAsync("conflict");
         var request1 = ValidShipmentRequest(Guid.Empty, originBranchId, destinationBranchId, serviceTypeId);
         var request2 = request1 with { WeightKg = 0.9m };
 
@@ -204,7 +220,7 @@ public class IdempotencyTests : IClassFixture<WebApplicationFactory<Program>>
     [Fact]
     public async Task MerchantJwt_NoIdempotencyKeyHeader_Returns400()
     {
-        var (_, ownerClient, originBranchId, destinationBranchId, serviceTypeId) = await SeedMerchantWithRouteAsync("missingkey");
+        var (_, ownerClient, _, originBranchId, destinationBranchId, serviceTypeId) = await SeedMerchantWithRouteAsync("missingkey");
         var request = ValidShipmentRequest(Guid.Empty, originBranchId, destinationBranchId, serviceTypeId);
 
         var response = await ownerClient.PostAsJsonAsync("/api/v1/shipments", request);
@@ -253,7 +269,7 @@ public class IdempotencyTests : IClassFixture<WebApplicationFactory<Program>>
     [Fact]
     public async Task ApiKeyCaller_SameKeyDifferentBody_Returns409()
     {
-        var (_, ownerClient, originBranchId, destinationBranchId, serviceTypeId) = await SeedMerchantWithRouteAsync("apikeyidem");
+        var (_, ownerClient, _, originBranchId, destinationBranchId, serviceTypeId) = await SeedMerchantWithRouteAsync("apikeyidem");
 
         var createKeyResponse = await ownerClient.PostAsJsonAsync("/api/v1/merchant/api-keys", new CreateApiKeyRequest());
         createKeyResponse.EnsureSuccessStatusCode();
@@ -282,5 +298,66 @@ public class IdempotencyTests : IClassFixture<WebApplicationFactory<Program>>
         var listResponse = await ownerClient.GetAsync("/api/v1/shipments");
         var shipments = await listResponse.Content.ReadFromJsonAsync<List<ShipmentResponse>>();
         Assert.Single(shipments!);
+    }
+
+    // Final-review finding (critical): ApiKeyRateLimitFilter is an endpoint filter, so its 429
+    // short-circuit happens *inside* the region IdempotencyMiddleware captures and _next returns
+    // normally — no exception. Before the fix, the middleware unconditionally cached whatever
+    // status came back, so a rate-limited merchant's Idempotency-Key was poisoned with that 429
+    // for 24 hours and every subsequent retry replayed the failure (without even a Retry-After
+    // header) instead of actually creating the shipment.
+    [Fact]
+    public async Task ApiKeyCaller_RateLimited429_IsNeverCachedUnderTheIdempotencyKey_AndTheSameKeyStillWorksAfterwards()
+    {
+        using var scopedFactory = CreateFactoryWithLowApiKeyRateLimit(2);
+        var (_, ownerClient, merchantId, originBranchId, destinationBranchId, serviceTypeId) =
+            await SeedMerchantWithRouteAsync("ratelimitidem", scopedFactory);
+
+        var firstKeyResponse = await ownerClient.PostAsJsonAsync("/api/v1/merchant/api-keys", new CreateApiKeyRequest());
+        firstKeyResponse.EnsureSuccessStatusCode();
+        var firstKey = await firstKeyResponse.Content.ReadFromJsonAsync<ApiKeyCreatedResponse>();
+        var firstKeyClient = scopedFactory.CreateClient();
+        firstKeyClient.DefaultRequestHeaders.Add("X-Api-Key", firstKey!.PlaintextKey);
+
+        // Burn this key's quota (limit 2) so the shipment POST below is request #3.
+        Assert.Equal(HttpStatusCode.OK, (await firstKeyClient.GetAsync("/api/v1/shipments")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await firstKeyClient.GetAsync("/api/v1/shipments")).StatusCode);
+
+        var idempotencyKey = $"rl-{Guid.NewGuid():N}";
+        var shipmentRequest = ValidShipmentRequest(null, originBranchId, destinationBranchId, serviceTypeId);
+
+        using var limitedRequest = new HttpRequestMessage(HttpMethod.Post, "/api/v1/shipments") { Content = JsonContent.Create(shipmentRequest) };
+        limitedRequest.Headers.Add("Idempotency-Key", idempotencyKey);
+        var limitedResponse = await firstKeyClient.SendAsync(limitedRequest);
+        Assert.Equal(HttpStatusCode.TooManyRequests, limitedResponse.StatusCode);
+
+        // The direct negative: nothing at all was written to the idempotency store under this key.
+        var idempotencyStore = scopedFactory.Services.GetRequiredService<IIdempotencyStore>();
+        Assert.Null(await idempotencyStore.GetAsync($"{merchantId}:{idempotencyKey}"));
+
+        // And the full loop: a second API key for the SAME merchant (a fresh rate-limit partition —
+        // RedisRateLimiter partitions per ApiKey.Id, while the idempotency store is keyed per
+        // merchant) retrying with the SAME Idempotency-Key actually creates the shipment, proving
+        // the key was never poisoned. This avoids waiting out a real 60-second fixed window.
+        var secondKeyResponse = await ownerClient.PostAsJsonAsync("/api/v1/merchant/api-keys", new CreateApiKeyRequest());
+        secondKeyResponse.EnsureSuccessStatusCode();
+        var secondKey = await secondKeyResponse.Content.ReadFromJsonAsync<ApiKeyCreatedResponse>();
+        var secondKeyClient = scopedFactory.CreateClient();
+        secondKeyClient.DefaultRequestHeaders.Add("X-Api-Key", secondKey!.PlaintextKey);
+
+        using var retryRequest = new HttpRequestMessage(HttpMethod.Post, "/api/v1/shipments") { Content = JsonContent.Create(shipmentRequest) };
+        retryRequest.Headers.Add("Idempotency-Key", idempotencyKey);
+        var retryResponse = await secondKeyClient.SendAsync(retryRequest);
+        Assert.Equal(HttpStatusCode.Created, retryResponse.StatusCode);
+
+        // The successful retry IS cached (the fix narrows what gets stored, it doesn't stop
+        // storing), so the 2xx replay path still works.
+        var storedRecord = await idempotencyStore.GetAsync($"{merchantId}:{idempotencyKey}");
+        Assert.NotNull(storedRecord);
+        Assert.Equal(StatusCodes.Status201Created, storedRecord!.StatusCode);
+
+        var listAfter = await ownerClient.GetAsync("/api/v1/shipments");
+        var shipmentsAfter = await listAfter.Content.ReadFromJsonAsync<List<ShipmentResponse>>();
+        Assert.Single(shipmentsAfter!);
     }
 }

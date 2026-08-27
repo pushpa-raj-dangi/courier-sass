@@ -1,3 +1,4 @@
+using Courier.Merchants.Domain;
 using Courier.Shipments.Domain;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -17,5 +18,9 @@ public class PickupRequestConfiguration : IEntityTypeConfiguration<PickupRequest
         builder.HasIndex(p => p.OrganizationId);
         builder.HasIndex(p => p.MerchantId);
         builder.HasIndex(p => p.BranchId);
+
+        // Same cross-module FK pattern as ShipmentConfiguration's MerchantId — every MerchantId
+        // column in this codebase is a real FK, not a bare index.
+        builder.HasOne<Merchant>().WithMany().HasForeignKey(p => p.MerchantId).OnDelete(DeleteBehavior.Restrict);
     }
 }

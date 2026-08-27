@@ -21,9 +21,10 @@ public static class MerchantPermissionCatalog
     // tier as StaffManage/ProfileUpdate — Owner-only, not shared with Staff (Phase 11).
     public const string WebhooksManage = "merchant.webhooks.manage";
     // API key management is an account-level integration setting, same sensitivity tier as
-    // StaffManage/WebhooksManage — Owner-only. An API key can never hold this scope itself
-    // (enforced by keeping key-management endpoints JWT-only in Task 4, not by this catalog),
-    // which is what keeps an API key from managing/revoking other API keys.
+    // StaffManage/WebhooksManage — Owner-only. An API key can never hold this scope itself: the
+    // key-management endpoints are JWT-only, and ApiKeyService.CreateApiKeyAsync additionally
+    // refuses to ever issue a key carrying this scope. That pair is what keeps an API key from
+    // managing/revoking other API keys.
     public const string ApiKeysManage = "merchant.apikeys.manage";
     public const string PickupsCreate = "merchant.pickups.create";
     public const string PickupsRead = "merchant.pickups.read";
