@@ -101,7 +101,7 @@ Reports
 ├── Domain          (empty — Reports owns no entities of its own)
 ├── Application      (dashboard/export DTOs, IOrgDashboardService,
 │                     IBranchDashboardService, IReportExportService, and the
-│                     six lookup interfaces below — Application-layer contracts,
+│                     five lookup interfaces below — Application-layer contracts,
 │                     each implemented in its owning module's Infrastructure)
 ├── Infrastructure   (CSV-writing helper only — no DbContext, no entities)
 └── Presentation     (ReportsEndpoints: 4 routes)
@@ -167,9 +167,12 @@ public interface IShipmentReportingLookupService
         IReadOnlySet<Guid>? branchIds,
         DateTimeOffset from, DateTimeOffset to, CancellationToken ct = default);
 
-    // Total shipments created in range, per branch — the shared denominator
-    // for NDR Rate / RTO Rate (§8) and Branch Performance volume.
-    Task<IReadOnlyDictionary<Guid, int>> GetShipmentVolumeByBranchAsync(
+    // Shipment IDs created in range, bucketed by DestinationBranchId — the shared input for NDR
+    // Rate / RTO Rate / Branch Performance volume (§8). Returns IDs, not just counts, because
+    // neither NDR nor ReturnShipment carries its own creation timestamp (§5.4) — Reports.
+    // Application resolves this set once, then hands it to INdrReportingLookupService as a plain
+    // `WHERE ShipmentId IN (...)` filter, rather than Ndr needing to know about dates at all.
+    Task<IReadOnlyDictionary<Guid, IReadOnlyList<Guid>>> GetShipmentIdsByDestinationBranchAsync(
         IReadOnlySet<Guid>? branchIds,
         DateTimeOffset from, DateTimeOffset to, CancellationToken ct = default);
 }
@@ -236,23 +239,34 @@ public record DeliverySuccessStats(int Attempts, int Successes);
 public interface INdrReportingLookupService
 {
     // Open NDRs (Status != Resolved) for shipments currently at this branch —
-    // branch dashboard's "Exceptions... open NDRs".
+    // branch dashboard's "Exceptions... open NDRs". Neither NDR nor its
+    // shipment carries a branch column NDR can filter by directly (Phase 9's
+    // established shape), so this reuses NdrService.ListAsync's existing
+    // per-row IShipmentTransitionService.GetScanInfoAsync branch-resolution
+    // loop — org-ambient-filtered NDR rows first, then filtered in memory by
+    // DestinationBranchId. Same cost profile as that existing method; this is
+    // a second, narrower caller of the identical pattern, not a new one.
     Task<int> GetOpenNdrCountForBranchAsync(
         Guid branchId, CancellationToken ct = default);
 
-    // NDR Rate = NDRs created in range / shipments created in range (the
-    // latter supplied by the caller from §5.1's GetShipmentVolumeByBranchAsync
-    // — Ndr has no project reference to Shipments, matching its established
-    // Phase 9 "no cross-module DbSet access" boundary). RTO Rate = shipments
-    // reaching any Rto* status in range / shipments created in range, counted
-    // via ReturnShipment (one row per RTO, per Phase 9).
-    Task<IReadOnlyDictionary<Guid, int>> GetNdrCountByBranchAsync(
-        IReadOnlySet<Guid>? branchIds,
-        DateTimeOffset from, DateTimeOffset to, CancellationToken ct = default);
+    // NDR Rate / RTO Rate (§8) need "created in range", but neither NDR nor
+    // ReturnShipment has a creation timestamp of its own (Phase 9 deliberately
+    // left both thin — NDR creation is driven entirely by the automatic
+    // DELIVERY_FAILED -> NDR_CREATED transition, with no persisted NDR-side
+    // clock). Resolving "in range" therefore has to start from the shipment,
+    // not the NDR row. §5.1's GetShipmentIdsByDestinationBranchAsync already
+    // resolves "shipments created in range, per branch" — Reports.Application
+    // flattens that to one shipment-id set and passes it here as a plain
+    // membership filter; every method below is a single `WHERE ShipmentId IN
+    // (...)` query, org-scoped automatically via NDR/ReturnShipment's own
+    // ambient filter, with no date parameter and no branch parameter of its
+    // own. Reports.Application intersects the returned set back against its
+    // per-branch id lists to get per-branch counts/rates (§8).
+    Task<IReadOnlySet<Guid>> GetShipmentIdsWithAnyNdrAsync(
+        IReadOnlySet<Guid> shipmentIds, CancellationToken ct = default);
 
-    Task<IReadOnlyDictionary<Guid, int>> GetRtoCountByBranchAsync(
-        IReadOnlySet<Guid>? branchIds,
-        DateTimeOffset from, DateTimeOffset to, CancellationToken ct = default);
+    Task<IReadOnlySet<Guid>> GetShipmentIdsWithRtoAsync(
+        IReadOnlySet<Guid> shipmentIds, CancellationToken ct = default);
 }
 ```
 
@@ -356,12 +370,19 @@ function, not a case for a new dependency.
 ## 8. DTO Composition (Application layer)
 
 `Reports.Application.OrgDashboardService` and `BranchDashboardService` are thin
-composers — they call the lookup interfaces above (parallel `Task.WhenAll`
-where independent) and assemble the response DTO; no business logic beyond the
-rate/ratio math already spelled out in §5. `NDR Rate` and `RTO Rate` divide
-§5.4's counts by §5.1's `GetShipmentVolumeByBranchAsync` denominator
-per-branch, then sum for the org-wide figure (avoids the classic "average of
-per-branch rates" mistake when branch volumes differ).
+composers — they call the lookup interfaces above and assemble the response
+DTO; no business logic beyond the rate/ratio math already spelled out in §5.
+For NDR Rate / RTO Rate specifically: `OrgDashboardService` calls §5.1's
+`GetShipmentIdsByDestinationBranchAsync` once, flattens the per-branch id
+lists into one set, passes that set to §5.4's
+`GetShipmentIdsWithAnyNdrAsync`/`GetShipmentIdsWithRtoAsync`, then — entirely
+in-memory, no further DB calls — intersects the returned id sets back against
+each branch's own id list to get a per-branch numerator, dividing by that
+branch's volume (the id list's `Count`) for the per-branch rate, then summing
+numerators/denominators across branches (not averaging the rates) for the
+org-wide figure — avoids the classic "average of per-branch rates" mistake
+when branch volumes differ. These two calls (`Task.WhenAll`) run in parallel
+with the independent Financial/Operational lookups (§5.3/§5.5).
 
 ## 9. Error Codes
 
@@ -376,13 +397,18 @@ error = new { code, message } })` convention (`NdrEndpoints`,
 
 ## 10. Testing
 
-- **Unit** (per-lookup-service, against real Postgres per this project's
-  established "test against the real infra it depends on" convention from
-  Phase 10/11/12): each of the five new lookup implementations, covering both
-  the correctness of its formula/bucketing and — explicitly, per §1's
-  recurring-bug-class note — that it excludes another organization's rows and
-  (where branch-scoped) another branch's rows, even when the caller supplies a
-  guessed/leaked id.
+- **Unit** (per-lookup-service, against real Postgres via the existing
+  `Identity.Tests.TestDbContextFactory`-style fixture — not EF Core InMemory,
+  which most other modules' plain business-logic tests use): each of the five
+  new lookup implementations, covering both the correctness of its
+  formula/bucketing and — explicitly, per §1's recurring-bug-class note —
+  that it excludes another organization's rows and (where branch-scoped)
+  another branch's rows, even when the caller supplies a guessed/leaked id.
+  Real Postgres specifically because these tests are verifying
+  `HasQueryFilter` / ambient-tenant-filter behavior itself, the same reason
+  `Identity.Tests.BranchAuthorizationCheckerTests` already tests against real
+  Postgres rather than InMemory — not a blanket "this phase uses real infra"
+  rule.
 - **Unit**: `OrgDashboardService`/`BranchDashboardService`'s rate/ratio math
   (division-by-zero when a branch has no shipments in range; NDR/RTO rate
   aggregation across uneven branch volumes per §8) and the CSV writer's
