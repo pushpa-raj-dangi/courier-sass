@@ -16,8 +16,8 @@ public static class NdrEndpoints
         .WithTags("NDRS Management")
         .RequireAuthorization();
 
-        group.MapGet("/", async (NdrStatus? status, NdrService service, HttpContext httpContext) =>
-            Results.Ok(await service.ListAsync(status, httpContext.User, httpContext.RequestAborted)))
+        group.MapGet("/", async (NdrStatus? status, int? page, int? pageSize, NdrService service, HttpContext httpContext) =>
+            Results.Ok(await service.ListAsync(status, page, pageSize, httpContext.User, httpContext.RequestAborted)))
             .RequirePermission("ndr.read");
 
         group.MapGet("/{id:guid}", async (Guid id, NdrService service, HttpContext httpContext) =>

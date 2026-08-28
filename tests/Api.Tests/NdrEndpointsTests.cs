@@ -17,6 +17,7 @@ using Courier.Riders.Application;
 using Courier.Riders.Domain;
 using Courier.Shipments.Application;
 using Courier.Shipments.Domain;
+using Courier.SharedKernel;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
 
@@ -137,8 +138,39 @@ public class NdrEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
 
     private async Task<NdrResponse> GetOpenNdrForShipmentAsync(HttpClient client, Guid shipmentId)
     {
-        var ndrs = await (await client.GetAsync("/api/v1/ndrs")).Content.ReadFromJsonAsync<List<NdrResponse>>();
-        return ndrs!.Single(n => n.ShipmentId == shipmentId);
+        var ndrs = await (await client.GetAsync("/api/v1/ndrs?pageSize=200")).Content.ReadFromJsonAsync<PagedResult<NdrResponse>>();
+        return ndrs!.Items.Single(n => n.ShipmentId == shipmentId);
+    }
+
+    [Fact]
+    public async Task List_Paginates_ReturnsDisjointPagesInNewestFirstOrder()
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "ndr-list-page");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (originBranchId, destinationBranchId, serviceTypeId) = await SeedBranchesAsync(client);
+        var merchantId = await CreateMerchantAsync(client);
+        var pickupRiderId = await CreateRiderAsync(client, originBranchId, RiderRoleType.PickupRider);
+        var deliveryRiderId = await CreateRiderAsync(client, destinationBranchId, RiderRoleType.DeliveryRider);
+
+        var failed = new List<ShipmentResponse>();
+        for (var i = 0; i < 3; i++)
+        {
+            var shipment = await BookAndFailDeliveryAsync(client, merchantId, originBranchId, destinationBranchId, serviceTypeId, pickupRiderId, deliveryRiderId);
+            failed.Add(shipment);
+        }
+
+        var page1 = await (await client.GetAsync("/api/v1/ndrs?page=1&pageSize=2")).Content.ReadFromJsonAsync<PagedResult<NdrResponse>>();
+        var page2 = await (await client.GetAsync("/api/v1/ndrs?page=2&pageSize=2")).Content.ReadFromJsonAsync<PagedResult<NdrResponse>>();
+
+        Assert.Equal(3, page1!.TotalCount);
+        Assert.Equal(2, page1.Items.Count);
+        Assert.Single(page2!.Items);
+
+        var page1ShipmentIds = page1.Items.Select(n => n.ShipmentId).ToHashSet();
+        var page2ShipmentIds = page2.Items.Select(n => n.ShipmentId).ToHashSet();
+        Assert.Empty(page1ShipmentIds.Intersect(page2ShipmentIds));
+        Assert.Equal(failed.Select(s => s.Id).ToHashSet(), page1ShipmentIds.Union(page2ShipmentIds).ToHashSet());
     }
 
     [Fact]

@@ -102,9 +102,9 @@ public class NdrServiceListTests
 
         var service = new NdrService(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), shipments, new RestrictedBranchAuthorizationChecker(accessibleBranchId));
 
-        var result = await service.ListAsync(null, ActingUser(Guid.NewGuid()));
+        var result = await service.ListAsync(null, null, null, ActingUser(Guid.NewGuid()));
 
-        var single = Assert.Single(result);
+        var single = Assert.Single(result.Items);
         Assert.Equal(accessibleNdr.Id, single.Id);
     }
 
