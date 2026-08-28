@@ -46,7 +46,7 @@ class RecordingShipmentTransitionService : IShipmentTransitionService
         var response = new ShipmentResponse(
             shipmentId, AwbToReturn, MerchantIdToReturn, Guid.NewGuid(), Guid.NewGuid(), null, null, null,
             ShipmentStatus.NdrCreated, Guid.NewGuid(), 1m, null, null, null, 100m, 0m, false, 100m, 0m, 0m, 100m,
-            "Recipient", "9800000000", "Address", "Sender", "9800000001", "Address", new List<ShipmentItemResponse>());
+            "Recipient", "9800000000", "Address", "Sender", "9800000001", "Address", new List<ShipmentItemResponse>(), DateTimeOffset.UtcNow);
         return Task.FromResult<ShipmentResponse?>(response);
     }
     public Task<ShipmentResponse?> ReattemptDeliveryAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();

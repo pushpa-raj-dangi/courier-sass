@@ -5,7 +5,7 @@ namespace Courier.Cod.Application;
 public record CodCollectionResponse(
     Guid Id, Guid ShipmentId, Guid MerchantId, Guid BranchId, decimal ExpectedAmount, decimal ShipmentTotalCharge,
     decimal? CollectedAmount, CodCollectionStatus Status, Guid? CollectedByRiderId, DateTimeOffset? CollectedAt,
-    Guid? DeliveryProofId, Guid? RiderCashSettlementId, Guid? MerchantSettlementItemId);
+    Guid? DeliveryProofId, Guid? RiderCashSettlementId, Guid? MerchantSettlementItemId, DateTimeOffset CreatedAt);
 
 public record CreateRiderSettlementRequest(Guid RiderId, Guid BranchId, decimal DeclaredAmount);
 

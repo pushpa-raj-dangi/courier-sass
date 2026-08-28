@@ -9,7 +9,8 @@ public record ResolveNdrRequest(NdrResolution Resolution, string? RtoReason);
 
 public record NdrResponse(
     Guid Id, Guid ShipmentId, NdrReason Reason, Guid? AssignedStaffUserId, NdrStatus Status,
-    string? CustomerResponse, DateTimeOffset? FollowUpAt, string? NextAction, NdrResolution? Resolution, DateTimeOffset? ResolvedAt);
+    string? CustomerResponse, DateTimeOffset? FollowUpAt, string? NextAction, NdrResolution? Resolution, DateTimeOffset? ResolvedAt,
+    DateTimeOffset CreatedAt);
 
 public record ReturnShipmentResponse(
     Guid Id, Guid OriginalShipmentId, string ReturnAwb, string RtoReason, Guid OriginBranchId, Guid DestinationBranchId,

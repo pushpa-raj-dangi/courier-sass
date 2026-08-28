@@ -146,6 +146,23 @@ public class ShipmentsEndpointsTests : IClassFixture<WebApplicationFactory<Progr
     }
 
     [Fact]
+    public async Task CreateShipment_SetsCreatedAtCloseToNow()
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "created-at");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (originBranchId, destinationBranchId, serviceTypeId) = await SeedRoutableBranchesAsync(client);
+        await SeedRateCardAsync(client, originBranchId, destinationBranchId, serviceTypeId, 100m);
+        var merchantId = await CreateMerchantAsync(client);
+
+        var before = DateTimeOffset.UtcNow;
+        var shipment = await (await client.PostAsJsonAsync("/api/v1/shipments", ValidShipmentRequest(merchantId, originBranchId, destinationBranchId, serviceTypeId))).Content.ReadFromJsonAsync<ShipmentResponse>();
+        var after = DateTimeOffset.UtcNow;
+
+        Assert.InRange(shipment!.CreatedAt, before, after);
+    }
+
+    [Fact]
     public async Task Shipments_OrgBCannotReadOrgAsShipment()
     {
         var clientA = _factory.CreateClient();

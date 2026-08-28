@@ -10,6 +10,7 @@ public class NdrConfiguration : IEntityTypeConfiguration<NDR>
     {
         builder.ToTable("Ndrs");
         builder.HasKey(n => n.Id);
+        builder.Property(n => n.CreatedAt).HasDefaultValueSql("now()");
         builder.Property(n => n.CustomerResponse).HasMaxLength(1000);
         builder.Property(n => n.NextAction).HasMaxLength(500);
 

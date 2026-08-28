@@ -7,6 +7,7 @@ namespace Courier.Shipments.Domain;
 public class Shipment
 {
     public Guid Id { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
     public Guid OrganizationId { get; set; }
     public required string Awb { get; set; }
     public Guid MerchantId { get; set; }

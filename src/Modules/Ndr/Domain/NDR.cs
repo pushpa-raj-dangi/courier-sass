@@ -14,6 +14,7 @@ namespace Courier.Ndr.Domain;
 public class NDR
 {
     public Guid Id { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
     public Guid OrganizationId { get; set; }
     public Guid ShipmentId { get; set; }
     public NdrReason Reason { get; set; }

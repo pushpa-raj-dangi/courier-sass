@@ -14,6 +14,7 @@ public class ShipmentConfiguration : IEntityTypeConfiguration<Shipment>
     {
         builder.ToTable("Shipments");
         builder.HasKey(s => s.Id);
+        builder.Property(s => s.CreatedAt).HasDefaultValueSql("now()");
         builder.Property(s => s.Awb).HasMaxLength(30).IsRequired();
         builder.Property(s => s.RecipientName).HasMaxLength(200).IsRequired();
         builder.Property(s => s.RecipientPhone).HasMaxLength(30).IsRequired();

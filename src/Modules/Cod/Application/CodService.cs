@@ -49,5 +49,6 @@ public partial class CodService : ICodCollectionCreationService, ICodCollectionS
     private static CodCollectionResponse ToResponse(CODCollection collection) => new(
         collection.Id, collection.ShipmentId, collection.MerchantId, collection.BranchId, collection.ExpectedAmount,
         collection.ShipmentTotalCharge, collection.CollectedAmount, collection.Status, collection.CollectedByRiderId,
-        collection.CollectedAt, collection.DeliveryProofId, collection.RiderCashSettlementId, collection.MerchantSettlementItemId);
+        collection.CollectedAt, collection.DeliveryProofId, collection.RiderCashSettlementId, collection.MerchantSettlementItemId,
+        collection.CreatedAt);
 }

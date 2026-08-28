@@ -260,6 +260,11 @@ namespace Persistence.Migrations
                     b.Property<Guid?>("CollectedByRiderId")
                         .HasColumnType("uuid");
 
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("now()");
+
                     b.Property<Guid?>("DeliveryProofId")
                         .HasColumnType("uuid");
 
@@ -2378,6 +2383,11 @@ namespace Persistence.Migrations
                     b.Property<Guid?>("AssignedStaffUserId")
                         .HasColumnType("uuid");
 
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("now()");
+
                     b.Property<string>("CustomerResponse")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
@@ -3095,6 +3105,11 @@ namespace Persistence.Migrations
                     b.Property<decimal>("CodAmount")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("now()");
 
                     b.Property<Guid?>("CurrentBranchId")
                         .HasColumnType("uuid");

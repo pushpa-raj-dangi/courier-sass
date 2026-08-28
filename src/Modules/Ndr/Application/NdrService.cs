@@ -96,5 +96,6 @@ public partial class NdrService
 
     private static NdrResponse ToResponse(NDR ndr) => new(
         ndr.Id, ndr.ShipmentId, ndr.Reason, ndr.AssignedStaffUserId, ndr.Status,
-        ndr.CustomerResponse, ndr.FollowUpAt, ndr.NextAction, ndr.Resolution, ndr.ResolvedAt);
+        ndr.CustomerResponse, ndr.FollowUpAt, ndr.NextAction, ndr.Resolution, ndr.ResolvedAt,
+        ndr.CreatedAt);
 }

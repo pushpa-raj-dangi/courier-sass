@@ -10,6 +10,7 @@ public class CODCollectionConfiguration : IEntityTypeConfiguration<CODCollection
     {
         builder.ToTable("CODCollections");
         builder.HasKey(c => c.Id);
+        builder.Property(c => c.CreatedAt).HasDefaultValueSql("now()");
         builder.Property(c => c.ExpectedAmount).HasPrecision(18, 2);
         builder.Property(c => c.ShipmentTotalCharge).HasPrecision(18, 2);
         builder.Property(c => c.CollectedAmount).HasPrecision(18, 2);

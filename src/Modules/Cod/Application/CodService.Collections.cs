@@ -13,6 +13,7 @@ public partial class CodService
         var collection = new CODCollection
         {
             Id = Guid.NewGuid(),
+            CreatedAt = DateTimeOffset.UtcNow,
             ShipmentId = shipmentId,
             OrganizationId = organizationId,
             MerchantId = merchantId,

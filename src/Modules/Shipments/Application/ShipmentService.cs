@@ -143,6 +143,7 @@ public partial class ShipmentService : IShipmentTransitionService
             shipment = new Shipment
             {
                 Id = Guid.NewGuid(),
+                CreatedAt = DateTimeOffset.UtcNow,
                 OrganizationId = organizationId,
                 Awb = awb,
                 MerchantId = merchantId,
@@ -283,5 +284,6 @@ public partial class ShipmentService : IShipmentTransitionService
         shipment.DeliveryCharge, shipment.InsuranceCharge, shipment.OtherCharges, shipment.TotalCharge,
         shipment.RecipientName, shipment.RecipientPhone, shipment.RecipientAddressLine,
         shipment.SenderName, shipment.SenderPhone, shipment.SenderAddressLine,
-        items.Select(i => new ShipmentItemResponse(i.Id, i.Description, i.Quantity, i.UnitValue)).ToList());
+        items.Select(i => new ShipmentItemResponse(i.Id, i.Description, i.Quantity, i.UnitValue)).ToList(),
+        shipment.CreatedAt);
 }

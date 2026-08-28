@@ -32,6 +32,7 @@ public class NdrCreationService : INdrCreationService
         var ndr = new NDR
         {
             Id = Guid.NewGuid(),
+            CreatedAt = DateTimeOffset.UtcNow,
             OrganizationId = organizationId,
             ShipmentId = shipmentId,
             Reason = reason,

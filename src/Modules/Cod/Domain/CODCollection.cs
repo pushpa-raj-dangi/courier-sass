@@ -15,6 +15,7 @@ namespace Courier.Cod.Domain;
 public class CODCollection
 {
     public Guid Id { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
     public Guid ShipmentId { get; set; }
     public Guid OrganizationId { get; set; }
     public Guid MerchantId { get; set; }

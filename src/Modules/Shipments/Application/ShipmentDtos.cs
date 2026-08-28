@@ -61,7 +61,8 @@ public record ShipmentResponse(
     string SenderName,
     string SenderPhone,
     string SenderAddressLine,
-    List<ShipmentItemResponse> Items);
+    List<ShipmentItemResponse> Items,
+    DateTimeOffset CreatedAt);
 
 public class ShipmentValidationException : Exception
 {
