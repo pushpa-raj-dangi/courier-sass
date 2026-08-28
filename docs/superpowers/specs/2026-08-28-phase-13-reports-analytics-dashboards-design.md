@@ -30,7 +30,12 @@ merchant portal (12b) — remain a later phase. `src/web` stays untouched.
   totals), `Branches` (branch names for labeling).
 - Phase 5 (Pricing) established this codebase's pattern for cross-module reads:
   the consuming module defines a narrow interface, the owning module implements
-  it in its own `Infrastructure` project, and the consumer never touches another
+  it with a plain class in its own `Application` layer (verified against real
+  code: `IBranchLookupService` -> `Branches.Application.BranchService`,
+  `IMerchantLookupService` -> `Merchants.Application.MerchantLookupService` —
+  `Infrastructure` in this codebase is reserved for things like
+  `BranchAuthorizationChecker`/external adapters, not plain EF LINQ reads
+  against a module's own `DbSet`), and the consumer never touches another
   module's `DbSet` directly. This phase reuses that pattern rather than
   introducing a shared reporting `DbContext` or raw cross-module SQL, which
   CLAUDE.md §3's module-boundary rule would rule out.
@@ -101,16 +106,21 @@ Reports
 ├── Domain          (empty — Reports owns no entities of its own)
 ├── Application      (dashboard/export DTOs, IOrgDashboardService,
 │                     IBranchDashboardService, IReportExportService, and the
-│                     five lookup interfaces below — Application-layer contracts,
-│                     each implemented in its owning module's Infrastructure)
+│                     five lookup interfaces below — Application-layer
+│                     contracts, each implemented by a plain class in its
+│                     owning module's own Application layer)
 ├── Infrastructure   (CSV-writing helper only — no DbContext, no entities)
 └── Presentation     (ReportsEndpoints: 4 routes)
 ```
 
 `Reports.Application`'s services depend on the lookup interfaces via DI; the
-concrete implementations live in `Shipments.Infrastructure`,
-`Manifests.Infrastructure`, `Riders.Infrastructure`, `Ndr.Infrastructure`, and
-`Cod.Infrastructure` (the five new interfaces in §5), plus the two **existing**
+concrete implementations live in `Shipments.Application`,
+`Manifests.Application`, `Riders.Application`, `Ndr.Application`, and
+`Cod.Application` (the five new interfaces in §5, one new plain class per
+module — e.g. `Manifests.Application.ManifestReportingLookupService` — not a
+new partial-class file on the existing `ManifestService`/etc., since these
+reads are unrelated to those services' own responsibilities), plus the two
+**existing**
 Phase-5 interfaces `Branches.Application.IBranchLookupService` and
 `Merchants.Application.IMerchantLookupService` reused as-is (no changes needed
 there) to resolve branch/merchant names for the two CSV exports' `BranchName`/
