@@ -92,6 +92,7 @@ file class NotSupportedUserProvisioningService : IUserProvisioningService
 file class NotSupportedBranchLookup : IBranchLookupService
 {
     public Task<BranchZoneInfo?> GetZoneInfoAsync(Guid branchId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    public Task<IReadOnlyDictionary<Guid, string>> GetNamesByIdsAsync(IReadOnlySet<Guid> branchIds, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 }
 
 // Not file-scoped: returned from SeedAsync's tuple.

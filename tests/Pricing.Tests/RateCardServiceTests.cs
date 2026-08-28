@@ -31,6 +31,8 @@ file class AlwaysTrueGeographyLookup : IGeographyLookupService
 file class AlwaysTrueMerchantLookup : IMerchantLookupService
 {
     public Task<bool> ExistsAsync(Guid merchantId, CancellationToken cancellationToken = default) => Task.FromResult(true);
+    public Task<IReadOnlyDictionary<Guid, string>> GetDisplayNamesByIdsAsync(IReadOnlySet<Guid> merchantIds, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyDictionary<Guid, string>>(new Dictionary<Guid, string>());
 }
 
 public class RateCardServiceTests
