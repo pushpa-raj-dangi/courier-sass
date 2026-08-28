@@ -130,6 +130,20 @@ public class BranchService : IBranchLookupService
         return branch is null ? null : new BranchZoneInfo(branch.Id, branch.DeliveryZoneId);
     }
 
+    public async Task<IReadOnlyDictionary<Guid, string>> GetNamesByIdsAsync(IReadOnlySet<Guid> branchIds, CancellationToken cancellationToken = default)
+    {
+        if (branchIds.Count == 0)
+        {
+            return new Dictionary<Guid, string>();
+        }
+        var idArray = branchIds.ToArray();
+        var rows = await _dbContext.Set<Branch>()
+            .Where(b => idArray.Contains(b.Id))
+            .Select(b => new { b.Id, b.Name })
+            .ToListAsync(cancellationToken);
+        return rows.ToDictionary(r => r.Id, r => r.Name);
+    }
+
     public async Task<BranchResponse?> AssignDeliveryZoneAsync(Guid branchId, AssignDeliveryZoneRequest request, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
         var organizationId = _currentTenantProvider.OrganizationId

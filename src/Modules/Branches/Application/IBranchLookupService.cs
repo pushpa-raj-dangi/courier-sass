@@ -8,4 +8,6 @@ public interface IBranchLookupService
     // existing query filter). A non-null result with DeliveryZoneId == null means the branch
     // exists but has no rating zone assigned yet.
     Task<BranchZoneInfo?> GetZoneInfoAsync(Guid branchId, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyDictionary<Guid, string>> GetNamesByIdsAsync(IReadOnlySet<Guid> branchIds, CancellationToken cancellationToken = default);
 }
