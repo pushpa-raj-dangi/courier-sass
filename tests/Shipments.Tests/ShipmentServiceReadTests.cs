@@ -226,9 +226,9 @@ public class ShipmentServiceReadTests
         await SeedShipmentForMerchantAsync(dbContext, organizationId, otherMerchantId);
         var service = CreateService(dbContext, organizationId, new());
 
-        var result = await service.ListAsync(MerchantUser(merchantId));
+        var result = await service.ListAsync(null, null, MerchantUser(merchantId));
 
-        Assert.All(result, s => Assert.Equal(merchantId, s.MerchantId));
+        Assert.All(result.Items, s => Assert.Equal(merchantId, s.MerchantId));
     }
 
     [Fact]
@@ -240,9 +240,9 @@ public class ShipmentServiceReadTests
         await SeedShipmentForMerchantAsync(dbContext, organizationId, Guid.NewGuid());
         var service = CreateService(dbContext, organizationId, new());
 
-        var result = await service.ListAsync(StaffUser(Guid.NewGuid()));
+        var result = await service.ListAsync(null, null, StaffUser(Guid.NewGuid()));
 
-        Assert.Equal(2, result.Count);
+        Assert.Equal(2, result.Items.Count);
     }
 
     [Fact]
@@ -261,9 +261,9 @@ public class ShipmentServiceReadTests
         var restrictedChecker = new RestrictedBranchesAuthorizationChecker(new HashSet<Guid> { inScope.OriginBranchId });
         var service = CreateService(dbContext, organizationId, new(), restrictedChecker);
 
-        var result = await service.ListAsync(StaffUser(Guid.NewGuid()));
+        var result = await service.ListAsync(null, null, StaffUser(Guid.NewGuid()));
 
-        var resultIds = result.Select(s => s.Id).ToHashSet();
+        var resultIds = result.Items.Select(s => s.Id).ToHashSet();
         Assert.Contains(inScope.Id, resultIds);
         Assert.DoesNotContain(outOfScope.Id, resultIds);
     }

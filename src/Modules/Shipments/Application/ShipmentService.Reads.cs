@@ -22,7 +22,7 @@ public partial class ShipmentService
         return await LoadResponseAsync(shipment.Id, cancellationToken);
     }
 
-    public async Task<List<ShipmentResponse>> ListAsync(ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
+    public async Task<PagedResult<ShipmentResponse>> ListAsync(int? page, int? pageSize, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
         var query = _dbContext.Set<Shipment>().AsQueryable();
         if (actingUser.GetMerchantId() is Guid callerMerchantId)
@@ -52,14 +52,21 @@ public partial class ShipmentService
             }
         }
 
-        var shipments = await query.ToListAsync(cancellationToken);
+        var (normalizedPage, normalizedPageSize) = PaginationDefaults.Normalize(page, pageSize);
+        var totalCount = await query.CountAsync(cancellationToken);
+        var shipments = await query
+            .OrderByDescending(s => s.CreatedAt).ThenBy(s => s.Id)
+            .Skip((normalizedPage - 1) * normalizedPageSize)
+            .Take(normalizedPageSize)
+            .ToListAsync(cancellationToken);
+
         var responses = new List<ShipmentResponse>();
         foreach (var shipment in shipments)
         {
             var items = await _dbContext.Set<ShipmentItem>().Where(i => i.ShipmentId == shipment.Id).ToListAsync(cancellationToken);
             responses.Add(ToResponse(shipment, items));
         }
-        return responses;
+        return new PagedResult<ShipmentResponse>(responses, normalizedPage, normalizedPageSize, totalCount);
     }
 
     public async Task<ShipmentScanInfo?> GetScanInfoAsync(Guid shipmentId, CancellationToken cancellationToken = default)

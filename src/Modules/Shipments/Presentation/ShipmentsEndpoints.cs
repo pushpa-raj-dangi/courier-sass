@@ -71,14 +71,14 @@ public static class ShipmentsEndpoints
             return result is null ? Results.NotFound() : Results.Ok(result);
         });
 
-        group.MapGet("/", async (ShipmentService service, HttpContext httpContext, IPermissionChecker permissionChecker, IMerchantAuthorizationChecker merchantAuthorizationChecker) =>
+        group.MapGet("/", async (int? page, int? pageSize, ShipmentService service, HttpContext httpContext, IPermissionChecker permissionChecker, IMerchantAuthorizationChecker merchantAuthorizationChecker) =>
         {
             if (!await HasReadAccessAsync(httpContext, permissionChecker, merchantAuthorizationChecker))
             {
                 return httpContext.User.GetMerchantId() is null && httpContext.User.GetUserId() is null ? Results.Unauthorized() : Results.Forbid();
             }
 
-            return Results.Ok(await service.ListAsync(httpContext.User, httpContext.RequestAborted));
+            return Results.Ok(await service.ListAsync(page, pageSize, httpContext.User, httpContext.RequestAborted));
         });
 
         group.MapPost("/{id:guid}/receive-origin", async (Guid id, ShipmentService service, HttpContext httpContext) =>

@@ -187,8 +187,8 @@ public class IdempotencyTests : IClassFixture<WebApplicationFactory<Program>>
         Assert.Equal(shipment1.Awb, shipment2.Awb);
 
         var listResponse = await ownerClient.GetAsync("/api/v1/shipments");
-        var shipments = await listResponse.Content.ReadFromJsonAsync<List<ShipmentResponse>>();
-        Assert.Single(shipments!);
+        var shipments = await listResponse.Content.ReadFromJsonAsync<PagedResult<ShipmentResponse>>();
+        Assert.Single(shipments!.Items);
     }
 
     [Fact]
@@ -213,8 +213,8 @@ public class IdempotencyTests : IClassFixture<WebApplicationFactory<Program>>
 
         // Only the first (accepted) request actually created a shipment.
         var listResponse = await ownerClient.GetAsync("/api/v1/shipments");
-        var shipments = await listResponse.Content.ReadFromJsonAsync<List<ShipmentResponse>>();
-        Assert.Single(shipments!);
+        var shipments = await listResponse.Content.ReadFromJsonAsync<PagedResult<ShipmentResponse>>();
+        Assert.Single(shipments!.Items);
     }
 
     [Fact]
@@ -231,8 +231,8 @@ public class IdempotencyTests : IClassFixture<WebApplicationFactory<Program>>
 
         // No shipment should have been created.
         var listResponse = await ownerClient.GetAsync("/api/v1/shipments");
-        var shipments = await listResponse.Content.ReadFromJsonAsync<List<ShipmentResponse>>();
-        Assert.Empty(shipments!);
+        var shipments = await listResponse.Content.ReadFromJsonAsync<PagedResult<ShipmentResponse>>();
+        Assert.Empty(shipments!.Items);
     }
 
     // Regression guard — this is the most important test in this file. If the middleware's
@@ -260,8 +260,8 @@ public class IdempotencyTests : IClassFixture<WebApplicationFactory<Program>>
         Assert.Equal(HttpStatusCode.Created, response2.StatusCode);
 
         var listResponse = await staffClient.GetAsync("/api/v1/shipments");
-        var shipments = await listResponse.Content.ReadFromJsonAsync<List<ShipmentResponse>>();
-        Assert.Equal(2, shipments!.Count);
+        var shipments = await listResponse.Content.ReadFromJsonAsync<PagedResult<ShipmentResponse>>();
+        Assert.Equal(2, shipments!.Items.Count);
     }
 
     // Proves the middleware's gate is GetMerchantId() is not null — true for both merchant-JWT and
@@ -296,8 +296,8 @@ public class IdempotencyTests : IClassFixture<WebApplicationFactory<Program>>
         Assert.Equal(HttpStatusCode.BadRequest, noHeaderResponse.StatusCode);
 
         var listResponse = await ownerClient.GetAsync("/api/v1/shipments");
-        var shipments = await listResponse.Content.ReadFromJsonAsync<List<ShipmentResponse>>();
-        Assert.Single(shipments!);
+        var shipments = await listResponse.Content.ReadFromJsonAsync<PagedResult<ShipmentResponse>>();
+        Assert.Single(shipments!.Items);
     }
 
     // Final-review finding (critical): ApiKeyRateLimitFilter is an endpoint filter, so its 429
@@ -357,7 +357,7 @@ public class IdempotencyTests : IClassFixture<WebApplicationFactory<Program>>
         Assert.Equal(StatusCodes.Status201Created, storedRecord!.StatusCode);
 
         var listAfter = await ownerClient.GetAsync("/api/v1/shipments");
-        var shipmentsAfter = await listAfter.Content.ReadFromJsonAsync<List<ShipmentResponse>>();
-        Assert.Single(shipmentsAfter!);
+        var shipmentsAfter = await listAfter.Content.ReadFromJsonAsync<PagedResult<ShipmentResponse>>();
+        Assert.Single(shipmentsAfter!.Items);
     }
 }

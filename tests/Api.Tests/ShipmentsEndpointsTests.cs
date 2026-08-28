@@ -11,6 +11,7 @@ using Courier.Pricing.Application;
 using Courier.Pricing.Domain;
 using Courier.Shipments.Application;
 using Courier.Shipments.Domain;
+using Courier.SharedKernel;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
 
@@ -160,6 +161,41 @@ public class ShipmentsEndpointsTests : IClassFixture<WebApplicationFactory<Progr
         var after = DateTimeOffset.UtcNow;
 
         Assert.InRange(shipment!.CreatedAt, before, after);
+    }
+
+    [Fact]
+    public async Task List_Paginates_ReturnsDisjointPagesInNewestFirstOrder()
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "list-page");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (originBranchId, destinationBranchId, serviceTypeId) = await SeedRoutableBranchesAsync(client);
+        await SeedRateCardAsync(client, originBranchId, destinationBranchId, serviceTypeId, 100m);
+        var merchantId = await CreateMerchantAsync(client);
+
+        var booked = new List<ShipmentResponse>();
+        for (var i = 0; i < 3; i++)
+        {
+            var shipment = await (await client.PostAsJsonAsync("/api/v1/shipments", ValidShipmentRequest(merchantId, originBranchId, destinationBranchId, serviceTypeId))).Content.ReadFromJsonAsync<ShipmentResponse>();
+            booked.Add(shipment!);
+        }
+
+        var page1 = await (await client.GetAsync("/api/v1/shipments?page=1&pageSize=2")).Content.ReadFromJsonAsync<PagedResult<ShipmentResponse>>();
+        var page2 = await (await client.GetAsync("/api/v1/shipments?page=2&pageSize=2")).Content.ReadFromJsonAsync<PagedResult<ShipmentResponse>>();
+
+        Assert.Equal(3, page1!.TotalCount);
+        Assert.Equal(2, page1.TotalPages);
+        Assert.Equal(2, page1.Items.Count);
+        Assert.Single(page2!.Items);
+
+        var page1Ids = page1.Items.Select(s => s.Id).ToHashSet();
+        var page2Ids = page2.Items.Select(s => s.Id).ToHashSet();
+        Assert.Empty(page1Ids.Intersect(page2Ids));
+        Assert.Equal(booked.Select(s => s.Id).ToHashSet(), page1Ids.Union(page2Ids).ToHashSet());
+
+        var expectedNewestFirst = booked.OrderByDescending(s => s.CreatedAt).ThenBy(s => s.Id).Select(s => s.Id).ToList();
+        Assert.Equal(expectedNewestFirst.Take(2), page1.Items.Select(s => s.Id));
+        Assert.Equal(expectedNewestFirst.Skip(2), page2.Items.Select(s => s.Id));
     }
 
     [Fact]
