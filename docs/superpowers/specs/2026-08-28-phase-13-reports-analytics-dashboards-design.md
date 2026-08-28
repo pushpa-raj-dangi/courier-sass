@@ -355,6 +355,23 @@ internal operational views, not part of the Merchant API catalog).
   `RequirePermission("report.export")`. Columns: `Awb, MerchantName,
   BranchName, ExpectedAmount, CollectedAmount, Status, CollectedAt`.
 
+Neither existing lookup interface can resolve a display name today —
+`IBranchLookupService` only has `GetZoneInfoAsync` (`BranchId`/`DeliveryZoneId`)
+and `IMerchantLookupService` only has `ExistsAsync` — so both CSV exports also
+need one small additive method on each (bulk, not per-row, to avoid an N+1 per
+CSV row):
+
+```csharp
+// Branches.Application.IBranchLookupService — new method alongside GetZoneInfoAsync
+Task<IReadOnlyDictionary<Guid, string>> GetNamesByIdsAsync(IReadOnlySet<Guid> branchIds, CancellationToken ct = default);
+
+// Merchants.Application.IMerchantLookupService — new method alongside ExistsAsync
+Task<IReadOnlyDictionary<Guid, string>> GetDisplayNamesByIdsAsync(IReadOnlySet<Guid> merchantIds, CancellationToken ct = default);
+```
+
+Purely additive — existing callers/implementations of both interfaces are
+unaffected; `BranchService`/`MerchantLookupService` each gain one new method.
+
 CSV writing is a small hand-rolled helper in `Reports.Infrastructure`
 (quote-and-escape any field containing a comma/quote/newline) — not a new
 NuGet package. Matches CLAUDE.md §34 and the precedent Phase 12 set for its
