@@ -417,6 +417,20 @@ built out, `report.export`.
 *Exit:* dashboards reflect real data from all prior phases with correct branch/role
 scoping, no hardcoded/demo data paths left in.
 
+*Status: Complete — backend slice only.* New `Reports` module (no owned entities):
+`GET /api/v1/reports/dashboard/organization`, `GET /api/v1/reports/dashboard/branch/{branchId}`,
+`GET /api/v1/reports/export/shipments`, `GET /api/v1/reports/export/cod-summary`, gated by
+`report.read`/`report.export`. Five new cross-module lookup interfaces
+(`IShipmentReportingLookupService`, `IManifestReportingLookupService`,
+`IRiderReportingLookupService`, `INdrReportingLookupService`, `ICodReportingLookupService`), each
+implemented in its owning module's `Application` layer, following the `IBranchLookupService`
+pattern Phase 5 established. All figures computed live (no caching/materialization). The staff
+dashboard frontend — like the Phase 12b merchant portal — remains deferred; `src/web` is untouched.
+See `docs/superpowers/specs/2026-08-28-phase-13-reports-analytics-dashboards-design.md` for the
+full design, including the resolved formulas for COD Expected/Collected/Pending/Settled/Merchant
+Payable and NDR Rate/RTO Rate (neither CLAUDE.md §29 nor COD-LIFECYCLE.md/NDR's own entities define
+these precisely).
+
 ## Phase 14 — Route Optimization, GPS, ETA, Smart Dispatch, Partner Integrations
 
 Explicitly out of v1 scope per `PRODUCT-SPEC.md` §5 — only entered once Phases 0–13
