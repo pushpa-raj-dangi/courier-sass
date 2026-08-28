@@ -114,9 +114,14 @@ concrete implementations live in `Shipments.Infrastructure`,
 Phase-5 interfaces `Branches.Application.IBranchLookupService` and
 `Merchants.Application.IMerchantLookupService` reused as-is (no changes needed
 there) to resolve branch/merchant names for the two CSV exports' `BranchName`/
-`MerchantName` columns. `Reports.csproj` references each of those `*.Application`
-projects — the same shape Pricing's project-reference graph already
-established, just wider.
+`MerchantName` columns. This codebase uses one `.csproj` per module (`Domain`/
+`Application`/`Infrastructure`/`Presentation` are folders/namespaces inside
+it, not separate projects), so `Reports.csproj` takes a `ProjectReference` to
+each of `Shipments.csproj`, `Manifests.csproj`, `Riders.csproj`, `Ndr.csproj`,
+`Cod.csproj`, `Branches.csproj`, `Merchants.csproj` — seven references, wider
+than any existing module's, but the same per-module (not per-layer) reference
+shape every module already uses (e.g. `Shipments.csproj` already references
+eight sibling modules).
 
 ## 5. Cross-Module Lookup Interfaces
 
@@ -300,10 +305,20 @@ internal operational views, not part of the Merchant API catalog).
   this matches how every other org-wide list endpoint in this codebase already
   degrades for a branch-scoped caller.
 - **`GET /api/v1/reports/dashboard/branch/{branchId}?from=&to=`** —
-  `RequirePermission("report.read")`, then
-  `IBranchAuthorizationChecker.HasAccessAsync(user, "report.read", branchId)` —
-  `403` if false, matching every other single-branch endpoint's pattern
-  (`Riders`/`Ndr`/`Manifests`).
+  `RequirePermission("report.read")`, then the same
+  `CheckBranchAccessAsync(actingUser, "report.read", branchId)` pattern every
+  other module's `Application` service already private-implements
+  (`ManifestService`/`NdrService`/`RiderService`/`CodService`) —
+  `IBranchAuthorizationChecker.GetAccessibleBranchIdsAsync`, reject if the
+  accessible set is non-null and excludes `branchId`. Matching that
+  established convention exactly: this throws a new
+  `ReportsValidationException`, caught by the endpoint's `HandleAsync` and
+  mapped to `400 REPORTS_VALIDATION_FAILED` — **not** `403`. (No existing
+  single-item branch-scoped *read* endpoint in this codebase currently
+  enforces branch access at all — `CLARIFICATIONS.md`/Phase 9's memory record
+  this as an acknowledged, not-yet-fixed gap on `NdrService.GetByIdAsync` — so
+  this dashboard endpoint is the first read path to add the check, and reuses
+  the write-path convention rather than inventing a new one.)
 - **`GET /api/v1/reports/export/shipments?from=&to=&branchId=`** —
   `RequirePermission("report.export")`. `branchId` optional (defaults to the
   caller's full accessible set). Streams `text/csv`; columns: `Awb, Status,
@@ -350,9 +365,14 @@ per-branch rates" mistake when branch volumes differ).
 
 ## 9. Error Codes
 
-`INVALID_DATE_RANGE` (§7) joins the existing error-envelope catalog. No other
-new codes — `403`/`404` reuse the existing branch-access and not-found
-conventions already used by every other branch-scoped endpoint.
+Two new codes, both raised via a new `Reports.Application.ReportsValidationException`
+and mapped to `400` by `ReportsEndpoints`' `HandleAsync` — matching the
+existing per-module `{Module}ValidationException` -> `Results.BadRequest(new {
+error = new { code, message } })` convention (`NdrEndpoints`,
+`ManifestsEndpoints`, ...), not a new pattern:
+
+- `REPORTS_VALIDATION_FAILED` — the branch-access rejection from §6.
+- `INVALID_DATE_RANGE` — §7's `from > to` / >1-year-window rejection.
 
 ## 10. Testing
 
@@ -369,7 +389,8 @@ conventions already used by every other branch-scoped endpoint.
   escaping behavior.
 - **API**: org dashboard for an `AllBranches` caller vs. a single-branch
   caller (proving the degrade-not-error behavior from §6); branch dashboard
-  `403` for a caller without access to the requested branch; both export
+  `400 REPORTS_VALIDATION_FAILED` for a caller without access to the
+  requested branch; both export
   endpoints' `Content-Type`/header row/row-count/value correctness against
   seeded data; `report.read` and `report.export` enforced as genuinely
   separate permissions (a caller with only one of the two is rejected from the
