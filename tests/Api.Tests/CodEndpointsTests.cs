@@ -17,6 +17,7 @@ using Courier.Riders.Application;
 using Courier.Riders.Domain;
 using Courier.Shipments.Application;
 using Courier.Shipments.Domain;
+using Courier.SharedKernel;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
 
@@ -195,8 +196,41 @@ public class CodEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
 
     private async Task<CodCollectionResponse> GetCollectionForShipmentAsync(HttpClient client, Guid shipmentId)
     {
-        var collections = await (await client.GetAsync("/api/v1/cod/collections")).Content.ReadFromJsonAsync<List<CodCollectionResponse>>();
-        return collections!.Single(c => c.ShipmentId == shipmentId);
+        var collections = await (await client.GetAsync("/api/v1/cod/collections?pageSize=200")).Content.ReadFromJsonAsync<PagedResult<CodCollectionResponse>>();
+        return collections!.Items.Single(c => c.ShipmentId == shipmentId);
+    }
+
+    [Fact]
+    public async Task ListCollections_Paginates_ReturnsDisjointPagesInNewestFirstOrder()
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "cod-list-page");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (originBranchId, destinationBranchId, serviceTypeId) = await SeedBranchesAsync(client);
+        var merchantId = await CreateMerchantAsync(client);
+
+        var booked = new List<ShipmentResponse>();
+        for (var i = 0; i < 3; i++)
+        {
+            var shipment = await (await client.PostAsJsonAsync("/api/v1/shipments", CodShipmentRequest(merchantId, originBranchId, destinationBranchId, serviceTypeId, 500m))).Content.ReadFromJsonAsync<ShipmentResponse>();
+            booked.Add(shipment!);
+        }
+
+        var page1 = await (await client.GetAsync("/api/v1/cod/collections?page=1&pageSize=2")).Content.ReadFromJsonAsync<PagedResult<CodCollectionResponse>>();
+        var page2 = await (await client.GetAsync("/api/v1/cod/collections?page=2&pageSize=2")).Content.ReadFromJsonAsync<PagedResult<CodCollectionResponse>>();
+
+        Assert.Equal(3, page1!.TotalCount);
+        Assert.Equal(2, page1.Items.Count);
+        Assert.Single(page2!.Items);
+
+        var page1ShipmentIds = page1.Items.Select(c => c.ShipmentId).ToHashSet();
+        var page2ShipmentIds = page2.Items.Select(c => c.ShipmentId).ToHashSet();
+        Assert.Empty(page1ShipmentIds.Intersect(page2ShipmentIds));
+        Assert.Equal(booked.Select(s => s.Id).ToHashSet(), page1ShipmentIds.Union(page2ShipmentIds).ToHashSet());
+
+        var expectedNewestFirst = booked.OrderByDescending(s => s.CreatedAt).ThenBy(s => s.Id).Select(s => s.Id).ToList();
+        Assert.Equal(expectedNewestFirst.Take(2), page1.Items.Select(c => c.ShipmentId));
+        Assert.Equal(expectedNewestFirst.Skip(2), page2.Items.Select(c => c.ShipmentId));
     }
 
     [Fact]

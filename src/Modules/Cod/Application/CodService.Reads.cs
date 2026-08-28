@@ -44,7 +44,7 @@ public partial class CodService
     // single SQL WHERE clause, unlike Ndr.Application.NdrService.ListAsync's per-row
     // IShipmentTransitionService.GetScanInfoAsync lookup loop (Phase 9), which needed one because
     // NDR has no branch column of its own.
-    public async Task<List<CodCollectionResponse>> ListCollectionsAsync(CodCollectionStatus? status, Guid? branchId, Guid? merchantId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
+    public async Task<PagedResult<CodCollectionResponse>> ListCollectionsAsync(CodCollectionStatus? status, Guid? branchId, Guid? merchantId, int? page, int? pageSize, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
         var organizationId = _currentTenantProvider.OrganizationId
             ?? throw new CodValidationException("No active organization context.");
@@ -81,8 +81,15 @@ public partial class CodService
             }
         }
 
-        var collections = await query.ToListAsync(cancellationToken);
-        return collections.Select(ToResponse).ToList();
+        var (normalizedPage, normalizedPageSize) = PaginationDefaults.Normalize(page, pageSize);
+        var totalCount = await query.CountAsync(cancellationToken);
+        var collections = await query
+            .OrderByDescending(c => c.CreatedAt).ThenBy(c => c.Id)
+            .Skip((normalizedPage - 1) * normalizedPageSize)
+            .Take(normalizedPageSize)
+            .ToListAsync(cancellationToken);
+
+        return new PagedResult<CodCollectionResponse>(collections.Select(ToResponse).ToList(), normalizedPage, normalizedPageSize, totalCount);
     }
 
     // CLAUDE.md §23's reconciliation figures, computed over whatever scope ListCollectionsAsync

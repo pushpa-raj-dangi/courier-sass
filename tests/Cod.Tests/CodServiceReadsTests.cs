@@ -127,9 +127,9 @@ public class CodServiceReadsTests
         await SeedCollectionAsync(dbContext, organizationId, Guid.NewGuid(), otherBranchId, CodCollectionStatus.CodExpected, null);
         var service = CreateService(dbContext, organizationId, new RestrictedBranchAuthorizationChecker(accessibleBranchId));
 
-        var results = await service.ListCollectionsAsync(null, null, null, StaffActingUser(Guid.NewGuid()));
+        var results = await service.ListCollectionsAsync(null, null, null, null, null, StaffActingUser(Guid.NewGuid()));
 
-        var result = Assert.Single(results);
+        var result = Assert.Single(results.Items);
         Assert.Equal(accessible.Id, result.Id);
     }
 
@@ -143,9 +143,9 @@ public class CodServiceReadsTests
         await SeedCollectionAsync(dbContext, organizationId, Guid.NewGuid(), Guid.NewGuid(), CodCollectionStatus.CodExpected, null);
         var service = CreateService(dbContext, organizationId, new AllBranchesAuthorizationChecker());
 
-        var results = await service.ListCollectionsAsync(null, null, null, MerchantActingUser(merchantId));
+        var results = await service.ListCollectionsAsync(null, null, null, null, null, MerchantActingUser(merchantId));
 
-        var result = Assert.Single(results);
+        var result = Assert.Single(results.Items);
         Assert.Equal(own.Id, result.Id);
     }
 
@@ -243,9 +243,9 @@ public class CodServiceReadsTests
         await SeedCollectionAsync(dbContext, foreignOrganizationId, Guid.NewGuid(), Guid.NewGuid(), CodCollectionStatus.CodExpected, null);
         var service = CreateService(dbContext, organizationId, new AllBranchesAuthorizationChecker());
 
-        var results = await service.ListCollectionsAsync(null, null, null, StaffActingUser(Guid.NewGuid()));
+        var results = await service.ListCollectionsAsync(null, null, null, null, null, StaffActingUser(Guid.NewGuid()));
 
-        var result = Assert.Single(results);
+        var result = Assert.Single(results.Items);
         Assert.Equal(own.Id, result.Id);
     }
 

@@ -16,8 +16,8 @@ public static class CodEndpoints
         .WithTags("COD Management")
         .RequireAuthorization();
 
-        group.MapGet("/collections", async (CodCollectionStatus? status, Guid? branchId, Guid? merchantId, CodService service, HttpContext httpContext) =>
-            Results.Ok(await service.ListCollectionsAsync(status, branchId, merchantId, httpContext.User, httpContext.RequestAborted)))
+        group.MapGet("/collections", async (CodCollectionStatus? status, Guid? branchId, Guid? merchantId, int? page, int? pageSize, CodService service, HttpContext httpContext) =>
+            Results.Ok(await service.ListCollectionsAsync(status, branchId, merchantId, page, pageSize, httpContext.User, httpContext.RequestAborted)))
             .RequirePermission("cod.read");
 
         group.MapGet("/collections/{id:guid}", async (Guid id, CodService service, HttpContext httpContext) =>
