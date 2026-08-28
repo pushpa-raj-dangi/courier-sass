@@ -1,4 +1,4 @@
-# Phase 13 — Reports, Analytics, Advanced Dashboards — Design Spec
+﻿# Phase 13 — Reports, Analytics, Advanced Dashboards — Design Spec
 
 **Scope note:** ROADMAP.md's Phase 13 entry describes dashboards in product terms
 (CLAUDE.md §29/§30). Matching every prior phase's precedent (and Phase 12's own
@@ -37,10 +37,22 @@ merchant portal (12b) — remain a later phase. `src/web` stays untouched.
 - **Recurring bug class (hit in Phases 4, 5, 10, 12):** a new read accessor
   forgetting the tenant/branch filter its sibling paths already enforce. This
   phase adds roughly six new cross-module read accessors at once — the single
-  largest batch of new accessors in one phase to date — so every one of them
-  must take `organizationId` (and, where applicable, a caller-verified
-  `branchIds` set) as an explicit parameter and filter by it directly, never
-  relying on an ambient claim inside the owning module's implementation.
+  largest batch of new accessors in one phase to date. Verified against
+  `AppDbContext`'s actual `HasQueryFilter` list (§11): every entity this phase
+  reads — `Shipment`, `Manifest`, `Rider`, `DeliveryAttempt`, `NDR`,
+  `ReturnShipment`, `CODCollection`, `MerchantSettlement` — already carries its
+  own `OrganizationId` with an ambient tenant filter, so (matching
+  `IBranchLookupService`/`IMerchantLookupService`'s existing precedent) none of
+  the new lookup methods take an `organizationId` parameter; tenant isolation
+  is automatic as long as the request is HTTP-scoped (it always is here — no
+  background job touches this module). The one exception is `DeliveryTask`/
+  `DeliveryRun` (Riders), which — like `ManifestShipment`/`ShipmentTransfer`
+  before them — carry **no own `OrganizationId`** and get no ambient filter at
+  all; §5.3 isolates them transitively by joining through `Rider` (which does
+  have the filter), never querying `DeliveryTasks`/`DeliveryRuns` standalone.
+  Branch scoping is a separate, non-tenant concern (§11): every branch-scoped
+  method takes a caller-verified `branchId`/`branchIds` parameter, since
+  `UserBranch` grants have no query-filter equivalent.
 
 ## 2. Goals / Exit Criteria
 
@@ -108,11 +120,15 @@ established, just wider.
 
 ## 5. Cross-Module Lookup Interfaces
 
-All methods take `organizationId` explicitly (never read from an ambient
-claim) and, where the result is branch-scoped, take a caller-verified
-`IReadOnlySet<Guid>? branchIds` (`null` = every branch in the org — the same
-convention `IBranchAuthorizationChecker.GetAccessibleBranchIdsAsync` already
-returns, so `Reports.Application` passes that result straight through).
+No method takes `organizationId` — every query relies on `AppDbContext`'s
+ambient tenant filter (directly for entities with their own `OrganizationId`
+column, transitively through `Rider` for `DeliveryTask`/`DeliveryRun`), same
+as `IBranchLookupService`/`IMerchantLookupService` today. Where a result is
+branch-scoped, methods take a caller-verified `IReadOnlySet<Guid>? branchIds`
+(`null` = every branch in the org — the same convention
+`IBranchAuthorizationChecker.GetAccessibleBranchIdsAsync` already returns, so
+`Reports.Application` passes that result straight through) or a single
+caller-verified `branchId` for the branch-dashboard methods.
 
 ### 5.1 `IShipmentReportingLookupService` (Shipments)
 
@@ -127,7 +143,7 @@ public interface IShipmentReportingLookupService
     // would double-count a shipment across multiple status buckets on the same
     // day, which the dashboard's mutually-exclusive bucket list rules out.
     Task<IReadOnlyDictionary<ShipmentStatus, int>> GetCohortStatusCountsAsync(
-        Guid organizationId, IReadOnlySet<Guid>? branchIds,
+        IReadOnlySet<Guid>? branchIds,
         DateTimeOffset from, DateTimeOffset to, CancellationToken ct = default);
 
     // Branch dashboard's Outgoing/Pending-sorting/Pending-dispatch (BRANCH-
@@ -138,18 +154,18 @@ public interface IShipmentReportingLookupService
     // branch; PendingDispatch = CurrentStatus == Sorted at this branch;
     // Outgoing = the union of both, matching the doc's literal wording.
     Task<BranchShipmentCounts> GetBranchShipmentCountsAsync(
-        Guid organizationId, Guid branchId, CancellationToken ct = default);
+        Guid branchId, CancellationToken ct = default);
 
     // Delivered shipments in range: AVG(deliveredEvent.Timestamp -
     // createdEvent.Timestamp), joined per ShipmentId via ShipmentEvent.
     Task<TimeSpan?> GetAverageDeliveryTimeAsync(
-        Guid organizationId, IReadOnlySet<Guid>? branchIds,
+        IReadOnlySet<Guid>? branchIds,
         DateTimeOffset from, DateTimeOffset to, CancellationToken ct = default);
 
     // Total shipments created in range, per branch — the shared denominator
     // for NDR Rate / RTO Rate (§8) and Branch Performance volume.
     Task<IReadOnlyDictionary<Guid, int>> GetShipmentVolumeByBranchAsync(
-        Guid organizationId, IReadOnlySet<Guid>? branchIds,
+        IReadOnlySet<Guid>? branchIds,
         DateTimeOffset from, DateTimeOffset to, CancellationToken ct = default);
 }
 
@@ -167,7 +183,7 @@ public interface IManifestReportingLookupService
     // toward this branch, awaiting receipt) and Received (Status == Closed,
     // ClosedAt/CreatedAt within a trailing window, default 24h).
     Task<BranchManifestCounts> GetBranchManifestCountsAsync(
-        Guid organizationId, Guid branchId, CancellationToken ct = default);
+        Guid branchId, CancellationToken ct = default);
 
     // Sum of missing-shipment exceptions across this branch's manifests —
     // reuses the same "expected ManifestShipment rows with no matching
@@ -175,7 +191,7 @@ public interface IManifestReportingLookupService
     // already computes per-manifest, applied across every manifest destined
     // for this branch instead of just one.
     Task<int> GetOpenMissingShipmentExceptionCountAsync(
-        Guid organizationId, Guid branchId, CancellationToken ct = default);
+        Guid branchId, CancellationToken ct = default);
 }
 
 public record BranchManifestCounts(int InTransitTowardBranch, int RecentlyClosed);
@@ -190,18 +206,18 @@ public interface IRiderReportingLookupService
     // (non-Completed) DeliveryTask count — branch dashboard's "Riders...
     // current task load".
     Task<IReadOnlyList<RiderTaskLoad>> GetBranchRiderTaskLoadAsync(
-        Guid organizationId, Guid branchId, CancellationToken ct = default);
+        Guid branchId, CancellationToken ct = default);
 
     // DeliveryAttempt.Succeeded ratio within [from, to), bucketed by the
     // attempting rider's BaseBranchId — feeds both "Delivery Success Rate"
     // and "Rider Performance" (org dashboard, CLAUDE.md §29) and the branch
     // dashboard's "Deliveries... success rate".
     Task<IReadOnlyDictionary<Guid, DeliverySuccessStats>> GetSuccessRateByBranchAsync(
-        Guid organizationId, IReadOnlySet<Guid>? branchIds,
+        IReadOnlySet<Guid>? branchIds,
         DateTimeOffset from, DateTimeOffset to, CancellationToken ct = default);
 
     Task<IReadOnlyDictionary<Guid, DeliverySuccessStats>> GetSuccessRateByRiderAsync(
-        Guid organizationId, IReadOnlySet<Guid>? branchIds,
+        IReadOnlySet<Guid>? branchIds,
         DateTimeOffset from, DateTimeOffset to, CancellationToken ct = default);
 }
 
@@ -217,7 +233,7 @@ public interface INdrReportingLookupService
     // Open NDRs (Status != Resolved) for shipments currently at this branch —
     // branch dashboard's "Exceptions... open NDRs".
     Task<int> GetOpenNdrCountForBranchAsync(
-        Guid organizationId, Guid branchId, CancellationToken ct = default);
+        Guid branchId, CancellationToken ct = default);
 
     // NDR Rate = NDRs created in range / shipments created in range (the
     // latter supplied by the caller from §5.1's GetShipmentVolumeByBranchAsync
@@ -226,11 +242,11 @@ public interface INdrReportingLookupService
     // reaching any Rto* status in range / shipments created in range, counted
     // via ReturnShipment (one row per RTO, per Phase 9).
     Task<IReadOnlyDictionary<Guid, int>> GetNdrCountByBranchAsync(
-        Guid organizationId, IReadOnlySet<Guid>? branchIds,
+        IReadOnlySet<Guid>? branchIds,
         DateTimeOffset from, DateTimeOffset to, CancellationToken ct = default);
 
     Task<IReadOnlyDictionary<Guid, int>> GetRtoCountByBranchAsync(
-        Guid organizationId, IReadOnlySet<Guid>? branchIds,
+        IReadOnlySet<Guid>? branchIds,
         DateTimeOffset from, DateTimeOffset to, CancellationToken ct = default);
 }
 ```
@@ -253,13 +269,13 @@ public interface ICodReportingLookupService
     // Phase-10 status-model ambiguity, the doc names the figures without
     // defining them precisely.
     Task<CodFinancialSummary> GetOrgFinancialSummaryAsync(
-        Guid organizationId, IReadOnlySet<Guid>? branchIds, CancellationToken ct = default);
+        IReadOnlySet<Guid>? branchIds, CancellationToken ct = default);
 
     // Branch dashboard's "COD... RIDER_DEPOSITED/BRANCH_RECONCILED totals
     // pending finance verification" — CLAUDE.md §30's literal wording, no
     // reinterpretation needed.
     Task<decimal> GetBranchPendingFinanceVerificationTotalAsync(
-        Guid organizationId, Guid branchId, CancellationToken ct = default);
+        Guid branchId, CancellationToken ct = default);
 }
 
 public record CodFinancialSummary(
@@ -361,11 +377,16 @@ conventions already used by every other branch-scoped endpoint.
 
 ## 11. Tenant/Branch Isolation Checklist
 
-- Every lookup interface method takes `organizationId` as an explicit
-  parameter and filters by it directly inside the owning module's
-  implementation — no method relies on an ambient tenant claim, since these
-  are called from `Reports.Application`, outside any HTTP-scoped claims
-  context of the *owning* module.
+- No lookup interface method takes `organizationId`. Every implementation
+  relies on `AppDbContext`'s ambient tenant filter — directly (the query's
+  root entity already carries `OrganizationId`) or transitively (`Riders`'
+  `DeliveryTask`/`DeliveryRun` methods must query through a `Rider`
+  navigation/join, never `DbSet<DeliveryTask>()`/`DbSet<DeliveryRun>()`
+  standalone, since neither carries its own `OrganizationId` or filter). This
+  is safe specifically because every call in this phase originates from an
+  HTTP-scoped staff request — `ICurrentTenantProvider` is guaranteed non-null
+  — unlike Phase 11's Hangfire-job case, where the same ambient filter
+  silently returns zero rows for everyone.
 - Branch-scoped lookups take either a single caller-verified `branchId` (after
   `HasAccessAsync` has already rejected an inaccessible one) or the full
   `branchIds` set already resolved by `GetAccessibleBranchIdsAsync` — no
