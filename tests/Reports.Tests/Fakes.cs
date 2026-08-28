@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Courier.Branches.Application;
 using Courier.Cod.Application;
 using Courier.Manifests.Application;
 using Courier.Ndr.Application;
@@ -8,6 +9,15 @@ using Courier.Shipments.Application;
 using Courier.Shipments.Domain;
 
 namespace Courier.Reports.Tests;
+
+internal sealed class FakeBranchLookupService : IBranchLookupService
+{
+    public BranchZoneInfo? ZoneInfo { get; set; }
+    public IReadOnlyDictionary<Guid, string> Names { get; set; } = new Dictionary<Guid, string>();
+
+    public Task<BranchZoneInfo?> GetZoneInfoAsync(Guid branchId, CancellationToken cancellationToken = default) => Task.FromResult(ZoneInfo);
+    public Task<IReadOnlyDictionary<Guid, string>> GetNamesByIdsAsync(IReadOnlySet<Guid> branchIds, CancellationToken cancellationToken = default) => Task.FromResult(Names);
+}
 
 internal sealed class FakeBranchAuthorizationChecker : IBranchAuthorizationChecker
 {

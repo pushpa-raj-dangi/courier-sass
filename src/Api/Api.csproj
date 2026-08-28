@@ -34,6 +34,7 @@
     <ProjectReference Include="..\Modules\Geography\Geography.csproj" />
     <ProjectReference Include="..\Modules\Merchants\Merchants.csproj" />
     <ProjectReference Include="..\Modules\Pricing\Pricing.csproj" />
+    <ProjectReference Include="..\Modules\Reports\Reports.csproj" />
     <ProjectReference Include="..\Modules\Shipments\Shipments.csproj" />
     <ProjectReference Include="..\Modules\Manifests\Manifests.csproj" />
     <ProjectReference Include="..\Modules\Riders\Riders.csproj" />

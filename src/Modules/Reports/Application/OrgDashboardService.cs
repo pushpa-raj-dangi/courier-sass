@@ -37,21 +37,22 @@ public class OrgDashboardService
         var todayStart = new DateTimeOffset(DateTime.UtcNow.Date, TimeSpan.Zero);
         var todayEnd = todayStart.AddDays(1);
 
-        var todaysShipmentsTask = _shipmentLookup.GetCohortStatusCountsAsync(branchIds, todayStart, todayEnd, cancellationToken);
-        var financialTask = _codLookup.GetOrgFinancialSummaryAsync(branchIds, cancellationToken);
-        var successByBranchTask = _riderLookup.GetSuccessRateByBranchAsync(branchIds, rangeFrom, rangeTo, cancellationToken);
-        var successByRiderTask = _riderLookup.GetSuccessRateByRiderAsync(branchIds, rangeFrom, rangeTo, cancellationToken);
-        var avgDeliveryTimeTask = _shipmentLookup.GetAverageDeliveryTimeAsync(branchIds, rangeFrom, rangeTo, cancellationToken);
-        var shipmentIdsByBranchTask = _shipmentLookup.GetShipmentIdsByDestinationBranchAsync(branchIds, rangeFrom, rangeTo, cancellationToken);
+        // These lookups all resolve to the same scoped AppDbContext instance (EF Core's DbContext
+        // is not safe for concurrent use), so they must run sequentially rather than via
+        // Task.WhenAll — running them in parallel throws "A second operation was started on this
+        // context instance before a previous operation completed" under a real DbContext (only
+        // surfaced once this service is exercised end-to-end against real Postgres in Task 9's
+        // Api.Tests; the fakes used by this module's own unit tests never caught it).
+        var todaysShipments = await _shipmentLookup.GetCohortStatusCountsAsync(branchIds, todayStart, todayEnd, cancellationToken);
+        var financial = await _codLookup.GetOrgFinancialSummaryAsync(branchIds, cancellationToken);
+        var successByBranch = await _riderLookup.GetSuccessRateByBranchAsync(branchIds, rangeFrom, rangeTo, cancellationToken);
+        var successByRider = await _riderLookup.GetSuccessRateByRiderAsync(branchIds, rangeFrom, rangeTo, cancellationToken);
+        var avgDeliveryTime = await _shipmentLookup.GetAverageDeliveryTimeAsync(branchIds, rangeFrom, rangeTo, cancellationToken);
+        var shipmentIdsByBranch = await _shipmentLookup.GetShipmentIdsByDestinationBranchAsync(branchIds, rangeFrom, rangeTo, cancellationToken);
 
-        await Task.WhenAll(todaysShipmentsTask, financialTask, successByBranchTask, successByRiderTask, avgDeliveryTimeTask, shipmentIdsByBranchTask);
-
-        var shipmentIdsByBranch = shipmentIdsByBranchTask.Result;
         var allShipmentIds = shipmentIdsByBranch.Values.SelectMany(ids => ids).ToHashSet();
         var ndrShipmentIds = await _ndrLookup.GetShipmentIdsWithAnyNdrAsync(allShipmentIds, cancellationToken);
         var rtoShipmentIds = await _ndrLookup.GetShipmentIdsWithRtoAsync(allShipmentIds, cancellationToken);
-
-        var successByBranch = successByBranchTask.Result;
         var branchPerformance = new Dictionary<Guid, BranchPerformance>();
         foreach (var (branchId, shipmentIds) in shipmentIdsByBranch)
         {
@@ -69,7 +70,7 @@ public class OrgDashboardService
                 rtoCount, volume > 0 ? (double)rtoCount / volume : null);
         }
 
-        var riderPerformance = successByRiderTask.Result
+        var riderPerformance = successByRider
             .Select(kv => new RiderPerformance(kv.Key, kv.Value.Attempts, kv.Value.Successes, kv.Value.Attempts > 0 ? (double)kv.Value.Successes / kv.Value.Attempts : null))
             .ToList();
 
@@ -80,13 +81,13 @@ public class OrgDashboardService
         var totalRto = rtoShipmentIds.Count(id => allShipmentIds.Contains(id));
 
         return new OrgDashboardResponse(
-            todaysShipmentsTask.Result,
-            financialTask.Result,
+            todaysShipments,
+            financial,
             branchPerformance,
             riderPerformance,
             totalAttempts > 0 ? (double)totalSuccesses / totalAttempts : null,
             totalShipments > 0 ? (double)totalNdr / totalShipments : null,
             totalShipments > 0 ? (double)totalRto / totalShipments : null,
-            avgDeliveryTimeTask.Result);
+            avgDeliveryTime);
     }
 }
