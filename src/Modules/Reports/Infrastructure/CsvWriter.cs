@@ -15,9 +15,16 @@ public static class CsvWriter
         return sb.ToString();
     }
 
+    // Guard against CSV formula injection: a field beginning with =, +, -, @, a tab, or a carriage
+    // return can be interpreted as a formula (or otherwise mishandled) when the exported CSV is opened
+    // in Excel/LibreOffice. Prefixing with a single quote forces those tools to treat it as literal text.
     private static string EscapeField(string? field)
     {
         field ??= string.Empty;
+        if (field.Length > 0 && "=+-@\t\r".Contains(field[0]))
+        {
+            field = "'" + field;
+        }
         if (field.Contains(',') || field.Contains('"') || field.Contains('\n') || field.Contains('\r'))
         {
             return "\"" + field.Replace("\"", "\"\"") + "\"";

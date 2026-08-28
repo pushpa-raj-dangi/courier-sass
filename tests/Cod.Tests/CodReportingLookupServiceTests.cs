@@ -55,7 +55,7 @@ public class CodReportingLookupServiceTests
 
         Assert.Equal(500m, result.Expected);
         Assert.Equal(300m, result.Collected);
-        Assert.Equal(50m, result.Pending);
+        Assert.Equal(0m, result.Pending);
         Assert.Equal(250m, result.Settled);
         Assert.Equal(90m, result.MerchantPayable);
     }

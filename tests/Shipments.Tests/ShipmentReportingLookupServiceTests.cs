@@ -210,7 +210,7 @@ public class ShipmentReportingLookupServiceTests
         var service = new ShipmentReportingLookupService(dbContext);
         var rows = await service.GetShipmentExportRowsAsync(null, now.AddHours(-1), now.AddHours(1));
 
-        var row = Assert.Single(rows.Where(r => r.Awb == shipment.Awb));
+        var row = Assert.Single(rows, r => r.Awb == shipment.Awb);
         Assert.Null(row.DeliveredAt);
         Assert.Equal(shipment.MerchantId, row.MerchantId);
     }

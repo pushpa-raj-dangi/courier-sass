@@ -35,4 +35,19 @@ public class CsvWriterTests
         Assert.Contains("AWB123456", csv);
         Assert.DoesNotContain("\"AWB123456\"", csv);
     }
+
+    [Theory]
+    [InlineData("=cmd|'/c calc'!A1")]
+    [InlineData("+1+1")]
+    [InlineData("-2+3")]
+    [InlineData("@SUM(A1:A2)")]
+    public void Write_FieldStartingWithFormulaCharacter_IsPrefixedWithSingleQuote(string maliciousField)
+    {
+        var csv = CsvWriter.Write(
+            new[] { "MerchantName" },
+            new[] { (IReadOnlyList<string?>)new[] { maliciousField } });
+
+        var lines = csv.Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
+        Assert.Equal("'" + maliciousField, lines[1]);
+    }
 }

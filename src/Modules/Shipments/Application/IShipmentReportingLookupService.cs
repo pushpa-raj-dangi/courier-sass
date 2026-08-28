@@ -9,7 +9,10 @@ public record ShipmentExportRow(
     decimal CodAmount, decimal TotalCharge, DateTimeOffset CreatedAt, DateTimeOffset? DeliveredAt);
 
 // Consumed by Courier.Reports.Application — no method takes organizationId; every query relies on
-// AppDbContext's ambient tenant filter (Shipment/ShipmentEvent both carry their own OrganizationId).
+// AppDbContext's ambient tenant filter. Shipment carries its own OrganizationId with an ambient query
+// filter; ShipmentEvent has neither its own column nor its own filter — every method here that touches
+// ShipmentEvent must join/intersect back to a tenant-filtered Shipment query before returning data,
+// never query ShipmentEvent standalone.
 public interface IShipmentReportingLookupService
 {
     Task<IReadOnlyDictionary<ShipmentStatus, int>> GetCohortStatusCountsAsync(

@@ -14,7 +14,7 @@ public class CodReportingLookupService : ICodReportingLookupService
 
     public async Task<CodFinancialSummary> GetOrgFinancialSummaryAsync(IReadOnlySet<Guid>? branchIds, CancellationToken cancellationToken = default)
     {
-        var query = _dbContext.Set<CODCollection>().AsQueryable();
+        var query = _dbContext.Set<CODCollection>().AsNoTracking().AsQueryable();
         if (branchIds is not null)
         {
             var branchIdArray = branchIds.ToArray();
@@ -28,17 +28,26 @@ public class CodReportingLookupService : ICodReportingLookupService
         // a merchant) — a branch-restricted caller still sees the org-wide settled/payable totals
         // here, the same "no branch concept" shape CodService.ListMerchantSettlementsAsync already
         // has for its own reads.
-        var settlements = _dbContext.Set<MerchantSettlement>().AsQueryable();
+        var settlements = _dbContext.Set<MerchantSettlement>().AsNoTracking().AsQueryable();
         var settled = await settlements.Where(s => s.Status == MerchantSettlementStatus.Settled).SumAsync(s => s.TotalPayable, cancellationToken);
         var merchantPayable = await settlements.Where(s => s.Status == MerchantSettlementStatus.Created).SumAsync(s => s.TotalPayable, cancellationToken);
 
-        return new CodFinancialSummary(expected, collected, collected - settled, settled, merchantPayable);
+        // Pending must be derived from CODCollection (the already branch-filtered `query`), not from
+        // MerchantSettlement.TotalPayable: TotalPayable is net-of-courier-fee (CLAUDE.md §22: COD 2500 -
+        // fee 150 = payable 2350), while `collected` is the gross CollectedAmount sum, so subtracting a net
+        // figure from a gross figure overstated Pending by the accumulated courier fees. MerchantSettlement
+        // is also never branch-filtered (it has no BranchId), while `collected` is branch-filtered when the
+        // caller has a branch scope, so a branch-scoped caller could see a negative Pending.
+        var settledCod = await query.Where(c => c.Status == CodCollectionStatus.Settled).SumAsync(c => c.CollectedAmount ?? 0m, cancellationToken);
+
+        return new CodFinancialSummary(expected, collected, collected - settledCod, settled, merchantPayable);
     }
 
     public async Task<decimal> GetBranchPendingFinanceVerificationTotalAsync(Guid branchId, CancellationToken cancellationToken = default)
     {
         var statuses = new[] { CodCollectionStatus.RiderDeposited, CodCollectionStatus.BranchReconciled };
         return await _dbContext.Set<CODCollection>()
+            .AsNoTracking()
             .Where(c => c.BranchId == branchId && statuses.Contains(c.Status))
             .SumAsync(c => c.CollectedAmount ?? 0m, cancellationToken);
     }
@@ -49,7 +58,7 @@ public class CodReportingLookupService : ICodReportingLookupService
     public async Task<IReadOnlyList<CodExportRow>> GetCodExportRowsAsync(
         IReadOnlySet<Guid>? branchIds, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken = default)
     {
-        var query = _dbContext.Set<CODCollection>().AsQueryable();
+        var query = _dbContext.Set<CODCollection>().AsNoTracking().AsQueryable();
         if (branchIds is not null)
         {
             var branchIdArray = branchIds.ToArray();

@@ -2,9 +2,7 @@ using Courier.Geography.Infrastructure;
 using Courier.Ndr.Application;
 using Courier.Ndr.Domain;
 using Courier.SharedKernel;
-using Courier.Shipments.Application;
 using Courier.Shipments.Domain;
-using Microsoft.EntityFrameworkCore;
 
 namespace Courier.Ndr.Tests;
 
@@ -13,37 +11,6 @@ public class NdrReportingLookupServiceTests
     private sealed class FixedTenantProvider : ICurrentTenantProvider
     {
         public Guid? OrganizationId { get; set; }
-    }
-
-    // Only GetScanInfoAsync is exercised by NdrReportingLookupService — this fake reads the same
-    // shared DbContext directly rather than pulling in the full ShipmentService dependency graph,
-    // matching how Manifests.Tests/Ndr.Tests' own fixtures already fake this interface per-file.
-    private sealed class DbBackedShipmentTransitionServiceFake : IShipmentTransitionService
-    {
-        private readonly DbContext _dbContext;
-        public DbBackedShipmentTransitionServiceFake(DbContext dbContext) => _dbContext = dbContext;
-
-        public async Task<ShipmentScanInfo?> GetScanInfoAsync(Guid shipmentId, CancellationToken cancellationToken = default)
-        {
-            var shipment = await _dbContext.Set<Shipment>().FirstOrDefaultAsync(s => s.Id == shipmentId, cancellationToken);
-            return shipment is null ? null : new ShipmentScanInfo(shipment.Id, shipment.OrganizationId, shipment.Awb, shipment.CurrentStatus, shipment.CurrentBranchId, shipment.OriginBranchId, shipment.DestinationBranchId, shipment.CurrentCustodianRiderId);
-        }
-
-        public Task<ShipmentScanInfo?> GetScanInfoByAwbAsync(string awb, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<ShipmentResponse?> SortAsync(Guid shipmentId, System.Security.Claims.ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task DispatchManyAsync(IReadOnlyCollection<Guid> shipmentIds, System.Security.Claims.ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<ShipmentResponse?> ReceiveAtDestinationAsync(Guid shipmentId, System.Security.Claims.ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<ShipmentResponse?> AssignPickupToRiderAsync(Guid shipmentId, Guid riderId, System.Security.Claims.ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<ShipmentResponse?> RiderPickupScanAsync(Guid shipmentId, Guid riderId, System.Security.Claims.ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<ShipmentResponse?> AssignDeliveryToRiderAsync(Guid shipmentId, Guid riderId, System.Security.Claims.ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<ShipmentResponse?> CompleteDeliveryAsync(Guid shipmentId, Guid riderId, string recipientName, System.Security.Claims.ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<ShipmentResponse?> FailDeliveryAsync(Guid shipmentId, Guid riderId, System.Security.Claims.ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<ShipmentResponse?> TransitionToNdrCreatedAsync(Guid shipmentId, System.Security.Claims.ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<ShipmentResponse?> ReattemptDeliveryAsync(Guid shipmentId, System.Security.Claims.ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<ShipmentResponse?> InitiateRtoAsync(Guid shipmentId, System.Security.Claims.ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task DispatchManyRtoAsync(IReadOnlyCollection<Guid> shipmentIds, System.Security.Claims.ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<ShipmentResponse?> ReceiveRtoAtOriginAsync(Guid shipmentId, System.Security.Claims.ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<ShipmentResponse?> ConfirmRtoDeliveredAsync(Guid shipmentId, System.Security.Claims.ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 
     private static readonly Guid ProvinceId = GeographyIds.ProvinceId("Bagmati");
@@ -96,7 +63,7 @@ public class NdrReportingLookupServiceTests
         dbContext.Add(new NDR { Id = Guid.NewGuid(), OrganizationId = orgId, ShipmentId = resolvedShipment.Id, Reason = NdrReason.CustomerUnavailable, Status = NdrStatus.Resolved, Resolution = NdrResolution.Reattempt, ResolvedAt = DateTimeOffset.UtcNow });
         await dbContext.SaveChangesAsync();
 
-        var service = new NdrReportingLookupService(dbContext, new DbBackedShipmentTransitionServiceFake(dbContext));
+        var service = new NdrReportingLookupService(dbContext);
         var count = await service.GetOpenNdrCountForBranchAsync(branchId);
 
         Assert.Equal(1, count);
@@ -117,7 +84,7 @@ public class NdrReportingLookupServiceTests
         dbContext.Add(new NDR { Id = Guid.NewGuid(), OrganizationId = orgId, ShipmentId = withNdr.Id, Reason = NdrReason.CustomerUnavailable, Status = NdrStatus.Open });
         await dbContext.SaveChangesAsync();
 
-        var service = new NdrReportingLookupService(dbContext, new DbBackedShipmentTransitionServiceFake(dbContext));
+        var service = new NdrReportingLookupService(dbContext);
         var result = await service.GetShipmentIdsWithAnyNdrAsync(new HashSet<Guid> { withNdr.Id, withoutNdr.Id });
 
         Assert.Contains(withNdr.Id, result);
@@ -137,7 +104,7 @@ public class NdrReportingLookupServiceTests
         dbContext.Add(new ReturnShipment { Id = Guid.NewGuid(), OrganizationId = orgId, OriginalShipmentId = withRto.Id, ReturnAwb = "RTN000001", RtoReason = "CustomerRefused", OriginBranchId = branchId, DestinationBranchId = branchId });
         await dbContext.SaveChangesAsync();
 
-        var service = new NdrReportingLookupService(dbContext, new DbBackedShipmentTransitionServiceFake(dbContext));
+        var service = new NdrReportingLookupService(dbContext);
         var result = await service.GetShipmentIdsWithRtoAsync(new HashSet<Guid> { withRto.Id });
 
         Assert.Contains(withRto.Id, result);
@@ -148,7 +115,7 @@ public class NdrReportingLookupServiceTests
     {
         var tenantProvider = new FixedTenantProvider();
         await using var dbContext = TestDbContextFactory.Create(tenantProvider);
-        var service = new NdrReportingLookupService(dbContext, new DbBackedShipmentTransitionServiceFake(dbContext));
+        var service = new NdrReportingLookupService(dbContext);
 
         var result = await service.GetShipmentIdsWithAnyNdrAsync(new HashSet<Guid>());
 

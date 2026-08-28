@@ -14,16 +14,16 @@ public class ManifestReportingLookupService : IManifestReportingLookupService
 
     public async Task<BranchManifestCounts> GetBranchManifestCountsAsync(Guid branchId, CancellationToken cancellationToken = default)
     {
-        var inTransitTowardBranch = await _dbContext.Set<Manifest>()
+        var inTransitTowardBranch = await _dbContext.Set<Manifest>().AsNoTracking()
             .CountAsync(m => m.ToBranchId == branchId && m.Status == ManifestStatus.InTransit, cancellationToken);
 
         // No ClosedAt column exists on Manifest — the latest ManifestShipment.ReceivedAt across a
         // Closed manifest's rows is used as a proxy for "when it was closed" (this plan's resolved
         // design decision, since receiving is what drives a manifest to Closed in the first place).
         var recentCutoff = DateTimeOffset.UtcNow.AddHours(-24);
-        var recentlyClosed = await _dbContext.Set<Manifest>()
+        var recentlyClosed = await _dbContext.Set<Manifest>().AsNoTracking()
             .Where(m => m.ToBranchId == branchId && m.Status == ManifestStatus.Closed)
-            .Where(m => _dbContext.Set<ManifestShipment>()
+            .Where(m => _dbContext.Set<ManifestShipment>().AsNoTracking()
                 .Any(ms => ms.ManifestId == m.Id && ms.ReceivedAt != null && ms.ReceivedAt >= recentCutoff))
             .CountAsync(cancellationToken);
 
@@ -32,11 +32,11 @@ public class ManifestReportingLookupService : IManifestReportingLookupService
 
     public async Task<int> GetOpenMissingShipmentExceptionCountAsync(Guid branchId, CancellationToken cancellationToken = default)
     {
-        var closedManifestIds = _dbContext.Set<Manifest>()
+        var closedManifestIds = _dbContext.Set<Manifest>().AsNoTracking()
             .Where(m => m.ToBranchId == branchId && m.Status == ManifestStatus.Closed)
             .Select(m => m.Id);
 
-        return await _dbContext.Set<ManifestShipment>()
+        return await _dbContext.Set<ManifestShipment>().AsNoTracking()
             .CountAsync(ms => closedManifestIds.Contains(ms.ManifestId) && ms.ReceivedAt == null, cancellationToken);
     }
 }

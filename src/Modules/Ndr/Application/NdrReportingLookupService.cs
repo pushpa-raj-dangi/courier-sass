@@ -1,5 +1,5 @@
 using Courier.Ndr.Domain;
-using Courier.Shipments.Application;
+using Courier.Shipments.Domain;
 using Microsoft.EntityFrameworkCore;
 
 namespace Courier.Ndr.Application;
@@ -7,33 +7,23 @@ namespace Courier.Ndr.Application;
 public class NdrReportingLookupService : INdrReportingLookupService
 {
     private readonly DbContext _dbContext;
-    private readonly IShipmentTransitionService _shipmentTransitionService;
 
-    public NdrReportingLookupService(DbContext dbContext, IShipmentTransitionService shipmentTransitionService)
+    public NdrReportingLookupService(DbContext dbContext)
     {
         _dbContext = dbContext;
-        _shipmentTransitionService = shipmentTransitionService;
     }
 
-    // Reuses NdrService.ListAsync's established per-row GetScanInfoAsync branch-resolution
-    // pattern (Phase 9) — NDR carries no branch column of its own.
+    // Collapsed from a per-row GetScanInfoAsync N+1 loop into a single join query: NDR carries no
+    // branch column of its own, so the destination branch is resolved via a join back to Shipment
+    // (Ndr.csproj already references Shipments.csproj). Shipment carries its own OrganizationId with
+    // an ambient query filter, so this join is at least as tenant-safe as the original per-row lookup.
     public async Task<int> GetOpenNdrCountForBranchAsync(Guid branchId, CancellationToken cancellationToken = default)
     {
-        var openNdrShipmentIds = await _dbContext.Set<NDR>()
+        return await _dbContext.Set<NDR>().AsNoTracking()
             .Where(n => n.Status != NdrStatus.Resolved)
-            .Select(n => n.ShipmentId)
-            .ToListAsync(cancellationToken);
-
-        var count = 0;
-        foreach (var shipmentId in openNdrShipmentIds)
-        {
-            var scanInfo = await _shipmentTransitionService.GetScanInfoAsync(shipmentId, cancellationToken);
-            if (scanInfo is not null && scanInfo.DestinationBranchId == branchId)
-            {
-                count++;
-            }
-        }
-        return count;
+            .Join(_dbContext.Set<Shipment>().AsNoTracking(),
+                n => n.ShipmentId, s => s.Id, (n, s) => s.DestinationBranchId)
+            .CountAsync(b => b == branchId, cancellationToken);
     }
 
     public async Task<IReadOnlySet<Guid>> GetShipmentIdsWithAnyNdrAsync(IReadOnlySet<Guid> shipmentIds, CancellationToken cancellationToken = default)
@@ -43,7 +33,7 @@ public class NdrReportingLookupService : INdrReportingLookupService
             return new HashSet<Guid>();
         }
         var idArray = shipmentIds.ToArray();
-        var matched = await _dbContext.Set<NDR>()
+        var matched = await _dbContext.Set<NDR>().AsNoTracking()
             .Where(n => idArray.Contains(n.ShipmentId))
             .Select(n => n.ShipmentId)
             .Distinct()
@@ -58,7 +48,7 @@ public class NdrReportingLookupService : INdrReportingLookupService
             return new HashSet<Guid>();
         }
         var idArray = shipmentIds.ToArray();
-        var matched = await _dbContext.Set<ReturnShipment>()
+        var matched = await _dbContext.Set<ReturnShipment>().AsNoTracking()
             .Where(r => idArray.Contains(r.OriginalShipmentId))
             .Select(r => r.OriginalShipmentId)
             .Distinct()

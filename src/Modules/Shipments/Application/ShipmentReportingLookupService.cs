@@ -15,11 +15,11 @@ public class ShipmentReportingLookupService : IShipmentReportingLookupService
     public async Task<IReadOnlyDictionary<ShipmentStatus, int>> GetCohortStatusCountsAsync(
         IReadOnlySet<Guid>? branchIds, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken = default)
     {
-        var createdShipmentIds = _dbContext.Set<ShipmentEvent>()
+        var createdShipmentIds = _dbContext.Set<ShipmentEvent>().AsNoTracking()
             .Where(e => e.EventType == ShipmentEventType.Created && e.Timestamp >= from && e.Timestamp < to)
             .Select(e => e.ShipmentId);
 
-        var query = _dbContext.Set<Shipment>().Where(s => createdShipmentIds.Contains(s.Id));
+        var query = _dbContext.Set<Shipment>().AsNoTracking().Where(s => createdShipmentIds.Contains(s.Id));
         if (branchIds is not null)
         {
             var branchIdArray = branchIds.ToArray();
@@ -36,9 +36,9 @@ public class ShipmentReportingLookupService : IShipmentReportingLookupService
 
     public async Task<BranchShipmentCounts> GetBranchShipmentCountsAsync(Guid branchId, CancellationToken cancellationToken = default)
     {
-        var pendingSorting = await _dbContext.Set<Shipment>()
+        var pendingSorting = await _dbContext.Set<Shipment>().AsNoTracking()
             .CountAsync(s => s.CurrentBranchId == branchId && s.CurrentStatus == ShipmentStatus.AtOriginBranch, cancellationToken);
-        var pendingDispatch = await _dbContext.Set<Shipment>()
+        var pendingDispatch = await _dbContext.Set<Shipment>().AsNoTracking()
             .CountAsync(s => s.CurrentBranchId == branchId && s.CurrentStatus == ShipmentStatus.Sorted, cancellationToken);
         return new BranchShipmentCounts(pendingSorting + pendingDispatch, pendingSorting, pendingDispatch);
     }
@@ -46,14 +46,14 @@ public class ShipmentReportingLookupService : IShipmentReportingLookupService
     public async Task<TimeSpan?> GetAverageDeliveryTimeAsync(
         IReadOnlySet<Guid>? branchIds, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken = default)
     {
-        var deliveredEvents = _dbContext.Set<ShipmentEvent>()
+        var deliveredEvents = _dbContext.Set<ShipmentEvent>().AsNoTracking()
             .Where(e => e.EventType == ShipmentEventType.Delivered && e.Timestamp >= from && e.Timestamp < to);
-        var createdEvents = _dbContext.Set<ShipmentEvent>().Where(e => e.EventType == ShipmentEventType.Created);
+        var createdEvents = _dbContext.Set<ShipmentEvent>().AsNoTracking().Where(e => e.EventType == ShipmentEventType.Created);
 
         var query =
             from delivered in deliveredEvents
             join created in createdEvents on delivered.ShipmentId equals created.ShipmentId
-            join shipment in _dbContext.Set<Shipment>() on delivered.ShipmentId equals shipment.Id
+            join shipment in _dbContext.Set<Shipment>().AsNoTracking() on delivered.ShipmentId equals shipment.Id
             select new { shipment.OriginBranchId, DeliveredAt = delivered.Timestamp, CreatedAt = created.Timestamp };
 
         if (branchIds is not null)
@@ -69,11 +69,11 @@ public class ShipmentReportingLookupService : IShipmentReportingLookupService
     public async Task<IReadOnlyDictionary<Guid, IReadOnlyList<Guid>>> GetShipmentIdsByDestinationBranchAsync(
         IReadOnlySet<Guid>? branchIds, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken = default)
     {
-        var createdShipmentIds = _dbContext.Set<ShipmentEvent>()
+        var createdShipmentIds = _dbContext.Set<ShipmentEvent>().AsNoTracking()
             .Where(e => e.EventType == ShipmentEventType.Created && e.Timestamp >= from && e.Timestamp < to)
             .Select(e => e.ShipmentId);
 
-        var query = _dbContext.Set<Shipment>().Where(s => createdShipmentIds.Contains(s.Id));
+        var query = _dbContext.Set<Shipment>().AsNoTracking().Where(s => createdShipmentIds.Contains(s.Id));
         if (branchIds is not null)
         {
             var branchIdArray = branchIds.ToArray();
@@ -89,12 +89,12 @@ public class ShipmentReportingLookupService : IShipmentReportingLookupService
     public async Task<IReadOnlyList<ShipmentExportRow>> GetShipmentExportRowsAsync(
         IReadOnlySet<Guid>? branchIds, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken = default)
     {
-        var createdEvents = _dbContext.Set<ShipmentEvent>()
+        var createdEvents = _dbContext.Set<ShipmentEvent>().AsNoTracking()
             .Where(e => e.EventType == ShipmentEventType.Created && e.Timestamp >= from && e.Timestamp < to);
 
         var query =
             from created in createdEvents
-            join shipment in _dbContext.Set<Shipment>() on created.ShipmentId equals shipment.Id
+            join shipment in _dbContext.Set<Shipment>().AsNoTracking() on created.ShipmentId equals shipment.Id
             select new { Shipment = shipment, CreatedAt = created.Timestamp };
 
         if (branchIds is not null)
@@ -105,7 +105,7 @@ public class ShipmentReportingLookupService : IShipmentReportingLookupService
 
         var rows = await query.ToListAsync(cancellationToken);
         var shipmentIds = rows.Select(r => r.Shipment.Id).ToList();
-        var deliveredAtByShipmentId = await _dbContext.Set<ShipmentEvent>()
+        var deliveredAtByShipmentId = await _dbContext.Set<ShipmentEvent>().AsNoTracking()
             .Where(e => e.EventType == ShipmentEventType.Delivered && shipmentIds.Contains(e.ShipmentId))
             .ToDictionaryAsync(e => e.ShipmentId, e => e.Timestamp, cancellationToken);
 
@@ -123,7 +123,7 @@ public class ShipmentReportingLookupService : IShipmentReportingLookupService
             return new Dictionary<Guid, string>();
         }
         var idArray = shipmentIds.ToArray();
-        var rows = await _dbContext.Set<Shipment>()
+        var rows = await _dbContext.Set<Shipment>().AsNoTracking()
             .Where(s => idArray.Contains(s.Id))
             .Select(s => new { s.Id, s.Awb })
             .ToListAsync(cancellationToken);
