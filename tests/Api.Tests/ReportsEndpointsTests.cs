@@ -99,6 +99,23 @@ public class ReportsEndpointsTests : IClassFixture<WebApplicationFactory<Program
     }
 
     [Fact]
+    public async Task ExportShipments_BranchFromAnotherOrganization_ReturnsReportsValidationFailed()
+    {
+        // AllBranches-scope caller (an OrganizationOwner) must not be able to use a branchId query
+        // param belonging to a different organization as the export's row filter — mirrors
+        // BranchDashboard_BranchFromAnotherOrganization_ReturnsReportsValidationFailed, but for
+        // ReportExportService.ResolveBranchScopeAsync instead of BranchDashboardService.GetAsync.
+        var (_, otherOrgBranchId) = await RegisterOrgWithBranchAsync("export-ship-other");
+        var (client, _) = await RegisterOrgWithBranchAsync("export-ship-caller");
+
+        var response = await client.GetAsync($"/api/v1/reports/export/shipments?branchId={otherOrgBranchId}");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        Assert.Equal("REPORTS_VALIDATION_FAILED", body.GetProperty("error").GetProperty("code").GetString());
+    }
+
+    [Fact]
     public async Task ExportCodSummary_ReturnsCsvWithHeaderRow()
     {
         var (client, _) = await RegisterOrgWithBranchAsync("export-cod");

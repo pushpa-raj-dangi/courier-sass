@@ -100,6 +100,16 @@ public class ReportExportService
         {
             throw new ReportsValidationException("Branch is outside your branch access for permission 'report.export'.");
         }
+
+        // accessible == null means "AllBranches" scope, which by itself does not confirm branchId
+        // belongs to the caller's own organization — same gap fixed in BranchDashboardService.
+        // GetZoneInfoAsync returns null both when the branch doesn't exist and when it exists in
+        // a different tenant (Branch's ambient OrganizationId query filter excludes it either
+        // way), so this also rejects a syntactically valid but cross-tenant branchId query param.
+        if (await _branchLookupService.GetZoneInfoAsync(branchId, cancellationToken) is null)
+        {
+            throw new ReportsValidationException("Branch is outside your branch access for permission 'report.export'.");
+        }
         return new HashSet<Guid> { branchId };
     }
 }
