@@ -15,6 +15,15 @@ public static class CsvWriter
         return sb.ToString();
     }
 
+    public static IEnumerable<string> WriteLines(IReadOnlyList<string> headers, IEnumerable<IReadOnlyList<string?>> rows)
+    {
+        yield return string.Join(',', headers.Select(EscapeField)) + "\r\n";
+        foreach (var row in rows)
+        {
+            yield return string.Join(',', row.Select(EscapeField)) + "\r\n";
+        }
+    }
+
     // Guard against CSV formula injection: a field beginning with =, +, -, @, a tab, or a carriage
     // return can be interpreted as a formula (or otherwise mishandled) when the exported CSV is opened
     // in Excel/LibreOffice. Prefixing with a single quote forces those tools to treat it as literal text.

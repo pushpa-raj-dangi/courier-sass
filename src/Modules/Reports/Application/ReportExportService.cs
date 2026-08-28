@@ -31,7 +31,7 @@ public class ReportExportService
         _branchAuthorizationChecker = branchAuthorizationChecker;
     }
 
-    public async Task<string> GetShipmentsCsvAsync(Guid? branchId, DateTimeOffset? from, DateTimeOffset? to, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<string>> GetShipmentsCsvAsync(Guid? branchId, DateTimeOffset? from, DateTimeOffset? to, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
         var (rangeFrom, rangeTo) = ReportsDateRange.Resolve(from, to);
         var branchIds = await ResolveBranchScopeAsync(branchId, actingUser, cancellationToken);
@@ -57,10 +57,10 @@ public class ReportExportService
             r.DeliveredAt?.ToString("O")
         });
 
-        return CsvWriter.Write(headers, csvRows);
+        return CsvWriter.WriteLines(headers, csvRows);
     }
 
-    public async Task<string> GetCodSummaryCsvAsync(Guid? branchId, DateTimeOffset? from, DateTimeOffset? to, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<string>> GetCodSummaryCsvAsync(Guid? branchId, DateTimeOffset? from, DateTimeOffset? to, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
         var (rangeFrom, rangeTo) = ReportsDateRange.Resolve(from, to);
         var branchIds = await ResolveBranchScopeAsync(branchId, actingUser, cancellationToken);
@@ -86,7 +86,7 @@ public class ReportExportService
             r.CollectedAt?.ToString("O")
         });
 
-        return CsvWriter.Write(headers, csvRows);
+        return CsvWriter.WriteLines(headers, csvRows);
     }
 
     private async Task<IReadOnlySet<Guid>?> ResolveBranchScopeAsync(Guid? requestedBranchId, ClaimsPrincipal actingUser, CancellationToken cancellationToken)

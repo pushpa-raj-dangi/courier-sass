@@ -23,11 +23,11 @@ public static class ReportsEndpoints
             .RequirePermission("report.read");
 
         group.MapGet("/export/shipments", async (Guid? branchId, DateTimeOffset? from, DateTimeOffset? to, ReportExportService service, HttpContext httpContext) =>
-            await HandleCsvAsync(() => service.GetShipmentsCsvAsync(branchId, from, to, httpContext.User, httpContext.RequestAborted)))
+            await HandleCsvAsync(httpContext, () => service.GetShipmentsCsvAsync(branchId, from, to, httpContext.User, httpContext.RequestAborted)))
             .RequirePermission("report.export");
 
         group.MapGet("/export/cod-summary", async (Guid? branchId, DateTimeOffset? from, DateTimeOffset? to, ReportExportService service, HttpContext httpContext) =>
-            await HandleCsvAsync(() => service.GetCodSummaryCsvAsync(branchId, from, to, httpContext.User, httpContext.RequestAborted)))
+            await HandleCsvAsync(httpContext, () => service.GetCodSummaryCsvAsync(branchId, from, to, httpContext.User, httpContext.RequestAborted)))
             .RequirePermission("report.export");
     }
 
@@ -47,12 +47,12 @@ public static class ReportsEndpoints
         }
     }
 
-    private static async Task<IResult> HandleCsvAsync(Func<Task<string>> operation)
+    private static async Task<IResult> HandleCsvAsync(HttpContext httpContext, Func<Task<IEnumerable<string>>> operation)
     {
+        IEnumerable<string> lines;
         try
         {
-            var csv = await operation();
-            return Results.Text(csv, "text/csv");
+            lines = await operation();
         }
         catch (ReportsValidationException ex)
         {
@@ -62,5 +62,14 @@ public static class ReportsEndpoints
         {
             return Results.BadRequest(new { error = new { code = "INVALID_DATE_RANGE", message = ex.Message } });
         }
+
+        httpContext.Response.ContentType = "text/csv";
+        await using var writer = new StreamWriter(httpContext.Response.Body, leaveOpen: true);
+        foreach (var line in lines)
+        {
+            await writer.WriteAsync(line);
+        }
+        await writer.FlushAsync();
+        return Results.Empty;
     }
 }

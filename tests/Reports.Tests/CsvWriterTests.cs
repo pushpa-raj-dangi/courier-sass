@@ -50,4 +50,46 @@ public class CsvWriterTests
         var lines = csv.Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
         Assert.Equal("'" + maliciousField, lines[1]);
     }
+
+    [Fact]
+    public void WriteLines_MatchesWrite_ForSameContent()
+    {
+        var headers = new[] { "Name", "Note" };
+        var rows = new[] { (IReadOnlyList<string?>)new[] { "Acme, Inc.", "Said \"hello\"\nagain" } };
+
+        var expected = CsvWriter.Write(headers, rows);
+        var actual = string.Concat(CsvWriter.WriteLines(headers, rows));
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void WriteLines_YieldsOneLinePerRowPlusHeader()
+    {
+        var headers = new[] { "Awb" };
+        var rows = new[]
+        {
+            (IReadOnlyList<string?>)new[] { "AWB1" },
+            (IReadOnlyList<string?>)new[] { "AWB2" },
+        };
+
+        var lines = CsvWriter.WriteLines(headers, rows).ToList();
+
+        Assert.Equal(3, lines.Count);
+        Assert.Equal("Awb\r\n", lines[0]);
+        Assert.Equal("AWB1\r\n", lines[1]);
+        Assert.Equal("AWB2\r\n", lines[2]);
+    }
+
+    [Theory]
+    [InlineData("=cmd|'/c calc'!A1")]
+    [InlineData("+1+1")]
+    public void WriteLines_FieldStartingWithFormulaCharacter_IsPrefixedWithSingleQuote(string maliciousField)
+    {
+        var lines = CsvWriter.WriteLines(
+            new[] { "MerchantName" },
+            new[] { (IReadOnlyList<string?>)new[] { maliciousField } }).ToList();
+
+        Assert.Equal("'" + maliciousField + "\r\n", lines[1]);
+    }
 }
