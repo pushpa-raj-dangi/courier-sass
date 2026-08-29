@@ -22,25 +22,35 @@ const LOCAL_LEVEL_TYPE_LABEL: Record<string, string> = {
 export function GeographyPicker({
   value,
   onChange,
+  idPrefix = "",
 }: {
   value: GeographyValue;
   onChange: (next: GeographyValue) => void;
+  /** Distinguishes this instance's element ids when the same form renders GeographyPicker more
+   * than once (e.g. Recipient + Sender) — without it, every instance shares the same hardcoded
+   * ids and every `<label htmlFor>` past the first only ever associates with the first instance. */
+  idPrefix?: string;
 }) {
   const { data: provinces } = useProvinces();
   const { data: districts } = useDistricts(value.provinceId);
   const { data: localLevels } = useLocalLevels(value.districtId);
 
+  const provinceId = idPrefix ? `${idPrefix}-province` : "province";
+  const districtId = idPrefix ? `${idPrefix}-district` : "district";
+  const localLevelId = idPrefix ? `${idPrefix}-local-level` : "local-level";
+  const wardNumberId = idPrefix ? `${idPrefix}-ward-number` : "ward-number";
+
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       <div className="space-y-2">
-        <Label htmlFor="province">Province</Label>
+        <Label htmlFor={provinceId}>Province</Label>
         <Select
           value={value.provinceId ?? undefined}
           onValueChange={(provinceId) =>
             onChange({ provinceId, districtId: null, localLevelId: null, wardNumber: value.wardNumber })
           }
         >
-          <SelectTrigger id="province" aria-label="Province">
+          <SelectTrigger id={provinceId} aria-label="Province">
             <SelectValue placeholder="Select province" />
           </SelectTrigger>
           <SelectContent>
@@ -53,7 +63,7 @@ export function GeographyPicker({
         </Select>
       </div>
       <div className="space-y-2">
-        <Label htmlFor="district">District</Label>
+        <Label htmlFor={districtId}>District</Label>
         <Select
           value={value.districtId ?? undefined}
           onValueChange={(districtId) =>
@@ -61,7 +71,7 @@ export function GeographyPicker({
           }
           disabled={value.provinceId === null}
         >
-          <SelectTrigger id="district" aria-label="District">
+          <SelectTrigger id={districtId} aria-label="District">
             <SelectValue placeholder="Select district" />
           </SelectTrigger>
           <SelectContent>
@@ -74,13 +84,13 @@ export function GeographyPicker({
         </Select>
       </div>
       <div className="space-y-2">
-        <Label htmlFor="local-level">Local Level</Label>
+        <Label htmlFor={localLevelId}>Local Level</Label>
         <Select
           value={value.localLevelId ?? undefined}
           onValueChange={(localLevelId) => onChange({ ...value, localLevelId })}
           disabled={value.districtId === null}
         >
-          <SelectTrigger id="local-level" aria-label="Local level">
+          <SelectTrigger id={localLevelId} aria-label="Local level">
             <SelectValue placeholder="Select local level" />
           </SelectTrigger>
           <SelectContent>
@@ -93,9 +103,9 @@ export function GeographyPicker({
         </Select>
       </div>
       <div className="space-y-2">
-        <Label htmlFor="ward-number">Ward Number</Label>
+        <Label htmlFor={wardNumberId}>Ward Number</Label>
         <Input
-          id="ward-number"
+          id={wardNumberId}
           type="number"
           min={1}
           value={value.wardNumber ?? ""}

@@ -188,15 +188,27 @@ export function ShipmentCreateSheet() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="lengthCm">Length (cm)</Label>
-                  <Input id="lengthCm" type="number" {...register("lengthCm", { valueAsNumber: true })} />
+                  <Input
+                    id="lengthCm"
+                    type="number"
+                    {...register("lengthCm", { setValueAs: (v) => (v === "" ? undefined : Number(v)) })}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="widthCm">Width (cm)</Label>
-                  <Input id="widthCm" type="number" {...register("widthCm", { valueAsNumber: true })} />
+                  <Input
+                    id="widthCm"
+                    type="number"
+                    {...register("widthCm", { setValueAs: (v) => (v === "" ? undefined : Number(v)) })}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="heightCm">Height (cm)</Label>
-                  <Input id="heightCm" type="number" {...register("heightCm", { valueAsNumber: true })} />
+                  <Input
+                    id="heightCm"
+                    type="number"
+                    {...register("heightCm", { setValueAs: (v) => (v === "" ? undefined : Number(v)) })}
+                  />
                 </div>
               </div>
               <ItemsField />
@@ -250,6 +262,7 @@ export function ShipmentCreateSheet() {
                 </div>
               </div>
               <GeographyPicker
+                idPrefix="recipient"
                 value={recipientGeography}
                 onChange={(next) => {
                   setValue("recipientProvinceId", next.provinceId ?? "");
@@ -280,6 +293,7 @@ export function ShipmentCreateSheet() {
                 </div>
               </div>
               <GeographyPicker
+                idPrefix="sender"
                 value={senderGeography}
                 onChange={(next) => {
                   setValue("senderProvinceId", next.provinceId ?? "");
