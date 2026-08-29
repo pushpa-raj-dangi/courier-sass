@@ -9,7 +9,7 @@ export function useSealManifest(manifestId: string) {
   return useMutation({
     mutationFn: () => clientFetch<Manifest>(`/api/manifests/${manifestId}/seal`, { method: "POST" }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["manifests", manifestId] });
+      queryClient.invalidateQueries({ queryKey: ["manifests"] });
     },
   });
 }

@@ -15,7 +15,7 @@ export function useScanManifestShipment(manifestId: string, purpose: "Forward" |
         body: JSON.stringify({ awb }),
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["manifests", manifestId] });
+      queryClient.invalidateQueries({ queryKey: ["manifests"] });
     },
   });
 }

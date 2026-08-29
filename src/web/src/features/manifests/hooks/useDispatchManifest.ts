@@ -14,7 +14,7 @@ export function useDispatchManifest(manifestId: string) {
         body: JSON.stringify(input),
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["manifests", manifestId] });
+      queryClient.invalidateQueries({ queryKey: ["manifests"] });
     },
   });
 }
