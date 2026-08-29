@@ -1,0 +1,307 @@
+"use client";
+
+import { useState } from "react";
+import { useForm, Controller, FormProvider } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Spinner } from "@/components/ui/spinner";
+import { GeographyPicker, type GeographyValue } from "@/features/branches/GeographyPicker";
+import { useBranches } from "@/features/branches/hooks/useBranches";
+import { createShipmentSchema, type CreateShipmentFormValues } from "@/features/shipments/schema";
+import { useCreateShipment } from "@/features/shipments/hooks/useCreateShipment";
+import { useMerchants } from "@/features/shipments/hooks/useMerchants";
+import { useServiceTypes } from "@/features/shipments/hooks/useServiceTypes";
+import { useShipmentQuote } from "@/features/shipments/hooks/useShipmentQuote";
+import { useShipmentPanelStore } from "@/features/shipments/store/shipmentPanelStore";
+import { ItemsField } from "@/features/shipments/components/ItemsField";
+
+export function ShipmentCreateSheet() {
+  const panel = useShipmentPanelStore((s) => s.panel);
+  const close = useShipmentPanelStore((s) => s.close);
+  const openDetail = useShipmentPanelStore((s) => s.openDetail);
+  const isOpen = panel.mode === "create";
+
+  const createShipment = useCreateShipment();
+  const { data: merchants } = useMerchants();
+  const { data: serviceTypes } = useServiceTypes();
+  const { data: branches } = useBranches();
+  const [serverError, setServerError] = useState<string | null>(null);
+
+  const methods = useForm<CreateShipmentFormValues>({
+    resolver: zodResolver(createShipmentSchema),
+    defaultValues: { items: [{ description: "", quantity: 1, unitValue: 0 }], wantsInsurance: false },
+  });
+  const { register, handleSubmit, control, watch, setValue, reset, formState: { errors, isSubmitting } } = methods;
+
+  const recipientGeography: GeographyValue = {
+    provinceId: watch("recipientProvinceId") ?? null,
+    districtId: watch("recipientDistrictId") ?? null,
+    localLevelId: watch("recipientLocalLevelId") ?? null,
+    wardNumber: watch("recipientWardNumber") ?? null,
+  };
+  const senderGeography: GeographyValue = {
+    provinceId: watch("senderProvinceId") ?? null,
+    districtId: watch("senderDistrictId") ?? null,
+    localLevelId: watch("senderLocalLevelId") ?? null,
+    wardNumber: watch("senderWardNumber") ?? null,
+  };
+
+  const [originBranchId, destinationBranchId, weightKg, serviceTypeId, codAmount, wantsInsurance, merchantId, items] =
+    watch(["originBranchId", "destinationBranchId", "weightKg", "serviceTypeId", "codAmount", "wantsInsurance", "merchantId", "items"]);
+
+  const declaredValue = (items ?? []).reduce((sum, item) => sum + (item.quantity || 0) * (item.unitValue || 0), 0);
+
+  const quoteInput =
+    originBranchId && destinationBranchId && weightKg && serviceTypeId
+      ? {
+          originBranchId,
+          destinationBranchId,
+          weightKg,
+          serviceTypeId,
+          codAmount: codAmount ?? 0,
+          declaredValue,
+          wantsInsurance: wantsInsurance ?? false,
+          merchantId: merchantId ?? null,
+        }
+      : null;
+  const { data: quote, isFetching: isQuoting } = useShipmentQuote(quoteInput);
+
+  const currencyFormatter = new Intl.NumberFormat("en-NP", { style: "currency", currency: "NPR" });
+
+  async function onSubmit(values: CreateShipmentFormValues) {
+    setServerError(null);
+    try {
+      const created = await createShipment.mutateAsync(values);
+      reset();
+      openDetail(created.awb);
+    } catch {
+      setServerError("Couldn't create the shipment. Check the fields and try again.");
+    }
+  }
+
+  return (
+    <Sheet open={isOpen} onOpenChange={(open) => { if (!open) close(); }}>
+      <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
+        <SheetHeader>
+          <SheetTitle>New Shipment</SheetTitle>
+        </SheetHeader>
+        <FormProvider {...methods}>
+          <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-6" noValidate>
+            <section className="space-y-4">
+              <h3 className="text-sm font-semibold text-foreground">Route</h3>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="merchantId">Merchant</Label>
+                  <Controller
+                    name="merchantId"
+                    control={control}
+                    render={({ field }) => (
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <SelectTrigger id="merchantId" aria-label="Merchant">
+                          <SelectValue placeholder="Select merchant" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {merchants?.map((m) => (
+                            <SelectItem key={m.id} value={m.id}>{m.displayName}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                  {errors.merchantId && <p className="text-sm text-destructive">{errors.merchantId.message}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="serviceTypeId">Service Type</Label>
+                  <Controller
+                    name="serviceTypeId"
+                    control={control}
+                    render={({ field }) => (
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <SelectTrigger id="serviceTypeId" aria-label="Service type">
+                          <SelectValue placeholder="Select service type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {serviceTypes?.map((s) => (
+                            <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                  {errors.serviceTypeId && <p className="text-sm text-destructive">{errors.serviceTypeId.message}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="originBranchId">Origin Branch</Label>
+                  <Controller
+                    name="originBranchId"
+                    control={control}
+                    render={({ field }) => (
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <SelectTrigger id="originBranchId" aria-label="Origin branch">
+                          <SelectValue placeholder="Select origin branch" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {branches?.map((b) => (
+                            <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                  {errors.originBranchId && <p className="text-sm text-destructive">{errors.originBranchId.message}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="destinationBranchId">Destination Branch</Label>
+                  <Controller
+                    name="destinationBranchId"
+                    control={control}
+                    render={({ field }) => (
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <SelectTrigger id="destinationBranchId" aria-label="Destination branch">
+                          <SelectValue placeholder="Select destination branch" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {branches?.map((b) => (
+                            <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                  {errors.destinationBranchId && <p className="text-sm text-destructive">{errors.destinationBranchId.message}</p>}
+                </div>
+              </div>
+            </section>
+
+            <section className="space-y-4">
+              <h3 className="text-sm font-semibold text-foreground">Package</h3>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                <div className="space-y-2">
+                  <Label htmlFor="weightKg">Weight (kg)</Label>
+                  <Input id="weightKg" type="number" step="0.1" {...register("weightKg", { valueAsNumber: true })} />
+                  {errors.weightKg && <p className="text-sm text-destructive">{errors.weightKg.message}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lengthCm">Length (cm)</Label>
+                  <Input id="lengthCm" type="number" {...register("lengthCm", { valueAsNumber: true })} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="widthCm">Width (cm)</Label>
+                  <Input id="widthCm" type="number" {...register("widthCm", { valueAsNumber: true })} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="heightCm">Height (cm)</Label>
+                  <Input id="heightCm" type="number" {...register("heightCm", { valueAsNumber: true })} />
+                </div>
+              </div>
+              <ItemsField />
+            </section>
+
+            <section className="space-y-4">
+              <h3 className="text-sm font-semibold text-foreground">Money</h3>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="codAmount">COD Amount</Label>
+                  <Input id="codAmount" type="number" {...register("codAmount", { valueAsNumber: true })} />
+                  {errors.codAmount && <p className="text-sm text-destructive">{errors.codAmount.message}</p>}
+                </div>
+                <div className="flex items-center gap-2 pt-6">
+                  <Controller
+                    name="wantsInsurance"
+                    control={control}
+                    render={({ field }) => (
+                      <Checkbox id="wantsInsurance" checked={field.value} onCheckedChange={field.onChange} />
+                    )}
+                  />
+                  <Label htmlFor="wantsInsurance">Wants Insurance</Label>
+                </div>
+              </div>
+
+              {/* Read-only, server-computed estimate — never editable, per CLAUDE.md §33 */}
+              <div className="rounded-lg border border-border bg-muted/50 p-4">
+                <p className="mb-2 text-xs text-muted-foreground">Estimated Price (recalculates as you fill in the route and package)</p>
+                {isQuoting && <Spinner className="h-4 w-4" />}
+                {quote && !isQuoting && (
+                  <p className="font-sans text-lg font-semibold text-foreground">
+                    {currencyFormatter.format(quote.total)}
+                  </p>
+                )}
+                {!quote && !isQuoting && <p className="text-sm text-muted-foreground">—</p>}
+              </div>
+            </section>
+
+            <section className="space-y-4">
+              <h3 className="text-sm font-semibold text-foreground">Recipient</h3>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="recipientName">Name</Label>
+                  <Input id="recipientName" {...register("recipientName")} />
+                  {errors.recipientName && <p className="text-sm text-destructive">{errors.recipientName.message}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="recipientPhone">Phone</Label>
+                  <Input id="recipientPhone" {...register("recipientPhone")} />
+                  {errors.recipientPhone && <p className="text-sm text-destructive">{errors.recipientPhone.message}</p>}
+                </div>
+              </div>
+              <GeographyPicker
+                value={recipientGeography}
+                onChange={(next) => {
+                  setValue("recipientProvinceId", next.provinceId ?? "");
+                  setValue("recipientDistrictId", next.districtId ?? "");
+                  setValue("recipientLocalLevelId", next.localLevelId ?? "");
+                  setValue("recipientWardNumber", next.wardNumber ?? undefined as never);
+                }}
+              />
+              <div className="space-y-2">
+                <Label htmlFor="recipientAddressLine">Address</Label>
+                <Input id="recipientAddressLine" {...register("recipientAddressLine")} />
+                {errors.recipientAddressLine && <p className="text-sm text-destructive">{errors.recipientAddressLine.message}</p>}
+              </div>
+            </section>
+
+            <section className="space-y-4">
+              <h3 className="text-sm font-semibold text-foreground">Sender</h3>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="senderName">Name</Label>
+                  <Input id="senderName" {...register("senderName")} />
+                  {errors.senderName && <p className="text-sm text-destructive">{errors.senderName.message}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="senderPhone">Phone</Label>
+                  <Input id="senderPhone" {...register("senderPhone")} />
+                  {errors.senderPhone && <p className="text-sm text-destructive">{errors.senderPhone.message}</p>}
+                </div>
+              </div>
+              <GeographyPicker
+                value={senderGeography}
+                onChange={(next) => {
+                  setValue("senderProvinceId", next.provinceId ?? "");
+                  setValue("senderDistrictId", next.districtId ?? "");
+                  setValue("senderLocalLevelId", next.localLevelId ?? "");
+                  setValue("senderWardNumber", next.wardNumber ?? undefined as never);
+                }}
+              />
+              <div className="space-y-2">
+                <Label htmlFor="senderAddressLine">Address</Label>
+                <Input id="senderAddressLine" {...register("senderAddressLine")} />
+                {errors.senderAddressLine && <p className="text-sm text-destructive">{errors.senderAddressLine.message}</p>}
+              </div>
+            </section>
+
+            {serverError && <p className="text-sm text-destructive">{serverError}</p>}
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? <Spinner className="h-4 w-4" /> : "Create Shipment"}
+            </Button>
+          </form>
+        </FormProvider>
+      </SheetContent>
+    </Sheet>
+  );
+}
