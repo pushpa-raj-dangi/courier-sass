@@ -509,6 +509,15 @@ The UI should feel closer to a polished modern logistics/operations platform tha
 dashboard. This is the direction Phase F0's design tokens, established via the `frontend-design`
 and `impeccable` skills, already target.
 
+**`PRODUCT.md` and `DESIGN.md` at the repo root** are the `impeccable` skill's own durable
+context files — product/user context and the documented design system (palette, type, the
+design-token sidecar in `.impeccable/design.json`) — auto-maintained by the skill across
+sessions and committed like any other doc. `.impeccable/config.json` (shared) is committed
+alongside them; `.impeccable/config.local.json`, `.impeccable/hook.cache.json`, and
+`.impeccable/live/` are per-developer/session state and gitignored. Frontend design work should
+let the skill keep these in sync rather than hand-maintaining a duplicate description here — this
+section stays the narrative summary, `DESIGN.md` stays the source of truth for exact values.
+
 Primary visual characteristics:
 
 * Clean
