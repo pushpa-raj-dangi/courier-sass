@@ -1,6 +1,7 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
+  darkMode: ["class"],
   content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -9,8 +10,81 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "var(--background)",
-        foreground: "var(--foreground)",
+        background: "hsl(var(--background) / <alpha-value>)",
+        foreground: "hsl(var(--foreground) / <alpha-value>)",
+        card: {
+          DEFAULT: "hsl(var(--card) / <alpha-value>)",
+          foreground: "hsl(var(--card-foreground) / <alpha-value>)",
+        },
+        popover: {
+          DEFAULT: "hsl(var(--popover) / <alpha-value>)",
+          foreground: "hsl(var(--popover-foreground) / <alpha-value>)",
+        },
+        primary: {
+          DEFAULT: "hsl(var(--primary) / <alpha-value>)",
+          foreground: "hsl(var(--primary-foreground) / <alpha-value>)",
+        },
+        secondary: {
+          DEFAULT: "hsl(var(--secondary) / <alpha-value>)",
+          foreground: "hsl(var(--secondary-foreground) / <alpha-value>)",
+        },
+        muted: {
+          DEFAULT: "hsl(var(--muted) / <alpha-value>)",
+          foreground: "hsl(var(--muted-foreground) / <alpha-value>)",
+        },
+        accent: {
+          DEFAULT: "hsl(var(--accent) / <alpha-value>)",
+          foreground: "hsl(var(--accent-foreground) / <alpha-value>)",
+        },
+        destructive: {
+          DEFAULT: "hsl(var(--destructive) / <alpha-value>)",
+          foreground: "hsl(var(--destructive-foreground) / <alpha-value>)",
+        },
+        border: "hsl(var(--border) / <alpha-value>)",
+        input: "hsl(var(--input) / <alpha-value>)",
+        ring: "hsl(var(--ring) / <alpha-value>)",
+        "status-created": {
+          DEFAULT: "hsl(var(--status-created) / <alpha-value>)",
+          foreground: "hsl(var(--status-created-foreground) / <alpha-value>)",
+        },
+        "status-in-transit": {
+          DEFAULT: "hsl(var(--status-in-transit) / <alpha-value>)",
+          foreground: "hsl(var(--status-in-transit-foreground) / <alpha-value>)",
+        },
+        "status-out-for-delivery": {
+          DEFAULT: "hsl(var(--status-out-for-delivery) / <alpha-value>)",
+          foreground: "hsl(var(--status-out-for-delivery-foreground) / <alpha-value>)",
+        },
+        "status-delivered": {
+          DEFAULT: "hsl(var(--status-delivered) / <alpha-value>)",
+          foreground: "hsl(var(--status-delivered-foreground) / <alpha-value>)",
+        },
+        "status-delivery-failed": {
+          DEFAULT: "hsl(var(--status-delivery-failed) / <alpha-value>)",
+          foreground: "hsl(var(--status-delivery-failed-foreground) / <alpha-value>)",
+        },
+        "status-ndr": {
+          DEFAULT: "hsl(var(--status-ndr) / <alpha-value>)",
+          foreground: "hsl(var(--status-ndr-foreground) / <alpha-value>)",
+        },
+        "status-rto": {
+          DEFAULT: "hsl(var(--status-rto) / <alpha-value>)",
+          foreground: "hsl(var(--status-rto-foreground) / <alpha-value>)",
+        },
+        "status-cancelled": {
+          DEFAULT: "hsl(var(--status-cancelled) / <alpha-value>)",
+          foreground: "hsl(var(--status-cancelled-foreground) / <alpha-value>)",
+        },
+      },
+      borderRadius: {
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
+      },
+      fontFamily: {
+        sans: ["var(--font-plex-sans)", "Arial", "Helvetica", "sans-serif"],
+        mono: ["var(--font-plex-mono)", "monospace"],
+        display: ["var(--font-space-grotesk)", "var(--font-plex-sans)", "sans-serif"],
       },
     },
   },
