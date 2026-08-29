@@ -1,4 +1,4 @@
-import { Gauge } from "lucide-react";
+import { Gauge, TrendingUp, TrendingDown, Undo2, Clock } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 function formatPercent(value: number | null): string {
@@ -25,27 +25,60 @@ export function RateTiles({
   };
 }) {
   const tiles = [
-    { label: "Delivery Success Rate", value: formatPercent(data.overallDeliverySuccessRate) },
-    { label: "NDR Rate", value: formatPercent(data.overallNdrRate) },
-    { label: "RTO Rate", value: formatPercent(data.overallRtoRate) },
-    { label: "Average Delivery Time", value: formatDuration(data.averageDeliveryTime) },
+    {
+      label: "Delivery Success Rate",
+      value: formatPercent(data.overallDeliverySuccessRate),
+      icon: TrendingUp,
+      badgeClass: "bg-status-delivered/15 text-status-delivered",
+    },
+    {
+      label: "NDR Rate",
+      value: formatPercent(data.overallNdrRate),
+      icon: TrendingDown,
+      badgeClass: "bg-status-ndr/15 text-status-ndr",
+    },
+    {
+      label: "RTO Rate",
+      value: formatPercent(data.overallRtoRate),
+      icon: Undo2,
+      badgeClass: "bg-status-rto/15 text-status-rto",
+    },
+    {
+      label: "Average Delivery Time",
+      value: formatDuration(data.averageDeliveryTime),
+      icon: Clock,
+      badgeClass: "bg-muted text-muted-foreground",
+    },
   ];
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 font-display text-base">
-          <Gauge className="h-4 w-4 text-muted-foreground" strokeWidth={2} />
+        <CardTitle className="flex items-center gap-3 font-display text-base">
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
+            <Gauge className="h-4 w-4 text-muted-foreground" strokeWidth={2} />
+          </span>
           Key Rates
         </CardTitle>
         <CardDescription>Last 30 days</CardDescription>
       </CardHeader>
-      <CardContent className="grid grid-cols-2 gap-6 sm:grid-cols-4">
-        {tiles.map((tile) => (
-          <div key={tile.label} className="flex flex-col gap-1">
-            <span className="text-xs text-muted-foreground">{tile.label}</span>
-            <span className="font-sans text-2xl font-semibold text-foreground">{tile.value}</span>
-          </div>
-        ))}
+      <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {tiles.map((tile) => {
+          const Icon = tile.icon;
+          return (
+            <div
+              key={tile.label}
+              className="flex items-center gap-3 rounded-lg border border-border p-4"
+            >
+              <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${tile.badgeClass}`}>
+                <Icon className="h-5 w-5" strokeWidth={2} />
+              </span>
+              <div className="flex flex-col gap-0.5">
+                <span className="text-xs text-muted-foreground">{tile.label}</span>
+                <span className="font-sans text-lg font-semibold text-foreground">{tile.value}</span>
+              </div>
+            </div>
+          );
+        })}
       </CardContent>
     </Card>
   );
