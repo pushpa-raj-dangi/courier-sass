@@ -22,3 +22,9 @@ storage/
 
 # Claude Code worktree scratch state
 .claude/
+
+# Impeccable skill: per-developer/session state, not shared project truth
+# (.impeccable/config.json and .impeccable/design.json ARE committed — shared config + DESIGN.md's sidecar)
+.impeccable/config.local.json
+.impeccable/hook.cache.json
+.impeccable/live/
