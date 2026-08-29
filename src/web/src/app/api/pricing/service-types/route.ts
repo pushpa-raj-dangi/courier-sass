@@ -3,7 +3,7 @@ import { apiFetch } from "@/lib/auth/apiFetch";
 
 export async function GET() {
   try {
-    const response = await apiFetch("/api/v1/pricing/reference/service-types");
+    const response = await apiFetch("/api/v1/service-types");
     const body = await response.json();
     return NextResponse.json(body, { status: response.status });
   } catch {
