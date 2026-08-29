@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { TopNav } from "@/components/layout/TopNav";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { ReauthDialog } from "@/components/layout/ReauthDialog";
 
 export function AppShell({ children }: { children: ReactNode }) {
   return (
@@ -10,6 +11,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <Sidebar />
         <main className="flex-1 overflow-y-auto bg-background p-6">{children}</main>
       </div>
+      <ReauthDialog />
     </div>
   );
 }
