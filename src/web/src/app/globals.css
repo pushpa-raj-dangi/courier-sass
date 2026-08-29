@@ -180,3 +180,35 @@ body {
     text-wrap: balance;
   }
 }
+
+/*
+ * Sidebar tokens (shadcn sidebar-07 block, Frontend Phase F4 sidebar redo) — mapped onto this
+ * palette's existing background/accent/border/ring values rather than left at the block's
+ * generic gray defaults, so the sidebar reads as part of this design system instead of a
+ * bolted-on demo. Light mode shares --background exactly (this palette's --card is identical to
+ * --background already) with --border providing the only separation, matching how every other
+ * bordered panel in this app works; dark mode does the same.
+ */
+
+@layer base {
+  :root {
+    --sidebar-background: 37.5 44.4% 96.5%;
+    --sidebar-foreground: 229.1 20.0% 10.8%;
+    --sidebar-primary: 229.1 20.0% 10.8%;
+    --sidebar-primary-foreground: 37.5 44.4% 96.5%;
+    --sidebar-accent: 38 78% 94%;
+    --sidebar-accent-foreground: 229.1 20.0% 10.8%;
+    --sidebar-border: 230 10% 87%;
+    --sidebar-ring: 229 20% 30%;
+  }
+  .dark {
+    --sidebar-background: 230.0 23.1% 10.2%;
+    --sidebar-foreground: 40.0 33.3% 92.9%;
+    --sidebar-primary: 40.0 33.3% 92.9%;
+    --sidebar-primary-foreground: 230.0 23.1% 10.2%;
+    --sidebar-accent: 228.8 20% 24%;
+    --sidebar-accent-foreground: 40.0 33.3% 92.9%;
+    --sidebar-border: 228.8 15% 24%;
+    --sidebar-ring: 40 20% 70%;
+  }
+}

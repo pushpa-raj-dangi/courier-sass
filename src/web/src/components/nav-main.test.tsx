@@ -1,13 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Sidebar } from "./Sidebar";
+import { SidebarProvider } from "@/components/ui/sidebar";
+import { NavMain } from "./nav-main";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/dashboard",
 }));
 
-function renderSidebar(permissions: string[]) {
+function renderNavMain(permissions: string[]) {
   global.fetch = vi.fn().mockResolvedValue({
     ok: true,
     status: 200,
@@ -25,21 +26,23 @@ function renderSidebar(permissions: string[]) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <Sidebar />
+      <SidebarProvider>
+        <NavMain />
+      </SidebarProvider>
     </QueryClientProvider>
   );
 }
 
-describe("Sidebar", () => {
+describe("NavMain", () => {
   it("hides nav items the session lacks permission for", async () => {
-    renderSidebar(["report.read"]);
+    renderNavMain(["report.read"]);
 
     await waitFor(() => expect(screen.getByText("Dashboard")).toBeInTheDocument());
     expect(screen.queryByText("Shipments")).not.toBeInTheDocument();
   });
 
   it("shows nav items granted by the session's permissions", async () => {
-    renderSidebar(["report.read", "shipment.read"]);
+    renderNavMain(["report.read", "shipment.read"]);
 
     await waitFor(() => expect(screen.getByText("Shipments")).toBeInTheDocument());
   });
