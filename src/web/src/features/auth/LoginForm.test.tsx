@@ -26,8 +26,8 @@ describe("LoginForm", () => {
     });
     render(<LoginForm />);
 
-    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: "a@b.com" } });
-    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: "wrong" } });
+    fireEvent.change(screen.getByLabelText(/^email$/i), { target: { value: "a@b.com" } });
+    fireEvent.change(screen.getByLabelText(/^password$/i), { target: { value: "wrong" } });
     fireEvent.click(screen.getByRole("button", { name: /sign in/i }));
 
     await waitFor(() => expect(screen.getByText("Invalid email or password.")).toBeInTheDocument());

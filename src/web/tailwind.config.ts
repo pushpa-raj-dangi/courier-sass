@@ -2,11 +2,12 @@ import type { Config } from "tailwindcss";
 
 const config: Config = {
   darkMode: ["class"],
-  content: [
-    "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
-  ],
+  // A single broad glob over all of src/ rather than one entry per top-level folder — the
+  // previous per-folder list silently missed src/features/ and src/lib/, so Tailwind's JIT
+  // never scanned LoginForm.tsx for classes; some utilities "worked" only because another
+  // already-scanned file happened to use the same class string (e.g. dropdown-menu.tsx's
+  // `absolute`), while -translate-y-1/2 (used nowhere else) generated no CSS at all.
+  content: ["./src/**/*.{js,ts,jsx,tsx,mdx}"],
   theme: {
     extend: {
       colors: {

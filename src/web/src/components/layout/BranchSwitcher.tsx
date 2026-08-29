@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { Building2, ChevronDown } from "lucide-react";
 import { useSession } from "@/features/auth/hooks/useSession";
 import { useUiStore } from "@/lib/store/uiStore";
 import {
@@ -33,8 +34,10 @@ export function BranchSwitcher() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm">
+        <Button variant="outline" size="sm" className="gap-1.5">
+          <Building2 className="h-3.5 w-3.5" strokeWidth={2} />
           {active?.branchName ?? "Select branch"}
+          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={2} />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent>
