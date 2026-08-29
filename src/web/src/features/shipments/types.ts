@@ -84,3 +84,27 @@ export interface Merchant {
   displayName: string;
   isActive: boolean;
 }
+
+export interface QuoteInput {
+  originBranchId: string;
+  destinationBranchId: string;
+  weightKg: number;
+  serviceTypeId: string;
+  codAmount: number;
+  declaredValue: number;
+  wantsInsurance: boolean;
+  merchantId: string | null;
+}
+
+export interface AppliedCharge {
+  type: string;
+  amount: number;
+}
+
+export interface QuoteResponse {
+  baseRate: number;
+  appliedCharges: AppliedCharge[];
+  discountPercent: number;
+  subtotal: number;
+  total: number;
+}
