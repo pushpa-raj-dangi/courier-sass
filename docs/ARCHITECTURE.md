@@ -132,6 +132,20 @@ src/
 * The frontend never computes or trusts price/COD/tenant/branch/role values it
   receives from user input — all such values are display-only echoes of what the
   server returned (CLAUDE.md §33).
+* **Prefer shadcn/ui's official blocks over hand-built compositions** for standard
+  patterns it already ships a well-fitting block for — sidebar navigation
+  (`npx shadcn add sidebar-07` / `sidebar-03`), login/signup pages (`login-03`,
+  `login-04`), and dashboard shells (`dashboard-01`) are known-good starting points
+  as of this writing. Add the block, then restyle it onto this project's design
+  tokens (Phase F0's palette/type system) rather than rebuilding the same structure
+  from primitives — a custom composition is for a pattern shadcn has no block for,
+  not the default. Loading states use shadcn's own `Spinner` component
+  (`npx shadcn add spinner`, built on lucide's `LoaderIcon` with `animate-spin`),
+  not a hand-rolled spinner. Every visible component should trace back to a shadcn
+  primitive or block, restyled — never a from-scratch reimplementation of something
+  shadcn already provides. Apply this starting Frontend Phase F1 onward; Phase F0's
+  hand-built `AppShell`/`Sidebar`/`LoginForm` predate this convention and are not
+  retroactively required to change unless a phase touching them decides to.
 
 ## 5. Deployment (Docker Compose, v1)
 
