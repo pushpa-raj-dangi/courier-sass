@@ -6,9 +6,21 @@ export interface CodFinancialSummary {
   merchantPayable: number;
 }
 
+export interface BranchPerformance {
+  shipmentVolume: number;
+  deliveryAttempts: number;
+  deliverySuccesses: number;
+  deliverySuccessRate: number | null;
+  ndrCount: number;
+  ndrRate: number | null;
+  rtoCount: number;
+  rtoRate: number | null;
+}
+
 export interface OrgDashboardSummary {
   todaysShipmentsByStatus: Record<string, number>;
   financial: CodFinancialSummary;
+  branchPerformance: Record<string, BranchPerformance>;
   overallDeliverySuccessRate: number | null;
   overallNdrRate: number | null;
   overallRtoRate: number | null;

@@ -6,6 +6,8 @@ import { useOrgDashboard } from "@/features/reports/hooks/useOrgDashboard";
 import { ShipmentFunnel } from "@/features/reports/components/ShipmentFunnel";
 import { FinancialSummary } from "@/features/reports/components/FinancialSummary";
 import { RateTiles } from "@/features/reports/components/RateTiles";
+import { DeliveryRateHero } from "@/features/reports/components/DeliveryRateHero";
+import { BranchPerformanceChart } from "@/features/reports/components/BranchPerformanceChart";
 
 export default function DashboardPage() {
   const { data, isLoading, isError, refetch } = useOrgDashboard();
@@ -31,15 +33,18 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <ShipmentFunnel data={data.todaysShipmentsByStatus} />
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+        <DeliveryRateHero rate={data.overallDeliverySuccessRate} />
+        <RateTiles
+          data={{
+            overallNdrRate: data.overallNdrRate,
+            overallRtoRate: data.overallRtoRate,
+            averageDeliveryTime: data.averageDeliveryTime,
+          }}
+        />
+      </div>
       <FinancialSummary data={data.financial} />
-      <RateTiles
-        data={{
-          overallDeliverySuccessRate: data.overallDeliverySuccessRate,
-          overallNdrRate: data.overallNdrRate,
-          overallRtoRate: data.overallRtoRate,
-          averageDeliveryTime: data.averageDeliveryTime,
-        }}
-      />
+      <BranchPerformanceChart data={data.branchPerformance} />
     </div>
   );
 }

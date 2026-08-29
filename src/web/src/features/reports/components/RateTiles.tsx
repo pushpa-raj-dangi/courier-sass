@@ -1,4 +1,4 @@
-import { Gauge, TrendingUp, TrendingDown, Undo2, Clock } from "lucide-react";
+import { Gauge, TrendingDown, Undo2, Clock } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 function formatPercent(value: number | null): string {
@@ -18,19 +18,12 @@ export function RateTiles({
   data,
 }: {
   data: {
-    overallDeliverySuccessRate: number | null;
     overallNdrRate: number | null;
     overallRtoRate: number | null;
     averageDeliveryTime: string | null;
   };
 }) {
   const tiles = [
-    {
-      label: "Delivery Success Rate",
-      value: formatPercent(data.overallDeliverySuccessRate),
-      icon: TrendingUp,
-      badgeClass: "bg-status-delivered/15 text-status-delivered",
-    },
     {
       label: "NDR Rate",
       value: formatPercent(data.overallNdrRate),
@@ -61,7 +54,7 @@ export function RateTiles({
         </CardTitle>
         <CardDescription>Last 30 days</CardDescription>
       </CardHeader>
-      <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <CardContent className="grid grid-cols-1 gap-4">
         {tiles.map((tile) => {
           const Icon = tile.icon;
           return (

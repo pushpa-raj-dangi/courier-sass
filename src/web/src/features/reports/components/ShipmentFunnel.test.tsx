@@ -16,16 +16,14 @@ describe("ShipmentFunnel", () => {
       />
     );
 
-    const inTransitLabel = screen.getByText("In Transit");
-    const inTransitCount = inTransitLabel.parentElement?.nextElementSibling;
-    expect(inTransitCount?.textContent).toBe("7");
+    const inTransitRow = screen.getByText("In Transit").closest('[tabindex="0"]');
+    expect(inTransitRow).toHaveTextContent("7");
     expect(screen.getByText("10")).toBeInTheDocument();
   });
 
   it("renders 0 for a bucket with no matching statuses in the data", () => {
     render(<ShipmentFunnel data={{ Delivered: 3 }} />);
-    const createdLabel = screen.getByText("Created");
-    const createdCount = createdLabel.parentElement?.nextElementSibling;
-    expect(createdCount?.textContent).toBe("0");
+    const createdRow = screen.getByText("Created").closest('[tabindex="0"]');
+    expect(createdRow).toHaveTextContent("0");
   });
 });
