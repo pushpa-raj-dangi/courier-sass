@@ -1,4 +1,5 @@
 using Courier.Manifests.Application;
+using Courier.Manifests.Domain;
 using Courier.SharedKernel;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -26,6 +27,10 @@ public static class ManifestsEndpoints
                 return Results.BadRequest(new { error = new { code = "MANIFEST_VALIDATION_FAILED", message = ex.Message } });
             }
         }).RequirePermission("manifest.create");
+
+        group.MapGet("/", async (Guid? branchId, ManifestStatus? status, ManifestService service, HttpContext httpContext) =>
+            Results.Ok(await service.ListAsync(branchId, status, httpContext.User, httpContext.RequestAborted)))
+            .RequirePermission("manifest.read");
 
         group.MapGet("/{id:guid}", async (Guid id, ManifestService service, HttpContext httpContext) =>
         {

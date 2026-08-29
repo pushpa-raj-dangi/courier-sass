@@ -1,4 +1,6 @@
+using System.Security.Claims;
 using Courier.Manifests.Domain;
+using Courier.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 
 namespace Courier.Manifests.Application;
@@ -9,6 +11,36 @@ public partial class ManifestService
     {
         var manifest = await _dbContext.Set<Manifest>().FirstOrDefaultAsync(m => m.Id == manifestId, cancellationToken);
         return manifest is null ? null : ToResponse(manifest);
+    }
+
+    public async Task<List<ManifestResponse>> ListAsync(Guid? branchId, ManifestStatus? status, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
+    {
+        var query = _dbContext.Set<Manifest>().AsQueryable();
+
+        // Scope to branches the caller can access for manifest.read. null means "no filter
+        // applies" (BranchScope.AllBranches) per IBranchAuthorizationChecker's documented
+        // contract — a non-null set restricts to manifests touching any of those branches as
+        // sender or receiver, mirroring ShipmentService.Reads.cs's ListAsync's established shape.
+        var accessibleBranchIds = await _branchAuthorizationChecker.GetAccessibleBranchIdsAsync(actingUser, "manifest.read", cancellationToken);
+        if (accessibleBranchIds is not null)
+        {
+            var accessibleBranchIdsArray = accessibleBranchIds.ToArray();
+            query = query.Where(m =>
+                accessibleBranchIdsArray.Contains(m.FromBranchId) ||
+                accessibleBranchIdsArray.Contains(m.ToBranchId));
+        }
+
+        if (branchId is Guid requestedBranchId)
+        {
+            query = query.Where(m => m.FromBranchId == requestedBranchId || m.ToBranchId == requestedBranchId);
+        }
+        if (status is ManifestStatus requestedStatus)
+        {
+            query = query.Where(m => m.Status == requestedStatus);
+        }
+
+        var manifests = await query.OrderByDescending(m => m.CreatedAt).ToListAsync(cancellationToken);
+        return manifests.Select(ToResponse).ToList();
     }
 
     // Meaningful once the manifest is Closed (a null ReceivedAt then IS the missing-shipment

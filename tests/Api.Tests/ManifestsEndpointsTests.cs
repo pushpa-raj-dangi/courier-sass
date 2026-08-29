@@ -6,9 +6,11 @@ using Courier.Branches.Domain;
 using Courier.Geography.Application;
 using Courier.Geography.Infrastructure;
 using Courier.Identity.Application;
+using Courier.Identity.Domain;
 using Courier.Manifests.Application;
 using Courier.Manifests.Domain;
 using Courier.Merchants.Application;
+using Courier.Persistence;
 using Courier.Pricing.Application;
 using Courier.Pricing.Domain;
 using Courier.Riders.Application;
@@ -16,6 +18,8 @@ using Courier.Riders.Domain;
 using Courier.Shipments.Application;
 using Courier.Shipments.Domain;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace Courier.Api.Tests;
@@ -240,6 +244,100 @@ public class ManifestsEndpointsTests : IClassFixture<WebApplicationFactory<Progr
         var response = await clientB.GetAsync($"/api/v1/manifests/{manifest!.Id}");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    private async Task<string> SeedScopedUserTokenAsync(
+        Guid organizationId, Guid ownerUserId, string permissionKey, params Guid[] grantedBranchIds)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var jwtTokenService = scope.ServiceProvider.GetRequiredService<IJwtTokenService>();
+
+        var permission = await dbContext.Set<Permission>().FirstAsync(p => p.Key == permissionKey);
+        var role = new Role
+        {
+            Id = Guid.NewGuid(),
+            OrganizationId = organizationId,
+            Name = $"ScopedRole-{permissionKey}-{Guid.NewGuid():N}",
+            IsSystemDefault = false
+        };
+        role.Permissions.Add(permission);
+        dbContext.Set<Role>().Add(role);
+
+        var scopedUserId = Guid.NewGuid();
+        var email = $"scoped-{scopedUserId:N}@example.com";
+        dbContext.Set<User>().Add(new User
+        {
+            Id = scopedUserId,
+            OrganizationId = organizationId,
+            Email = email,
+            PasswordHash = "not-used-in-this-test",
+            FullName = "Scoped User"
+        });
+        dbContext.Set<UserRole>().Add(new UserRole
+        {
+            Id = Guid.NewGuid(),
+            UserId = scopedUserId,
+            RoleId = role.Id,
+            OrganizationId = organizationId,
+            BranchScope = BranchScope.SpecificBranches,
+            AssignedAt = DateTimeOffset.UtcNow,
+            AssignedByUserId = ownerUserId
+        });
+        foreach (var branchId in grantedBranchIds)
+        {
+            dbContext.Set<UserBranch>().Add(new UserBranch
+            {
+                Id = Guid.NewGuid(),
+                UserId = scopedUserId,
+                BranchId = branchId,
+                OrganizationId = organizationId,
+                GrantedAt = DateTimeOffset.UtcNow,
+                GrantedByUserId = ownerUserId
+            });
+        }
+        await dbContext.SaveChangesAsync();
+
+        return jwtTokenService.IssueAccessToken(scopedUserId, organizationId, email);
+    }
+
+    [Fact]
+    public async Task GetManifests_OwnerWithAllBranchesScope_SeesManifestItCreated()
+    {
+        var client = _factory.CreateClient();
+        var owner = await RegisterOrgAsync(client, "list-owner");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", owner.AccessToken);
+        var (fromBranchId, toBranchId, _) = await SeedBranchesAsync(client);
+        var created = await (await client.PostAsJsonAsync("/api/v1/manifests", new CreateManifestRequest(fromBranchId, toBranchId)))
+            .Content.ReadFromJsonAsync<ManifestResponse>();
+
+        var response = await client.GetAsync("/api/v1/manifests");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var manifests = await response.Content.ReadFromJsonAsync<List<ManifestResponse>>();
+        Assert.Contains(manifests!, m => m.Id == created!.Id);
+    }
+
+    [Fact]
+    public async Task GetManifests_UserWithNoAccessToEitherBranch_DoesNotSeeManifest()
+    {
+        var client = _factory.CreateClient();
+        var owner = await RegisterOrgAsync(client, "list-scoped");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", owner.AccessToken);
+        var (fromBranchId, toBranchId, _) = await SeedBranchesAsync(client);
+        var created = await (await client.PostAsJsonAsync("/api/v1/manifests", new CreateManifestRequest(fromBranchId, toBranchId)))
+            .Content.ReadFromJsonAsync<ManifestResponse>();
+        var (unrelatedBranchId, _, _) = await SeedBranchesAsync(client);
+
+        var scopedToken = await SeedScopedUserTokenAsync(owner.OrganizationId, owner.UserId, "manifest.read", unrelatedBranchId);
+        var scopedClient = _factory.CreateClient();
+        scopedClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", scopedToken);
+
+        var response = await scopedClient.GetAsync("/api/v1/manifests");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var manifests = await response.Content.ReadFromJsonAsync<List<ManifestResponse>>();
+        Assert.DoesNotContain(manifests!, m => m.Id == created!.Id);
     }
 
     [Fact]
