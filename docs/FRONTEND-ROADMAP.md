@@ -68,7 +68,34 @@ counts, COD summary tiles.
 13 reporting API, correctly scoped to the logged-in user's organization; session
 expiry redirects to login without a full page-state loss surprise.
 
-*Status: Not started.*
+*Status (2026-08-29): Complete.* Implemented per
+`docs/superpowers/plans/2026-08-29-frontend-phase-f1-auth-flows-org-dashboard.md`. Fixed a real
+Phase F0 bug first: `StatusBadge`'s status keys used `SCREAMING_SNAKE_CASE` from
+`SHIPMENT-LIFECYCLE.md`'s prose, not the backend's actual PascalCase `ShipmentStatus` enum wire
+format — every real status would have silently shown as "unknown" the moment this phase wired in
+real data. Session-expiry is resolved as a **re-authentication dialog**, not a redirect (a stronger
+outcome than this phase's own exit-criteria wording): a shared `clientFetch` wrapper throws
+`SessionExpiredError` on any BFF-route 401 (which only ever means the refresh token itself failed —
+a merely-expired access token is invisible to the client, refreshed transparently server-side per
+Phase F0), a global TanStack Query `QueryCache.onError` catches it and flips a Zustand flag, and a
+non-dismissable `ReauthDialog` (shadcn `Dialog`, hand-authored against this repo's existing Radix
+conventions — the shadcn CLI's newer version prompts interactively for a component library with no
+non-interactive flag this harness can answer) lets the user sign back in and resume the page in
+place, no navigation. The organization dashboard (shipment-status funnel, COD financial summary,
+top-line rate KPIs — branch/rider breakdowns stay deferred to Phase F8) was built with the
+`dataviz` skill, which caught a second real defect before it shipped: the original
+`--status-delivered` (forest-green) failed CVD adjacent-pair separation against `--status-ndr`'s
+vermillion (ΔE 4.9 protanopia, below the legal floor) the first time both colors appeared
+side-by-side in one view — shifted to a teal-green, and `--status-delivery-failed` was retired
+entirely (it and NDR were two lightness steps of the same hue, ΔE 7.2 even for normal vision,
+also below the legal floor) since the backend auto-transitions `DELIVERY_FAILED` to `NDR_CREATED`
+in the same request anyway. Verified end-to-end against the real API: login → dashboard with real
+data → logout → middleware redirect, plus the loading spinner state, all confirmed live in browser.
+The specific mid-page "access token expired but refresh also fails" trigger wasn't reproduced live
+(httpOnly cookies are deliberately unreachable from browser-automation JS — the security design
+working as intended) but is covered by real component-mount integration tests (`providers.test.tsx`
+exercises the actual `QueryCache` wiring with a real throwing query; `ReauthDialog.test.tsx`
+exercises the dialog's own open/submit/resume behavior against a real fetch-mocked 401→200 login).
 
 ## Phase F2 — Branches + Branch Dashboard
 
