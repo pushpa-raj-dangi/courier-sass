@@ -42,25 +42,22 @@ export function BranchPerformanceChart({ data }: { data: Record<string, BranchPe
           <EmptyState title="No branch activity yet" description="Branch performance appears once shipments start moving." icon={Building2} />
         ) : (
           <div className="space-y-6">
-            <ChartContainer
-              config={chartConfig}
-              className="aspect-auto w-full"
-              style={{ height: Math.max(140, rows.length * 44) }}
-            >
-              <BarChart accessibilityLayer data={chartData} layout="vertical" margin={{ left: 0 }}>
-                <CartesianGrid horizontal={false} />
-                <YAxis
+            <ChartContainer config={chartConfig} className="aspect-auto h-[300px] w-full">
+              <BarChart accessibilityLayer data={chartData} margin={{ top: 8, bottom: 24 }}>
+                <CartesianGrid vertical={false} />
+                <XAxis
                   dataKey="branch"
-                  type="category"
                   tickLine={false}
                   axisLine={false}
-                  tickMargin={8}
-                  width={130}
                   interval={0}
+                  angle={-35}
+                  textAnchor="end"
+                  height={56}
+                  tickMargin={8}
                 />
-                <XAxis dataKey="volume" type="number" hide />
+                <YAxis dataKey="volume" type="number" hide />
                 <ChartTooltip cursor={{ fill: "hsl(var(--muted))" }} content={<ChartTooltipContent indicator="line" />} />
-                <Bar dataKey="volume" fill="var(--color-volume)" radius={4} />
+                <Bar dataKey="volume" fill="var(--color-volume)" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ChartContainer>
             <div className="space-y-2 border-t border-border pt-4">

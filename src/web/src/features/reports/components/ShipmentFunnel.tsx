@@ -47,21 +47,22 @@ export function ShipmentFunnel({ data }: { data: Record<string, number> }) {
         <CardDescription>Shipment activity for today</CardDescription>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={chartConfig} className="aspect-auto h-[280px] w-full">
-          <BarChart accessibilityLayer data={chartData} layout="vertical" margin={{ left: 0 }}>
-            <CartesianGrid horizontal={false} />
-            <YAxis
+        <ChartContainer config={chartConfig} className="aspect-auto h-[300px] w-full">
+          <BarChart accessibilityLayer data={chartData} margin={{ top: 8, bottom: 24 }}>
+            <CartesianGrid vertical={false} />
+            <XAxis
               dataKey="status"
-              type="category"
               tickLine={false}
               axisLine={false}
-              tickMargin={8}
-              width={110}
               interval={0}
+              angle={-35}
+              textAnchor="end"
+              height={56}
+              tickMargin={8}
             />
-            <XAxis dataKey="count" type="number" hide />
+            <YAxis dataKey="count" type="number" hide />
             <ChartTooltip cursor={{ fill: "hsl(var(--muted))" }} content={<ChartTooltipContent indicator="line" />} />
-            <Bar dataKey="count" radius={4}>
+            <Bar dataKey="count" radius={[4, 4, 0, 0]}>
               {chartData.map((entry) => (
                 <Cell key={entry.status} fill={entry.fill} />
               ))}

@@ -32,7 +32,10 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <ShipmentFunnel data={data.todaysShipmentsByStatus} />
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <ShipmentFunnel data={data.todaysShipmentsByStatus} />
+        <BranchPerformanceChart data={data.branchPerformance} />
+      </div>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
         <DeliveryRateHero rate={data.overallDeliverySuccessRate} />
         <RateTiles
@@ -44,7 +47,6 @@ export default function DashboardPage() {
         />
       </div>
       <FinancialSummary data={data.financial} />
-      <BranchPerformanceChart data={data.branchPerformance} />
     </div>
   );
 }
