@@ -714,6 +714,36 @@ the "for now focus on frontend" instruction governing this and neighboring phase
 
 ---
 
+## 15. Frontend Phase F4: Manifests had no list endpoint; manual-AWB scanning only this phase
+
+**Gap — no manifest list/search endpoint.** `ManifestsEndpoints.cs` exposed only `GET /{id:guid}`
+(by internal id, known only right after creation) and `GET /{id:guid}/missing-shipments` — no way
+to browse manifests at all, unlike every other entity (Branches, Shipments). This uniquely blocked
+a real chunk of Frontend Phase F4's own scope: the destination branch's staff has no way to *find*
+an inbound manifest to receive, since receiving naturally happens at a different branch/session
+than creation.
+
+**Resolution: added, not deferred.** `GET /api/v1/manifests?branchId=&status=` — a plain
+(non-paginated) list filtered to manifests where the caller's accessible branches (for
+`manifest.read`) include `FromBranchId` or `ToBranchId`. Framed as closing a foundational
+inconsistency every other entity already had, not new business feature work.
+
+**Deferred, not silently dropped: camera-based barcode/QR scanning.** This phase's scan
+inputs (build-manifest scan, receive-scan) are manual AWB text entry only. Unblocks with a
+scanning library choice and camera-permission UX — no backend dependency, purely a frontend
+addition whenever a future phase picks it up.
+
+**Also found, not fixed (out of scope for this task):** running `validate_palette.js` against the
+existing shipment-status palette plus this phase's two new manifest tokens surfaced that two
+*pre-existing* tokens (`--status-delivered` and `--status-created`) already sit below the
+normal-vision adjacent-pair floor (ΔE 11.2, light mode) against each other — a debt that predates
+this phase and isn't something either of this phase's two new tokens (`--status-sealed`,
+`--status-received`) touches or worsens. Worth a dedicated pass revisiting the whole shipment
+status palette at some point; not blocking anything today since every status always ships with a
+visible text label, never color alone.
+
+---
+
 ## Summary of schema additions implied by this document
 
 * `UserRole` (new entity) — resolves #1, carries `BranchScope` enum — resolves #6.
