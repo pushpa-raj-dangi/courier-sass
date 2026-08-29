@@ -4,6 +4,8 @@ import { BranchCreateSheet } from "@/features/branches/components/BranchCreateSh
 import { BranchDetailSheet } from "@/features/branches/components/BranchDetailSheet";
 import { ShipmentCreateSheet } from "@/features/shipments/components/ShipmentCreateSheet";
 import { ShipmentDetailSheet } from "@/features/shipments/components/ShipmentDetailSheet";
+import { ManifestCreateSheet } from "@/features/manifests/components/ManifestCreateSheet";
+import { ManifestDetailSheet } from "@/features/manifests/components/ManifestDetailSheet";
 
 export default function StaffLayout({ children }: { children: ReactNode }) {
   return (
@@ -13,6 +15,8 @@ export default function StaffLayout({ children }: { children: ReactNode }) {
       <BranchDetailSheet />
       <ShipmentCreateSheet />
       <ShipmentDetailSheet />
+      <ManifestCreateSheet />
+      <ManifestDetailSheet />
     </AppShell>
   );
 }

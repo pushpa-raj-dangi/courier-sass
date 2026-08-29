@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Package, Building2, Wallet, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, Package, Building2, Wallet, Truck, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePermission } from "@/features/auth/hooks/usePermission";
 import { useUiStore } from "@/lib/store/uiStore";
@@ -21,6 +21,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", permission: "report.read", icon: LayoutDashboard },
   { href: "/shipments", label: "Shipments", permission: "shipment.read", icon: Package },
   { href: "/branches", label: "Branches", permission: "branch.read", icon: Building2 },
+  { href: "/manifests", label: "Manifests", permission: "manifest.read", icon: Truck },
   { href: "/cod", label: "COD", permission: "cod.read", icon: Wallet },
 ];
 

@@ -202,6 +202,51 @@ flow (`Manifest` lifecycle), missing-shipment reconciliation UI on manifest rece
 and received with missing shipments correctly flagged, exercising the full Phase 7
 manifest lifecycle through the UI only.
 
+*Status: Done (2026-08-29).* Manual-AWB-entry scanning only — no camera-based scan UI, per a
+decision recorded with the user in `docs/CLARIFICATIONS.md` §15 before design (matches every other
+scan surface in this codebase; a camera scanner is a later roadmap candidate, not scoped here).
+Shipped: the manifest list (`/manifests`, linked from the sidebar), a Sheet-based create flow, and
+a single status-driven detail Sheet whose body swaps between five sections matching the backend's
+`ManifestStatus` state machine — Draft (scan AWBs + seal), Sealed (vehicle plate/driver + dispatch),
+InTransit (receive-scan), Received (missing-shipments panel + close), Closed (read-only) — all
+following the F2-established Sheet-over-pages convention (`docs/ARCHITECTURE.md` §9a), driven by a
+new `manifestPanelStore`. `docs/CLARIFICATIONS.md` §15 also resolved this phase's one real API gap:
+`GET /api/v1/manifests` didn't exist before this phase (every other list-owning module had one) —
+added with the same branch-scoped filtering shape as `ShipmentService.Reads.cs`'s `ListAsync`,
+covered by new unit tests (`ManifestServiceListTests.cs`) and an integration test proving a
+branch-scoped user with access to neither side of a manifest cannot see it in the list
+(`ManifestsEndpointsTests.cs`).
+
+Manual E2E verification against the real API/Postgres found and fixed three real bugs, not caught
+by any automated test:
+1. **`ManifestPurpose` and `ManifestStatus` had no `JsonStringEnumConverter`** — `POST
+   /api/v1/manifests` 500'd outright (`System.Text.Json` can't deserialize `"purpose":"Forward"`
+   into an enum without one), and every `GET` response would have serialized `status` as a raw
+   integer, breaking `StatusBadge` the same way Phase F3's `ShipmentStatus` did. Fixed the same way,
+   narrowly, via `[JsonConverter(typeof(JsonStringEnumConverter))]` on both enums. This is now the
+   third enum this latent bug class has hit (`BranchType` F2, `ShipmentStatus` F3); every other
+   backend enum still carries it and will need the same fix whenever a future phase's own E2E pass
+   reaches it.
+2. **The five manifest-action mutation hooks (`useScanManifestShipment`, `useSealManifest`,
+   `useDispatchManifest`, `useReceiveScanManifestShipment`, `useCloseManifest`) only invalidated
+   `queryKey: ["manifests", manifestId]`** — a sibling of the list's `["manifests", branchId,
+   status]` key, not a parent of it, so TanStack Query never refetched the list. Scanning, sealing,
+   dispatching, receive-scanning, or closing a manifest updated its own detail Sheet correctly but
+   left `/manifests` showing the stale status and shipment count until a full page reload.
+   `useCreateManifest` already invalidated the broader `["manifests"]` key; the other five now match
+   that pattern.
+3. Setting up a realistic end-to-end scenario (org → two branches with delivery zones → merchant →
+   rate card + zone rate → shipment → rider pickup → receive-origin, all prerequisites for a
+   shipment to reach the `AtOriginBranch` state manifest scanning requires) surfaced no further
+   defects, but confirms the chain documented in `BRANCH-OPERATIONS.md` §1 and
+   `SHIPMENT-LIFECYCLE.md` is exactly as long as it looks — a fresh shipment is not scannable onto a
+   manifest until it has been assigned to a rider, pickup-scanned, and received at its origin
+   branch.
+
+Also added (not a defect, an omission in Task 11's plan step 1): `/manifests` was missing from
+`Sidebar.tsx`'s `NAV_ITEMS`, gated on `manifest.read` like every other entry — without it the route
+existed but had no way to reach it from the UI.
+
 *Status: Not started.*
 
 ## Phase F5 — Riders + Delivery + POD
