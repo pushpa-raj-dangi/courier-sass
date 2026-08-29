@@ -669,6 +669,24 @@ Phase F0 plan (`docs/superpowers/plans/2026-08-29-frontend-phase-f0-design-syste
 
 ---
 
+**F2.1 No generic branch-update endpoint exists.** Discovered planning Frontend Phase F2
+(`docs/superpowers/specs/2026-08-29-frontend-phase-f2-branches-branch-dashboard-design.md`).
+`BranchesEndpoints.cs` exposes `POST /api/v1/branches` (create), `GET /api/v1/branches` (list),
+`GET /api/v1/branches/{id}` (detail), and `PUT /api/v1/branches/{id}/delivery-zone` — that last one
+is the *only* field a branch's own creator can change after creation. `FRONTEND-ROADMAP.md`'s
+Phase F2 entry says "branch list/detail/create/update UI," but there is nothing to build "update"
+against beyond delivery zone.
+
+**Resolution: deferred, not added this phase.** Frontend Phase F2's branch detail page renders
+every other field (`Code`, `Name`, `Type`, the geography chain, `AddressLine`, `Phone`,
+`OperatingHours`, `ParentBranchId`) read-only — no UI is built for an operation the backend can't
+perform. A future phase (frontend or backend) should add `PUT /api/v1/branches/{id}` (a normal
+full-record update, matching the shape `CreateBranchRequest` already establishes) if editing branch
+details after creation becomes a real operational need; nothing currently depends on this gap being
+closed.
+
+---
+
 ## Summary of schema additions implied by this document
 
 * `UserRole` (new entity) — resolves #1, carries `BranchScope` enum — resolves #6.
