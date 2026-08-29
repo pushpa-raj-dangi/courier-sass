@@ -14,3 +14,29 @@ if (typeof window !== "undefined" && !window.matchMedia) {
     dispatchEvent: () => false,
   }) as unknown as MediaQueryList;
 }
+
+// jsdom doesn't implement ResizeObserver — recharts' ResponsiveContainer (used by every
+// dashboard chart) needs it to measure its container, and jsdom also reports 0 for
+// offsetWidth/offsetHeight by default, which makes ResponsiveContainer render nothing.
+if (typeof window !== "undefined") {
+  window.ResizeObserver = class {
+    private callback: ResizeObserverCallback;
+    constructor(callback: ResizeObserverCallback) {
+      this.callback = callback;
+    }
+    observe(target: Element) {
+      this.callback(
+        [{ target, contentRect: { width: 500, height: 300 } } as ResizeObserverEntry],
+        this as unknown as ResizeObserver
+      );
+    }
+    unobserve() {}
+    disconnect() {}
+  } as unknown as typeof ResizeObserver;
+}
+Object.defineProperty(HTMLElement.prototype, "offsetWidth", { configurable: true, value: 500 });
+Object.defineProperty(HTMLElement.prototype, "offsetHeight", { configurable: true, value: 300 });
+Object.defineProperty(HTMLElement.prototype, "getBoundingClientRect", {
+  configurable: true,
+  value: () => ({ width: 500, height: 300, top: 0, left: 0, bottom: 300, right: 500, x: 0, y: 0, toJSON() {} }),
+});

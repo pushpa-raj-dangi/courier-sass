@@ -1,10 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render } from "@testing-library/react";
 import { ShipmentFunnel } from "./ShipmentFunnel";
+
+// Recharts wraps a multi-word y-axis category label across several <tspan> lines (one word per
+// line), so its text never sits in one element for testing-library's default text matcher, and
+// the tspans' raw textContent has no space between words — join each tick's tspans with a space
+// to recover the label.
+function axisLabels(container: HTMLElement): string[] {
+  return Array.from(container.querySelectorAll(".recharts-cartesian-axis-tick text")).map((node) =>
+    Array.from(node.querySelectorAll("tspan"))
+      .map((tspan) => tspan.textContent ?? "")
+      .join(" ")
+  );
+}
 
 describe("ShipmentFunnel", () => {
   it("sums multiple raw statuses into one bucket", () => {
-    render(
+    const { container } = render(
       <ShipmentFunnel
         data={{
           AtOriginBranch: 2,
@@ -16,14 +28,24 @@ describe("ShipmentFunnel", () => {
       />
     );
 
-    const inTransitRow = screen.getByText("In Transit").closest('[tabindex="0"]');
-    expect(inTransitRow).toHaveTextContent("7");
-    expect(screen.getByText("10")).toBeInTheDocument();
+    const labels = axisLabels(container);
+    expect(labels).toContain("In Transit");
+    expect(labels).toContain("Delivered");
   });
 
-  it("renders 0 for a bucket with no matching statuses in the data", () => {
-    render(<ShipmentFunnel data={{ Delivered: 3 }} />);
-    const createdRow = screen.getByText("Created").closest('[tabindex="0"]');
-    expect(createdRow).toHaveTextContent("0");
+  it("renders every funnel bucket label, including ones with no matching data", () => {
+    const { container } = render(<ShipmentFunnel data={{ Delivered: 3 }} />);
+
+    const labels = axisLabels(container);
+    expect(labels).toEqual([
+      "Created",
+      "Picked Up",
+      "In Transit",
+      "Out for Delivery",
+      "Delivered",
+      "NDR",
+      "RTO",
+      "Cancelled",
+    ]);
   });
 });

@@ -1,6 +1,9 @@
+"use client";
+
+import { Bar, BarChart, CartesianGrid, Cell, XAxis, YAxis } from "recharts";
 import { Package } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { HorizontalBarList } from "@/components/charts/HorizontalBarList";
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 
 const FUNNEL_BUCKETS: Array<{ label: string; token: string; statuses: string[] }> = [
   { label: "Created", token: "status-created", statuses: ["Created", "PickupAssigned"] },
@@ -21,12 +24,15 @@ const FUNNEL_BUCKETS: Array<{ label: string; token: string; statuses: string[] }
   { label: "Cancelled", token: "status-cancelled", statuses: ["Cancelled"] },
 ];
 
+const chartConfig = {
+  count: { label: "Shipments" },
+} satisfies ChartConfig;
+
 export function ShipmentFunnel({ data }: { data: Record<string, number> }) {
-  const rows = FUNNEL_BUCKETS.map((bucket) => ({
-    key: bucket.label,
-    label: bucket.label,
-    value: sumStatuses(data, bucket.statuses),
-    color: `hsl(var(--${bucket.token}))`,
+  const chartData = FUNNEL_BUCKETS.map((bucket) => ({
+    status: bucket.label,
+    count: sumStatuses(data, bucket.statuses),
+    fill: `hsl(var(--${bucket.token}))`,
   }));
 
   return (
@@ -41,7 +47,27 @@ export function ShipmentFunnel({ data }: { data: Record<string, number> }) {
         <CardDescription>Shipment activity for today</CardDescription>
       </CardHeader>
       <CardContent>
-        <HorizontalBarList rows={rows} />
+        <ChartContainer config={chartConfig} className="aspect-auto h-[280px] w-full">
+          <BarChart accessibilityLayer data={chartData} layout="vertical" margin={{ left: 0 }}>
+            <CartesianGrid horizontal={false} />
+            <YAxis
+              dataKey="status"
+              type="category"
+              tickLine={false}
+              axisLine={false}
+              tickMargin={8}
+              width={110}
+              interval={0}
+            />
+            <XAxis dataKey="count" type="number" hide />
+            <ChartTooltip cursor={{ fill: "hsl(var(--muted))" }} content={<ChartTooltipContent indicator="line" />} />
+            <Bar dataKey="count" radius={4}>
+              {chartData.map((entry) => (
+                <Cell key={entry.status} fill={entry.fill} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ChartContainer>
       </CardContent>
     </Card>
   );

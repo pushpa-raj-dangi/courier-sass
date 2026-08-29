@@ -20,16 +20,20 @@ describe("BranchPerformanceChart", () => {
       { id: "b2", name: "Pokhara Hub" },
     ]);
 
-    renderWithProviders({
+    const { container } = renderWithProviders({
       b1: { shipmentVolume: 5, deliveryAttempts: 5, deliverySuccesses: 4, deliverySuccessRate: 0.8, ndrCount: 1, ndrRate: 0.2, rtoCount: 0, rtoRate: 0 },
       b2: { shipmentVolume: 20, deliveryAttempts: 20, deliverySuccesses: 18, deliverySuccessRate: 0.9, ndrCount: 2, ndrRate: 0.1, rtoCount: 0, rtoRate: 0 },
     });
 
-    await waitFor(() => expect(screen.getAllByText("Pokhara Hub").length).toBeGreaterThan(0));
-    expect(screen.getAllByText("Kathmandu Hub").length).toBeGreaterThan(0);
-
-    const rowLabels = screen.getAllByText(/Hub$/).map((el) => el.textContent);
-    expect(rowLabels[0]).toBe("Pokhara Hub");
+    // The chart's own SVG axis labels are asserted on in the axisLabels-based ShipmentFunnel
+    // test — here, scope to the plain-text rate-stats row below the chart (one label per branch,
+    // in the same sorted order the chart uses) to avoid ambiguity with split SVG tspans.
+    await waitFor(() => {
+      const labels = Array.from(container.querySelectorAll(".border-t span.truncate")).map(
+        (el) => el.textContent
+      );
+      expect(labels).toEqual(["Pokhara Hub", "Kathmandu Hub"]);
+    });
   });
 
   it("shows an empty state when there is no branch performance data", () => {
