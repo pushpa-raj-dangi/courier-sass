@@ -19,3 +19,22 @@ export interface CreateManifestInput {
   toBranchId: string;
   purpose: ManifestPurpose;
 }
+
+export interface ManifestShipmentScan {
+  id: string;
+  shipmentId: string;
+  awb: string;
+  scannedAt: string;
+  receivedAt: string | null;
+}
+
+export interface MissingShipment {
+  shipmentId: string;
+  awb: string;
+  scannedAt: string;
+}
+
+export interface DispatchManifestInput {
+  vehiclePlate: string;
+  driverId?: string;
+}
