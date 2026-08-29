@@ -1,10 +1,7 @@
-export default function HomePage() {
-  return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-24">
-      <h1 className="text-4xl font-bold">Courier Platform</h1>
-      <p className="mt-4 text-muted-foreground">
-        Nepal domestic courier operations platform.
-      </p>
-    </main>
-  );
+import { redirect } from "next/navigation";
+import { getValidAccessToken } from "@/lib/auth/session";
+
+export default async function RootPage() {
+  const accessToken = await getValidAccessToken();
+  redirect(accessToken ? "/dashboard" : "/login");
 }

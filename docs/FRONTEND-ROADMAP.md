@@ -36,7 +36,26 @@ above exists, is themed (not default shadcn), and has at least one consuming pag
 Vitest component tests cover the shell and auth flow; `docs/superpowers/specs/`
 design doc's decisions are reflected in code, not just written down.
 
-*Status: Not started.*
+*Status (2026-08-29): Complete.* Implemented per
+`docs/superpowers/plans/2026-08-29-frontend-phase-f0-design-system-app-shell.md`. A new
+`GET /api/v1/auth/me` endpoint (backend `Identity` module, `CLARIFICATIONS.md` #F0.1) exposes
+the logged-in user's permissions and branch grants — the gap the frontend design spec flagged
+before any UI code was written. Design tokens (color, type, radius, status semantics) were
+produced via the `frontend-design` and `impeccable` skills; the critique pass caught and fixed a
+real defect before it shipped (the originally proposed in-transit amber failed WCAG's 3:1
+non-text contrast minimum against the paper background, and the proposed RTO color sat too
+close to the delivery-failed/NDR hue to distinguish at a glance — both corrected and verified
+with computed contrast ratios). `StatusBadge` renders a neutral pill with a color-coded dot
+rather than a saturated fill, since several status tokens aren't safe as text-on-fill at every
+lightness. The auth BFF (Next.js Route Handlers holding JWT access/refresh tokens in `httpOnly`
+cookies, never exposed to client JS), `usePermission`-gated app shell (top nav, sidebar, branch
+switcher — the latter correctly renders nothing for a single/no-branch user), `DataTable`, and
+empty/error/loading state primitives are all built and consumed by a real login → dashboard
+flow, verified end-to-end against the real API (login, session hydration, permission-gated nav,
+logout) — not just unit-tested. Two real bugs were caught during that verification and fixed:
+a stale Docker image serving a 404 for the new endpoint (rebuilt), and a `vi.mock` hoisting
+error in a test (fixed with `vi.hoisted`). Deferred to Phase F1: the actual organization
+dashboard content (this phase's dashboard is intentionally just an `EmptyState` placeholder).
 
 ## Phase F1 — Auth Flows + Organization Dashboard
 
