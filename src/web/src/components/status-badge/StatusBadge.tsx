@@ -5,8 +5,8 @@ import { resolveStatusConfig } from "@/components/status-badge/statusConfig";
 // tokens (verified in Task 3's contrast pass) aren't safe as text-on-fill at every lightness,
 // while a small dot only needs to be visible (3:1), not carry text-weight contrast. The label
 // text always stays the badge's normal ink-on-neutral color, so meaning is never color-only.
-export function StatusBadge({ status }: { status: string }) {
-  const config = resolveStatusConfig(status);
+export function StatusBadge({ status, namespace }: { status: string; namespace?: string }) {
+  const config = resolveStatusConfig(status, namespace);
   return (
     <Badge variant="secondary" className="gap-1.5">
       <span

@@ -30,8 +30,19 @@ export const STATUS_CONFIG: Record<string, StatusConfigEntry> = {
   RtoAtOrigin: { label: "RTO At Origin", token: "status-rto" },
   RtoDelivered: { label: "RTO Delivered", token: "status-rto" },
   Cancelled: { label: "Cancelled", token: "status-cancelled" },
+  // Manifest statuses — namespaced ("Manifest.X") since ManifestStatus and ShipmentStatus both
+  // have an "InTransit" member; without namespacing, a flat key would let one silently overwrite
+  // the other in this Record. Draft/Closed deliberately reuse an existing shipment-status token
+  // (same real-world meaning: "just created, nothing actioned yet" / "done") rather than minting
+  // new colors for concepts this palette already has a color for.
+  "Manifest.Draft": { label: "Draft", token: "status-created" },
+  "Manifest.Sealed": { label: "Sealed", token: "status-sealed" },
+  "Manifest.InTransit": { label: "In Transit", token: "status-in-transit" },
+  "Manifest.Received": { label: "Received", token: "status-received" },
+  "Manifest.Closed": { label: "Closed", token: "status-delivered" },
 };
 
-export function resolveStatusConfig(status: string): StatusConfigEntry {
-  return STATUS_CONFIG[status] ?? { label: status, token: "status-cancelled" };
+export function resolveStatusConfig(status: string, namespace?: string): StatusConfigEntry {
+  const key = namespace ? `${namespace}.${status}` : status;
+  return STATUS_CONFIG[key] ?? { label: status, token: "status-cancelled" };
 }

@@ -37,4 +37,19 @@ describe("StatusBadge", () => {
     render(<StatusBadge status="SomeFutureStatus" />);
     expect(screen.getByText("SomeFutureStatus")).toBeInTheDocument();
   });
+
+  it("resolves a namespaced manifest status distinctly from the shipment status of the same name", () => {
+    render(<StatusBadge status="InTransit" />);
+    expect(screen.getByText("In Transit")).toBeInTheDocument();
+  });
+
+  it("resolves Manifest.InTransit via the namespace prop", () => {
+    render(<StatusBadge status="InTransit" namespace="Manifest" />);
+    expect(screen.getByText("In Transit")).toBeInTheDocument();
+  });
+
+  it("resolves a manifest-only status like Sealed via the namespace prop", () => {
+    render(<StatusBadge status="Sealed" namespace="Manifest" />);
+    expect(screen.getByText("Sealed")).toBeInTheDocument();
+  });
 });
