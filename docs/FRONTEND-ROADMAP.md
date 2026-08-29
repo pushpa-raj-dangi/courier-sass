@@ -127,7 +127,27 @@ switcher wired to real `UserBranch` scope.
 see branch-scoped data change accordingly; a single-branch user never sees a
 switcher; geography pickers validate the same chain the backend enforces.
 
-*Status: Not started.*
+*Status: Done (2026-08-29).* Branch list, create form (with cascading Province →
+District → Local Level pickers, backed by `/api/geography/*` BFF routes), and
+detail page (read-only record + editable Delivery Zone, gated by
+`branch.update`) are live. The detail page composes `BranchShipments` and
+`BranchExceptions` below the record, sourced from
+`GET /api/v1/reports/dashboard/branch/{id}`. `BranchSwitcher` now navigates to
+`/branches/{id}` on selection.
+
+Manual E2E verification ran against the real API and Postgres (not mocks) and
+found a real backend bug: `BranchType` had no `JsonStringEnumConverter`
+registered, so `POST /api/v1/branches` 500'd on the frontend's string payload
+and `GET` responses serialized `Type` as a raw integer (`BranchRecord.tsx`
+would have rendered "1" instead of "PickupPoint"). Fixed by adding
+`[JsonConverter(typeof(JsonStringEnumConverter))]` to the `BranchType` enum
+itself (`src/Modules/Branches/Domain/BranchType.cs`) — scoped to this enum only,
+per user decision; other enums (`ShipmentStatus`, `NdrStatus`, etc.) still
+serialize as integers and will need the same fix if/when a future frontend
+phase hits them the same way. Verified: full create → view → edit-delivery-zone
+→ reload-persists flow in-browser; `BranchSwitcher` correctly renders nothing
+for this org's single branch (multi-branch navigation not exercised — no
+multi-branch test org was available this session).
 
 ## Phase F3 — Shipments
 
