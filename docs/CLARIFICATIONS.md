@@ -648,6 +648,27 @@ allowed to fail open).
 
 ---
 
+**F0.1 No API exposes the logged-in user's permissions or branch grants.** Discovered
+planning Frontend Phase F0 (`docs/FRONTEND-ROADMAP.md`,
+`docs/superpowers/specs/2026-08-29-frontend-roadmap-design.md`). `POST /api/v1/auth/login`
+returns only `AuthResult(AccessToken, RefreshToken, UserId, OrganizationId)`
+(`Modules/Identity/Application/AuthDtos.cs`), and `JwtTokenService.IssueAccessToken` puts only
+`sub`/`org_id`/`email` in the JWT (`Modules/Identity/Infrastructure/JwtTokenService.cs`). Nothing
+lets a client discover the user's permission set or `UserBranch` grants — needed by F0's
+`usePermission` hook and permission-gated nav (design spec §5).
+
+**Resolution:** Add `GET /api/v1/auth/me` (JWT-authenticated, no extra permission required — any
+authenticated user may read their own session) returning `{ userId, organizationId, email,
+fullName, permissions: string[], branches: [{ branchId, branchName, scope, expiresAt }] }`. The
+permission list reuses `PermissionChecker`'s existing role→permission query
+(`Set<Role>().Where(r => Set<UserRole>().Any(ur => ur.UserId == userId && ur.RoleId == r.Id))
+.SelectMany(r => r.Permissions).Select(p => p.Key).Distinct()`) rather than duplicating that logic.
+This is a read-only addition to the existing `Identity` module — no schema change, no new domain
+logic, consistent with `AuthEndpoints`'s existing shape. Implemented as Task 1 of the Frontend
+Phase F0 plan (`docs/superpowers/plans/2026-08-29-frontend-phase-f0-design-system-app-shell.md`).
+
+---
+
 ## Summary of schema additions implied by this document
 
 * `UserRole` (new entity) — resolves #1, carries `BranchScope` enum — resolves #6.
