@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Package, LogOut } from "lucide-react";
 import { useSession } from "@/features/auth/hooks/useSession";
 import { BranchSwitcher } from "@/components/layout/BranchSwitcher";
+import { MobileNav } from "@/components/layout/MobileNav";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -32,8 +33,9 @@ export function TopNav() {
 
   return (
     <header className="flex h-14 items-center justify-between border-b border-border bg-card px-4">
-      <div className="flex items-center gap-2.5">
-        <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary">
+      <div className="flex items-center gap-1.5">
+        <MobileNav />
+        <span className="ml-1 flex h-7 w-7 items-center justify-center rounded-md bg-primary">
           <Package className="h-4 w-4 text-primary-foreground" strokeWidth={2} />
         </span>
         <span className="font-display text-lg font-semibold tracking-tight">Courier Platform</span>

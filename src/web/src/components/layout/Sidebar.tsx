@@ -24,26 +24,60 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/cod", label: "COD", permission: "cod.read", icon: Wallet },
 ];
 
-export function Sidebar() {
+// The nav content shared by the permanent desktop Sidebar and MobileNav's slide-out drawer, so
+// the two never drift apart on nav items or permission-gating logic.
+export function SidebarNav({
+  collapsed = false,
+  onNavigate,
+}: {
+  collapsed?: boolean;
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname();
-  const collapsed = useUiStore((s) => s.sidebarCollapsed);
-
   return (
-    <nav
-      className={cn(
-        "flex flex-col gap-1 border-r border-border bg-card p-2 transition-all",
-        collapsed ? "w-16" : "w-56"
-      )}
-      aria-label="Primary"
-    >
+    <nav className="flex flex-col gap-1" aria-label="Primary">
       {NAV_ITEMS.map((item) => (
-        <SidebarLink key={item.href} item={item} active={pathname === item.href} collapsed={collapsed} />
+        <SidebarLink
+          key={item.href}
+          item={item}
+          active={pathname === item.href}
+          collapsed={collapsed}
+          onNavigate={onNavigate}
+        />
       ))}
     </nav>
   );
 }
 
-function SidebarLink({ item, active, collapsed }: { item: NavItem; active: boolean; collapsed: boolean }) {
+// Permanently visible from md (768px) up. Below that, MobileNav's Sheet-based drawer (opened
+// from TopNav's hamburger trigger) carries the same SidebarNav content instead — a fixed-width
+// column sidebar has no mobile fallback otherwise, eating most of a phone-width viewport.
+export function Sidebar() {
+  const collapsed = useUiStore((s) => s.sidebarCollapsed);
+
+  return (
+    <div
+      className={cn(
+        "hidden shrink-0 border-r border-border bg-card p-2 transition-all md:block",
+        collapsed ? "w-16" : "w-56"
+      )}
+    >
+      <SidebarNav collapsed={collapsed} />
+    </div>
+  );
+}
+
+function SidebarLink({
+  item,
+  active,
+  collapsed,
+  onNavigate,
+}: {
+  item: NavItem;
+  active: boolean;
+  collapsed: boolean;
+  onNavigate?: () => void;
+}) {
   const allowed = usePermission(item.permission);
   if (!allowed) {
     return null;
@@ -52,6 +86,7 @@ function SidebarLink({ item, active, collapsed }: { item: NavItem; active: boole
   return (
     <Link
       href={item.href}
+      onClick={onNavigate}
       className={cn(
         "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
         active && "bg-accent text-foreground",
