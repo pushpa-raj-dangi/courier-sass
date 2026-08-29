@@ -9,6 +9,8 @@ import { useManifest } from "@/features/manifests/hooks/useManifest";
 import { useManifestPanelStore } from "@/features/manifests/store/manifestPanelStore";
 import { ManifestDraftSection } from "@/features/manifests/components/ManifestDraftSection";
 import { ManifestSealedSection } from "@/features/manifests/components/ManifestSealedSection";
+import { ManifestInTransitSection } from "@/features/manifests/components/ManifestInTransitSection";
+import { ManifestReceivedSection } from "@/features/manifests/components/ManifestReceivedSection";
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
@@ -64,6 +66,13 @@ export function ManifestDetailSheet() {
 
               {manifest.status === "Draft" && <ManifestDraftSection manifest={manifest} />}
               {manifest.status === "Sealed" && <ManifestSealedSection manifest={manifest} />}
+              {manifest.status === "InTransit" && <ManifestInTransitSection manifest={manifest} />}
+              {manifest.status === "Received" && <ManifestReceivedSection manifest={manifest} />}
+              {manifest.status === "Closed" && (
+                <p className="text-sm text-muted-foreground">
+                  This manifest is closed. No further action is possible.
+                </p>
+              )}
             </>
           )}
         </div>
