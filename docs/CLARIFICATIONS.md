@@ -687,6 +687,33 @@ closed.
 
 ---
 
+## 14. Frontend Phase F3: no staff-facing tracking-event endpoint, no shipment list filters
+
+**Gap 1 — tracking timeline.** `ShipmentResponse` exposes only `CurrentStatus`; no endpoint
+projects a shipment's `ShipmentEvent` history for staff use. The only reader of `ShipmentEvent`
+rows is `PublicTrackingService` (backing the public `/track/{awb}` endpoint), which is
+deliberately limited per CLAUDE.md §24 — it excludes internal branch/user/notes data, so it's the
+wrong shape for an internal ops view even if reused as-is.
+
+**Resolution:** Frontend Phase F3 ships the shipment detail Sheet without a tracking timeline —
+current status only, via `StatusBadge`. **Unblocks with:** a new staff-facing
+`GET /api/v1/shipments/{awb}/events` endpoint (or equivalent) projecting `ShipmentEvent` rows
+(`EventType, PreviousStatus, NewStatus, BranchId, UserId, RiderId, Timestamp, Notes`) for the
+caller's own org, permission `shipment.read`. Not built this phase — backend work is paused.
+
+**Gap 2 — list filters.** `GET /api/v1/shipments` accepts only `page`/`pageSize` — no status,
+branch, date-range, or AWB/recipient search query parameter.
+
+**Resolution:** Frontend Phase F3 ships the shipment list with server-side pagination only, no
+filter UI. **Unblocks with:** query parameters on the existing list endpoint (e.g. `status`,
+`originBranchId`/`destinationBranchId`, `createdFrom`/`createdTo`, `search`) plus the
+corresponding `ShipmentService.ListAsync` filtering logic. Not built this phase.
+
+Both decisions made with the user during Phase F3's brainstorming (2026-08-29), consistent with
+the "for now focus on frontend" instruction governing this and neighboring phases.
+
+---
+
 ## Summary of schema additions implied by this document
 
 * `UserRole` (new entity) — resolves #1, carries `BranchScope` enum — resolves #6.
