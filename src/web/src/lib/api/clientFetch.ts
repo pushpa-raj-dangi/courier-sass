@@ -11,7 +11,16 @@ export async function clientFetch<T>(path: string, init?: RequestInit): Promise<
     throw new SessionExpiredError();
   }
   if (!response.ok) {
-    throw new Error(`Request to ${path} failed with ${response.status}`);
+    let bodyText: string | null = null;
+    try {
+      const body = await response.json();
+      if (body !== null) {
+        bodyText = JSON.stringify(body);
+      }
+    } catch {
+      // body wasn't JSON — fall back to the generic message below
+    }
+    throw new Error(bodyText ?? `Request to ${path} failed with ${response.status}`);
   }
   return response.json();
 }

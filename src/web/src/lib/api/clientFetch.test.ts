@@ -29,7 +29,7 @@ describe("clientFetch", () => {
     await expect(clientFetch("/api/example")).rejects.toBeInstanceOf(SessionExpiredError);
   });
 
-  it("throws a plain Error on any other non-OK status", async () => {
+  it("throws a plain Error on any other non-OK status when there is no JSON body", async () => {
     (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       ok: false,
       status: 500,
@@ -37,5 +37,17 @@ describe("clientFetch", () => {
     });
 
     await expect(clientFetch("/api/example")).rejects.toThrow("Request to /api/example failed with 500");
+  });
+
+  it("throws an Error carrying the JSON error body when the server sends one", async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({ error: { code: "MANIFEST_SCAN_REJECTED", reason: "SHIPMENT_NOT_FOUND" } }),
+    });
+
+    await expect(clientFetch("/api/example")).rejects.toThrow(
+      JSON.stringify({ error: { code: "MANIFEST_SCAN_REJECTED", reason: "SHIPMENT_NOT_FOUND" } })
+    );
   });
 });
