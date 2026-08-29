@@ -160,7 +160,37 @@ custody history.
 with server-side pagination, and its detail page's timeline matches the backend's
 `ShipmentEvent` history exactly (no client-side reconstruction of state).
 
-*Status: Not started.*
+*Status: Done (2026-08-29), with two deliberate scope reductions.* No tracking timeline (no
+staff-facing `ShipmentEvent` endpoint exists) and no list filters (the list endpoint only accepts
+`page`/`pageSize`) — both decided with the user before design and recorded in
+`docs/CLARIFICATIONS.md` §14. Shipped: the shipment list (`/shipments`), a Sheet-based booking
+flow with a debounced live price-quote preview (reusing `GeographyPicker` for two independent
+Recipient/Sender instances), and a Sheet-based detail view — all following the F2-established
+Sheet-over-pages convention (`docs/ARCHITECTURE.md` §9a), driven by a new `shipmentPanelStore`.
+
+Manual E2E verification against the real API/Postgres found and fixed three real bugs, not caught
+by any automated test:
+1. **`GET /api/v1/pricing/reference/service-types` doesn't exist** — the actual route is
+   `GET /api/v1/service-types` (a plain `/api/v1` reference group, not nested under `/pricing`).
+   The BFF route's backend URL was corrected; the frontend-facing `/api/pricing/service-types`
+   path itself was kept as-is since it groups sensibly with the other pricing BFF routes.
+2. **`ShipmentStatus` had no `JsonStringEnumConverter`**, so `CurrentStatus` serialized as a raw
+   integer — `StatusBadge` rendered literally "0" instead of "Created" for every shipment, on both
+   the list and detail views. Unlike Phase F2's `BranchType` fix, this one couldn't be sidestepped
+   by avoiding the field (Status is the one thing `StatusBadge` exists to render) — fixed the same
+   way, narrowly, via `[JsonConverter(typeof(JsonStringEnumConverter))]` on the enum itself. Every
+   other enum in the backend (`NdrStatus`, `CodCollectionStatus`, etc.) still has this latent bug
+   and will need the same treatment whenever a future phase's own E2E pass reaches it.
+3. **`GeographyPicker` hardcoded its internal element ids** (`id="province"`, `id="ward-number"`,
+   etc.), which worked fine when a page only ever rendered one instance (Branches) but produced
+   duplicate DOM ids — breaking `<label htmlFor>` association for the second instance — the moment
+   a form needed two independent pickers on one page (Recipient + Sender here). Fixed by adding an
+   optional `idPrefix` prop; Branches' single usage is unaffected since the prop defaults to no
+   prefix. Any future feature reusing `GeographyPicker` more than once per form should pass a
+   distinct `idPrefix` per instance.
+
+Also found, not a code defect: `Kathmandu Metropolitan City`'s seed data only has wards 1-3 (same
+limitation Phase F2 hit) — ward numbers used in manual testing must stay within that range.
 
 ## Phase F4 — Scanning + Manifests + Branch Transfer
 
