@@ -97,6 +97,25 @@ working as intended) but is covered by real component-mount integration tests (`
 exercises the actual `QueryCache` wiring with a real throwing query; `ReauthDialog.test.tsx`
 exercises the dialog's own open/submit/resume behavior against a real fetch-mocked 401→200 login).
 
+**Update 2026-08-29 (same day, post-completion polish):** Three follow-up passes on the dashboard
+UI, all user-requested after F1 was marked done. (1) `impeccable`'s distill → clarify → polish
+sequence: `RateTiles` was four separate small cards, breaking from the other two sections'
+one-Card-per-section pattern (craft-floor's "same-size cards as page structure" default) —
+unified; the rate KPIs' trailing-30-day window wasn't stated anywhere despite sitting under a
+section titled "Today's," a real ambiguity — added a "Last 30 days" caption; themed `::selection`
+(a browser default every other surface in the app already themes). (2) A dedicated `/impeccable
+polish` pass found the app shell had zero mobile handling anywhere — no breakpoint classes, no
+drawer, `Sheet` (built in Phase F0) sitting completely unused. Added `MobileNav` (hamburger +
+`Sheet` drawer, `md:hidden`) and made the permanent `Sidebar` `hidden md:block`, extracting shared
+`SidebarNav` so the two can't drift. This is `AppShell`/`Sidebar` scope, not dashboard-page scope,
+but the dashboard couldn't be verified mobile-ready without it — confirmed with the user before
+proceeding. (3) Redesigned the three dashboard components to match a reference screenshot the user
+provided: icon badges + subtitles on section headers, a divider between the shipment funnel's two
+rows, COD's `Merchant Payable` pulled into its own highlighted card, and tinted circular icon
+badges on each rate tile — all colors sourced from tokens already in the palette (status colors,
+`--accent`), not new ad hoc values, so the match stays consistent with the rest of the app rather
+than forking its own visual language.
+
 ## Phase F2 — Branches + Branch Dashboard
 
 Branch list/detail/create/update UI (Phase 2 + Phase 3 geography chain pickers),
