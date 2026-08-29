@@ -1,24 +1,28 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
 import { GeographyPicker, type GeographyValue } from "@/features/branches/GeographyPicker";
 import { createBranchSchema, type CreateBranchFormValues } from "@/features/branches/schema";
 import { useCreateBranch } from "@/features/branches/hooks/useCreateBranch";
 import { useBranches } from "@/features/branches/hooks/useBranches";
+import { useBranchPanelStore } from "@/features/branches/store/branchPanelStore";
 
 const BRANCH_TYPES = ["HeadOffice", "Hub", "Branch", "PickupPoint", "Warehouse"] as const;
 
-export default function NewBranchPage() {
-  const router = useRouter();
+export function BranchCreateSheet() {
+  const panel = useBranchPanelStore((s) => s.panel);
+  const close = useBranchPanelStore((s) => s.close);
+  const openDetail = useBranchPanelStore((s) => s.openDetail);
+  const isOpen = panel.mode === "create";
+
   const createBranch = useCreateBranch();
   const { data: existingBranches } = useBranches();
   const [serverError, setServerError] = useState<string | null>(null);
@@ -29,6 +33,7 @@ export default function NewBranchPage() {
     control,
     watch,
     setValue,
+    reset,
     formState: { errors, isSubmitting },
   } = useForm<CreateBranchFormValues>({ resolver: zodResolver(createBranchSchema) });
 
@@ -43,19 +48,25 @@ export default function NewBranchPage() {
     setServerError(null);
     try {
       const created = await createBranch.mutateAsync(values);
-      router.push(`/branches/${created.id}`);
+      reset();
+      openDetail(created.id);
     } catch {
       setServerError("Couldn't create the branch. Check the fields and try again.");
     }
   }
 
   return (
-    <Card className="max-w-2xl">
-      <CardHeader>
-        <CardTitle className="font-display text-lg">New Branch</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+    <Sheet
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) close();
+      }}
+    >
+      <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
+        <SheetHeader>
+          <SheetTitle>New Branch</SheetTitle>
+        </SheetHeader>
+        <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4" noValidate>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="code">Code</Label>
@@ -142,7 +153,7 @@ export default function NewBranchPage() {
             {isSubmitting ? <Spinner className="h-4 w-4" /> : "Create Branch"}
           </Button>
         </form>
-      </CardContent>
-    </Card>
+      </SheetContent>
+    </Sheet>
   );
 }

@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { Building2, ChevronDown } from "lucide-react";
 import { useSession } from "@/features/auth/hooks/useSession";
 import { useUiStore } from "@/lib/store/uiStore";
+import { useBranchPanelStore } from "@/features/branches/store/branchPanelStore";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,10 +16,10 @@ import { Button } from "@/components/ui/button";
 // Renders nothing for a single-branch user (Phase F2's exit criteria) — a switcher implies a
 // choice, and a user with exactly one branch (or none) has none to make.
 export function BranchSwitcher() {
-  const router = useRouter();
   const { data: session } = useSession();
   const activeBranchId = useUiStore((s) => s.activeBranchId);
   const setActiveBranchId = useUiStore((s) => s.setActiveBranchId);
+  const openDetail = useBranchPanelStore((s) => s.openDetail);
 
   useEffect(() => {
     if (session && session.branches.length > 0 && !activeBranchId) {
@@ -35,7 +35,7 @@ export function BranchSwitcher() {
 
   function handleSelect(branchId: string) {
     setActiveBranchId(branchId);
-    router.push(`/branches/${branchId}`);
+    openDetail(branchId);
   }
 
   return (

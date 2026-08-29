@@ -8,5 +8,6 @@ export function useBranch(id: string) {
   return useQuery({
     queryKey: ["branches", id],
     queryFn: () => clientFetch<Branch>(`/api/branches/${id}`),
+    enabled: id !== "",
   });
 }

@@ -8,5 +8,6 @@ export function useBranchDashboard(branchId: string) {
   return useQuery({
     queryKey: ["branch-dashboard", branchId],
     queryFn: () => clientFetch<BranchDashboardSummary>(`/api/reports/dashboard/branch/${branchId}`),
+    enabled: branchId !== "",
   });
 }

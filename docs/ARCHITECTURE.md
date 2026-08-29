@@ -146,6 +146,31 @@ src/
   shadcn already provides. Apply this starting Frontend Phase F1 onward; Phase F0's
   hand-built `AppShell`/`Sidebar`/`LoginForm` predate this convention and are not
   retroactively required to change unless a phase touching them decides to.
+* **Detail and create views are always a right-side `Sheet`, never a separate route.**
+  A record's "view" and "create" UI renders as a shadcn `Sheet` (`side="right"`)
+  opened instantly over whatever list/page the user is already on — never a
+  navigation to `/{feature}/{id}` or `/{feature}/new`. This applies to every
+  feature going forward (Shipments, Merchants, Riders, COD, etc.), not just
+  Branches. Concretely, per feature:
+  * A Zustand store (e.g. `features/branches/store/branchPanelStore.ts`) holds
+    `{ mode: "closed" | "create" | "detail", id? }` plus `openCreate()`,
+    `openDetail(id)`, `close()` — never route params or query strings for this
+    state. The store makes the panel triggerable from anywhere in the app (a
+    list row, a switcher in `TopNav`, a future dashboard quick-link), not just
+    the list page that happens to render it.
+  * The Sheet components (`BranchCreateSheet.tsx`, `BranchDetailSheet.tsx`)
+    mount once, globally, in `app/(staff)/layout.tsx` alongside `{children}` —
+    not inside the list page — so they're always available regardless of which
+    route the user is on.
+  * List rows and "New X" buttons call the store's `open*` actions directly;
+    they are plain `<button onClick>`, never `next/link`/`<Link>`.
+  * Data hooks consumed only from these globally-mounted sheets (e.g.
+    `useBranch`, `useBranchDashboard`) need `enabled: id !== ""` (or similar)
+    guarding, since the hook is now always mounted and must not fire with an
+    empty id while the sheet is closed.
+  * On successful create, the flow calls `openDetail(created.id)` (switching
+    panels in place) rather than a router push to a detail page — there is no
+    detail page to push to.
 
 ## 5. Deployment (Docker Compose, v1)
 
