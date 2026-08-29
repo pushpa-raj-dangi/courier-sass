@@ -1,3 +1,4 @@
+import { Wallet } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { CodFinancialSummary } from "@/features/reports/types";
 
@@ -20,7 +21,10 @@ export function FinancialSummary({ data }: { data: CodFinancialSummary }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="font-display text-base">COD Summary</CardTitle>
+        <CardTitle className="flex items-center gap-2 font-display text-base">
+          <Wallet className="h-4 w-4 text-muted-foreground" strokeWidth={2} />
+          COD Summary
+        </CardTitle>
       </CardHeader>
       <CardContent className="grid grid-cols-2 gap-6 sm:grid-cols-5">
         {FIELDS.map((field) => (

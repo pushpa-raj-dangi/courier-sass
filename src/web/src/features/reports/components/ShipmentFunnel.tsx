@@ -1,3 +1,4 @@
+import { Package } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const FUNNEL_BUCKETS: Array<{ label: string; token: string; statuses: string[] }> = [
@@ -23,7 +24,10 @@ export function ShipmentFunnel({ data }: { data: Record<string, number> }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="font-display text-base">Today&apos;s Shipments</CardTitle>
+        <CardTitle className="flex items-center gap-2 font-display text-base">
+          <Package className="h-4 w-4 text-muted-foreground" strokeWidth={2} />
+          Today&apos;s Shipments
+        </CardTitle>
       </CardHeader>
       <CardContent className="grid grid-cols-2 gap-6 sm:grid-cols-4">
         {FUNNEL_BUCKETS.map((bucket) => {

@@ -153,6 +153,13 @@ body {
   font-family: var(--font-plex-sans), Arial, Helvetica, sans-serif;
 }
 
+/* Browser surfaces the design system otherwise wouldn't reach — themed from the
+   palette rather than left at the browser default. */
+::selection {
+  background: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;
