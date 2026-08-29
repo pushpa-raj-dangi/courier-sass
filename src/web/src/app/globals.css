@@ -14,6 +14,31 @@
  * status hues (a bright rail/dot-only tone and a darker text-safe tone) because a
  * color that reads clearly as a small swatch is often too weak for body text, and
  * light-mode/dark-mode need independently tuned lightness, not shared hex values.
+ *
+ * --status-delivered was re-derived during Phase F1 Task 8 (dataviz skill's
+ * validate_palette.js): the original forest-green pine failed CVD adjacent-pair
+ * separation against --status-ndr's vermillion (ΔE 4.9 protanopia, below the legal
+ * floor) the first time both colors appeared side-by-side in one view (the
+ * shipment funnel). Shifted to a teal-green, which clears separation while keeping
+ * the "success" hue family. --status-delivery-failed was retired the same pass —
+ * it and --status-ndr were two lightness steps of the same vermillion hue (ΔE 7.2
+ * even for normal vision, also below the legal floor) — DeliveryFailed now shares
+ * status-ndr's token in statusConfig.ts, which matches reality: the backend
+ * auto-transitions DELIVERY_FAILED -> NDR_CREATED in the same request, so it's a
+ * transient state a user essentially never sees rest, not a distinct steady state
+ * worth its own color. --status-created/--status-cancelled were also nudged
+ * (lightened less) to clear the same validator's normal-vision floor against
+ * --status-in-transit.
+ *
+ * Full validator run: `node <dataviz-skill-dir>/scripts/validate_palette.js
+ * "<7 status hexes>" --mode light`. The full status set still reads FAIL on
+ * "chroma floor"/"lightness band" (they read calmer than a fully saturated
+ * categorical chart palette expects) — a deliberate trade-off against Task 3's
+ * own critique-driven muted-ledger direction, not an oversight. Every status is
+ * always paired with a mandatory text label (StatusBadge, the shipment funnel),
+ * never color-only, which is the validator's own stated mitigation for a
+ * borderline separation — the two checks that are NOT excusable that way (CVD
+ * separation, normal-vision floor) both pass clean.
  */
 
 :root {
@@ -49,7 +74,7 @@
 
   /* Status semantics — bright variants for rails/dots (>=3:1 non-text), dark
      variants for any text/icon use (>=4.5:1). See statusConfig.ts (Task 8). */
-  --status-created: 230.8 5.9% 57.1%;
+  --status-created: 234.3 8.2% 50.0%;
   --status-created-foreground: 229.1 20.0% 10.8%;
 
   --status-in-transit: 35.3 71.2% 42.2%;
@@ -58,11 +83,8 @@
   --status-out-for-delivery: 38.0 78.9% 57.3%;
   --status-out-for-delivery-foreground: 229.1 20.0% 10.8%;
 
-  --status-delivered: 153.3 40.1% 30.8%;
+  --status-delivered: 175.3 77.4% 26.1%;
   --status-delivered-foreground: 229.1 20.0% 10.8%;
-
-  --status-delivery-failed: 9.1 64.7% 40.0%;
-  --status-delivery-failed-foreground: 229.1 20.0% 10.8%;
 
   --status-ndr: 8.9 63.3% 48.0%;
   --status-ndr-foreground: 229.1 20.0% 10.8%;
@@ -70,7 +92,7 @@
   --status-rto: 351.1 23.9% 38.6%;
   --status-rto-foreground: 229.1 20.0% 10.8%;
 
-  --status-cancelled: 230.8 5.9% 57.1%;
+  --status-cancelled: 234.3 8.2% 50.0%;
   --status-cancelled-foreground: 229.1 20.0% 10.8%;
 }
 
@@ -103,7 +125,7 @@
   --input: 228.8 15% 24%;
   --ring: 40 20% 70%;
 
-  --status-created: 232.5 9.8% 67.8%;
+  --status-created: 234.3 13.2% 68.8%;
   --status-created-foreground: 40.0 33.3% 92.9%;
 
   --status-in-transit: 38.0 78.9% 57.3%;
@@ -112,11 +134,8 @@
   --status-out-for-delivery: 38.0 78.9% 57.3%;
   --status-out-for-delivery-foreground: 230.0 23.1% 10.2%;
 
-  --status-delivered: 151.3 28.5% 51.2%;
+  --status-delivered: 169.7 47.9% 47.5%;
   --status-delivered-foreground: 230.0 23.1% 10.2%;
-
-  --status-delivery-failed: 11.8 77.5% 60.0%;
-  --status-delivery-failed-foreground: 230.0 23.1% 10.2%;
 
   --status-ndr: 11.9 63.7% 53.5%;
   --status-ndr-foreground: 230.0 23.1% 10.2%;
@@ -124,7 +143,7 @@
   --status-rto: 352.2 29.9% 69.8%;
   --status-rto-foreground: 230.0 23.1% 10.2%;
 
-  --status-cancelled: 232.5 9.8% 67.8%;
+  --status-cancelled: 234.3 13.2% 68.8%;
   --status-cancelled-foreground: 230.0 23.1% 10.2%;
 }
 

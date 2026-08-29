@@ -18,7 +18,7 @@ describe("StatusBadge", () => {
       ["AtDestinationBranch", "In Transit"],
       ["OutForDelivery", "Out for Delivery"],
       ["Delivered", "Delivered"],
-      ["DeliveryFailed", "Delivery Failed"],
+      ["DeliveryFailed", "NDR"],
       ["NdrCreated", "NDR"],
       ["RtoInitiated", "RTO Initiated"],
       ["RtoInTransit", "RTO In Transit"],

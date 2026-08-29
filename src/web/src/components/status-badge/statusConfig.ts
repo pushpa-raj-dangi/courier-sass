@@ -18,7 +18,12 @@ export const STATUS_CONFIG: Record<string, StatusConfigEntry> = {
   AtDestinationBranch: { label: "In Transit", token: "status-in-transit" },
   OutForDelivery: { label: "Out for Delivery", token: "status-out-for-delivery" },
   Delivered: { label: "Delivered", token: "status-delivered" },
-  DeliveryFailed: { label: "Delivery Failed", token: "status-delivery-failed" },
+  // Shares NDR's token/label, not its own — the backend auto-transitions
+  // DELIVERY_FAILED -> NDR_CREATED in the same request (Phase 9), so a user
+  // essentially never sees this rest as a distinct status. Also fixes a real CVD
+  // defect: the two previously had separate lightness steps of the same vermillion
+  // hue, which failed dataviz's normal-vision adjacent-pair floor (ΔE 7.2 < 15).
+  DeliveryFailed: { label: "NDR", token: "status-ndr" },
   NdrCreated: { label: "NDR", token: "status-ndr" },
   RtoInitiated: { label: "RTO Initiated", token: "status-rto" },
   RtoInTransit: { label: "RTO In Transit", token: "status-rto" },

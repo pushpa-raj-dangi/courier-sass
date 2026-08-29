@@ -60,10 +60,6 @@ const config: Config = {
           DEFAULT: "hsl(var(--status-delivered) / <alpha-value>)",
           foreground: "hsl(var(--status-delivered-foreground) / <alpha-value>)",
         },
-        "status-delivery-failed": {
-          DEFAULT: "hsl(var(--status-delivery-failed) / <alpha-value>)",
-          foreground: "hsl(var(--status-delivery-failed-foreground) / <alpha-value>)",
-        },
         "status-ndr": {
           DEFAULT: "hsl(var(--status-ndr) / <alpha-value>)",
           foreground: "hsl(var(--status-ndr-foreground) / <alpha-value>)",
