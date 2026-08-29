@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Courier.Identity.Application;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -47,5 +48,39 @@ public class AuthEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
         var loginResponse = await client.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest(registerRequest.OwnerEmail, "wrong"));
 
         Assert.Equal(HttpStatusCode.Unauthorized, loginResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task Me_Unauthenticated_Returns401()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/api/v1/auth/me");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Me_AuthenticatedOwner_ReturnsPermissionsAndAllBranchesScope()
+    {
+        var client = _factory.CreateClient();
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+        var registerRequest = new RegisterOrganizationRequest(
+            $"Me Org {suffix}", $"me-org-{suffix}", $"owner-{suffix}@example.com", "P@ssw0rd123!", "Owner Person");
+        var registerResponse = await client.PostAsJsonAsync("/api/v1/auth/register", registerRequest);
+        var auth = (await registerResponse.Content.ReadFromJsonAsync<AuthResult>())!;
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth.AccessToken);
+
+        var response = await client.GetAsync("/api/v1/auth/me");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var me = await response.Content.ReadFromJsonAsync<MeResponse>();
+        Assert.NotNull(me);
+        Assert.Equal(auth.UserId, me!.UserId);
+        Assert.Equal(auth.OrganizationId, me.OrganizationId);
+        Assert.Equal("Owner Person", me.FullName);
+        Assert.Contains("shipment.create", me.Permissions);
+        Assert.True(me.HasAllBranchesScope);
+        Assert.Empty(me.Branches);
     }
 }

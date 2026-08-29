@@ -1,6 +1,9 @@
+using System.Security.Claims;
 using System.Security.Cryptography;
 using Courier.Audit.Application;
+using Courier.Branches.Application;
 using Courier.Identity.Domain;
+using Courier.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 
 namespace Courier.Identity.Application;
@@ -11,6 +14,7 @@ public class AuthService
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtTokenService _jwtTokenService;
     private readonly IAuditLogger _auditLogger;
+    private readonly IBranchLookupService _branchLookupService;
 
     // Computed exactly once for the lifetime of the process. AuthService is registered as
     // Scoped (one instance per HTTP request), so an instance-level cache would be recomputed
@@ -21,12 +25,13 @@ public class AuthService
     private static readonly string DummyPasswordHash =
         new Courier.Identity.Infrastructure.PasswordHasherAdapter().Hash("dummy-password-for-timing-safety");
 
-    public AuthService(DbContext dbContext, IPasswordHasher passwordHasher, IJwtTokenService jwtTokenService, IAuditLogger auditLogger)
+    public AuthService(DbContext dbContext, IPasswordHasher passwordHasher, IJwtTokenService jwtTokenService, IAuditLogger auditLogger, IBranchLookupService branchLookupService)
     {
         _dbContext = dbContext;
         _passwordHasher = passwordHasher;
         _jwtTokenService = jwtTokenService;
         _auditLogger = auditLogger;
+        _branchLookupService = branchLookupService;
     }
 
     public async Task<AuthResult> RegisterOrganizationAsync(RegisterOrganizationRequest request, CancellationToken cancellationToken = default)
@@ -212,4 +217,36 @@ public class AuthService
 
     private static string HashToken(string token)
         => Convert.ToBase64String(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(token)));
+
+    public async Task<MeResponse> GetMeAsync(ClaimsPrincipal principal, CancellationToken cancellationToken = default)
+    {
+        var userId = principal.GetUserId()!.Value;
+        var user = await _dbContext.Set<User>().FirstAsync(u => u.Id == userId, cancellationToken);
+
+        var permissions = await _dbContext.Set<Role>()
+            .Where(r => _dbContext.Set<UserRole>().Any(ur => ur.UserId == userId && ur.RoleId == r.Id))
+            .SelectMany(r => r.Permissions)
+            .Select(p => p.Key)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        var hasAllBranchesScope = await _dbContext.Set<UserRole>()
+            .AnyAsync(ur => ur.UserId == userId && ur.BranchScope == BranchScope.AllBranches, cancellationToken);
+
+        var userBranches = await _dbContext.Set<UserBranch>()
+            .Where(ub => ub.UserId == userId)
+            .ToListAsync(cancellationToken);
+
+        var branchIds = userBranches.Select(ub => ub.BranchId).ToHashSet();
+        var branchNames = await _branchLookupService.GetNamesByIdsAsync(branchIds, cancellationToken);
+
+        var branches = userBranches
+            .Select(ub => new MeBranchGrant(
+                ub.BranchId,
+                branchNames.TryGetValue(ub.BranchId, out var name) ? name : "Unknown Branch",
+                ub.ExpiresAt))
+            .ToList();
+
+        return new MeResponse(user.Id, user.OrganizationId!.Value, user.Email, user.FullName, permissions, hasAllBranchesScope, branches);
+    }
 }

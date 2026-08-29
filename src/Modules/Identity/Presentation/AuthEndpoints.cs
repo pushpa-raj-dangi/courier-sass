@@ -49,5 +49,11 @@ public static class AuthEndpoints
                 return Results.Json(new { error = new { code = "REFRESH_FAILED", message = ex.Message } }, statusCode: StatusCodes.Status401Unauthorized);
             }
         });
+
+        group.MapGet("/me", async (HttpContext httpContext, AuthService authService) =>
+        {
+            var result = await authService.GetMeAsync(httpContext.User);
+            return Results.Ok(result);
+        }).RequireAuthorization();
     }
 }

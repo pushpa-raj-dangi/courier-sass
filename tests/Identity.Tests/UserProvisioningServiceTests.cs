@@ -1,3 +1,4 @@
+using Courier.Branches.Application;
 using Courier.Branches.Domain;
 using Courier.Geography.Infrastructure;
 using Courier.Identity.Application;
@@ -15,6 +16,15 @@ file class NullTenantProvider : ICurrentTenantProvider
     public Guid? OrganizationId => null;
 }
 
+file class NullBranchLookupService : IBranchLookupService
+{
+    public Task<BranchZoneInfo?> GetZoneInfoAsync(Guid branchId, CancellationToken cancellationToken = default)
+        => Task.FromResult<BranchZoneInfo?>(null);
+
+    public Task<IReadOnlyDictionary<Guid, string>> GetNamesByIdsAsync(IReadOnlySet<Guid> branchIds, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyDictionary<Guid, string>>(new Dictionary<Guid, string>());
+}
+
 public class UserProvisioningServiceTests
 {
     private static AppDbContext CreateContext() => TestDbContextFactory.Create(new NullTenantProvider());
@@ -27,7 +37,7 @@ public class UserProvisioningServiceTests
             Issuer = "courier-tests",
             Audience = "courier-tests"
         });
-        return new AuthService(dbContext, new PasswordHasherAdapter(), new JwtTokenService(jwtOptions), new NoopAuditLogger());
+        return new AuthService(dbContext, new PasswordHasherAdapter(), new JwtTokenService(jwtOptions), new NoopAuditLogger(), new NullBranchLookupService());
     }
 
     private class NoopAuditLogger : Courier.Audit.Application.IAuditLogger

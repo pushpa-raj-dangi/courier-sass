@@ -1,4 +1,5 @@
 using Courier.Audit.Application;
+using Courier.Branches.Application;
 using Courier.Identity.Application;
 using Courier.Identity.Infrastructure;
 using Courier.Persistence;
@@ -18,6 +19,15 @@ file class NoopAuditLogger : IAuditLogger
     public Task LogAsync(AuditEntry entry, CancellationToken cancellationToken = default) => Task.CompletedTask;
 }
 
+file class NullBranchLookupService : IBranchLookupService
+{
+    public Task<BranchZoneInfo?> GetZoneInfoAsync(Guid branchId, CancellationToken cancellationToken = default)
+        => Task.FromResult<BranchZoneInfo?>(null);
+
+    public Task<IReadOnlyDictionary<Guid, string>> GetNamesByIdsAsync(IReadOnlySet<Guid> branchIds, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyDictionary<Guid, string>>(new Dictionary<Guid, string>());
+}
+
 public class AuthServiceTests
 {
     private static AppDbContext CreateContext() => TestDbContextFactory.Create(new NullTenantProvider());
@@ -30,7 +40,7 @@ public class AuthServiceTests
             Issuer = "courier-tests",
             Audience = "courier-tests"
         });
-        return new AuthService(dbContext, new PasswordHasherAdapter(), new JwtTokenService(jwtOptions), new NoopAuditLogger());
+        return new AuthService(dbContext, new PasswordHasherAdapter(), new JwtTokenService(jwtOptions), new NoopAuditLogger(), new NullBranchLookupService());
     }
 
     [Fact]
