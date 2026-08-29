@@ -1,192 +1,1061 @@
 # Architecture
 
-## 1. Style
+> This document describes the architecture as it actually exists in this repository as of
+> 2026-08-29 (backend through Phase 13, frontend through Phase F2), plus the target direction
+> for sections not yet built. Where a section describes something not yet implemented, it is
+> marked **(target, not yet built)** — don't infer that clicking around the current app will show
+> it.
 
-Clean Architecture inside a **modular monolith** (CLAUDE.md §2, §3). One deployable
-API process, one deployable Next.js frontend, organized internally into independent
-modules with explicit boundaries. No microservices, no distributed transactions, in
-v1.
+## 1. Architecture Style
 
-## 2. Module List
+The application follows **Clean Architecture inside a modular monolith** (CLAUDE.md §2, §3).
 
-Each module owns its own `Domain / Application / Infrastructure / Presentation`
-folders and its own EF Core entity configurations. A module may depend on another
-module's **Application-layer interfaces**, never reach directly into another module's
-Domain internals or database tables.
+There is:
+
+* One deployable ASP.NET Core API
+* One deployable Next.js frontend, talking to the API only through its own BFF route handlers
+  (§9)
+* One PostgreSQL database
+* Explicit internal module boundaries
+* Independent domain/application/infrastructure concerns
+* No microservices in v1
+* No distributed transactions
+* No unnecessary CQRS/MediatR ceremony
+
+The architecture is designed around two equally important concerns:
+
+1. **Strong domain and application boundaries**
+2. **A modern, dense, professional operational UI**
+
+The product is an operations-heavy logistics platform. Therefore, the frontend should optimize for:
+
+* Fast scanning
+* High information density without visual clutter
+* Clear status hierarchy
+* Efficient tables and filters
+* Fast keyboard/mouse workflows
+* Responsive layouts
+* Consistent interaction patterns
+* Strong visual feedback
+* Minimal cognitive load
+* Professional enterprise SaaS aesthetics
+
+---
+
+## 2. Backend Module Architecture
+
+Each module owns its own:
+
+```text
+Domain/
+Application/
+Infrastructure/
+Presentation/
+```
+
+and its own EF Core entity configurations.
+
+A module may depend on another module's **Application-layer interfaces**, but must never directly
+access another module's Domain internals or database tables.
+
+The actual module list in `src/Modules/` (some names differ from an earlier idealized sketch —
+this is the real, current list):
 
 ```text
 src/
 ├── Modules/
 │   ├── Identity/          # Organization, User, Role, Permission, UserRole, UserBranch
 │   ├── Geography/         # Province, District, LocalLevel, Ward, Area, DeliveryZone
-│   ├── Branches/          # Branch, branch hierarchy
+│   ├── Branches/          # Branch and branch hierarchy
 │   ├── Merchants/         # Merchant, MerchantUser, KYC, ApiKey
-│   ├── Pricing/           # RateCard, RateCardRule, ServiceType, WeightSlab, Zone, ZoneRate
-│   ├── Shipments/         # Shipment, ShipmentItem, ShipmentEvent, custody
-│   ├── Scanning/          # Manifest, ManifestShipment, ShipmentTransfer, scan validation
-│   ├── Riders/             # Rider, Vehicle, RiderAssignment, DeliveryRun, DeliveryTask
-│   ├── Delivery/          # DeliveryAttempt, DeliveryProof (POD)
-│   ├── NDR/               # NDR entity + workflow
-│   ├── RTO/               # ReturnShipment / return lifecycle
-│   ├── COD/               # CODCollection, RiderCashSettlement, BranchCashSettlement,
-│   │                       # MerchantSettlement, FinancialTransaction
-│   ├── Notifications/     # Domain event → template → channel worker
-│   ├── Webhooks/          # WebhookSubscription, WebhookDelivery, signature, replay
-│   ├── Tracking/          # Public /track/{awb} read model
-│   ├── Reporting/         # Dashboards, exports
-│   └── Audit/             # AuditLog (cross-cutting, written to by all modules)
-├── SharedKernel/          # Result types, domain event base, value objects (Money, GeoPoint),
-│                           # base entity/aggregate root — deliberately thin, no business logic
-├── Api/                   # Presentation host: controllers/minimal APIs, composition root
-└── Web/                   # Next.js app (see FRONTEND section of this doc)
+│   ├── Pricing/           # ServiceType, WeightSlab, RateCard, ZoneRate, AdditionalCharge,
+│   │                      # MerchantRateCard (no separate RateCardRule or Pricing.Zone entity —
+│   │                      # see docs/DOMAIN-MODEL.md for the deliberate simplifications)
+│   ├── Shipments/         # Shipment, ShipmentItem, ShipmentEvent, custody, PickupRequest,
+│   │                      # and public /track/{awb} (PublicTrackingEndpoints.cs) — there is no
+│   │                      # separate Tracking module; public tracking is a Shipments concern
+│   ├── Manifests/         # Manifest, ManifestShipment, ShipmentTransfer, scan validation
+│   │                      # (named Manifests, not Scanning)
+│   ├── Riders/             # Rider, Vehicle, DeliveryRun, DeliveryTask, DeliveryAttempt,
+│   │                      # DeliveryProof (POD) — delivery/POD live inside Riders, not a
+│   │                      # separate Delivery module. RiderAssignment does not exist;
+│   │                      # Rider.BaseBranchId is the sole branch scope.
+│   ├── Ndr/                # NDR, ReturnShipment — RTO lives inside Ndr as ReturnShipment,
+│   │                      # not a separate RTO module. (Entity is `NDR`, all-caps, to avoid a
+│   │                      # C# namespace collision with `Courier.Ndr`.)
+│   ├── Cod/                # CODCollection, RiderCashSettlement, BranchCashSettlement,
+│   │                      # FinancialTransaction, MerchantSettlement, MerchantSettlementItem,
+│   │                      # Adjustment
+│   ├── Notifications/      # Domain event → template → channel worker (email real via MailKit/
+│   │                      # mailhog in dev; SMS/WhatsApp/Push are log-only stubs so far)
+│   ├── Webhooks/           # WebhookSubscription, WebhookDelivery, HMAC signature, retry, replay
+│   ├── Reports/            # Dashboards (org + branch), CSV exports — no owned entities/migration,
+│   │                      # composes narrow lookup interfaces implemented in each owning module
+│   ├── Events/              # OutboxMessage, OutboxPublisherJob, RabbitMqEventPublisher — the
+│   │                      # outbox implementation itself (§5)
+│   └── Audit/              # AuditLog
+│
+├── SharedKernel/
+│   ├── ICurrentTenantProvider / IPermissionChecker / IBranchAuthorizationChecker /
+│   │   IMerchantAuthorizationChecker
+│   ├── IIdempotencyStore / IRateLimiter (Redis-backed implementations)
+│   ├── IObjectStorage (+ LocalFileSystemObjectStorage for dev)
+│   ├── PagedResult / PaginationDefaults
+│   └── RabbitMqTopology
+│
+├── Api/                    # Composition root / API host
+└── web/                    # Next.js frontend (lowercase `web`, not `Web`)
 ```
 
-`SharedKernel` must stay small. If two modules seem to need to share real business
-logic, that is a signal one of them owns the concept and the other should depend on
-its Application interface instead of duplicating logic into SharedKernel.
+`SharedKernel` must remain intentionally small.
 
-## 3. Cross-Cutting Concerns
+If multiple modules require substantial shared business logic, one module should own that concept
+and expose an Application-layer contract.
 
-### Multi-tenancy enforcement
+Business logic must not migrate into `SharedKernel` simply for convenience.
 
-* Every tenant-owned entity has a non-nullable `OrganizationId`.
-* An EF Core **global query filter** applies `OrganizationId == currentTenantId` to
-  every tenant-scoped `DbSet`. The current tenant is resolved server-side from the
-  authenticated principal's claims (JWT `org_id` claim for staff sessions, `ApiKey`
-  record for merchant API calls) — never from a request body/header/query param
-  (CLAUDE.md §33).
-* `SuperAdmin` platform operations run through a separate, explicitly-named
-  `IPlatformDbContext`/unfiltered access path so that the "no tenant filter" case is
-  never accidental — it requires an explicit opt-in, and every use is audited
-  (`CLARIFICATIONS.md` #5).
+---
 
-### Branch scope enforcement
+## 3. Multi-Tenancy
 
-* Authorization middleware/attribute checks two things per request: does the user
-  hold the required `permission`, and does the user's `UserBranch`/`UserRole.BranchScope`
-  grant cover the `BranchId` the request targets (see `RBAC.md`).
-* Branch scope is resolved server-side the same way tenant scope is — never trusted
-  from the client.
+Every tenant-owned entity contains:
 
-### Domain events & reliability (outbox pattern)
+```text
+OrganizationId
+```
 
-* Domain events (e.g. `ShipmentDelivered`, `CODCollected`, `NDRCreated`) are raised by
-  aggregates and collected by the application service, not published directly to
-  RabbitMQ inline with the DB transaction.
-* An **outbox table** (`OutboxMessage`) is written in the same EF Core transaction as
-  the business change. A background publisher (Hangfire recurring job) reads the
-  outbox and publishes to RabbitMQ, marking messages delivered. This guarantees a
-  status change and its event are never inconsistent (no "shipment says delivered but
-  no webhook/notification fired" gap).
-* In-process reactions within the same request (e.g. updating a denormalized
-  dashboard counter) may use a lightweight in-memory dispatcher; anything that must
-  survive a process crash or cross a module boundary goes through the outbox.
+as a non-nullable property.
 
-### Caching & rate limiting — Redis
+EF Core global query filters enforce:
 
-* Query result caching for read-heavy, slow-changing data (geography, rate cards,
-  permission sets).
-* Distributed rate limiting for the Merchant API (per API key) and public tracking
-  endpoint (per IP), per CLAUDE.md §25/§33.
-* Idempotency-key storage for Merchant API POST requests (§25).
+```text
+OrganizationId == currentTenantId
+```
 
-### Background jobs — Hangfire
+for tenant-scoped entities.
 
-* Outbox publisher, webhook delivery + retry, scheduled settlement generation,
-  NDR SLA/follow-up reminders, expired `UserBranch` grant cleanup query support.
+The tenant is resolved server-side from the authenticated principal:
 
-### Logging & observability
+* JWT `org_id` claim for staff sessions
+* API key record for merchant API calls
 
-* Serilog structured logging with a correlation/trace ID attached to every request
-  and propagated into domain events and background jobs.
-* OpenTelemetry-ready: instrument HTTP, EF Core, RabbitMQ, and Hangfire so traces can
-  be exported once a collector is wired up — do not block on standing up full
-  observability infra in early phases.
+The tenant must **never** be trusted from:
 
-## 4. Frontend Architecture
+* Request body
+* Query string
+* Route parameter
+* Custom HTTP header supplied by the client
 
-Next.js + TypeScript, feature-folder structure (CLAUDE.md §31):
+Unfiltered database access must always be explicit — a query that needs to reach across the
+tenant filter (a background job, a lookup keyed by an already-verified id) uses
+`.IgnoreQueryFilters()` with a comment explaining why, or takes `organizationId` as an explicit
+parameter rather than relying on ambient context. See
+`docs/CLARIFICATIONS.md` entry #12 for the specific gotcha this guards against: EF Core's tenant
+`HasQueryFilter` evaluates to **false for every row** (not "unfiltered") whenever
+`ICurrentTenantProvider.OrganizationId` is null, which is always true outside an HTTP request
+(Hangfire jobs, `BackgroundService`s) — silently returning empty results is easy to miss without
+an explicit end-to-end test.
+
+**Recurring bug class worth grep-checking in any new module/accessor:** a table that has its own
+`OrganizationId` column is filter-protected automatically, but a table that carries tenant
+isolation only *transitively* (through a parent FK, e.g. a `RateCard`'s child rows) is not — a new
+read method that queries the child table directly without joining back to the parent's
+`OrganizationId` is a real, previously-caught cross-tenant leak shape in this codebase (hit in
+Phases 4, 5, 10, and 12 in slightly different forms — see `[[project-courier-roadmap-status]]`
+memory for specifics).
+
+---
+
+## 4. Branch Scope
+
+Authorization evaluates:
+
+```text
+Permission
++
+Branch Scope
+```
+
+for every protected request.
+
+The effective branch scope comes from:
+
+```text
+UserBranch
+UserRole.BranchScope
+```
+
+and is resolved server-side.
+
+The client may display branch context but cannot grant itself access to another branch.
+
+---
+
+## 5. Domain Events and Reliability
+
+Aggregates raise domain events.
+
+Application services collect those events and persist them through the outbox pattern (the
+`Events` module: `OutboxMessage`, `OutboxWriterService`, `OutboxPublisherJob`,
+`RabbitMqEventPublisher`).
+
+Events are **not** published directly to RabbitMQ inside the business transaction.
+
+The transaction contains:
+
+```text
+Business State Change
+        +
+OutboxMessage
+```
+
+The background publisher (a Hangfire recurring job, `outbox-publisher`) then:
+
+```text
+Outbox
+   ↓
+RabbitMQ (topic exchange courier.domain-events)
+   ↓
+Consumers
+   ↓
+Notifications / Webhooks / Internal Reactions
+```
+
+This prevents:
+
+```text
+Shipment = Delivered
+Event = Lost
+```
+
+scenarios caused by a process crash between database commit and message publication.
+
+**Currently wired (Phase 11), as a deliberate proving set — not full breadth:**
+
+```text
+shipment.created
+shipment.delivered
+shipment.ndr_created
+cod.collected
+```
+
+The remaining events CLAUDE.md §26 lists (`shipment.picked_up`, `shipment.in_transit`,
+`shipment.out_for_delivery`, `shipment.delivery_failed`, `shipment.rto`, `cod.settled`) are not
+yet wired — extend `NotificationDefaultTemplates`/webhook subscription types when a phase needs
+them.
+
+In-process reactions may use lightweight dependency injection when durability is not required.
+
+Anything that:
+
+* crosses a module boundary
+* must survive process failure
+* triggers external integration
+* sends notifications/webhooks
+
+must use the outbox.
+
+**EF Core InMemory + transactions gotcha:** `Database.BeginTransactionAsync()` throws
+`InvalidOperationException` unconditionally against EF Core's InMemory test provider — production
+code must guard with `_dbContext.Database.IsRelational()` before opening a transaction (skip only
+for a non-relational provider; never catch/swallow a real attempted call). The multi-`SaveChanges`
+financial chains in `Cod` (rider/branch/finance settlement, merchant settlement + payout,
+adjustment approval) are the first place this pattern was established — the first explicit
+`BeginTransactionAsync()` usage anywhere in this codebase.
+
+---
+
+## 6. Infrastructure
+
+### PostgreSQL
+
+PostgreSQL is the primary relational database.
+
+EF Core owns persistence for module aggregates.
+
+Each module owns its EF Core configurations.
+
+Database access must respect:
+
+```text
+Tenant Boundary
+Branch Boundary
+Module Boundary
+```
+
+**Enum persistence gotcha:** `ShipmentStatus`/`ShipmentEventType` (and most other domain enums)
+persist as plain PostgreSQL `integer` with no `HasConversion<string>()`. Any future migration that
+adds enum members must **append at the end, never insert mid-list** — inserting reassigns every
+later member's ordinal against already-persisted rows (this happened once, in Phase 9, and was
+caught only at final whole-branch review — see `docs/CLARIFICATIONS.md` entry #10). Separately,
+`BranchType` is the one enum with `[JsonConverter(typeof(JsonStringEnumConverter))]` on the enum
+declaration itself, so it serializes over HTTP as its PascalCase name ("Hub") rather than an
+integer — every other enum still serializes as a raw integer over the wire (only `BranchType` was
+fixed, narrowly, during Frontend Phase F2's manual end-to-end verification; the same bug is latent
+in every other enum-typed API field and will need the same fix whenever a future frontend phase's
+own E2E pass reaches it).
+
+### Redis
+
+Currently used for:
+
+```text
+Merchant API rate limiting (IRateLimiter)
+Merchant API idempotency keys (IIdempotencyStore)
+```
+
+**(target, not yet built):** general read caching for Geography, Permissions, and Rate Cards is a
+reasonable future use of Redis, but is not implemented yet — every geography/permission/pricing
+read currently goes straight to Postgres. Redis must not become the primary source of business
+truth. Redis is also a hard fail-closed dependency for shipment creation and public tracking today
+(a deliberate decision — never silently skip idempotency on a financial write path — but a
+documented single point of failure).
+
+### RabbitMQ
+
+RabbitMQ handles durable asynchronous integration events, consumed by the `Events` module's
+publisher and, downstream, `Notifications`/`Webhooks`.
+
+RabbitMQ is not used simply to make synchronous application code appear "distributed."
+
+### Hangfire
+
+Hangfire currently runs two recurring jobs:
+
+```text
+outbox-publisher   — publishes OutboxMessage rows to RabbitMQ
+webhook-retry      — retries failed WebhookDelivery attempts with exponential backoff
+```
+
+**(target, not yet built):** settlement generation, NDR SLA reminders, scheduled notifications,
+and expired branch grant cleanup are reasonable future Hangfire jobs, not implemented yet. The
+Hangfire dashboard is mounted inside the API behind an authorized route.
+
+---
+
+## 7. Observability
+
+Structured Serilog logging is in place. Request logging includes method/path/status/duration.
+
+**(target, not yet built):** a propagated correlation/trace ID through
+`HTTP → Application Service → Domain Event → Outbox → RabbitMQ → Background Job`, and
+OpenTelemetry instrumentation for HTTP/EF Core/RabbitMQ/Hangfire. Full observability
+infrastructure is not required for the first development phases and has not been prioritized yet.
+
+---
+
+## 8. Frontend Overview
+
+The frontend is a **Next.js + TypeScript enterprise SaaS application** using the App Router, built
+as a BFF (Backend-for-Frontend): the browser never talks to the ASP.NET Core API directly. Every
+request goes through a Next.js Route Handler under `app/api/*`, which holds the JWT in an httpOnly
+cookie and proxies to the real API server-side. This keeps the access token out of reach of any
+client-side JS (XSS blast-radius reduction) and lets the BFF layer normalize errors/pagination
+before they reach a component.
+
+```text
+Page / Sheet component
+        ↓
+Feature query hook (TanStack Query, calls clientFetch directly — see §26)
+        ↓
+clientFetch() — client-side fetch wrapper, throws typed SessionExpiredError on 401
+        ↓
+Next.js Route Handler under app/api/{feature}/... (BFF — holds the httpOnly session cookie)
+        ↓
+apiFetch() — server-side authenticated fetch, throws on missing/expired session
+        ↓
+ASP.NET Core API
+        ↓
+Application Service → Domain → Infrastructure → PostgreSQL
+```
+
+The frontend architecture prioritizes operational efficiency and visual quality.
+
+**Actual current folder structure** (Frontend Phases F0–F2 built so far — this is real, not
+aspirational; it deliberately differs from an earlier idealized sketch, noted inline):
 
 ```text
 src/
-├── app/                 # routing
-├── features/
-│   ├── auth/
-│   ├── shipments/
-│   ├── merchants/
-│   ├── branches/
-│   ├── riders/
-│   ├── cod/
-│   ├── reports/
-│   └── tracking/
-├── components/          # shared, presentation-only UI (shadcn/ui based)
-├── lib/                 # api client, auth helpers, formatting
-└── services/            # per-feature API service functions consumed by TanStack Query
+├── app/
+│   ├── (staff)/           # authenticated staff shell (route group) — layout.tsx mounts AppShell
+│   │   │                  # plus every feature's globally-available Sheet components (§9a)
+│   │   ├── dashboard/      # org dashboard (note: (staff)/dashboard, not a (dashboard) group)
+│   │   └── branches/       # list page only — detail/create are Sheets, not routes (§9a)
+│   ├── api/                # BFF route handlers, one subtree per feature — provinces, districts,
+│   │   │                   # local-levels, wards, branches, delivery-zones, reports/dashboard, auth
+│   │   └── ...
+│   └── login/
+│
+├── features/                # one folder per domain feature — currently: auth, branches,
+│   │                        # geography, reports. (shipments, merchants, riders, cod, ndr, rto,
+│   │                        # tracking, settings do not exist yet — later phases)
+│   └── {feature}/
+│       ├── components/      # feature-specific components, including any {Feature}CreateSheet.tsx
+│       │                    # / {Feature}DetailSheet.tsx (§9a)
+│       ├── hooks/            # TanStack Query hooks — call clientFetch directly; there is
+│       │                    # deliberately no separate services/ or queries/ subfolder per
+│       │                    # feature (CLAUDE.md §31's original sketch proposed one; the hook
+│       │                    # IS the service in this codebase's actual convention)
+│       ├── store/             # only where the feature needs cross-component UI state (e.g.
+│       │                    # branchPanelStore.ts for the detail/create Sheet's open/id state)
+│       │                    # — most features don't need one
+│       ├── types.ts
+│       └── schema.ts          # Zod schemas, RHF-consumed
+│
+├── components/
+│   ├── ui/                  # shadcn/ui primitives, hand-authored where the CLI's interactive
+│   │                        # prompt couldn't be scripted (button, card, dialog, dropdown-menu,
+│   │                        # input, label, select, separator, sheet, skeleton, spinner, table,
+│   │                        # avatar, badge)
+│   ├── layout/               # AppShell, TopNav, Sidebar, MobileNav, BranchSwitcher, ReauthDialog
+│   ├── data-table/            # generic DataTable<T> (built on the shadcn Table primitive)
+│   ├── states/                # EmptyState, ErrorState
+│   └── status-badge/          # StatusBadge + statusConfig.ts (single source of truth for
+│                              # status → label/color across the whole app, §17)
+│
+├── lib/
+│   ├── api/clientFetch.ts     # client-side fetch, session-expiry handling
+│   ├── auth/apiFetch.ts       # server-side authenticated fetch (used only inside app/api/*)
+│   ├── store/                 # app-wide (not feature-scoped) Zustand stores: uiStore
+│   │                          # (activeBranchId, sidebarCollapsed), authStore
+│   ├── env.ts
+│   └── utils.ts
+│
+└── services/                  # thin — currently just authService.ts; most features don't have
+                               # one (their hooks call clientFetch directly, see above)
 ```
 
-* TanStack Query owns server state (fetching, caching, invalidation).
-* Zustand only for genuinely global client-only state (e.g. active branch selector,
-  sidebar collapse) — not a substitute for server state.
-* React Hook Form + Zod for all forms; validation schemas mirror backend
-  FluentValidation rules where practical to avoid drift.
-* The frontend never computes or trusts price/COD/tenant/branch/role values it
-  receives from user input — all such values are display-only echoes of what the
-  server returned (CLAUDE.md §33).
-* **Prefer shadcn/ui's official blocks over hand-built compositions** for standard
-  patterns it already ships a well-fitting block for — sidebar navigation
-  (`npx shadcn add sidebar-07` / `sidebar-03`), login/signup pages (`login-03`,
-  `login-04`), and dashboard shells (`dashboard-01`) are known-good starting points
-  as of this writing. Add the block, then restyle it onto this project's design
-  tokens (Phase F0's palette/type system) rather than rebuilding the same structure
-  from primitives — a custom composition is for a pattern shadcn has no block for,
-  not the default. Loading states use shadcn's own `Spinner` component
-  (`npx shadcn add spinner`, built on lucide's `LoaderIcon` with `animate-spin`),
-  not a hand-rolled spinner. Every visible component should trace back to a shadcn
-  primitive or block, restyled — never a from-scratch reimplementation of something
-  shadcn already provides. Apply this starting Frontend Phase F1 onward; Phase F0's
-  hand-built `AppShell`/`Sidebar`/`LoginForm` predate this convention and are not
-  retroactively required to change unless a phase touching them decides to.
-* **Detail and create views are always a right-side `Sheet`, never a separate route.**
-  A record's "view" and "create" UI renders as a shadcn `Sheet` (`side="right"`)
-  opened instantly over whatever list/page the user is already on — never a
-  navigation to `/{feature}/{id}` or `/{feature}/new`. This applies to every
-  feature going forward (Shipments, Merchants, Riders, COD, etc.), not just
-  Branches. Concretely, per feature:
-  * A Zustand store (e.g. `features/branches/store/branchPanelStore.ts`) holds
-    `{ mode: "closed" | "create" | "detail", id? }` plus `openCreate()`,
-    `openDetail(id)`, `close()` — never route params or query strings for this
-    state. The store makes the panel triggerable from anywhere in the app (a
-    list row, a switcher in `TopNav`, a future dashboard quick-link), not just
-    the list page that happens to render it.
-  * The Sheet components (`BranchCreateSheet.tsx`, `BranchDetailSheet.tsx`)
-    mount once, globally, in `app/(staff)/layout.tsx` alongside `{children}` —
-    not inside the list page — so they're always available regardless of which
-    route the user is on.
-  * List rows and "New X" buttons call the store's `open*` actions directly;
-    they are plain `<button onClick>`, never `next/link`/`<Link>`.
-  * Data hooks consumed only from these globally-mounted sheets (e.g.
-    `useBranch`, `useBranchDashboard`) need `enabled: id !== ""` (or similar)
-    guarding, since the hook is now always mounted and must not fire with an
-    empty id while the sheet is closed.
-  * On successful create, the flow calls `openDetail(created.id)` (switching
-    panels in place) rather than a router push to a detail page — there is no
-    detail page to push to.
+There is no top-level `hooks/`, `stores/`, `types/`, or `config/` directory as an earlier sketch
+proposed — state, types, and hooks live inside the feature that owns them, plus the two
+app-wide exceptions in `lib/store/` (branch selection, sidebar collapse — genuinely cross-feature
+concerns, not one feature's business).
 
-## 5. Deployment (Docker Compose, v1)
+---
 
-Services: `api` (ASP.NET Core), `web` (Next.js), `postgres`, `redis`, `rabbitmq`,
-plus the Hangfire dashboard mounted inside `api` behind an authorized route. Object
-storage (POD photos/signatures, KYC docs) is behind a storage abstraction interface so
-local dev can use filesystem/minio while production targets S3/Azure Blob without
-touching application code.
+## 9. Frontend State Management
 
-## 6. What This Architecture Deliberately Avoids
+### TanStack Query
 
-* No CQRS/MediatR "for ceremony" (CLAUDE.md §3) — application services expose plain
-  commands/queries as methods; MediatR-style indirection is only introduced if a
-  module later has a genuine need for pipeline behaviors (e.g. cross-cutting
-  validation) that plain DI can't express cleanly.
-* No business logic in controllers or React components (CLAUDE.md §3).
-* No microservices, no distributed sagas, no eventual-consistency-across-services
-  problems in v1 — the outbox pattern above solves the one reliability gap
-  (DB-commit vs message-publish) that a monolith with an external broker actually has.
+TanStack Query owns **server state**: API data, loading/error states, cache, refetching,
+mutations, query invalidation. Currently covers session/auth, the org and branch dashboards, and
+all Branches data. Shipment/merchant/rider/COD/reports queries will follow the same pattern as
+those features are built.
+
+### Zustand
+
+Zustand is reserved for genuinely global client-only state — never a second server-state system.
+
+**Currently in use:**
+
+```text
+uiStore (lib/store/uiStore.ts)     — activeBranchId, sidebarCollapsed
+authStore (lib/store/authStore.ts)  — client-visible auth/session bits
+branchPanelStore (features/branches/store/branchPanelStore.ts) — which detail/create Sheet is
+                                       open and for which record id (§9a)
+```
+
+**(target, not yet built):** command palette state, per-table density/column-visibility
+preferences. Add these only when the feature that needs them actually gets built — don't
+pre-create empty stores.
+
+---
+
+## 9a. Detail and Create UI Pattern — Sheets, Never Separate Pages
+
+**Every feature's detail and create UI is an instantly-opened, right-side shadcn `Sheet`, never a
+separate routed page or `next/link` navigation.** This is a standing, explicit convention (user's
+direction during Frontend Phase F2, retrofitted onto Branches immediately) that applies to every
+future feature — Shipments, Merchants, Riders, COD, NDR, RTO, everything.
+
+The concrete shape, established by `features/branches/`:
+
+* A feature-scoped Zustand store (e.g. `features/branches/store/branchPanelStore.ts`) holds
+  `{ mode: "closed" | "create" | "detail", id? }` plus `openCreate()`, `openDetail(id)`,
+  `close()`. Panel state lives in the store — **never** in the URL as a route param or query
+  string, and never via `<Link>`.
+* The Sheet components (`{Feature}CreateSheet.tsx`, `{Feature}DetailSheet.tsx`) mount once,
+  globally, in `app/(staff)/layout.tsx` alongside `{children}` — not inside the feature's own
+  list page. This is what lets any component anywhere in the staff app (a list row, the
+  `BranchSwitcher` in `TopNav`, a future dashboard quick-link) open the panel via the store,
+  without needing to be a descendant of the list page that happens to render it.
+* List rows and "New X" buttons are plain `<button onClick={() => store.openX(...)}>` —
+  never `next/link`/`<Link>` for this purpose.
+* A TanStack Query hook consumed only from a globally-mounted Sheet (e.g. `useBranch(id)`,
+  `useBranchDashboard(id)`) needs `enabled: id !== ""` (or equivalent) guarding, since the hook
+  is now always mounted regardless of whether its Sheet is open, and must not fire with an empty
+  id while closed.
+* On successful create, the flow calls `openDetail(created.id)` to switch panels in place —
+  there is no detail page to `router.push` to.
+
+**Why:** separate pages per record made navigation feel heavy for an operations-dense app where
+the user is scanning a list and popping into records constantly; an instant slide-over keeps the
+list's context in view. This does **not** vary by form complexity — even Branches' multi-section
+create form (geography cascading pickers, parent branch, delivery zone) is a Sheet, not a full
+page. There is no "complex workflows get a full page" carve-out.
+
+---
+
+## 10. Design System
+
+The frontend must use a **consistent design system**, rather than allowing each feature to invent
+its own UI.
+
+The visual language should be:
+
+> **Modern enterprise SaaS + operational density + restrained monochrome foundation + semantic
+> accent colors.**
+
+The UI should feel closer to a polished modern logistics/operations platform than a generic CRUD
+dashboard. This is the direction Phase F0's design tokens, established via the `frontend-design`
+and `impeccable` skills, already target.
+
+Primary visual characteristics:
+
+* Clean
+* Professional
+* Compact
+* Spacious where hierarchy requires it
+* Information-dense where operations require it
+* Minimal unnecessary decoration
+* Strong typography
+* Clear status hierarchy
+* Consistent spacing
+* Consistent borders/radius
+* Subtle shadows
+* Excellent hover/focus states
+
+Avoid:
+
+* Excessive gradients
+* Excessive colored cards
+* Giant dashboard statistics
+* Decorative illustrations in operational screens
+* Excessive rounded containers
+* Random icon usage
+* Inconsistent spacing
+* Rainbow-colored status badges
+
+---
+
+## 11. Design Tokens
+
+The application uses centralized design tokens, defined as HSL CSS custom properties in
+`app/globals.css`.
+
+Tokens cover:
+
+```text
+Colors (including per-status tokens — status-created, status-in-transit,
+        status-out-for-delivery, status-delivered, status-ndr, status-rto, status-cancelled)
+Typography
+Spacing
+Border Radius
+Shadows
+Component Heights
+```
+
+**(target, not yet built):** dedicated elevation, motion, layout-width, and z-index token scales
+— not yet formalized as named tokens, though used ad hoc where needed.
+
+The visual foundation is predominantly neutral. Semantic colors are reserved for meaning:
+
+```text
+Success → delivered / completed / healthy
+Warning → pending / attention required
+Destructive → failed / cancelled / overdue
+Info → informational state
+Neutral → inactive / draft / unknown
+```
+
+Color must communicate meaning rather than decorate the interface. Every categorical/status
+palette in this codebase is validated for colorblind-safety via the `dataviz` skill's
+`validate_palette.js` before shipping — this caught a real defect once (`DeliveryFailed` and
+`NdrCreated` originally had separate lightness steps of the same vermillion hue that failed the
+normal-vision adjacent-pair floor; they now deliberately share one token, since the backend
+auto-transitions one into the other in the same request anyway).
+
+---
+
+## 12. Typography
+
+Typography is a primary part of the visual hierarchy.
+
+Use a modern sans-serif type system with clear distinction between:
+
+```text
+Page Title
+Section Title
+Card Title
+Body
+Metadata
+Table Data
+Labels
+Helper Text
+Status Text
+```
+
+Operational tables should prioritize readable numbers, compact line height, tabular numerals, and
+clear column hierarchy. Numbers such as COD amount, shipment count, weight, distance, and
+settlement amount should be visually easy to scan.
+
+---
+
+## 13. Application Shell
+
+The authenticated app uses `AppShell` (`components/layout/AppShell.tsx`):
+
+```text
+┌───────────────────────────────────────────────────────┐
+│ TopNav — BranchSwitcher, user menu                     │
+├──────────────┬────────────────────────────────────────┤
+│              │                                        │
+│ Sidebar      │ Main Content                           │
+│ (Nav)        │                                        │
+│              │ Page content (Sheets overlay from      │
+│ MobileNav on │ the right when a detail/create panel    │
+│ small screens│ is open — §9a)                          │
+└──────────────┴────────────────────────────────────────┘
+```
+
+Built: collapsible sidebar (`uiStore.sidebarCollapsed`), active navigation state, branch context
+via `BranchSwitcher` (renders nothing for a single-branch user — a switcher implies a choice),
+responsive/mobile navigation via `MobileNav`, session-expiry handling via `ReauthDialog` (a popup
+password-entry dialog, not a redirect-to-login or toast).
+
+**(target, not yet built):** global search, command palette, a notifications bell/center. Use
+shadcn/ui's official blocks as the baseline when building these — CLAUDE.md and
+`[[feedback-courier-frontend-shadcn-blocks]]`'s established convention for this project.
+
+The sidebar should remain visually quiet. The active navigation item should provide clear
+hierarchy without excessive color.
+
+---
+
+## 14. Navigation Architecture
+
+Navigation is permission-aware — `Sidebar.tsx` filters each nav item by `usePermission`, and hides
+(not disables-and-errors) anything the user can't access.
+
+**Actual current nav** (Frontend Phases F0–F2):
+
+```text
+Dashboard   (report.read)
+Shipments   (shipment.read)   — nav item exists; /shipments page not yet built (Phase F3)
+Branches    (branch.read)     — built
+COD         (cod.read)        — nav item exists; /cod page not yet built (later phase)
+```
+
+**(target — the eventual full nav tree, built out feature-phase by feature-phase, not yet
+built beyond what's listed above):**
+
+```text
+Dashboard
+
+Operations
+  Shipments
+  Scanning
+  Manifests
+  Delivery
+  NDR
+  RTO
+
+Network
+  Branches
+  Riders
+  Vehicles
+
+Commercial
+  Merchants
+  Pricing
+  COD
+  Settlements
+
+Analytics
+  Reports
+  Dashboard
+
+Administration
+  Users
+  Roles & Permissions
+  Settings
+  Audit
+```
+
+Navigation should not expose inaccessible modules and then show authorization errors after
+clicking — and, per the note above, should not link to a route that doesn't exist yet either; when
+building a new nav group, ship the nav item and its page in the same phase.
+
+---
+
+## 15. Dashboard Design
+
+Dashboards must avoid the traditional "Huge Card / Huge Number" repeated pattern. Instead they
+combine key metrics, operational trends, exception queues, and performance data in one glance —
+this is already the shape of the built Organization Dashboard (`ShipmentFunnel`, `RateTiles`,
+`FinancialSummary`) and Branch Dashboard (`BranchShipments`, `BranchExceptions`, the latter now
+rendered inside the branch's detail Sheet per §9a rather than a standalone page).
+
+```text
+┌───────────────────────────────────────────────────────────┐
+│ Overview                         Branch: Kathmandu ▼       │
+│ Today · Last 7 Days · Last 30 Days                        │
+├───────────────────────────────────────────────────────────┤
+│ Shipments     Delivered     Pending       COD             │
+│ 12,842        10,431       1,208         NPR 4.8M         │
+├──────────────────────────────┬────────────────────────────┤
+│ Shipment Trend               │ Delivery Performance       │
+│                              │                            │
+│          chart               │       chart / metrics      │
+├──────────────────────────────┼────────────────────────────┤
+│ Exceptions                   │ Recent Activity            │
+│ NDR / RTO / Failed Delivery  │                            │
+└──────────────────────────────┴────────────────────────────┘
+```
+
+Important operational information should appear above decorative analytics. Trend charts /
+Recent Activity are **(target, not yet built)** — the current dashboards show the top metrics row
+and exception/status breakdowns, not yet a time-series trend chart.
+
+---
+
+## 16. Data-Heavy Screens
+
+The application will contain operationally dense screens (shipment list, manifest list, rider
+tasks, COD collections, settlement records, merchant transactions, audit logs) — most not yet
+built beyond Branches' list.
+
+The generic `DataTable<T>` component (`components/data-table/DataTable.tsx`) currently supports:
+loading/empty/error states, pagination (`PagedResult<T>` contract), row click handling.
+
+**(target, not yet built):** sticky headers, column visibility toggling, sorting, filtering,
+search, row selection, bulk actions, density control. Add these to `DataTable` generically as the
+first feature that genuinely needs one requires it — don't build one-off table components per
+feature.
+
+Avoid forcing every table into a mobile card layout when doing so destroys information density.
+
+---
+
+## 17. Shipment UI (target, not yet built — Frontend Phase F3)
+
+Shipment management is a primary workflow. The shipment details page should use a structured
+operational layout:
+
+```text
+Shipment Header
+├── AWB
+├── Status
+├── Service Type
+├── Merchant
+├── COD
+└── Actions
+
+Shipment Summary
+├── Origin
+├── Destination
+├── Customer
+├── Package
+└── Financial Summary
+
+Tracking Timeline
+├── Created
+├── Picked Up
+├── In Transit
+├── At Branch
+├── Out for Delivery
+└── Delivered
+
+Operational Information
+├── Scan History
+├── Transfer History
+├── Delivery Attempts
+├── NDR
+├── RTO
+└── POD
+```
+
+Per §9a, this renders as a detail Sheet, not a separate route — the most important information
+must be visible without navigating through multiple pages or panels.
+
+---
+
+## 18. Status System
+
+Statuses have a consistent visual language across the whole application, driven by one source of
+truth: `components/status-badge/statusConfig.ts` maps every backend status string to a
+`{ label, token }` pair, and `StatusBadge` renders `Icon + Label` from it — never color alone, and
+never a duplicated mapping in a second file. The same status always uses the same treatment across
+tables, cards, timelines, detail views, and filters, because they all resolve through this one
+config.
+
+```text
+Created → Picked Up → In Transit → At Branch → Out for Delivery → Delivered
+                                                        ↘ NDR → RTO
+Cancelled
+```
+
+---
+
+## 19. Forms
+
+All forms use React Hook Form + Zod. Backend validation uses FluentValidation; frontend schemas
+mirror backend rules where practical (matching Zod v4's `{ error: "..." }` API, not v3's
+`required_error`/`invalid_type_error`).
+
+Forms provide: clear labels, required indicators, inline validation, helpful error messages,
+proper field grouping, keyboard navigation, a loading state during submission (disabling duplicate
+submits), and server error handling.
+
+Complex forms use sections rather than one extremely long scroll — Branches' create form
+(identity fields, cascading geography picker, contact/hours, parent branch) is the established
+example. **All detail/create forms render inside a Sheet per §9a — there is no separate "simple
+forms get a sheet, complex forms get a full page" split.** A long form scrolls inside the Sheet.
+
+---
+
+## 20. Command and Search UX (target, not yet built)
+
+Global search, a command palette, and quick actions (search AWB, search merchant, search rider,
+create shipment, scan shipment, create manifest, record delivery attempt, open COD settlement) are
+a reasonable future addition once enough features exist to search across, but none of this is
+built yet.
+
+---
+
+## 21. Loading, Empty and Error States
+
+Every data screen explicitly handles loading, empty, and error states, using shared components:
+`Spinner` (shadcn) for loading, `EmptyState`/`ErrorState` (`components/states/`) for the other
+two, each with an icon, a clear explanation, and (for empty) a primary action or (for error) a
+retry action. A permission-denied case shows a clear authorization message, never a misleading
+empty state.
+
+Do not create custom inconsistent spinners throughout the application — always the shared
+`Spinner`.
+
+---
+
+## 22. Feedback and Notifications
+
+Confirmation for a destructive/consequential action uses the hand-authored `Dialog` primitive
+(`components/ui/dialog.tsx`, built on `@radix-ui/react-dialog`) — e.g. `ReauthDialog` for
+session-expiry re-authentication.
+
+**(target, not yet built):** a toast system, and confirmation dialogs for the specific destructive
+actions CLAUDE.md §22/§28 call out for later features (cancel shipment, deactivate rider, reverse
+settlement, remove branch access) — none of those flows exist yet.
+
+---
+
+## 23. Responsive Design
+
+The app supports desktop, tablet, and mobile, but responsive design does not mean blindly
+converting every desktop table into cards.
+
+**Built:** `MobileNav` (a `Sheet`-based mobile navigation drawer, added during Phase F1's polish
+pass after a real gap was found — zero breakpoint classes anywhere and the `Sheet` component sat
+unused), responsive breakpoints on the app shell and dashboard tile grids.
+
+Complex administrative workflows may remain desktop-first where mobile conversion would materially
+reduce usability — not yet a concrete decision point since no operationally-dense mobile-specific
+flow (rider app surfaces, scanning) has been built.
+
+---
+
+## 24. Accessibility (target — partially met, not fully audited)
+
+The frontend targets WCAG 2.1 AA-level practices: keyboard navigation, visible focus states,
+semantic HTML, accessible labels, proper dialog behavior, sufficient contrast, no color-only
+meaning (§18's icon+label status badges satisfy this one directly), accessible tables and form
+errors. Not yet subject to a dedicated accessibility audit pass.
+
+---
+
+## 25. Component Strategy
+
+Use shadcn/ui as the foundation. **Prefer official shadcn/ui blocks over hand-built compositions**
+for standard patterns it already ships a well-fitting block for (sidebar navigation, login/signup
+pages, dashboard shells) — install via `npx shadcn add ...` and restyle onto this project's design
+tokens rather than rebuilding the same structure from primitives. This convention applies starting
+Frontend Phase F1 onward; Phase F0's hand-built `AppShell`/`Sidebar`/`LoginForm` predate it and
+aren't retroactively required to change.
+
+**Currently installed primitives** (`components/ui/`, several hand-authored against the
+underlying `@radix-ui/react-*` package directly, since `npx shadcn add` hangs on an unscriptable
+interactive library-choice prompt in this environment): `avatar`, `badge`, `button`, `card`,
+`dialog`, `dropdown-menu`, `input`, `label`, `select`, `separator`, `sheet`, `skeleton`, `spinner`,
+`table`.
+
+Every visible component should trace back to a shadcn primitive or block, restyled — never a
+from-scratch reimplementation of something shadcn already provides.
+
+---
+
+## 26. Feature UI Boundaries
+
+Feature-specific components live inside their feature. Actual current shape (see §8's tree) —
+`components/`, `hooks/`, `store/` (only when needed), `types.ts`, `schema.ts`. There is
+deliberately no separate `services/`/`queries/`/`schemas/` subfolder per feature: the hook is the
+service (it calls `clientFetch` directly), and `schema.ts` is a single file, not a folder, since
+one feature rarely needs more than a handful of Zod schemas.
+
+Shared components must remain presentation-oriented. Business rules should not be hidden inside
+generic UI components.
+
+---
+
+## 27. API and Frontend Data Flow
+
+See §8 for the actual flow including the BFF hop — the frontend never talks to the ASP.NET Core
+API directly from the browser. The frontend must not contain business decisions that belong to
+the backend.
+
+---
+
+## 28. Security Boundaries
+
+The frontend may hide unavailable actions for UX purposes, but this is **not authorization**. The
+backend remains authoritative for tenant, branch, role, permission, price, COD, shipment state,
+and every other financial value. Never trust `organizationId`, `branchId`, `role`, `permission`,
+`price`, `COD`, or `settlement amount` from client-controlled input — the frontend treats every
+server-returned value as authoritative and echoes it, never computes it independently.
+
+---
+
+## 29. Caching Strategy
+
+TanStack Query owns application-level server caching on the frontend. Redis is currently used for
+rate limiting and merchant API idempotency (§6) — general read caching (geography, rate cards,
+permissions) is a reasonable future addition, not implemented yet. Do not cache highly mutable
+financial or operational state without an explicit invalidation strategy.
+
+---
+
+## 30. Object Storage
+
+Object storage is abstracted behind `SharedKernel.IObjectStorage`. Local development uses
+`LocalFileSystemObjectStorage`; production may use S3/Azure Blob without application code needing
+to know which. Current use case: POD photos/signatures (Riders module), KYC documents (Merchants
+module) — both via the same raw-body-upload pattern.
+
+---
+
+## 31. Deployment Architecture
+
+Docker Compose is used for v1.
+
+```text
+                         ┌──────────────┐
+                         │    Browser   │
+                         └──────┬───────┘
+                                │
+                    ┌───────────┴───────────┐
+                    │                       │
+              ┌─────▼─────┐           ┌────▼────┐
+              │   Next.js │           │   API    │
+              │    Web    │──BFF────▶│  .NET    │
+              └───────────┘           └────┬─────┘
+                                          │
+                ┌─────────────────────────┼────────────────────┐
+                │                         │                    │
+          ┌─────▼─────┐             ┌─────▼─────┐       ┌─────▼─────┐
+          │ PostgreSQL│             │   Redis   │       │ RabbitMQ  │
+          └───────────┘             └───────────┘       └─────┬─────┘
+                                                             │
+                                                       ┌─────▼─────┐
+                                                       │ Hangfire  │
+                                                       │(inside API)│
+                                                       └───────────┘
+```
+
+Compose services: `postgres`, `redis`, `rabbitmq`, `mailhog` (dev-only SMTP capture for
+Notifications' email channel), `api`, `web`. The Hangfire dashboard is mounted inside the API
+behind an authorized route, not a separate service.
+
+---
+
+## 32. Architecture Principles
+
+### Backend
+
+```text
+Domain owns business rules.
+Application owns use cases.
+Infrastructure owns external concerns.
+Presentation owns HTTP/API concerns.
+```
+
+### Frontend
+
+```text
+Features own feature workflows.
+Components own presentation.
+TanStack Query owns server state.
+Zustand owns client-only global state (app-wide) and per-feature panel/UI state (§9a).
+Detail and create UI is always a Sheet, never a separate route (§9a).
+Backend owns business decisions.
+Design system owns visual consistency.
+```
+
+### System
+
+```text
+Tenant boundary is mandatory.
+Branch boundary is mandatory.
+Financial operations are authoritative on the server.
+Domain events are durable through the outbox.
+External side effects are asynchronous where appropriate.
+```
+
+---
+
+## 33. What This Architecture Deliberately Avoids
+
+**No microservices.** v1 remains a modular monolith. Do not introduce microservices simply because
+modules exist — modules provide boundaries without operational complexity.
+
+**No CQRS/MediatR ceremony.** Application services expose clear methods (`CreateShipment()`,
+`GetShipment()`, `AssignRider()`, `RecordDeliveryAttempt()`, `GenerateSettlement()`, etc.). Do not
+introduce MediatR merely to wrap every method in a command/handler pair.
+
+**No business logic in controllers or React components.** Controllers/API endpoints orchestrate
+HTTP concerns; business rules live in Domain/Application. React components render state and
+collect user interaction; business decisions belong to the backend.
+
+**No UI duplication.** Do not create multiple versions of Table, Modal, Dialog, Sheet, Form Field,
+Status Badge, Page Header, Empty State, or Loading State when the same pattern already exists —
+extend the design system instead.
+
+**No visual inconsistency.** Feature teams must not independently invent colors, spacing, border
+radius, typography, button styles, status colors, or table patterns. All follow the shared design
+system.
+
+---
+
+## 34. Definition of a "Done" UI
+
+A feature is not frontend-complete simply because the API works. A production-ready screen
+includes: responsive layout, loading/empty/error/permission states, success feedback, validation
+feedback, accessible interactions, consistent spacing/typography/status treatment, correct
+responsive behavior, keyboard-friendly primary workflows, no unnecessary visual decoration, and
+uses existing design-system components (never a one-off).
+
+For operational screens, also: search, filtering, sorting, pagination, bulk actions where
+relevant, a clear primary action, and efficient information density.
+
+---
+
+## 35. Product UX Direction
+
+The product should feel like a **premium modern logistics SaaS platform**, not an internal CRUD
+administration panel.
+
+```text
+Professional + Minimal + Dense + Fast + Modern + Operational
+```
+
+The interface communicates hierarchy through typography, spacing, alignment, surface elevation,
+borders, icons, semantic color, and motion — rather than relying heavily on color.
+
+> **Every visual element must either improve hierarchy, communicate state, or improve workflow
+> speed.** If an element does none of these, it probably shouldn't exist.
