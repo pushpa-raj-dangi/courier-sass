@@ -298,4 +298,41 @@ public class RidersEndpointsTests : IClassFixture<WebApplicationFactory<Program>
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
+
+    [Fact]
+    public async Task GetMyRider_LoggedInAsRider_ReturnsOwnRecord()
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "me-rider");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (originBranchId, _, _) = await SeedBranchesAsync(client);
+        var suffix = Guid.NewGuid().ToString("N");
+        var riderEmail = $"rider-{suffix}@example.com";
+        var createResponse = await client.PostAsJsonAsync("/api/v1/riders", new CreateRiderRequest(
+            riderEmail, "P@ssw0rd123!", "Self Service Rider", null, $"LIC-{suffix[..10]}", originBranchId, RiderRoleType.PickupRider));
+        var createdRider = await createResponse.Content.ReadFromJsonAsync<RiderResponse>();
+
+        var riderClient = _factory.CreateClient();
+        var loginResponse = await riderClient.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest(riderEmail, "P@ssw0rd123!"));
+        var riderAuth = await loginResponse.Content.ReadFromJsonAsync<AuthResult>();
+        riderClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", riderAuth!.AccessToken);
+
+        var response = await riderClient.GetAsync("/api/v1/riders/me");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var result = await response.Content.ReadFromJsonAsync<RiderResponse>();
+        Assert.Equal(createdRider!.Id, result!.Id);
+    }
+
+    [Fact]
+    public async Task GetMyRider_LoggedInAsOwnerNotRider_ReturnsNotFound()
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "me-nonrider");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+
+        var response = await client.GetAsync("/api/v1/riders/me");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
 }

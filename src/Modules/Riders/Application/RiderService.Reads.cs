@@ -1,11 +1,26 @@
 using System.Security.Claims;
 using Courier.Riders.Domain;
+using Courier.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 
 namespace Courier.Riders.Application;
 
 public partial class RiderService
 {
+    // Self-scoped by design (Phase F5's rider self-service model) — a rider holds no permission
+    // that would let them call ListAsync/GetByIdAsync to find their own Rider.Id, so this is the
+    // only path from a logged-in rider's UserId to their Rider record.
+    public async Task<RiderResponse?> GetMyRiderAsync(ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
+    {
+        var userId = actingUser.GetUserId();
+        if (userId is null)
+        {
+            return null;
+        }
+        var rider = await _dbContext.Set<Rider>().FirstOrDefaultAsync(r => r.UserId == userId, cancellationToken);
+        return rider is null ? null : ToResponse(rider);
+    }
+
     public async Task<RiderResponse?> GetByIdAsync(Guid riderId, CancellationToken cancellationToken = default)
     {
         var rider = await _dbContext.Set<Rider>().FirstOrDefaultAsync(r => r.Id == riderId, cancellationToken);

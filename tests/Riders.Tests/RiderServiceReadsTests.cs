@@ -149,4 +149,32 @@ public class RiderServiceReadsTests
 
         Assert.Null(result);
     }
+
+    [Fact]
+    public async Task GetMyRiderAsync_UserHasRiderRecord_ReturnsIt()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var rider = new Rider { Id = Guid.NewGuid(), OrganizationId = organizationId, UserId = userId, BaseBranchId = Guid.NewGuid(), LicenseNumber = "LIC-3", RoleType = RiderRoleType.DeliveryRider, IsActive = true };
+        dbContext.Set<Rider>().Add(rider);
+        await dbContext.SaveChangesAsync();
+        var service = CreateService(dbContext, organizationId, new RestrictedBranchAuthorizationChecker());
+
+        var result = await service.GetMyRiderAsync(ActingUser(userId));
+
+        Assert.NotNull(result);
+        Assert.Equal(rider.Id, result!.Id);
+    }
+
+    [Fact]
+    public async Task GetMyRiderAsync_UserHasNoRiderRecord_ReturnsNull()
+    {
+        await using var dbContext = CreateContext();
+        var service = CreateService(dbContext, Guid.NewGuid(), new RestrictedBranchAuthorizationChecker());
+
+        var result = await service.GetMyRiderAsync(ActingUser(Guid.NewGuid()));
+
+        Assert.Null(result);
+    }
 }

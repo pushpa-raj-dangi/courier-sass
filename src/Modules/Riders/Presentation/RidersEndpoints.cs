@@ -42,6 +42,12 @@ public static class RidersEndpoints
             Results.Ok(await service.ListAsync(httpContext.User, httpContext.RequestAborted)))
             .RequirePermission("rider.read");
 
+        riders.MapGet("/me", async (RiderService service, HttpContext httpContext) =>
+        {
+            var result = await service.GetMyRiderAsync(httpContext.User, httpContext.RequestAborted);
+            return result is null ? Results.NotFound() : Results.Ok(result);
+        });
+
         riders.MapGet("/{id:guid}", async (Guid id, RiderService service, HttpContext httpContext) =>
         {
             var result = await service.GetByIdAsync(id, httpContext.RequestAborted);
