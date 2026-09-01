@@ -46,4 +46,10 @@ describe("NavMain", () => {
 
     await waitFor(() => expect(screen.getByText("Shipments")).toBeInTheDocument());
   });
+
+  it("shows the Riders entry when the session has rider.read", async () => {
+    renderNavMain(["report.read", "rider.read"]);
+
+    await waitFor(() => expect(screen.getByText("Riders")).toBeInTheDocument());
+  });
 });

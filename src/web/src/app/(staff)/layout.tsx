@@ -6,6 +6,7 @@ import { ShipmentCreateSheet } from "@/features/shipments/components/ShipmentCre
 import { ShipmentDetailSheet } from "@/features/shipments/components/ShipmentDetailSheet";
 import { ManifestCreateSheet } from "@/features/manifests/components/ManifestCreateSheet";
 import { ManifestDetailSheet } from "@/features/manifests/components/ManifestDetailSheet";
+import { RiderCreateSheet } from "@/features/riders/components/RiderCreateSheet";
 
 export default function StaffLayout({ children }: { children: ReactNode }) {
   return (
@@ -17,6 +18,7 @@ export default function StaffLayout({ children }: { children: ReactNode }) {
       <ShipmentDetailSheet />
       <ManifestCreateSheet />
       <ManifestDetailSheet />
+      <RiderCreateSheet />
     </AppShell>
   );
 }
