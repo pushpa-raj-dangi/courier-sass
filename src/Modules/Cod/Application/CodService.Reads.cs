@@ -201,4 +201,47 @@ public partial class CodService
         var items = await _dbContext.Set<MerchantSettlementItem>().Where(i => i.MerchantSettlementId == id).ToListAsync(cancellationToken);
         return ToMerchantSettlementResponse(settlement, items);
     }
+
+    // Mirrors ListCollectionsAsync's shape exactly: RiderCashSettlement carries its own BranchId
+    // (Task 6 of Phase 10's original plan), so branch-access scoping is a direct WHERE, no join.
+    // unreconciledOnly drives the Branch Settlements create-Sheet's rider-settlement picker
+    // (Frontend Phase F7).
+    public async Task<PagedResult<RiderCashSettlementResponse>> ListRiderSettlementsAsync(
+        Guid? branchId, Guid? riderId, bool? unreconciledOnly, int? page, int? pageSize,
+        ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
+    {
+        var organizationId = _currentTenantProvider.OrganizationId
+            ?? throw new CodValidationException("No active organization context.");
+
+        var query = _dbContext.Set<RiderCashSettlement>().Where(r => r.OrganizationId == organizationId);
+        if (branchId is Guid requestedBranchId)
+        {
+            query = query.Where(r => r.BranchId == requestedBranchId);
+        }
+        if (riderId is Guid requestedRiderId)
+        {
+            query = query.Where(r => r.RiderId == requestedRiderId);
+        }
+        if (unreconciledOnly == true)
+        {
+            query = query.Where(r => r.BranchCashSettlementId == null);
+        }
+
+        var accessibleBranchIds = await _branchAuthorizationChecker.GetAccessibleBranchIdsAsync(actingUser, "cod.read", cancellationToken);
+        if (accessibleBranchIds is not null)
+        {
+            var accessibleArray = accessibleBranchIds.ToArray();
+            query = query.Where(r => accessibleArray.Contains(r.BranchId));
+        }
+
+        var (normalizedPage, normalizedPageSize) = PaginationDefaults.Normalize(page, pageSize);
+        var totalCount = await query.CountAsync(cancellationToken);
+        var settlements = await query
+            .OrderByDescending(r => r.SettledAt).ThenBy(r => r.Id)
+            .Skip((normalizedPage - 1) * normalizedPageSize)
+            .Take(normalizedPageSize)
+            .ToListAsync(cancellationToken);
+
+        return new PagedResult<RiderCashSettlementResponse>(settlements.Select(ToRiderSettlementResponse).ToList(), normalizedPage, normalizedPageSize, totalCount);
+    }
 }

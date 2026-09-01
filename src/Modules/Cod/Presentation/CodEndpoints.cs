@@ -30,6 +30,10 @@ public static class CodEndpoints
             Results.Ok(await service.GetReconciliationSummaryAsync(branchId, merchantId, from, to, httpContext.User, httpContext.RequestAborted)))
             .RequirePermission("cod.read");
 
+        group.MapGet("/rider-settlements", async (Guid? branchId, Guid? riderId, bool? unreconciledOnly, int? page, int? pageSize, CodService service, HttpContext httpContext) =>
+            Results.Ok(await service.ListRiderSettlementsAsync(branchId, riderId, unreconciledOnly, page, pageSize, httpContext.User, httpContext.RequestAborted)))
+            .RequirePermission("cod.read");
+
         group.MapPost("/rider-settlements", async (CreateRiderSettlementRequest request, CodService service, HttpContext httpContext) =>
             await HandleAsync(() => service.CreateRiderSettlementAsync(request, httpContext.User, httpContext.RequestAborted)))
             .RequirePermission("cod.reconcile");
