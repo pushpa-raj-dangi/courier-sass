@@ -38,8 +38,8 @@ public static class NdrEndpoints
         .WithTags("Shipment Management")
         .RequireAuthorization();
 
-        returnShipments.MapGet("/", async (NdrService service, HttpContext httpContext) =>
-            Results.Ok(await service.ListReturnShipmentsAsync(httpContext.User, httpContext.RequestAborted)))
+        returnShipments.MapGet("/", async (Guid? originalShipmentId, NdrService service, HttpContext httpContext) =>
+            Results.Ok(await service.ListReturnShipmentsAsync(originalShipmentId, httpContext.User, httpContext.RequestAborted)))
             .RequirePermission("rto.read");
 
         returnShipments.MapGet("/{id:guid}", async (Guid id, NdrService service, HttpContext httpContext) =>

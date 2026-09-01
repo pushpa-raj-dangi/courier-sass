@@ -20,9 +20,13 @@ public partial class NdrService
     // ReturnShipment already stores DestinationBranchId as a real column, so the filter can be
     // pushed into the SQL query itself — no per-row shipment lookup needed for the filter (though
     // ToReturnShipmentResponseAsync still needs the live shipment status for the response body).
-    public async Task<List<ReturnShipmentResponse>> ListReturnShipmentsAsync(ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
+    public async Task<List<ReturnShipmentResponse>> ListReturnShipmentsAsync(Guid? originalShipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
         var query = _dbContext.Set<ReturnShipment>().AsQueryable();
+        if (originalShipmentId is not null)
+        {
+            query = query.Where(r => r.OriginalShipmentId == originalShipmentId);
+        }
         var accessibleBranchIds = await _branchAuthorizationChecker.GetAccessibleBranchIdsAsync(actingUser, "rto.read", cancellationToken);
         if (accessibleBranchIds is not null)
         {

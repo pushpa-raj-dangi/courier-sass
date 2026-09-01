@@ -204,8 +204,9 @@ public class NdrEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
         Assert.Equal(ShipmentStatus.RtoInitiated, afterInitiate!.CurrentStatus);
         Assert.Equal(destinationBranchId, afterInitiate.CurrentBranchId);
 
-        var returnShipments = await (await client.GetAsync("/api/v1/return-shipments")).Content.ReadFromJsonAsync<List<ReturnShipmentResponse>>();
-        var returnShipment = returnShipments!.Single(r => r.OriginalShipmentId == shipment.Id);
+        var returnShipments = await (await client.GetAsync($"/api/v1/return-shipments?originalShipmentId={shipment.Id}")).Content.ReadFromJsonAsync<List<ReturnShipmentResponse>>();
+        var returnShipment = Assert.Single(returnShipments!);
+        Assert.Equal(shipment.Awb, returnShipment.OriginalAwb);
         Assert.StartsWith("RTO-", returnShipment.ReturnAwb);
         Assert.Equal(destinationBranchId, returnShipment.OriginBranchId);
         Assert.Equal(originBranchId, returnShipment.DestinationBranchId);

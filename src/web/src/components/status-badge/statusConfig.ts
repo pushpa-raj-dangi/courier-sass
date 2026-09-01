@@ -40,6 +40,25 @@ export const STATUS_CONFIG: Record<string, StatusConfigEntry> = {
   "Manifest.InTransit": { label: "In Transit", token: "status-in-transit" },
   "Manifest.Received": { label: "Received", token: "status-received" },
   "Manifest.Closed": { label: "Closed", token: "status-delivered" },
+
+  // NDR statuses — namespaced ("Ndr.X") for the same reason Manifest.X is: a flat key risks
+  // collision with ShipmentStatus/ManifestStatus members. All 6 reuse existing tokens rather than
+  // minting new colors. Validated as a group via the dataviz skill's palette validator (Frontend
+  // Phase F6): passes the normal-vision adjacent-pair floor (worst pair ΔE 15.3-15.6), but
+  // Resolved (status-delivered) vs RtoRequested (status-rto) fails CVD-specific separation
+  // (ΔE 4.8 deutan light / 2.6 protan dark, both well under the 6 floor) — a pre-existing weakness
+  // of the low-chroma --status-rto token itself (the same pair already coexists unnamespaced in
+  // ShipmentStatus's own Delivered/Rto* badges today), not something this new grouping creates.
+  // Every alternative substitution tried during validation either reintroduced a normal-vision
+  // failure or a worse CVD failure, so this keeps the semantically strongest mapping rather than a
+  // worse-fitting one — same "known debt, not blocking, every status ships with a visible label"
+  // call CLARIFICATIONS.md #14/#15 already made for two other pre-existing pairs.
+  "Ndr.Open": { label: "Open", token: "status-ndr" },
+  "Ndr.Contacting": { label: "Contacting", token: "status-out-for-delivery" },
+  "Ndr.CustomerConfirmed": { label: "Customer Confirmed", token: "status-received" },
+  "Ndr.ReattemptScheduled": { label: "Reattempt Scheduled", token: "status-sealed" },
+  "Ndr.RtoRequested": { label: "RTO Requested", token: "status-rto" },
+  "Ndr.Resolved": { label: "Resolved", token: "status-delivered" },
 };
 
 export function resolveStatusConfig(status: string, namespace?: string): StatusConfigEntry {

@@ -320,7 +320,46 @@ to the original shipment (CLAUDE.md §21).
 `RESOLVED`/`RTO_REQUESTED` entirely through the UI, and an RTO shipment's linkage
 back to its original AWB is visible on both records.
 
-*Status: Not started.*
+*Status: Done (2026-09-01).* Shipped the full NDR workflow (`/ndrs` list + status-driven detail
+Sheet — `NdrUpdateSection` for `Open`/`Contacting`/`CustomerConfirmed`'s forward moves,
+`NdrReattemptSection`/`NdrRtoSection` for the two resolution paths off `CustomerConfirmed`, an
+always-available `NdrResolveOtherAction`, and a `NdrResolvedSummary` linking to the resulting
+return shipment) and RTO tracking (`/return-shipments` list + `ReturnShipmentDetailSheet` with a
+Confirm Return action gated on both `rto.manage` and the live shipment status actually being
+`RtoAtOrigin`, matching the backend's own state guard). Both `ShipmentDetailSheet` and
+`ReturnShipmentDetailSheet` now show the AWB linkage in both directions, closing this phase's exit
+criteria.
+
+Five real backend gaps were resolved before frontend work began (Tasks 1-5, recorded in
+`docs/CLARIFICATIONS.md` §16): all 3 Ndr enums (`NdrStatus`, `NdrReason`, `NdrResolution`) got
+`JsonStringEnumConverter` in one pass, closing the same latent bug class hit narrowly in every
+prior phase; `NdrResponse`/`ReturnShipmentResponse` were enriched with `Awb`/`OriginalAwb`, sourced
+from the `ShipmentScanInfo` lookup those methods already performed or now perform once per row; and
+`GET /api/v1/ndrs`/`GET /api/v1/return-shipments` gained `shipmentId`/`originalShipmentId` filters,
+letting the shipment detail Sheet discover its own NDR history and RTO linkage.
+
+One deliberate deviation from the design spec: `NdrResolveOtherAction` ships without the
+short-reason-note field the spec described, since `NdrService.ResolveAsync`'s `Other` branch never
+reads or persists `ResolveNdrRequest.RtoReason` for that resolution — no `NDR` column exists to
+hold it. Building an input for a value the backend silently discards would have been misleading.
+
+Manual E2E verification against the real API/Postgres: clean pass, no real bugs found. Registered a
+fresh org via `/api/v1/auth/register`, seeded branches/zones/rate card/merchant/riders via the API
+(the exact request shapes `NdrEndpointsTests.cs` already uses), then drove three real shipments
+through pickup → manifest → failed delivery → NDR entirely through the live UI at
+`localhost:3000`/`localhost:5013` against the shared Postgres container: one resolved via Request
+RTO (walked the return leg through a real `Purpose: Return` manifest — dispatch → receive-scan —
+and confirmed the "Confirm Return" button stays disabled until the shipment actually reaches
+`RtoAtOrigin`, then completes it to `RtoDelivered`), one via Schedule Reattempt (verified the
+shipment returns to `OutForDelivery`), and one via Resolve — Other from `Open` (verified it
+resolves without touching shipment status, per the spec deviation above). `ShipmentDetailSheet`
+showed both "View NDR" and "View Return Shipment" linkage buttons throughout. Branch-restricted
+access filtering (exit-criteria item 10) was verified via the already-passing
+`ListAsync_BranchRestricted_FiltersToAccessibleBranchOnly` and
+`ListReturnShipmentsAsync_BranchRestricted_FiltersToAccessibleBranchOnly` unit tests rather than a
+second live-UI pass with a second restricted user, since a live-UI branch-restriction check
+exercises identical frontend code to the unrestricted passes above and the backend scoping logic
+itself is what those tests already isolate and assert against real Postgres.
 
 ## Phase F7 — COD Operations
 
