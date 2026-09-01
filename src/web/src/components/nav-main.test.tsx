@@ -64,4 +64,10 @@ describe("NavMain", () => {
 
     await waitFor(() => expect(screen.getByText("NDRs")).toBeInTheDocument());
   });
+
+  it("shows the Return Shipments entry when the session has rto.read", async () => {
+    renderNavMain(["report.read", "rto.read"]);
+
+    await waitFor(() => expect(screen.getByText("Return Shipments")).toBeInTheDocument());
+  });
 });
