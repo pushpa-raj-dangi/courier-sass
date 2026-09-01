@@ -5,11 +5,12 @@ import { ErrorState } from "@/components/states/ErrorState";
 import { Spinner } from "@/components/ui/spinner";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PickupScanControl } from "@/features/riders/components/PickupScanControl";
 import { useMyRider } from "@/features/riders/hooks/useMyRider";
 import { useMyTasksToday } from "@/features/riders/hooks/useMyTasksToday";
 import type { MyTask } from "@/features/riders/types";
 
-function TaskCard({ task }: { task: MyTask }) {
+function TaskCard({ task, riderId }: { task: MyTask; riderId: string }) {
   return (
     <Card>
       <CardHeader>
@@ -22,6 +23,9 @@ function TaskCard({ task }: { task: MyTask }) {
         <p className="font-medium text-foreground">{task.recipientName}</p>
         <p className="text-muted-foreground">{task.recipientPhone}</p>
         <p className="text-muted-foreground">{task.recipientAddressLine}, Ward {task.recipientWardNumber}</p>
+        <div className="pt-2">
+          {task.type === "Pickup" && <PickupScanControl riderId={riderId} awb={task.awb} />}
+        </div>
       </CardContent>
     </Card>
   );
@@ -71,7 +75,7 @@ export default function MyDeliveriesPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {tasks.map((task) => (
-            <TaskCard key={task.taskId} task={task} />
+            <TaskCard key={task.taskId} task={task} riderId={rider!.id} />
           ))}
         </div>
       )}
