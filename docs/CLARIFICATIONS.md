@@ -744,6 +744,39 @@ visible text label, never color alone.
 
 ---
 
+## 16. Frontend Phase F6: `Ndr` responses need shipment AWB, and no lookup-by-shipment filters exist
+
+**Where:** `Ndr.Application.NdrDtos` (`NdrResponse`, `ReturnShipmentResponse`), `Ndr.Presentation.NdrEndpoints`
+
+**Gap 1 — no AWB on either response.** `NdrResponse` and `ReturnShipmentResponse` both carry only
+an opaque `ShipmentId`/`OriginalShipmentId` Guid — useless for a staff-facing queue or
+return-tracking screen, which needs the human-facing AWB. `NdrService.UpdateAsync`/`ResolveAsync`
+and `ToReturnShipmentResponseAsync` already fetch `IShipmentTransitionService.GetScanInfoAsync`
+(which carries `Awb`) for other reasons; `NdrService.GetByIdAsync` and `ListAsync`'s all-branches
+path do not yet.
+
+**Resolution:** `NdrResponse` gains `Awb`; `ReturnShipmentResponse` gains `OriginalAwb`. Both are
+sourced from the same `ShipmentScanInfo` lookup every affected method already performs or now
+performs once per row (bounded by page size, same cost class as every other paginated list in this
+codebase).
+
+**Gap 2 — no way to find "the NDR(s)/return shipment for shipment X".** Neither
+`GET /api/v1/ndrs` nor `GET /api/v1/return-shipments` accepts a shipment-scoped filter, so a
+shipment's own detail view has no way to discover its NDR history or RTO linkage.
+
+**Resolution:** `GET /api/v1/ndrs` gains an optional `shipmentId` query parameter (composes with
+the existing `status` filter and branch-scoping); `GET /api/v1/return-shipments` gains an optional
+`originalShipmentId` query parameter (composes with the existing branch-scoping). A shipment may
+accumulate more than one `NDR` over its lifetime (at most one unresolved at a time, per
+`NdrConfiguration.cs`'s documented invariant) but at most one `ReturnShipment` (RTO is a terminal
+path with no reopening logic in this codebase).
+
+Discovered planning Frontend Phase F6 (`docs/FRONTEND-ROADMAP.md`,
+`docs/superpowers/specs/2026-09-01-frontend-phase-f6-ndr-rto-design.md`). Implemented as Tasks 2-5
+of the Frontend Phase F6 plan.
+
+---
+
 ## Summary of schema additions implied by this document
 
 * `UserRole` (new entity) — resolves #1, carries `BranchScope` enum — resolves #6.
