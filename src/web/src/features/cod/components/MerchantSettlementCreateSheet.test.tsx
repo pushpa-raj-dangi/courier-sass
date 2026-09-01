@@ -30,7 +30,7 @@ describe("MerchantSettlementCreateSheet", () => {
     fireEvent.click(screen.getByRole("button", { name: /create settlement/i }));
 
     await waitFor(() => {
-      expect(mutateAsync).toHaveBeenCalledWith({ merchantId: "m1", periodFrom: "2026-08-01", periodTo: "2026-08-31" });
+      expect(mutateAsync).toHaveBeenCalledWith({ merchantId: "m1", periodFrom: "2026-08-01T00:00:00Z", periodTo: "2026-08-31T23:59:59Z" });
     });
     await waitFor(() => {
       expect(openMerchantSettlementDetail).toHaveBeenCalledWith("ms1");

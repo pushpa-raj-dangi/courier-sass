@@ -35,7 +35,17 @@ export function MerchantSettlementCreateSheet() {
   async function onSubmit(values: CreateMerchantSettlementFormValues) {
     setServerError(null);
     try {
-      const created = await createSettlement.mutateAsync(values);
+      // A bare "YYYY-MM-DD" from <input type="date"> has no offset — .NET's DateTimeOffset JSON
+      // deserializer then defaults to the API host's *local* timezone offset, not UTC. Npgsql's
+      // timestamptz writer rejects any non-zero offset outright, so this must be UTC-anchored here
+      // rather than left for the backend to normalize (real bug hit during this phase's own manual
+      // E2E pass, matching every prior phase's experience that only a real end-to-end run surfaces
+      // this class of defect).
+      const created = await createSettlement.mutateAsync({
+        ...values,
+        periodFrom: `${values.periodFrom}T00:00:00Z`,
+        periodTo: `${values.periodTo}T23:59:59Z`,
+      });
       reset();
       openDetail(created.id);
     } catch (error) {
