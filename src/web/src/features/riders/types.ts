@@ -59,3 +59,7 @@ export interface MyTasksToday {
   deliveryRunId: string | null;
   tasks: MyTask[];
 }
+
+export type DeliveryAttemptReason =
+  | "CustomerUnavailable" | "PhoneUnreachable" | "WrongAddress" | "IncompleteAddress"
+  | "CustomerRefused" | "CustomerRequestedReschedule" | "CashUnavailable" | "DamagedParcel" | "Other";

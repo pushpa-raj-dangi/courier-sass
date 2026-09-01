@@ -2,12 +2,15 @@
 
 import { EmptyState } from "@/components/states/EmptyState";
 import { ErrorState } from "@/components/states/ErrorState";
+import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PickupScanControl } from "@/features/riders/components/PickupScanControl";
+import { RecordAttemptSheet } from "@/features/riders/components/RecordAttemptSheet";
 import { useMyRider } from "@/features/riders/hooks/useMyRider";
 import { useMyTasksToday } from "@/features/riders/hooks/useMyTasksToday";
+import { useMyDeliveriesPanelStore } from "@/features/riders/store/myDeliveriesPanelStore";
 import type { MyTask } from "@/features/riders/types";
 
 function TaskCard({ task, riderId }: { task: MyTask; riderId: string }) {
@@ -25,6 +28,11 @@ function TaskCard({ task, riderId }: { task: MyTask; riderId: string }) {
         <p className="text-muted-foreground">{task.recipientAddressLine}, Ward {task.recipientWardNumber}</p>
         <div className="pt-2">
           {task.type === "Pickup" && <PickupScanControl riderId={riderId} awb={task.awb} />}
+          {task.type === "Delivery" && (
+            <Button type="button" size="sm" onClick={() => useMyDeliveriesPanelStore.getState().openRecordAttempt(task)}>
+              Record Attempt
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -79,6 +87,7 @@ export default function MyDeliveriesPage() {
           ))}
         </div>
       )}
+      {rider && <RecordAttemptSheet riderId={rider.id} />}
     </div>
   );
 }
