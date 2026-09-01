@@ -138,8 +138,8 @@ public class NdrEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
 
     private async Task<NdrResponse> GetOpenNdrForShipmentAsync(HttpClient client, Guid shipmentId)
     {
-        var ndrs = await (await client.GetAsync("/api/v1/ndrs?pageSize=200")).Content.ReadFromJsonAsync<PagedResult<NdrResponse>>();
-        return ndrs!.Items.Single(n => n.ShipmentId == shipmentId);
+        var ndrs = await (await client.GetAsync($"/api/v1/ndrs?shipmentId={shipmentId}")).Content.ReadFromJsonAsync<PagedResult<NdrResponse>>();
+        return ndrs!.Items.Single();
     }
 
     [Fact]
