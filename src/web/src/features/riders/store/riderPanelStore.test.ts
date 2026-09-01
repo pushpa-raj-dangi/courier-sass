@@ -25,4 +25,9 @@ describe("useRiderPanelStore", () => {
     useRiderPanelStore.getState().openCreateVehicle();
     expect(useRiderPanelStore.getState().panel).toEqual({ mode: "create-vehicle" });
   });
+
+  it("openAssignTask switches to the assign-task panel", () => {
+    useRiderPanelStore.getState().openAssignTask();
+    expect(useRiderPanelStore.getState().panel).toEqual({ mode: "assign-task" });
+  });
 });

@@ -17,6 +17,8 @@ export default function RidersPage() {
   const openCreateRider = useRiderPanelStore((s) => s.openCreateRider);
   const { data: vehicles, isLoading: vehiclesLoading } = useVehicles();
   const openCreateVehicle = useRiderPanelStore((s) => s.openCreateVehicle);
+  const canAssign = usePermission("delivery.assign");
+  const openAssignTask = useRiderPanelStore((s) => s.openAssignTask);
 
   const columns: ColumnDef<Rider>[] = [
     { key: "licenseNumber", header: "License Number", render: (r) => r.licenseNumber },
@@ -52,12 +54,19 @@ export default function RidersPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="font-display text-xl font-semibold">Riders</h1>
-        {canCreate && (
-          <Button size="sm" className="gap-1.5" onClick={() => openCreateRider()}>
-            <Plus className="h-4 w-4" strokeWidth={2} />
-            New Rider
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {canAssign && (
+            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => openAssignTask()}>
+              Assign Task
+            </Button>
+          )}
+          {canCreate && (
+            <Button size="sm" className="gap-1.5" onClick={() => openCreateRider()}>
+              <Plus className="h-4 w-4" strokeWidth={2} />
+              New Rider
+            </Button>
+          )}
+        </div>
       </div>
       <DataTable
         columns={columns}

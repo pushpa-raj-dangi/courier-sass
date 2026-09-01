@@ -33,3 +33,11 @@ export interface CreateVehicleInput {
   plateNumber: string;
   capacity?: number;
 }
+
+export type DeliveryTaskType = "Pickup" | "Delivery";
+
+export interface AssignDeliveryTaskInput {
+  riderId: string;
+  shipmentId: string;
+  type: DeliveryTaskType;
+}
