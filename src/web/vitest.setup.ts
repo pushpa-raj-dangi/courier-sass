@@ -40,3 +40,12 @@ Object.defineProperty(HTMLElement.prototype, "getBoundingClientRect", {
   configurable: true,
   value: () => ({ width: 500, height: 300, top: 0, left: 0, bottom: 300, right: 500, x: 0, y: 0, toJSON() {} }),
 });
+
+// jsdom doesn't implement these pointer-capture/scroll APIs, which Radix UI's Select primitive
+// calls directly when its trigger is opened via a click — needed by any test that opens a Select.
+if (typeof HTMLElement !== "undefined") {
+  HTMLElement.prototype.hasPointerCapture ??= () => false;
+  HTMLElement.prototype.setPointerCapture ??= () => {};
+  HTMLElement.prototype.releasePointerCapture ??= () => {};
+  HTMLElement.prototype.scrollIntoView ??= () => {};
+}

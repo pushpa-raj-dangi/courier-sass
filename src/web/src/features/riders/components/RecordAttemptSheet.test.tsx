@@ -1,9 +1,10 @@
-import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RecordAttemptSheet } from "./RecordAttemptSheet";
 import { useMyDeliveriesPanelStore } from "@/features/riders/store/myDeliveriesPanelStore";
+import * as clientFetchModule from "@/lib/api/clientFetch";
 import type { MyTask } from "@/features/riders/types";
 
 const task: MyTask = {
@@ -55,5 +56,22 @@ describe("RecordAttemptSheet", () => {
     renderWithProviders();
 
     expect(screen.getByLabelText(/collected cod amount/i)).toBeInTheDocument();
+  });
+
+  it("submits a failed attempt with the selected reason and closes on success", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(clientFetchModule, "clientFetch").mockResolvedValue({ id: "a1", succeeded: false });
+    useMyDeliveriesPanelStore.setState({ panel: { mode: "record-attempt", task } });
+    renderWithProviders();
+
+    await user.click(screen.getByRole("button", { name: /failed/i }));
+    await user.click(screen.getByLabelText(/reason/i));
+    await user.click(await screen.findByRole("option", { name: "CustomerUnavailable" }));
+    await user.click(screen.getByRole("button", { name: /submit/i }));
+
+    await waitFor(() => expect(clientFetchModule.clientFetch).toHaveBeenCalledWith(
+      "/api/riders/r1/delivery-attempts/fail",
+      expect.objectContaining({ method: "POST" })
+    ));
   });
 });

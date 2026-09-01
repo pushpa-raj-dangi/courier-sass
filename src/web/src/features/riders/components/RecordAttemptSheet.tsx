@@ -8,7 +8,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Spinner } from "@/components/ui/spinner";
 import { useMyDeliveriesPanelStore } from "@/features/riders/store/myDeliveriesPanelStore";
+import { useRecordFailedAttempt } from "@/features/riders/hooks/useRecordFailedAttempt";
 import type { DeliveryAttemptReason } from "@/features/riders/types";
 
 const FAILURE_REASONS: DeliveryAttemptReason[] = [
@@ -16,8 +18,6 @@ const FAILURE_REASONS: DeliveryAttemptReason[] = [
   "CustomerRefused", "CustomerRequestedReschedule", "CashUnavailable", "DamagedParcel", "Other",
 ];
 
-// riderId is unused until Task 12/13 wire in the failure/success submission mutations.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function RecordAttemptSheet({ riderId }: { riderId: string }) {
   const panel = useMyDeliveriesPanelStore((s) => s.panel);
   const close = useMyDeliveriesPanelStore((s) => s.close);
@@ -31,6 +31,9 @@ export function RecordAttemptSheet({ riderId }: { riderId: string }) {
   const [otpVerified, setOtpVerified] = useState(false);
   const [collectedCodAmount, setCollectedCodAmount] = useState("");
 
+  const recordFailedAttempt = useRecordFailedAttempt(riderId);
+  const [serverError, setServerError] = useState<string | null>(null);
+
   function reset() {
     setOutcome("success");
     setReason(undefined);
@@ -38,6 +41,24 @@ export function RecordAttemptSheet({ riderId }: { riderId: string }) {
     setRecipientName("");
     setOtpVerified(false);
     setCollectedCodAmount("");
+    setServerError(null);
+  }
+
+  async function handleSubmitFailure() {
+    if (!task || !reason) return;
+    setServerError(null);
+    try {
+      await recordFailedAttempt.mutateAsync({
+        shipmentId: task.shipmentId,
+        reason,
+        notes: notes || undefined,
+        customerContacted: true,
+      });
+      reset();
+      close();
+    } catch {
+      setServerError("Couldn't record this attempt. Check the fields and try again.");
+    }
   }
 
   return (
@@ -94,6 +115,10 @@ export function RecordAttemptSheet({ riderId }: { riderId: string }) {
                   <Label htmlFor="attempt-notes">Notes</Label>
                   <Textarea id="attempt-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
                 </div>
+                {serverError && <p className="text-sm text-destructive">{serverError}</p>}
+                <Button type="button" disabled={!reason || recordFailedAttempt.isPending} onClick={handleSubmitFailure}>
+                  {recordFailedAttempt.isPending ? <Spinner className="h-4 w-4" /> : "Submit"}
+                </Button>
               </div>
             )}
 

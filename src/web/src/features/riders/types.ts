@@ -63,3 +63,23 @@ export interface MyTasksToday {
 export type DeliveryAttemptReason =
   | "CustomerUnavailable" | "PhoneUnreachable" | "WrongAddress" | "IncompleteAddress"
   | "CustomerRefused" | "CustomerRequestedReschedule" | "CashUnavailable" | "DamagedParcel" | "Other";
+
+export interface RecordFailedAttemptInput {
+  shipmentId: string;
+  reason: DeliveryAttemptReason;
+  notes?: string;
+  latitude?: number;
+  longitude?: number;
+  customerContacted: boolean;
+  nextAction?: string;
+}
+
+export interface DeliveryAttemptResult {
+  id: string;
+  shipmentId: string;
+  riderId: string;
+  attemptNumber: number;
+  succeeded: boolean;
+  reason: DeliveryAttemptReason | null;
+  nextAction: string | null;
+}
