@@ -76,7 +76,7 @@ public partial class NdrService
     {
         var scanInfo = await _shipmentTransitionService.GetScanInfoAsync(returnShipment.OriginalShipmentId, cancellationToken);
         return new ReturnShipmentResponse(
-            returnShipment.Id, returnShipment.OriginalShipmentId, returnShipment.ReturnAwb, returnShipment.RtoReason,
+            returnShipment.Id, returnShipment.OriginalShipmentId, scanInfo?.Awb ?? string.Empty, returnShipment.ReturnAwb, returnShipment.RtoReason,
             returnShipment.OriginBranchId, returnShipment.DestinationBranchId,
             scanInfo?.CurrentStatus ?? ShipmentStatus.RtoInitiated, scanInfo?.CurrentBranchId, returnShipment.MerchantConfirmedAt);
     }
