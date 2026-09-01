@@ -14,6 +14,7 @@ import { MerchantSettlementCreateSheet } from "@/features/cod/components/Merchan
 import { MerchantSettlementDetailSheet } from "@/features/cod/components/MerchantSettlementDetailSheet";
 import { AdjustmentsTab } from "@/features/cod/components/AdjustmentsTab";
 import { AdjustmentDetailSheet } from "@/features/cod/components/AdjustmentDetailSheet";
+import { ReconciliationTab } from "@/features/cod/components/ReconciliationTab";
 
 // Plain button-row tab switcher, not @radix-ui/react-tabs — no Tabs primitive exists in this repo
 // and a 6-way conditional render doesn't need one (CLAUDE.md's YAGNI guidance). Tasks 10-14 each
@@ -25,6 +26,7 @@ const TABS = [
   { key: "branch-settlements", label: "Branch Settlements" },
   { key: "merchant-settlements", label: "Merchant Settlements" },
   { key: "adjustments", label: "Adjustments" },
+  { key: "reconciliation", label: "Reconciliation" },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -59,6 +61,7 @@ export default function CodPage() {
       {activeTab === "branch-settlements" && <BranchSettlementsTab />}
       {activeTab === "merchant-settlements" && <MerchantSettlementsTab />}
       {activeTab === "adjustments" && <AdjustmentsTab />}
+      {activeTab === "reconciliation" && <ReconciliationTab />}
 
       <CollectionDetailSheet />
       <RiderSettlementCreateSheet />

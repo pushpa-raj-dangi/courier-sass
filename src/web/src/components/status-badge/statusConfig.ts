@@ -59,6 +59,40 @@ export const STATUS_CONFIG: Record<string, StatusConfigEntry> = {
   "Ndr.ReattemptScheduled": { label: "Reattempt Scheduled", token: "status-sealed" },
   "Ndr.RtoRequested": { label: "RTO Requested", token: "status-rto" },
   "Ndr.Resolved": { label: "Resolved", token: "status-delivered" },
+
+  // Cod collection statuses (COD-LIFECYCLE.md §1's full seven-state chain) — namespaced ("Cod.X")
+  // for the same reason "Ndr.X"/"Manifest.X" are: a flat key risks collision, here specifically
+  // between the two Settled members below and CodCollectionStatus's own Settled. This is the
+  // longest status chain of any namespace so far (7 states vs. Ndr's 6). Validated as its own
+  // adjacent-pair group via the dataviz skill's palette validator (Frontend Phase F7).
+  //
+  // Validation found a genuine pre-existing bug, not just a close call: --status-in-transit and
+  // --status-out-for-delivery are byte-identical in dark mode (both 38.0 78.9% 57.3% — ΔE 0.0,
+  // ordinal not just close), unlike light mode where they're clearly distinct (35.3° vs 38.0° hue).
+  // This chain deliberately avoids --status-in-transit entirely (rather than accepting the
+  // known-debt pattern used for the Ndr.Resolved/Ndr.RtoRequested pair above) since an exact
+  // duplicate isn't a marginal floor miss to document — it's unusable regardless of labeling.
+  // Parked, not fixed here: the underlying globals.css duplicate also affects every ShipmentStatus
+  // badge using these two tokens (PickedUp/AtOriginBranch/Sorted/AtDestinationBranch vs.
+  // OutForDelivery) and re-deriving a correct third amber shade for dark mode is a properly scoped
+  // design task of its own, not a one-line fix — see CLARIFICATIONS.md entry #17.
+  //
+  // A brute-force search over the 7 candidate tokens' 120 possible orderings (script run, not
+  // eyeballed) found this exact arrangement passes both the normal-vision ΔE>=15 floor and CVD
+  // separation for every adjacent pair, in both light and dark — a clean pass, not documented debt.
+  "Cod.CodExpected": { label: "Expected", token: "status-created" },
+  "Cod.CodCollected": { label: "Collected", token: "status-out-for-delivery" },
+  "Cod.RiderDeposited": { label: "Rider Deposited", token: "status-sealed" },
+  "Cod.BranchReconciled": { label: "Branch Reconciled", token: "status-received" },
+  "Cod.FinanceVerified": { label: "Finance Verified", token: "status-rto" },
+  "Cod.MerchantSettlementCreated": { label: "Settlement Created", token: "status-ndr" },
+  "Cod.Settled": { label: "Settled", token: "status-delivered" },
+
+  // MerchantSettlementStatus — its own namespace (not "Cod.X") because its Settled member would
+  // otherwise collide with CodCollectionStatus.Settled's key immediately above under one flat
+  // Record.
+  "MerchantSettlement.Created": { label: "Created", token: "status-created" },
+  "MerchantSettlement.Settled": { label: "Settled", token: "status-delivered" },
 };
 
 export function resolveStatusConfig(status: string, namespace?: string): StatusConfigEntry {

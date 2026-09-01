@@ -815,6 +815,21 @@ Discovered planning Frontend Phase F7 (`docs/FRONTEND-ROADMAP.md`,
 `docs/superpowers/specs/2026-09-01-frontend-phase-f7-cod-operations-design.md`). Implemented as
 Tasks 1–5 of the Frontend Phase F7 plan.
 
+**Also found, not fixed — pre-existing `--status-in-transit`/`--status-out-for-delivery` dark-mode
+duplicate:** validating the new `Cod.*` status-badge token group (Task 14) via the dataviz skill's
+palette validator surfaced a genuine defect in `src/web/src/app/globals.css`'s `.dark` block, not
+just a marginal floor miss: `--status-in-transit` and `--status-out-for-delivery` are byte-identical
+(both `38.0 78.9% 57.3%`, ΔE 0.0) in dark mode, while light mode correctly keeps them distinct
+(`35.3°` vs `38.0°` hue). This predates Frontend Phase F7 and already affects every `ShipmentStatus`
+badge using these tokens today (`PickedUp`/`AtOriginBranch`/`Sorted`/`AtDestinationBranch` all share
+`--status-in-transit`, indistinguishable in dark mode from any `OutForDelivery` badge). The `Cod.*`
+chain avoids `--status-in-transit` entirely rather than reusing it (a brute-force search over the
+7 candidate tokens' orderings found an arrangement using `--status-sealed`/`--status-received`/
+`--status-rto` instead that cleanly passes both the normal-vision and CVD floors for every adjacent
+pair — see `statusConfig.ts`'s own comment). Fixing the root cause requires re-deriving a correct,
+independently-validated third amber shade for dark mode across the whole app, which is a properly
+scoped design task on its own, not a one-line color tweak bundled into this phase.
+
 ---
 
 ## Summary of schema additions implied by this document
