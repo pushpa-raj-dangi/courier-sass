@@ -38,6 +38,10 @@ public static class CodEndpoints
             await HandleAsync(() => service.CreateRiderSettlementAsync(request, httpContext.User, httpContext.RequestAborted)))
             .RequirePermission("cod.reconcile");
 
+        group.MapGet("/branch-settlements", async (Guid? branchId, bool? unverifiedOnly, int? page, int? pageSize, CodService service, HttpContext httpContext) =>
+            Results.Ok(await service.ListBranchSettlementsAsync(branchId, unverifiedOnly, page, pageSize, httpContext.User, httpContext.RequestAborted)))
+            .RequirePermission("cod.read");
+
         group.MapPost("/branch-settlements", async (CreateBranchSettlementRequest request, CodService service, HttpContext httpContext) =>
             await HandleAsync(() => service.CreateBranchSettlementAsync(request, httpContext.User, httpContext.RequestAborted)))
             .RequirePermission("cod.reconcile");

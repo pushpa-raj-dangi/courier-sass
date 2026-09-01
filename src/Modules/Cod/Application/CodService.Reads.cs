@@ -244,4 +244,58 @@ public partial class CodService
 
         return new PagedResult<RiderCashSettlementResponse>(settlements.Select(ToRiderSettlementResponse).ToList(), normalizedPage, normalizedPageSize, totalCount);
     }
+
+    // unverifiedOnly means "no FinancialTransaction row references this BranchCashSettlement.Id
+    // yet" — mirrors CreateFinanceVerificationAsync's own alreadyVerified pre-check. Drives the
+    // Branch Settlements tab's "unverified only" filter (Frontend Phase F7).
+    public async Task<PagedResult<BranchCashSettlementResponse>> ListBranchSettlementsAsync(
+        Guid? branchId, bool? unverifiedOnly, int? page, int? pageSize,
+        ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
+    {
+        var organizationId = _currentTenantProvider.OrganizationId
+            ?? throw new CodValidationException("No active organization context.");
+
+        var query = _dbContext.Set<BranchCashSettlement>().Where(b => b.OrganizationId == organizationId);
+        if (branchId is Guid requestedBranchId)
+        {
+            query = query.Where(b => b.BranchId == requestedBranchId);
+        }
+        if (unverifiedOnly == true)
+        {
+            var verifiedIds = _dbContext.Set<FinancialTransaction>()
+                .Where(f => f.OrganizationId == organizationId && f.ReferenceEntityType == "BranchCashSettlement")
+                .Select(f => f.ReferenceEntityId);
+            query = query.Where(b => !verifiedIds.Contains(b.Id));
+        }
+
+        var accessibleBranchIds = await _branchAuthorizationChecker.GetAccessibleBranchIdsAsync(actingUser, "cod.read", cancellationToken);
+        if (accessibleBranchIds is not null)
+        {
+            var accessibleArray = accessibleBranchIds.ToArray();
+            query = query.Where(b => accessibleArray.Contains(b.BranchId));
+        }
+
+        var (normalizedPage, normalizedPageSize) = PaginationDefaults.Normalize(page, pageSize);
+        var totalCount = await query.CountAsync(cancellationToken);
+        var settlements = await query
+            .OrderByDescending(b => b.ReconciledAt).ThenBy(b => b.Id)
+            .Skip((normalizedPage - 1) * normalizedPageSize)
+            .Take(normalizedPageSize)
+            .ToListAsync(cancellationToken);
+
+        var settlementIds = settlements.Select(b => b.Id).ToArray();
+        // GroupBy composed only into ToDictionaryAsync (no aggregate/projection) does not translate
+        // to SQL — materialize the (small, page-bounded) covering rows first, then group client-side.
+        var coveringRiderSettlements = await _dbContext.Set<RiderCashSettlement>()
+            .Where(r => r.BranchCashSettlementId != null && settlementIds.Contains(r.BranchCashSettlementId.Value))
+            .ToListAsync(cancellationToken);
+        var riderSettlementIdsBySettlement = coveringRiderSettlements
+            .GroupBy(r => r.BranchCashSettlementId!.Value)
+            .ToDictionary(g => g.Key, g => g.Select(r => r.Id).ToList());
+
+        var responses = settlements
+            .Select(b => ToBranchSettlementResponse(b, riderSettlementIdsBySettlement.TryGetValue(b.Id, out var ids) ? ids : new List<Guid>()))
+            .ToList();
+        return new PagedResult<BranchCashSettlementResponse>(responses, normalizedPage, normalizedPageSize, totalCount);
+    }
 }
