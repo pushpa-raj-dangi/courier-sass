@@ -320,6 +320,124 @@ public class CodEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
         Assert.Equal(CodCollectionStatus.FinanceVerified, afterRace.Status);
     }
 
+    // ---- Frontend Phase F7: GET /rider-settlements, /branch-settlements, /adjustments ----
+
+    [Fact]
+    public async Task ListRiderSettlements_ReturnsCreatedSettlement_AndRespectsBranchScoping()
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "cod-list-rider");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (originBranchId, destinationBranchId, serviceTypeId) = await SeedBranchesAsync(client);
+        var merchantId = await CreateMerchantAsync(client);
+        var pickupRiderId = await CreateRiderAsync(client, originBranchId, RiderRoleType.PickupRider);
+        var deliveryRiderId = await CreateRiderAsync(client, destinationBranchId, RiderRoleType.DeliveryRider);
+        await BookAndCompleteCodDeliveryAsync(client, merchantId, originBranchId, destinationBranchId, serviceTypeId, pickupRiderId, deliveryRiderId, 2500m);
+        var riderSettlement = await (await client.PostAsJsonAsync("/api/v1/cod/rider-settlements",
+            new CreateRiderSettlementRequest(deliveryRiderId, destinationBranchId, 2500m))).Content.ReadFromJsonAsync<RiderCashSettlementResponse>();
+
+        var listResponse = await client.GetAsync("/api/v1/cod/rider-settlements");
+        Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
+        var list = await listResponse.Content.ReadFromJsonAsync<PagedResult<RiderCashSettlementResponse>>();
+        Assert.Contains(list!.Items, r => r.Id == riderSettlement!.Id);
+
+        var unreconciledResponse = await client.GetAsync("/api/v1/cod/rider-settlements?unreconciledOnly=true");
+        var unreconciledList = await unreconciledResponse.Content.ReadFromJsonAsync<PagedResult<RiderCashSettlementResponse>>();
+        Assert.Contains(unreconciledList!.Items, r => r.Id == riderSettlement!.Id);
+
+        // Reconciling this rider settlement into a branch settlement must remove it from the
+        // unreconciledOnly view without removing it from the unfiltered list.
+        await client.PostAsJsonAsync("/api/v1/cod/branch-settlements",
+            new CreateBranchSettlementRequest(destinationBranchId, new List<Guid> { riderSettlement!.Id }, 2500m));
+        var afterReconcileUnfiltered = await (await client.GetAsync("/api/v1/cod/rider-settlements")).Content.ReadFromJsonAsync<PagedResult<RiderCashSettlementResponse>>();
+        Assert.Contains(afterReconcileUnfiltered!.Items, r => r.Id == riderSettlement.Id);
+        var afterReconcileUnreconciledOnly = await (await client.GetAsync("/api/v1/cod/rider-settlements?unreconciledOnly=true")).Content.ReadFromJsonAsync<PagedResult<RiderCashSettlementResponse>>();
+        Assert.DoesNotContain(afterReconcileUnreconciledOnly!.Items, r => r.Id == riderSettlement.Id);
+    }
+
+    [Fact]
+    public async Task ListBranchSettlements_ReturnsCreatedSettlement_AndUnverifiedOnlyExcludesVerified()
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "cod-list-branch");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (originBranchId, destinationBranchId, serviceTypeId) = await SeedBranchesAsync(client);
+        var merchantId = await CreateMerchantAsync(client);
+        var pickupRiderId = await CreateRiderAsync(client, originBranchId, RiderRoleType.PickupRider);
+        var deliveryRiderId = await CreateRiderAsync(client, destinationBranchId, RiderRoleType.DeliveryRider);
+        await BookAndCompleteCodDeliveryAsync(client, merchantId, originBranchId, destinationBranchId, serviceTypeId, pickupRiderId, deliveryRiderId, 2500m);
+        var riderSettlement = await (await client.PostAsJsonAsync("/api/v1/cod/rider-settlements",
+            new CreateRiderSettlementRequest(deliveryRiderId, destinationBranchId, 2500m))).Content.ReadFromJsonAsync<RiderCashSettlementResponse>();
+        var branchSettlement = await (await client.PostAsJsonAsync("/api/v1/cod/branch-settlements",
+            new CreateBranchSettlementRequest(destinationBranchId, new List<Guid> { riderSettlement!.Id }, 2500m))).Content.ReadFromJsonAsync<BranchCashSettlementResponse>();
+
+        var unverifiedResponse = await client.GetAsync("/api/v1/cod/branch-settlements?unverifiedOnly=true");
+        var unverifiedList = await unverifiedResponse.Content.ReadFromJsonAsync<PagedResult<BranchCashSettlementResponse>>();
+        Assert.Contains(unverifiedList!.Items, b => b.Id == branchSettlement!.Id);
+        Assert.Equal(riderSettlement.Id, Assert.Single(unverifiedList.Items.Single(b => b.Id == branchSettlement!.Id).RiderCashSettlementIds));
+
+        await client.PostAsJsonAsync("/api/v1/cod/finance-verifications", new CreateFinanceVerificationRequest(branchSettlement!.Id, 2500m));
+
+        var afterVerifyUnverifiedOnly = await (await client.GetAsync("/api/v1/cod/branch-settlements?unverifiedOnly=true")).Content.ReadFromJsonAsync<PagedResult<BranchCashSettlementResponse>>();
+        Assert.DoesNotContain(afterVerifyUnverifiedOnly!.Items, b => b.Id == branchSettlement.Id);
+        var afterVerifyUnfiltered = await (await client.GetAsync("/api/v1/cod/branch-settlements")).Content.ReadFromJsonAsync<PagedResult<BranchCashSettlementResponse>>();
+        Assert.Contains(afterVerifyUnfiltered!.Items, b => b.Id == branchSettlement.Id);
+    }
+
+    [Fact]
+    public async Task ListAdjustments_ReturnsRequestedAdjustment_AndAppliedFilterSplitsPendingFromApproved()
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "cod-list-adjustments");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (originBranchId, destinationBranchId, serviceTypeId) = await SeedBranchesAsync(client);
+        var pickupRiderId = await CreateRiderAsync(client, originBranchId, RiderRoleType.PickupRider);
+        var deliveryRiderId = await CreateRiderAsync(client, destinationBranchId, RiderRoleType.DeliveryRider);
+        var (merchantId, _, _) = await CreateMerchantWithLoginAsync(client, "list-adjustments");
+        var settlement = await SeedMerchantSettlementAsync(client, merchantId, originBranchId, destinationBranchId, serviceTypeId, pickupRiderId, deliveryRiderId, 2500m);
+        var item = settlement.Items.Single();
+
+        var adjustmentResponse = await client.PostAsJsonAsync("/api/v1/cod/adjustments",
+            new RequestAdjustmentRequest("MerchantSettlementItem", item.Id, 100m, "Damaged parcel deduction"));
+        adjustmentResponse.EnsureSuccessStatusCode();
+        var adjustment = await adjustmentResponse.Content.ReadFromJsonAsync<AdjustmentResponse>();
+
+        var pendingList = await (await client.GetAsync("/api/v1/cod/adjustments?applied=false")).Content.ReadFromJsonAsync<PagedResult<AdjustmentResponse>>();
+        Assert.Contains(pendingList!.Items, a => a.Id == adjustment!.Id);
+
+        await client.PostAsync($"/api/v1/cod/adjustments/{adjustment!.Id}/approve", null);
+
+        var afterApprovePending = await (await client.GetAsync("/api/v1/cod/adjustments?applied=false")).Content.ReadFromJsonAsync<PagedResult<AdjustmentResponse>>();
+        Assert.DoesNotContain(afterApprovePending!.Items, a => a.Id == adjustment.Id);
+        var afterApproveApplied = await (await client.GetAsync("/api/v1/cod/adjustments?applied=true")).Content.ReadFromJsonAsync<PagedResult<AdjustmentResponse>>();
+        Assert.Contains(afterApproveApplied!.Items, a => a.Id == adjustment.Id);
+    }
+
+    [Fact]
+    public async Task ApproveAdjustment_AgainstAlreadySettledMerchantSettlement_Returns400()
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "cod-adjust-settled");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (originBranchId, destinationBranchId, serviceTypeId) = await SeedBranchesAsync(client);
+        var pickupRiderId = await CreateRiderAsync(client, originBranchId, RiderRoleType.PickupRider);
+        var deliveryRiderId = await CreateRiderAsync(client, destinationBranchId, RiderRoleType.DeliveryRider);
+        var (merchantId, _, _) = await CreateMerchantWithLoginAsync(client, "adjust-settled");
+        var settlement = await SeedMerchantSettlementAsync(client, merchantId, originBranchId, destinationBranchId, serviceTypeId, pickupRiderId, deliveryRiderId, 2500m);
+        var item = settlement.Items.Single();
+        var adjustment = await (await client.PostAsJsonAsync("/api/v1/cod/adjustments",
+            new RequestAdjustmentRequest("MerchantSettlementItem", item.Id, 100m, "Damaged parcel deduction"))).Content.ReadFromJsonAsync<AdjustmentResponse>();
+
+        var settleResponse = await client.PostAsync($"/api/v1/cod/merchant-settlements/{settlement.Id}/settle", null);
+        settleResponse.EnsureSuccessStatusCode();
+
+        var approveResponse = await client.PostAsync($"/api/v1/cod/adjustments/{adjustment!.Id}/approve", null);
+
+        Assert.Equal(HttpStatusCode.BadRequest, approveResponse.StatusCode);
+        var unchangedSettlement = await (await client.GetAsync($"/api/v1/cod/merchant-settlements/{settlement.Id}")).Content.ReadFromJsonAsync<MerchantSettlementResponse>();
+        Assert.Equal(settlement.TotalPayable, unchangedSettlement!.TotalPayable);
+    }
+
     // ---- Task 11: merchant-facing GET /api/v1/cod/settlements, GET /api/v1/cod/settlements/{id} ----
 
     [Fact]
