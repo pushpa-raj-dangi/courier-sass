@@ -1,0 +1,67 @@
+"use client";
+
+import { Spinner } from "@/components/ui/spinner";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { ErrorState } from "@/components/states/ErrorState";
+import { StatusBadge } from "@/components/status-badge/StatusBadge";
+import { useCodCollection } from "@/features/cod/hooks/useCodCollection";
+import { useCodPanelStore } from "@/features/cod/store/codPanelStore";
+
+function Field({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="text-sm font-medium text-foreground">{value}</span>
+    </div>
+  );
+}
+
+function formatAmount(value: number | null): string {
+  return value === null ? "—" : `Rs. ${value.toFixed(2)}`;
+}
+
+export function CollectionDetailSheet() {
+  const panel = useCodPanelStore((s) => s.panel);
+  const close = useCodPanelStore((s) => s.close);
+  const isOpen = panel.mode === "collection-detail";
+  const id = panel.mode === "collection-detail" ? panel.id : "";
+
+  const { data: collection, isLoading, isError, refetch } = useCodCollection(id);
+
+  return (
+    <Sheet open={isOpen} onOpenChange={(open) => { if (!open) close(); }}>
+      <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
+        <SheetHeader>
+          <SheetTitle>COD Collection</SheetTitle>
+        </SheetHeader>
+        <div className="mt-6 space-y-6">
+          {isLoading && (
+            <div className="flex items-center justify-center p-12">
+              <Spinner className="h-6 w-6" />
+            </div>
+          )}
+          {isError && (
+            <ErrorState
+              title="Couldn't load this COD collection"
+              description="It may not exist, or you may not have access to it."
+              onRetry={() => refetch()}
+            />
+          )}
+          {collection && (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1">
+                <span className="text-xs text-muted-foreground">Status</span>
+                <StatusBadge status={collection.status} namespace="Cod" />
+              </div>
+              <Field label="Shipment" value={collection.shipmentId} />
+              <Field label="Expected Amount" value={formatAmount(collection.expectedAmount)} />
+              <Field label="Collected Amount" value={formatAmount(collection.collectedAmount)} />
+              <Field label="Collected At" value={collection.collectedAt ? new Date(collection.collectedAt).toLocaleString() : "—"} />
+              <Field label="Created At" value={new Date(collection.createdAt).toLocaleString()} />
+            </div>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
