@@ -82,7 +82,7 @@ public partial class NdrService
 
         await _dbContext.SaveChangesAsync(cancellationToken);
         await _auditLogger.LogAsync(new AuditEntry(organizationId, actingUser.GetUserId(), "ndr.updated", "Ndr", ndr.Id.ToString()), cancellationToken);
-        return ToResponse(ndr);
+        return ToResponse(ndr, scanInfo.Awb);
     }
 
     private async Task CheckBranchAccessAsync(ClaimsPrincipal actingUser, string permission, Guid branchId, CancellationToken cancellationToken)
@@ -94,8 +94,8 @@ public partial class NdrService
         }
     }
 
-    private static NdrResponse ToResponse(NDR ndr) => new(
-        ndr.Id, ndr.ShipmentId, ndr.Reason, ndr.AssignedStaffUserId, ndr.Status,
+    private static NdrResponse ToResponse(NDR ndr, string awb) => new(
+        ndr.Id, ndr.ShipmentId, awb, ndr.Reason, ndr.AssignedStaffUserId, ndr.Status,
         ndr.CustomerResponse, ndr.FollowUpAt, ndr.NextAction, ndr.Resolution, ndr.ResolvedAt,
         ndr.CreatedAt);
 }

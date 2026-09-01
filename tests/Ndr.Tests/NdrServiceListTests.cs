@@ -36,6 +36,14 @@ file class RestrictedBranchAuthorizationChecker : IBranchAuthorizationChecker
         Task.FromResult(_accessibleBranchIds.Contains(branchId));
 }
 
+file class AllBranchesAuthorizationChecker : IBranchAuthorizationChecker
+{
+    public Task<IReadOnlySet<Guid>?> GetAccessibleBranchIdsAsync(ClaimsPrincipal user, string permission, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlySet<Guid>?>(null);
+    public Task<bool> HasAccessAsync(ClaimsPrincipal user, string permission, Guid branchId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(true);
+}
+
 file class FakeShipmentTransitionService : IShipmentTransitionService
 {
     public Dictionary<Guid, ShipmentScanInfo> ShipmentsById { get; } = new();
@@ -143,5 +151,47 @@ public class NdrServiceListTests
 
         var single = Assert.Single(result);
         Assert.Equal(accessibleReturnShipment.Id, single.Id);
+    }
+
+    [Fact]
+    public async Task ListAsync_AllBranches_IncludesShipmentAwb()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var shipmentId = Guid.NewGuid();
+
+        var ndr = new NDR { Id = Guid.NewGuid(), OrganizationId = organizationId, ShipmentId = shipmentId, Reason = NdrReason.CustomerUnavailable, Status = NdrStatus.Open };
+        dbContext.Set<NDR>().Add(ndr);
+        await dbContext.SaveChangesAsync();
+
+        var shipments = new FakeShipmentTransitionService();
+        shipments.ShipmentsById[shipmentId] = new ShipmentScanInfo(shipmentId, organizationId, "AWB999", ShipmentStatus.NdrCreated, null, Guid.NewGuid(), Guid.NewGuid(), null);
+
+        var service = new NdrService(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), shipments, new AllBranchesAuthorizationChecker());
+
+        var result = await service.ListAsync(null, null, null, ActingUser(Guid.NewGuid()));
+
+        Assert.Equal("AWB999", Assert.Single(result.Items).Awb);
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_IncludesShipmentAwb()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var shipmentId = Guid.NewGuid();
+
+        var ndr = new NDR { Id = Guid.NewGuid(), OrganizationId = organizationId, ShipmentId = shipmentId, Reason = NdrReason.CustomerUnavailable, Status = NdrStatus.Open };
+        dbContext.Set<NDR>().Add(ndr);
+        await dbContext.SaveChangesAsync();
+
+        var shipments = new FakeShipmentTransitionService();
+        shipments.ShipmentsById[shipmentId] = new ShipmentScanInfo(shipmentId, organizationId, "AWB998", ShipmentStatus.NdrCreated, null, Guid.NewGuid(), Guid.NewGuid(), null);
+
+        var service = new NdrService(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), shipments, new AllBranchesAuthorizationChecker());
+
+        var result = await service.GetByIdAsync(ndr.Id);
+
+        Assert.Equal("AWB998", result!.Awb);
     }
 }
