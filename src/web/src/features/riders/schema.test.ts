@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createRiderSchema } from "./schema";
+import { createRiderSchema, createVehicleSchema } from "./schema";
 
 describe("createRiderSchema", () => {
   it("accepts a valid rider", () => {
@@ -35,6 +35,18 @@ describe("createRiderSchema", () => {
       baseBranchId: "",
       roleType: "DeliveryRider",
     });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("createVehicleSchema", () => {
+  it("accepts a valid vehicle", () => {
+    const result = createVehicleSchema.safeParse({ type: "Motorcycle", plateNumber: "BA 2 KHA 1234" });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects a missing plate number", () => {
+    const result = createVehicleSchema.safeParse({ type: "Motorcycle", plateNumber: "" });
     expect(result.success).toBe(false);
   });
 });

@@ -11,3 +11,12 @@ export const createRiderSchema = z.object({
 });
 
 export type CreateRiderFormValues = z.infer<typeof createRiderSchema>;
+
+export const createVehicleSchema = z.object({
+  type: z.string().min(1, "Vehicle type is required."),
+  plateNumber: z.string().min(1, "Plate number is required."),
+  capacity: z.number().positive("Capacity must be positive.").optional(),
+  riderId: z.string().optional(),
+});
+
+export type CreateVehicleFormValues = z.infer<typeof createVehicleSchema>;

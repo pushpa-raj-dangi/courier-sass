@@ -20,4 +20,9 @@ describe("useRiderPanelStore", () => {
     useRiderPanelStore.getState().close();
     expect(useRiderPanelStore.getState().panel).toEqual({ mode: "closed" });
   });
+
+  it("openCreateVehicle switches to the create-vehicle panel", () => {
+    useRiderPanelStore.getState().openCreateVehicle();
+    expect(useRiderPanelStore.getState().panel).toEqual({ mode: "create-vehicle" });
+  });
 });
