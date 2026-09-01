@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useDispatchManifest } from "@/features/manifests/hooks/useDispatchManifest";
-import { useRiders } from "@/features/manifests/hooks/useRiders";
+import { useRiders } from "@/features/riders/hooks/useRiders";
 import type { Manifest } from "@/features/manifests/types";
 
 export function ManifestSealedSection({ manifest }: { manifest: Manifest }) {

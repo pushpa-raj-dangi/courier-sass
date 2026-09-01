@@ -10,3 +10,18 @@ export async function GET() {
     return NextResponse.json(null, { status: 401 });
   }
 }
+
+export async function POST(request: Request) {
+  const requestBody = await request.text();
+  try {
+    const response = await apiFetch("/api/v1/riders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: requestBody,
+    });
+    const body = await response.json();
+    return NextResponse.json(body, { status: response.status });
+  } catch {
+    return NextResponse.json(null, { status: 401 });
+  }
+}

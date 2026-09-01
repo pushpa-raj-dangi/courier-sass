@@ -2,12 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { clientFetch } from "@/lib/api/clientFetch";
-
-export interface Rider {
-  id: string;
-  licenseNumber: string;
-  isActive: boolean;
-}
+import type { Rider } from "@/features/riders/types";
 
 export function useRiders() {
   return useQuery({
