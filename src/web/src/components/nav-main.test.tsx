@@ -52,4 +52,10 @@ describe("NavMain", () => {
 
     await waitFor(() => expect(screen.getByText("Riders")).toBeInTheDocument());
   });
+
+  it("shows My Deliveries when the session has delivery.attempt", async () => {
+    renderNavMain(["report.read", "delivery.attempt"]);
+
+    await waitFor(() => expect(screen.getByText("My Deliveries")).toBeInTheDocument());
+  });
 });

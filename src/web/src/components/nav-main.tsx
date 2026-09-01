@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Package, Building2, Wallet, Truck, Bike, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, Package, Building2, Wallet, Truck, Bike, ClipboardCheck, type LucideIcon } from "lucide-react";
 import { usePermission } from "@/features/auth/hooks/usePermission";
 import {
   SidebarGroup,
@@ -28,6 +28,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/branches", label: "Branches", permission: "branch.read", icon: Building2 },
   { href: "/manifests", label: "Manifests", permission: "manifest.read", icon: Truck },
   { href: "/riders", label: "Riders", permission: "rider.read", icon: Bike },
+  { href: "/my-deliveries", label: "My Deliveries", permission: "delivery.attempt", icon: ClipboardCheck },
   { href: "/cod", label: "COD", permission: "cod.read", icon: Wallet },
 ];
 

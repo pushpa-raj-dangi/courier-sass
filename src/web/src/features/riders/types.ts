@@ -41,3 +41,21 @@ export interface AssignDeliveryTaskInput {
   shipmentId: string;
   type: DeliveryTaskType;
 }
+
+export interface MyTask {
+  taskId: string;
+  shipmentId: string;
+  type: DeliveryTaskType;
+  sequence: number;
+  awb: string;
+  recipientName: string;
+  recipientPhone: string;
+  recipientAddressLine: string;
+  recipientWardNumber: number;
+  codAmount: number;
+}
+
+export interface MyTasksToday {
+  deliveryRunId: string | null;
+  tasks: MyTask[];
+}
