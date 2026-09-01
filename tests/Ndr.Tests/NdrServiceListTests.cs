@@ -110,7 +110,7 @@ public class NdrServiceListTests
 
         var service = new NdrService(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), shipments, new RestrictedBranchAuthorizationChecker(accessibleBranchId));
 
-        var result = await service.ListAsync(null, null, null, ActingUser(Guid.NewGuid()));
+        var result = await service.ListAsync(null, null, null, null, ActingUser(Guid.NewGuid()));
 
         var single = Assert.Single(result.Items);
         Assert.Equal(accessibleNdr.Id, single.Id);
@@ -169,9 +169,33 @@ public class NdrServiceListTests
 
         var service = new NdrService(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), shipments, new AllBranchesAuthorizationChecker());
 
-        var result = await service.ListAsync(null, null, null, ActingUser(Guid.NewGuid()));
+        var result = await service.ListAsync(null, null, null, null, ActingUser(Guid.NewGuid()));
 
         Assert.Equal("AWB999", Assert.Single(result.Items).Awb);
+    }
+
+    [Fact]
+    public async Task ListAsync_FilteredByShipmentId_ReturnsOnlyMatchingNdrs()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var targetShipmentId = Guid.NewGuid();
+        var otherShipmentId = Guid.NewGuid();
+
+        var targetNdr = new NDR { Id = Guid.NewGuid(), OrganizationId = organizationId, ShipmentId = targetShipmentId, Reason = NdrReason.CustomerUnavailable, Status = NdrStatus.Open };
+        var otherNdr = new NDR { Id = Guid.NewGuid(), OrganizationId = organizationId, ShipmentId = otherShipmentId, Reason = NdrReason.CustomerUnavailable, Status = NdrStatus.Open };
+        dbContext.Set<NDR>().AddRange(targetNdr, otherNdr);
+        await dbContext.SaveChangesAsync();
+
+        var shipments = new FakeShipmentTransitionService();
+        shipments.ShipmentsById[targetShipmentId] = new ShipmentScanInfo(targetShipmentId, organizationId, "AWB001", ShipmentStatus.NdrCreated, null, Guid.NewGuid(), Guid.NewGuid(), null);
+        shipments.ShipmentsById[otherShipmentId] = new ShipmentScanInfo(otherShipmentId, organizationId, "AWB002", ShipmentStatus.NdrCreated, null, Guid.NewGuid(), Guid.NewGuid(), null);
+
+        var service = new NdrService(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), shipments, new AllBranchesAuthorizationChecker());
+
+        var result = await service.ListAsync(null, null, null, targetShipmentId, ActingUser(Guid.NewGuid()));
+
+        Assert.Equal(targetNdr.Id, Assert.Single(result.Items).Id);
     }
 
     [Fact]

@@ -26,7 +26,7 @@ public partial class NdrService
     // call already scopes to) is the relevant scope. That requires a per-row shipment lookup via
     // IShipmentTransitionService.GetScanInfoAsync, which can't be pushed into the SQL query, so we
     // only pay that cost when the caller is actually branch-restricted.
-    public async Task<PagedResult<NdrResponse>> ListAsync(NdrStatus? status, int? page, int? pageSize, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
+    public async Task<PagedResult<NdrResponse>> ListAsync(NdrStatus? status, int? page, int? pageSize, Guid? shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
         var (normalizedPage, normalizedPageSize) = PaginationDefaults.Normalize(page, pageSize);
 
@@ -34,6 +34,10 @@ public partial class NdrService
         if (status is not null)
         {
             query = query.Where(n => n.Status == status);
+        }
+        if (shipmentId is not null)
+        {
+            query = query.Where(n => n.ShipmentId == shipmentId);
         }
         query = query.OrderByDescending(n => n.CreatedAt).ThenBy(n => n.Id);
 
