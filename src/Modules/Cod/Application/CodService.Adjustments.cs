@@ -90,6 +90,24 @@ public partial class CodService
             throw new CodValidationException("This adjustment has already been approved and applied.");
         }
 
+        // Guarded before opening a transaction, same reasoning as every other pre-check in this
+        // module: rewriting a MerchantSettlementItem after its parent MerchantSettlement has
+        // already been Settled (merchant already paid the old figure) would silently change
+        // TotalPayable on a row that's supposed to be closed, with no new payout to match —
+        // CLAUDE.md §23.
+        MerchantSettlementItem? targetItem = null;
+        if (adjustment.EntityType == AdjustableEntityType)
+        {
+            targetItem = await _dbContext.Set<MerchantSettlementItem>().FirstOrDefaultAsync(i => i.Id == adjustment.EntityId, cancellationToken)
+                ?? throw new CodValidationException("The MerchantSettlementItem this adjustment targets no longer exists.");
+            var targetSettlement = await _dbContext.Set<MerchantSettlement>()
+                .FirstAsync(m => m.Id == targetItem.MerchantSettlementId && m.OrganizationId == organizationId, cancellationToken);
+            if (targetSettlement.Status == MerchantSettlementStatus.Settled)
+            {
+                throw new CodValidationException("Cannot approve an adjustment against an already-Settled MerchantSettlement.");
+            }
+        }
+
         // Transactional (this plan's Global Constraints): In-memory provider does not support transactions,
         // so we check IsRelational() to gate transaction usage. Against Postgres (production), this always
         // opens a transaction with no fallback path. Against in-memory (testing only), transaction stays null.
@@ -104,12 +122,10 @@ public partial class CodService
             switch (adjustment.EntityType)
             {
                 case AdjustableEntityType:
-                    // adjustment.EntityId was already verified to belong to this organization at
-                    // RequestAdjustmentAsync time (via the MerchantSettlement join above), and the
-                    // Adjustment row itself was just re-scoped by OrganizationId, so this lookup is
-                    // transitively org-safe without repeating the join.
-                    var item = await _dbContext.Set<MerchantSettlementItem>().FirstOrDefaultAsync(i => i.Id == adjustment.EntityId, cancellationToken)
-                        ?? throw new CodValidationException("The MerchantSettlementItem this adjustment targets no longer exists.");
+                    // targetItem is guaranteed non-null here — the guard above already fetched and
+                    // validated it for this exact EntityType, and it's the same tracked instance
+                    // (EF Core's identity map) any second FirstOrDefaultAsync would return anyway.
+                    var item = targetItem!;
                     item.OtherDeductions = adjustment.AfterValue;
                     item.NetPayable = item.CODAmount - item.CourierFee - item.OtherDeductions;
 

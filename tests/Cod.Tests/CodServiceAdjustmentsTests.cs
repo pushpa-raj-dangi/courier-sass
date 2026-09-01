@@ -175,6 +175,32 @@ public class CodServiceAdjustmentsTests
     }
 
     [Fact]
+    public async Task ApproveAdjustmentAsync_ParentSettlementAlreadySettled_ThrowsAndDoesNotMutate()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var (settlement, item) = await SeedSettlementItemAsync(dbContext, organizationId);
+        var service = CreateService(dbContext, organizationId);
+        var requested = await service.RequestAdjustmentAsync(
+            new RequestAdjustmentRequest("MerchantSettlementItem", item.Id, 100m, "Damaged parcel deduction"), ActingUser(Guid.NewGuid()));
+
+        // Settle the parent out from under the pending adjustment — mirrors a real timing gap
+        // between "adjustment requested" and "approver gets to it," during which Finance could have
+        // already settled the merchant on the original figure.
+        settlement.Status = MerchantSettlementStatus.Settled;
+        await dbContext.SaveChangesAsync();
+
+        await Assert.ThrowsAsync<CodValidationException>(() => service.ApproveAdjustmentAsync(requested.Id, ActingUser(Guid.NewGuid())));
+
+        var unchangedItem = await dbContext.Set<MerchantSettlementItem>().SingleAsync(i => i.Id == item.Id);
+        Assert.Equal(0m, unchangedItem.OtherDeductions);
+        var unchangedSettlement = await dbContext.Set<MerchantSettlement>().SingleAsync(m => m.Id == settlement.Id);
+        Assert.Equal(2350m, unchangedSettlement.TotalPayable);
+        var unchangedAdjustment = await dbContext.Set<Adjustment>().SingleAsync(a => a.Id == requested.Id);
+        Assert.False(unchangedAdjustment.Applied);
+    }
+
+    [Fact]
     public async Task RequestAdjustmentAsync_ItemBelongsToDifferentOrganization_Throws()
     {
         await using var dbContext = CreateContext();
