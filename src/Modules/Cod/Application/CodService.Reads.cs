@@ -298,4 +298,32 @@ public partial class CodService
             .ToList();
         return new PagedResult<BranchCashSettlementResponse>(responses, normalizedPage, normalizedPageSize, totalCount);
     }
+
+    // Adjustment carries its own OrganizationId column (no join needed, same as
+    // ApproveAdjustmentAsync's own lookup). No branch scoping — Adjustment targets a
+    // MerchantSettlementItem, which has no BranchId either (cod.settle/cod.adjust are org-wide
+    // permissions, same precedent as CreateFinanceVerificationAsync/CreateMerchantSettlementAsync).
+    public async Task<PagedResult<AdjustmentResponse>> ListAdjustmentsAsync(
+        bool? applied, int? page, int? pageSize,
+        ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
+    {
+        var organizationId = _currentTenantProvider.OrganizationId
+            ?? throw new CodValidationException("No active organization context.");
+
+        var query = _dbContext.Set<Adjustment>().Where(a => a.OrganizationId == organizationId);
+        if (applied is bool requestedApplied)
+        {
+            query = query.Where(a => a.Applied == requestedApplied);
+        }
+
+        var (normalizedPage, normalizedPageSize) = PaginationDefaults.Normalize(page, pageSize);
+        var totalCount = await query.CountAsync(cancellationToken);
+        var adjustments = await query
+            .OrderByDescending(a => a.RequestedAt).ThenBy(a => a.Id)
+            .Skip((normalizedPage - 1) * normalizedPageSize)
+            .Take(normalizedPageSize)
+            .ToListAsync(cancellationToken);
+
+        return new PagedResult<AdjustmentResponse>(adjustments.Select(ToAdjustmentResponse).ToList(), normalizedPage, normalizedPageSize, totalCount);
+    }
 }
