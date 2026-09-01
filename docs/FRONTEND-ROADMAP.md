@@ -259,7 +259,57 @@ candidate, not required here).
 *Entry:* F4 done. *Exit:* a delivery attempt (success or failure) can be recorded
 end-to-end with POD captured on success, matching Phase 8's backend contract.
 
-*Status: Not started.*
+*Status: Done (2026-09-01).* Desktop-friendly POD approximation only, per the design spec's
+resolved scope: a hand-drawn `<canvas>` signature pad and a file-input photo picker (with
+`capture="environment"` as a mobile-camera hint) stand in for a dedicated rider mobile-web
+experience, which remains a later roadmap candidate. Shipped: a `/riders` list page (create-rider
+Sheet, sidebar entry gated on `rider.read`) with an inline Vehicles section (create-vehicle Sheet);
+an AWB-lookup-based Assign Task flow (no dispatcher overview board or run-history view, both
+deliberately out of scope per the design spec) that infers Pickup vs. Delivery from the shipment's
+current status and filters the rider picker to active riders at the relevant branch; a
+`/my-deliveries` rider self-service page (gated on `delivery.attempt`) showing only today's active
+run's pending tasks, each enriched with recipient/AWB/COD details; a pickup-scan action; and a
+Record Attempt Sheet with a success/failure toggle — the failure branch captures a CLAUDE.md §19
+reason code and notes, the success branch captures recipient name, OTP confirmation, a drawn
+signature, an optional photo, best-effort GPS (via `navigator.geolocation`, silently skipped if
+denied/unavailable), and a required collected-COD amount whenever the task has a nonzero
+`codAmount`. Three real backend gaps were resolved before frontend work began (Tasks 1-4): all 5
+Riders enums (`DeliveryTaskType`, `DeliveryTaskStatus`, `DeliveryRunStatus`, `RiderRoleType`,
+`DeliveryAttemptReason`) got `JsonStringEnumConverter` in one pass, closing the same latent bug
+class hit narrowly in every prior phase (`BranchType` F2, `ShipmentStatus` F3, `ManifestPurpose`/
+`ManifestStatus` F4) before it could bite this phase too; a new `IShipmentTaskLookupService`
+narrow-interface (matching this codebase's established cross-module lookup pattern) lets Riders
+enrich a `DeliveryTask` with its shipment's AWB/recipient/COD without touching Shipments' DbSet
+directly; and `GET /api/v1/riders/me` / `GET /api/v1/riders/me/tasks/today` were added for
+rider-self-lookup, since no prior phase needed a "who am I" path from a logged-in rider's `UserId`
+to their own `Rider` record.
+
+Manual E2E verification against the real API/Postgres (both servers run live, driven through the
+real Next.js BFF proxy layer with real login cookies, not the mocked `clientFetch`/`apiFetch` every
+unit test uses) walked the complete scenario end-to-end: create both rider types, assign a pickup
+task via AWB lookup, log in as that rider, scan the pickup, move the shipment to
+`AtDestinationBranch` via the real Manifests flow, assign a delivery task to a second rider, log in
+as them, record a failed attempt (confirmed the shipment reached `NdrCreated` with custody
+correctly retained by the rider, per Phase 9's design), and — on a second COD shipment — complete a
+delivery with a drawn signature, a photo, OTP checked, real GPS coordinates, and a collected COD
+amount, confirming `Delivered` status, cleared custody, a real `CodCollection` row with the correct
+`collectedAmount`, and the completed task correctly disappearing from `GetMyTasksTodayAsync`'s
+pending-only list. Unlike every prior phase's E2E pass, this one found no defects in the code this
+phase touched — a clean result, plausibly because Task 1's enum fix was applied proactively (all 5
+at once) rather than discovered reactively through a 500 during this pass, the way F2-F4's enum
+bugs each were.
+
+One confirmed-correct scope boundary surfaced during E2E, not a defect: assigning a delivery task
+after an NDR fails with a 400 (`Shipment must be AtDestinationBranch ... was NdrCreated`) — a
+shipment cannot be reassigned for delivery straight out of `NdrCreated`. Per CLAUDE.md §20, an NDR
+must pass through its own resolution workflow (`REATTEMPT_SCHEDULED`, etc.) to return the shipment
+to a deliverable state first, and that workflow's UI is Phase F6's responsibility, not this phase's
+— the Assign Task Sheet here is intentionally scoped to fresh tasks only (`Created` or
+`AtDestinationBranch` shipments). Also observed, and explicitly left unfixed as out of this phase's
+scope (a pre-existing Phase 3 Geography gap, not something Riders' own code touches):
+`DeliveryZoneService.ValidateAndLoadAreasAsync` throws an unhandled `NullReferenceException` (500)
+rather than a validation 400 when `CoveredAreaIds` is omitted from `POST /api/v1/delivery-zones` —
+worth a narrow fix whenever a future phase's own E2E pass reaches that endpoint.
 
 ## Phase F6 — NDR + RTO
 
