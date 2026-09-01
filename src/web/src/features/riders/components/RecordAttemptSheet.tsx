@@ -9,8 +9,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
+import { SignaturePad } from "@/features/riders/components/SignaturePad";
 import { useMyDeliveriesPanelStore } from "@/features/riders/store/myDeliveriesPanelStore";
 import { useRecordFailedAttempt } from "@/features/riders/hooks/useRecordFailedAttempt";
+import { usePodUpload } from "@/features/riders/hooks/usePodUpload";
+import { useCompleteDelivery } from "@/features/riders/hooks/useCompleteDelivery";
 import type { DeliveryAttemptReason } from "@/features/riders/types";
 
 const FAILURE_REASONS: DeliveryAttemptReason[] = [
@@ -31,7 +34,14 @@ export function RecordAttemptSheet({ riderId }: { riderId: string }) {
   const [otpVerified, setOtpVerified] = useState(false);
   const [collectedCodAmount, setCollectedCodAmount] = useState("");
 
+  const [signatureBlob, setSignatureBlob] = useState<Blob | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
+
   const recordFailedAttempt = useRecordFailedAttempt(riderId);
+  const podUpload = usePodUpload(riderId);
+  const completeDelivery = useCompleteDelivery(riderId);
   const [serverError, setServerError] = useState<string | null>(null);
 
   function reset() {
@@ -41,6 +51,10 @@ export function RecordAttemptSheet({ riderId }: { riderId: string }) {
     setRecipientName("");
     setOtpVerified(false);
     setCollectedCodAmount("");
+    setSignatureBlob(null);
+    setPhotoFile(null);
+    setLatitude(null);
+    setLongitude(null);
     setServerError(null);
   }
 
@@ -58,6 +72,46 @@ export function RecordAttemptSheet({ riderId }: { riderId: string }) {
       close();
     } catch {
       setServerError("Couldn't record this attempt. Check the fields and try again.");
+    }
+  }
+
+  function captureLocation() {
+    if (!("geolocation" in navigator)) return;
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLatitude(position.coords.latitude);
+        setLongitude(position.coords.longitude);
+      },
+      () => {
+        // Permission denied or unavailable — GPS is optional, submission proceeds without it.
+      }
+    );
+  }
+
+  const codRequired = task ? task.codAmount > 0 : false;
+  const codInvalid = codRequired && (collectedCodAmount === "" || Number(collectedCodAmount) < 0);
+  const canSubmitSuccess = recipientName.trim().length > 0 && !codInvalid;
+
+  async function handleSubmitSuccess() {
+    if (!task || !canSubmitSuccess) return;
+    setServerError(null);
+    try {
+      const signatureResult = signatureBlob ? await podUpload.mutateAsync({ kind: "Signature", blob: signatureBlob }) : null;
+      const photoResult = photoFile ? await podUpload.mutateAsync({ kind: "Photo", blob: photoFile }) : null;
+      await completeDelivery.mutateAsync({
+        shipmentId: task.shipmentId,
+        recipientName: recipientName.trim(),
+        otpVerified,
+        signatureStorageKey: signatureResult?.storageKey ?? null,
+        photoStorageKey: photoResult?.storageKey ?? null,
+        latitude,
+        longitude,
+        collectedCodAmount: codRequired ? Number(collectedCodAmount) : null,
+      });
+      reset();
+      close();
+    } catch {
+      setServerError("Couldn't complete this delivery. Check the fields and try again.");
     }
   }
 
@@ -132,6 +186,23 @@ export function RecordAttemptSheet({ riderId }: { riderId: string }) {
                   <Checkbox id="otp-verified" checked={otpVerified} onCheckedChange={(v) => setOtpVerified(v === true)} />
                   <Label htmlFor="otp-verified">Customer verified via OTP</Label>
                 </div>
+                <div className="space-y-2">
+                  <Label>Signature</Label>
+                  <SignaturePad onChange={setSignatureBlob} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="pod-photo">Photo</Label>
+                  <input
+                    id="pod-photo"
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
+                  />
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={captureLocation}>
+                  {latitude !== null ? "Location captured" : "Capture current location"}
+                </Button>
                 {task.codAmount > 0 && (
                   <div className="space-y-2">
                     <Label htmlFor="collected-cod">Collected COD Amount</Label>
@@ -144,6 +215,14 @@ export function RecordAttemptSheet({ riderId }: { riderId: string }) {
                     />
                   </div>
                 )}
+                {serverError && <p className="text-sm text-destructive">{serverError}</p>}
+                <Button
+                  type="button"
+                  disabled={!canSubmitSuccess || podUpload.isPending || completeDelivery.isPending}
+                  onClick={handleSubmitSuccess}
+                >
+                  {podUpload.isPending || completeDelivery.isPending ? <Spinner className="h-4 w-4" /> : "Submit"}
+                </Button>
               </div>
             )}
           </div>

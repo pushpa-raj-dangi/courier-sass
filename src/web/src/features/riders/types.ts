@@ -83,3 +83,18 @@ export interface DeliveryAttemptResult {
   reason: DeliveryAttemptReason | null;
   nextAction: string | null;
 }
+
+export interface UploadPodFileResult {
+  storageKey: string;
+}
+
+export interface CompleteDeliveryInput {
+  shipmentId: string;
+  recipientName: string;
+  otpVerified: boolean;
+  signatureStorageKey?: string | null;
+  photoStorageKey?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  collectedCodAmount?: number | null;
+}

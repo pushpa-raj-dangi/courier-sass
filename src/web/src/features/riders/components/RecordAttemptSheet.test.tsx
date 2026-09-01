@@ -74,4 +74,31 @@ describe("RecordAttemptSheet", () => {
       expect.objectContaining({ method: "POST" })
     ));
   });
+
+  it("submits a completed delivery with recipient name and OTP flag", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(clientFetchModule, "clientFetch").mockResolvedValue({ id: "a1", succeeded: true });
+    useMyDeliveriesPanelStore.setState({ panel: { mode: "record-attempt", task } });
+    renderWithProviders();
+
+    await user.type(screen.getByLabelText(/recipient name/i), "Recipient One");
+    await user.click(screen.getByLabelText(/customer verified via otp/i));
+    await user.click(screen.getByRole("button", { name: /^submit$/i }));
+
+    await waitFor(() => expect(clientFetchModule.clientFetch).toHaveBeenCalledWith(
+      "/api/riders/r1/delivery-attempts/complete",
+      expect.objectContaining({ method: "POST" })
+    ));
+  });
+
+  it("requires a collected COD amount before submitting when the task has COD", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(clientFetchModule, "clientFetch").mockResolvedValue({ id: "a1", succeeded: true });
+    useMyDeliveriesPanelStore.setState({ panel: { mode: "record-attempt", task: { ...task, codAmount: 500 } } });
+    renderWithProviders();
+
+    await user.type(screen.getByLabelText(/recipient name/i), "Recipient One");
+
+    expect(screen.getByRole("button", { name: /^submit$/i })).toBeDisabled();
+  });
 });
