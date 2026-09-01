@@ -8,7 +8,7 @@ public record UpdateNdrRequest(NdrStatus Status, string? CustomerResponse, strin
 public record ResolveNdrRequest(NdrResolution Resolution, string? RtoReason);
 
 public record NdrResponse(
-    Guid Id, Guid ShipmentId, NdrReason Reason, Guid? AssignedStaffUserId, NdrStatus Status,
+    Guid Id, Guid ShipmentId, string Awb, NdrReason Reason, Guid? AssignedStaffUserId, NdrStatus Status,
     string? CustomerResponse, DateTimeOffset? FollowUpAt, string? NextAction, NdrResolution? Resolution, DateTimeOffset? ResolvedAt,
     DateTimeOffset CreatedAt);
 

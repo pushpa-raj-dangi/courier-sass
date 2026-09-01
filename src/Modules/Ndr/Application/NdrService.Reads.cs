@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Courier.Ndr.Domain;
+using Courier.Shipments.Application;
 using Courier.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,7 +11,12 @@ public partial class NdrService
     public async Task<NdrResponse?> GetByIdAsync(Guid ndrId, CancellationToken cancellationToken = default)
     {
         var ndr = await _dbContext.Set<NDR>().FirstOrDefaultAsync(n => n.Id == ndrId, cancellationToken);
-        return ndr is null ? null : ToResponse(ndr);
+        if (ndr is null)
+        {
+            return null;
+        }
+        var scanInfo = await _shipmentTransitionService.GetScanInfoAsync(ndr.ShipmentId, cancellationToken);
+        return ToResponse(ndr, scanInfo?.Awb ?? string.Empty);
     }
 
     // Branch-scoped the same way RiderService.ListAsync (Phase 8) and ShipmentService.ListAsync
@@ -34,32 +40,44 @@ public partial class NdrService
         var accessibleBranchIds = await _branchAuthorizationChecker.GetAccessibleBranchIdsAsync(actingUser, "ndr.read", cancellationToken);
         if (accessibleBranchIds is null)
         {
-            // AllBranches scope: no per-row branch check needed, so pagination happens at the SQL
-            // level like every other paginated list in this change.
+            // AllBranches scope: pagination still happens at the SQL level; each row on the page
+            // (bounded by pageSize) is then enriched with its shipment's Awb — the same per-row
+            // cost the branch-restricted path below already pays for every candidate.
             var totalCount = await query.CountAsync(cancellationToken);
             var ndrs = await query
                 .Skip((normalizedPage - 1) * normalizedPageSize)
                 .Take(normalizedPageSize)
                 .ToListAsync(cancellationToken);
-            return new PagedResult<NdrResponse>(ndrs.Select(ToResponse).ToList(), normalizedPage, normalizedPageSize, totalCount);
+            var pageResponses = new List<NdrResponse>();
+            foreach (var ndr in ndrs)
+            {
+                var scanInfo = await _shipmentTransitionService.GetScanInfoAsync(ndr.ShipmentId, cancellationToken);
+                pageResponses.Add(ToResponse(ndr, scanInfo?.Awb ?? string.Empty));
+            }
+            return new PagedResult<NdrResponse>(pageResponses, normalizedPage, normalizedPageSize, totalCount);
         }
 
         // Branch-restricted caller: NDR has no branch column of its own (NdrConfiguration.cs), so
         // the branch check requires a per-row shipment lookup that can't be pushed into SQL — same
         // shape ListAsync already used before pagination. Pagination is applied after the
-        // in-memory filter for this path only (documented limitation, not a regression).
+        // in-memory filter for this path only (documented limitation, not a regression). The same
+        // per-row ShipmentScanInfo fetched for the branch check is cached here and reused for Awb
+        // enrichment below, rather than fetched twice for a row that survives filtering.
         var candidates = await query.ToListAsync(cancellationToken);
         var scoped = new List<NDR>();
+        var scanInfoByShipmentId = new Dictionary<Guid, ShipmentScanInfo>();
         foreach (var ndr in candidates)
         {
             var scanInfo = await _shipmentTransitionService.GetScanInfoAsync(ndr.ShipmentId, cancellationToken);
             if (scanInfo is not null && accessibleBranchIds.Contains(scanInfo.DestinationBranchId))
             {
                 scoped.Add(ndr);
+                scanInfoByShipmentId[ndr.ShipmentId] = scanInfo;
             }
         }
 
         var pagedScoped = scoped.Skip((normalizedPage - 1) * normalizedPageSize).Take(normalizedPageSize).ToList();
-        return new PagedResult<NdrResponse>(pagedScoped.Select(ToResponse).ToList(), normalizedPage, normalizedPageSize, scoped.Count);
+        var scopedResponses = pagedScoped.Select(ndr => ToResponse(ndr, scanInfoByShipmentId[ndr.ShipmentId].Awb)).ToList();
+        return new PagedResult<NdrResponse>(scopedResponses, normalizedPage, normalizedPageSize, scoped.Count);
     }
 }

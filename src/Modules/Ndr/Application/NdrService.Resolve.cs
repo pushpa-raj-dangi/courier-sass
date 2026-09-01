@@ -68,7 +68,7 @@ public partial class NdrService
         ndr.ResolvedAt = DateTimeOffset.UtcNow;
         await _dbContext.SaveChangesAsync(cancellationToken);
         await _auditLogger.LogAsync(new AuditEntry(organizationId, actingUser.GetUserId(), $"ndr.resolved_{request.Resolution.ToString().ToLowerInvariant()}", "Ndr", ndr.Id.ToString()), cancellationToken);
-        return ToResponse(ndr);
+        return ToResponse(ndr, scanInfo.Awb);
     }
 
     // Note the swap: the ORIGINAL shipment's DestinationBranchId (where the failed delivery was
