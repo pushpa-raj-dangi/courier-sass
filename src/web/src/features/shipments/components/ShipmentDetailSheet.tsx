@@ -9,6 +9,7 @@ import { useShipment } from "@/features/shipments/hooks/useShipment";
 import { useMerchants } from "@/features/shipments/hooks/useMerchants";
 import { useServiceTypes } from "@/features/shipments/hooks/useServiceTypes";
 import { useShipmentPanelStore } from "@/features/shipments/store/shipmentPanelStore";
+import { ShipmentNdrRtoLinks } from "@/features/shipments/components/ShipmentNdrRtoLinks";
 
 const currencyFormatter = new Intl.NumberFormat("en-NP", { style: "currency", currency: "NPR" });
 
@@ -108,6 +109,10 @@ export function ShipmentDetailSheet() {
                   ))}
                 </ul>
               </div>
+
+              {(shipment.currentStatus === "NdrCreated" || shipment.currentStatus.startsWith("Rto")) && (
+                <ShipmentNdrRtoLinks shipmentId={shipment.id} />
+              )}
             </>
           )}
         </div>
