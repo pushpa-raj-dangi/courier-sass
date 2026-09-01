@@ -7,6 +7,10 @@ import { StatusBadge } from "@/components/status-badge/StatusBadge";
 import { useNdr } from "@/features/ndr/hooks/useNdr";
 import { useNdrPanelStore } from "@/features/ndr/store/ndrPanelStore";
 import { NdrUpdateSection } from "@/features/ndr/components/NdrUpdateSection";
+import { NdrReattemptSection } from "@/features/ndr/components/NdrReattemptSection";
+import { NdrRtoSection } from "@/features/ndr/components/NdrRtoSection";
+import { NdrResolveOtherAction } from "@/features/ndr/components/NdrResolveOtherAction";
+import { NdrResolvedSummary } from "@/features/ndr/components/NdrResolvedSummary";
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
@@ -59,6 +63,10 @@ export function NdrDetailSheet() {
               {(ndr.status === "Open" || ndr.status === "Contacting" || ndr.status === "CustomerConfirmed") && (
                 <NdrUpdateSection ndr={ndr} />
               )}
+              {ndr.status === "ReattemptScheduled" && <NdrReattemptSection ndr={ndr} />}
+              {ndr.status === "RtoRequested" && <NdrRtoSection ndr={ndr} />}
+              {ndr.status === "Resolved" && <NdrResolvedSummary ndr={ndr} />}
+              {ndr.status !== "Resolved" && <NdrResolveOtherAction ndr={ndr} />}
             </>
           )}
         </div>
