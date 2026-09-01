@@ -48,6 +48,9 @@ public static class RidersEndpoints
             return result is null ? Results.NotFound() : Results.Ok(result);
         });
 
+        riders.MapGet("/me/tasks/today", async (RiderService service, HttpContext httpContext) =>
+            Results.Ok(await service.GetMyTasksTodayAsync(httpContext.User, httpContext.RequestAborted)));
+
         riders.MapGet("/{id:guid}", async (Guid id, RiderService service, HttpContext httpContext) =>
         {
             var result = await service.GetByIdAsync(id, httpContext.RequestAborted);

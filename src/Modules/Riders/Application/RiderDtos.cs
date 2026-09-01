@@ -40,3 +40,7 @@ public class RiderNotFoundException : Exception
 
     public Guid RiderId { get; }
 }
+
+public record MyTaskResponse(Guid TaskId, Guid ShipmentId, DeliveryTaskType Type, int Sequence, string Awb, string RecipientName, string RecipientPhone, string RecipientAddressLine, int RecipientWardNumber, decimal CodAmount);
+
+public record MyTasksTodayResponse(Guid? DeliveryRunId, List<MyTaskResponse> Tasks);

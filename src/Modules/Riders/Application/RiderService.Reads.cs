@@ -21,6 +21,48 @@ public partial class RiderService
         return rider is null ? null : ToResponse(rider);
     }
 
+    // Sequential awaits, not Task.WhenAll — EF Core's DbContext is not thread-safe, and Phase 13
+    // hit a real InvalidOperationException from exactly this shape of concurrent-await-on-one-
+    // DbContext mistake.
+    public async Task<MyTasksTodayResponse> GetMyTasksTodayAsync(ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
+    {
+        var userId = actingUser.GetUserId();
+        if (userId is null)
+        {
+            return new MyTasksTodayResponse(null, new List<MyTaskResponse>());
+        }
+        var rider = await _dbContext.Set<Rider>().FirstOrDefaultAsync(r => r.UserId == userId, cancellationToken);
+        if (rider is null)
+        {
+            return new MyTasksTodayResponse(null, new List<MyTaskResponse>());
+        }
+
+        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.Date);
+        var run = await _dbContext.Set<DeliveryRun>().FirstOrDefaultAsync(
+            r => r.RiderId == rider.Id && r.Date == today && r.Status == DeliveryRunStatus.Active, cancellationToken);
+        if (run is null)
+        {
+            return new MyTasksTodayResponse(null, new List<MyTaskResponse>());
+        }
+
+        var pendingTasks = await _dbContext.Set<DeliveryTask>()
+            .Where(t => t.DeliveryRunId == run.Id && t.Status == DeliveryTaskStatus.Pending)
+            .OrderBy(t => t.Sequence)
+            .ToListAsync(cancellationToken);
+
+        var results = new List<MyTaskResponse>();
+        foreach (var task in pendingTasks)
+        {
+            var info = await _shipmentTaskLookupService.GetTaskInfoAsync(task.ShipmentId, cancellationToken);
+            if (info is null)
+            {
+                continue;
+            }
+            results.Add(new MyTaskResponse(task.Id, task.ShipmentId, task.Type, task.Sequence, info.Awb, info.RecipientName, info.RecipientPhone, info.RecipientAddressLine, info.RecipientWardNumber, info.CodAmount));
+        }
+        return new MyTasksTodayResponse(run.Id, results);
+    }
+
     public async Task<RiderResponse?> GetByIdAsync(Guid riderId, CancellationToken cancellationToken = default)
     {
         var rider = await _dbContext.Set<Rider>().FirstOrDefaultAsync(r => r.Id == riderId, cancellationToken);

@@ -335,4 +335,70 @@ public class RidersEndpointsTests : IClassFixture<WebApplicationFactory<Program>
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
+
+    [Fact]
+    public async Task GetMyTasksToday_AssignedDeliveryTask_ReturnsEnrichedPendingTask()
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "my-tasks");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (originBranchId, destinationBranchId, serviceTypeId) = await SeedBranchesAsync(client);
+        var merchantId = await CreateMerchantAsync(client);
+        var pickupRiderId = await CreateRiderAsync(client, originBranchId, RiderRoleType.PickupRider);
+        var suffix = Guid.NewGuid().ToString("N");
+        var deliveryRiderEmail = $"rider-{suffix}@example.com";
+        var deliveryRiderResponse = await client.PostAsJsonAsync("/api/v1/riders", new CreateRiderRequest(
+            deliveryRiderEmail, "P@ssw0rd123!", "Delivery Rider", null, $"LIC-{suffix[..10]}", destinationBranchId, RiderRoleType.DeliveryRider));
+        var deliveryRider = await deliveryRiderResponse.Content.ReadFromJsonAsync<RiderResponse>();
+
+        var shipment = await BookAndMoveToDestinationAsync(client, merchantId, originBranchId, destinationBranchId, serviceTypeId, pickupRiderId);
+        await client.PostAsJsonAsync("/api/v1/riders/tasks", new AssignDeliveryTaskRequest(deliveryRider!.Id, shipment.Id, DeliveryTaskType.Delivery));
+
+        var riderClient = _factory.CreateClient();
+        var loginResponse = await riderClient.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest(deliveryRiderEmail, "P@ssw0rd123!"));
+        var riderAuth = await loginResponse.Content.ReadFromJsonAsync<AuthResult>();
+        riderClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", riderAuth!.AccessToken);
+
+        var response = await riderClient.GetAsync("/api/v1/riders/me/tasks/today");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var result = await response.Content.ReadFromJsonAsync<MyTasksTodayResponse>();
+        var task = Assert.Single(result!.Tasks);
+        Assert.Equal(shipment.Awb, task.Awb);
+        Assert.Equal(DeliveryTaskType.Delivery, task.Type);
+    }
+
+    [Fact]
+    public async Task GetMyTasksToday_TwoRidersSameOrg_EachSeesOnlyOwnTasks()
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "my-tasks-isolation");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (originBranchId, destinationBranchId, serviceTypeId) = await SeedBranchesAsync(client);
+        var merchantId = await CreateMerchantAsync(client);
+        var pickupRiderId = await CreateRiderAsync(client, originBranchId, RiderRoleType.PickupRider);
+
+        var suffixA = Guid.NewGuid().ToString("N");
+        var riderA = await (await client.PostAsJsonAsync("/api/v1/riders", new CreateRiderRequest(
+            $"rider-a-{suffixA}@example.com", "P@ssw0rd123!", "Rider A", null, $"LIC-{suffixA[..10]}", destinationBranchId, RiderRoleType.DeliveryRider))).Content.ReadFromJsonAsync<RiderResponse>();
+        var suffixB = Guid.NewGuid().ToString("N");
+        var riderBEmail = $"rider-b-{suffixB}@example.com";
+        await client.PostAsJsonAsync("/api/v1/riders", new CreateRiderRequest(
+            riderBEmail, "P@ssw0rd123!", "Rider B", null, $"LIC-{suffixB[..10]}", destinationBranchId, RiderRoleType.DeliveryRider));
+
+        var shipment = await BookAndMoveToDestinationAsync(client, merchantId, originBranchId, destinationBranchId, serviceTypeId, pickupRiderId);
+        await client.PostAsJsonAsync("/api/v1/riders/tasks", new AssignDeliveryTaskRequest(riderA!.Id, shipment.Id, DeliveryTaskType.Delivery));
+
+        var riderBClient = _factory.CreateClient();
+        var loginB = await riderBClient.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest(riderBEmail, "P@ssw0rd123!"));
+        var authB = await loginB.Content.ReadFromJsonAsync<AuthResult>();
+        riderBClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", authB!.AccessToken);
+
+        var response = await riderBClient.GetAsync("/api/v1/riders/me/tasks/today");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var result = await response.Content.ReadFromJsonAsync<MyTasksTodayResponse>();
+        Assert.Null(result!.DeliveryRunId);
+        Assert.Empty(result.Tasks);
+    }
 }

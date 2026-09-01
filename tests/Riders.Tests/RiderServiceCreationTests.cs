@@ -91,6 +91,11 @@ file class NullObjectStorage : IObjectStorage
     public Task<Stream> OpenReadAsync(string key, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 }
 
+file class NotSupportedShipmentTaskLookupService : IShipmentTaskLookupService
+{
+    public Task<ShipmentTaskInfo?> GetTaskInfoAsync(Guid shipmentId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+}
+
 file class NotSupportedNdrCreationService : INdrCreationService
 {
     public Task CreateFromFailedAttemptAsync(Guid shipmentId, Guid organizationId, NdrReason reason, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();
@@ -140,7 +145,7 @@ public class RiderServiceCreationTests
             dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), provisioning,
             new FakeBranchLookup(knownBranchId), new AllBranchesAuthorizationChecker(),
             new NotSupportedShipmentTransitionService(), new NullObjectStorage(), new NotSupportedNdrCreationService(),
-            new NoopCodCollectionService(), new AlwaysTruePermissionChecker(), new NoopOutboxWriter());
+            new NoopCodCollectionService(), new AlwaysTruePermissionChecker(), new NoopOutboxWriter(), new NotSupportedShipmentTaskLookupService());
         return (service, provisioning);
     }
 

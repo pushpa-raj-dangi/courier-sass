@@ -94,6 +94,19 @@ file class NoopOutboxWriter : IOutboxWriter
     public Task WriteAsync(Guid organizationId, string eventType, object payload, CancellationToken cancellationToken = default) => Task.CompletedTask;
 }
 
+file class FakeShipmentTaskLookupService : IShipmentTaskLookupService
+{
+    private readonly Dictionary<Guid, ShipmentTaskInfo> _infoByShipmentId;
+    public FakeShipmentTaskLookupService(Dictionary<Guid, ShipmentTaskInfo> infoByShipmentId) => _infoByShipmentId = infoByShipmentId;
+    public Task<ShipmentTaskInfo?> GetTaskInfoAsync(Guid shipmentId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(_infoByShipmentId.TryGetValue(shipmentId, out var info) ? info : null);
+}
+
+file class NotSupportedShipmentTaskLookupService : IShipmentTaskLookupService
+{
+    public Task<ShipmentTaskInfo?> GetTaskInfoAsync(Guid shipmentId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+}
+
 public class RiderServiceReadsTests
 {
     private class TestDbContext : DbContext
@@ -103,6 +116,8 @@ public class RiderServiceReadsTests
         {
             modelBuilder.ApplyConfiguration(new RiderConfiguration());
             modelBuilder.ApplyConfiguration(new VehicleConfiguration());
+            modelBuilder.ApplyConfiguration(new DeliveryRunConfiguration());
+            modelBuilder.ApplyConfiguration(new DeliveryTaskConfiguration());
         }
     }
 
@@ -116,10 +131,10 @@ public class RiderServiceReadsTests
 
     private static ClaimsPrincipal ActingUser(Guid userId) => new(new ClaimsIdentity(new[] { new Claim("sub", userId.ToString()) }, "test"));
 
-    private static RiderService CreateService(TestDbContext dbContext, Guid organizationId, IBranchAuthorizationChecker checker) =>
+    private static RiderService CreateService(TestDbContext dbContext, Guid organizationId, IBranchAuthorizationChecker checker, IShipmentTaskLookupService? shipmentTaskLookup = null) =>
         new(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), new NotSupportedUserProvisioningService(),
             new NotSupportedBranchLookup(), checker, new NotSupportedShipmentTransitionService(), new NotSupportedObjectStorage(), new NotSupportedNdrCreationService(),
-            new NoopCodCollectionService(), new AlwaysTruePermissionChecker(), new NoopOutboxWriter());
+            new NoopCodCollectionService(), new AlwaysTruePermissionChecker(), new NoopOutboxWriter(), shipmentTaskLookup ?? new NotSupportedShipmentTaskLookupService());
 
     [Fact]
     public async Task ListAsync_RestrictedToOneBranch_OnlyReturnsRidersAtThatBranch()
@@ -176,5 +191,71 @@ public class RiderServiceReadsTests
         var result = await service.GetMyRiderAsync(ActingUser(Guid.NewGuid()));
 
         Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task GetMyTasksTodayAsync_ActiveRunWithPendingTask_ReturnsEnrichedTask()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var branchId = Guid.NewGuid();
+        var rider = new Rider { Id = Guid.NewGuid(), OrganizationId = organizationId, UserId = userId, BaseBranchId = branchId, LicenseNumber = "LIC-4", RoleType = RiderRoleType.DeliveryRider, IsActive = true };
+        dbContext.Set<Rider>().Add(rider);
+        var run = new DeliveryRun { Id = Guid.NewGuid(), RiderId = rider.Id, BranchId = branchId, Date = DateOnly.FromDateTime(DateTimeOffset.UtcNow.Date), Status = DeliveryRunStatus.Active };
+        dbContext.Set<DeliveryRun>().Add(run);
+        var shipmentId = Guid.NewGuid();
+        var task = new DeliveryTask { Id = Guid.NewGuid(), DeliveryRunId = run.Id, ShipmentId = shipmentId, Type = DeliveryTaskType.Delivery, Sequence = 1, Status = DeliveryTaskStatus.Pending };
+        dbContext.Set<DeliveryTask>().Add(task);
+        await dbContext.SaveChangesAsync();
+        var taskInfo = new ShipmentTaskInfo("AWB001", "Recipient One", "9800000000", "Recipient Address", 3, 500m);
+        var lookup = new FakeShipmentTaskLookupService(new() { [shipmentId] = taskInfo });
+        var service = CreateService(dbContext, organizationId, new RestrictedBranchAuthorizationChecker(), lookup);
+
+        var result = await service.GetMyTasksTodayAsync(ActingUser(userId));
+
+        Assert.Equal(run.Id, result.DeliveryRunId);
+        var only = Assert.Single(result.Tasks);
+        Assert.Equal(task.Id, only.TaskId);
+        Assert.Equal("AWB001", only.Awb);
+        Assert.Equal(500m, only.CodAmount);
+    }
+
+    [Fact]
+    public async Task GetMyTasksTodayAsync_CompletedTaskExcluded_OnlyPendingReturned()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var branchId = Guid.NewGuid();
+        var rider = new Rider { Id = Guid.NewGuid(), OrganizationId = organizationId, UserId = userId, BaseBranchId = branchId, LicenseNumber = "LIC-5", RoleType = RiderRoleType.DeliveryRider, IsActive = true };
+        dbContext.Set<Rider>().Add(rider);
+        var run = new DeliveryRun { Id = Guid.NewGuid(), RiderId = rider.Id, BranchId = branchId, Date = DateOnly.FromDateTime(DateTimeOffset.UtcNow.Date), Status = DeliveryRunStatus.Active };
+        dbContext.Set<DeliveryRun>().Add(run);
+        dbContext.Set<DeliveryTask>().Add(new DeliveryTask { Id = Guid.NewGuid(), DeliveryRunId = run.Id, ShipmentId = Guid.NewGuid(), Type = DeliveryTaskType.Delivery, Sequence = 1, Status = DeliveryTaskStatus.Completed });
+        await dbContext.SaveChangesAsync();
+        var service = CreateService(dbContext, organizationId, new RestrictedBranchAuthorizationChecker(), new FakeShipmentTaskLookupService(new()));
+
+        var result = await service.GetMyTasksTodayAsync(ActingUser(userId));
+
+        Assert.Equal(run.Id, result.DeliveryRunId);
+        Assert.Empty(result.Tasks);
+    }
+
+    [Fact]
+    public async Task GetMyTasksTodayAsync_NoActiveRunToday_ReturnsNullRunAndEmptyTasks()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var rider = new Rider { Id = Guid.NewGuid(), OrganizationId = organizationId, UserId = userId, BaseBranchId = Guid.NewGuid(), LicenseNumber = "LIC-6", RoleType = RiderRoleType.DeliveryRider, IsActive = true };
+        dbContext.Set<Rider>().Add(rider);
+        await dbContext.SaveChangesAsync();
+        var service = CreateService(dbContext, organizationId, new RestrictedBranchAuthorizationChecker(), new FakeShipmentTaskLookupService(new()));
+
+        var result = await service.GetMyTasksTodayAsync(ActingUser(userId));
+
+        Assert.Null(result.DeliveryRunId);
+        Assert.Empty(result.Tasks);
     }
 }

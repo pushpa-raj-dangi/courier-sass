@@ -95,6 +95,11 @@ file class NotSupportedBranchLookup : IBranchLookupService
     public Task<IReadOnlyDictionary<Guid, string>> GetNamesByIdsAsync(IReadOnlySet<Guid> branchIds, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 }
 
+file class NotSupportedShipmentTaskLookupService : IShipmentTaskLookupService
+{
+    public Task<ShipmentTaskInfo?> GetTaskInfoAsync(Guid shipmentId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+}
+
 // Not file-scoped: returned from SeedAsync's tuple.
 class RecordingObjectStorage : IObjectStorage
 {
@@ -192,7 +197,7 @@ public class RiderServiceAttemptsTests
         var outboxWriter = new RecordingOutboxWriter();
         var service = new RiderService(
             dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), new NotSupportedUserProvisioningService(),
-            new NotSupportedBranchLookup(), new AllBranchesAuthorizationChecker(), shipments, storage, ndr, cod, permissionChecker, outboxWriter);
+            new NotSupportedBranchLookup(), new AllBranchesAuthorizationChecker(), shipments, storage, ndr, cod, permissionChecker, outboxWriter, new NotSupportedShipmentTaskLookupService());
         return (service, shipments, storage, ndr, cod, permissionChecker, rider.Id, organizationId, outboxWriter);
     }
 

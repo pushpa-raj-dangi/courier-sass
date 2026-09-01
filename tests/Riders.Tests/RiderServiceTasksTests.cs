@@ -127,6 +127,11 @@ file class NoopOutboxWriter : IOutboxWriter
     public Task WriteAsync(Guid organizationId, string eventType, object payload, CancellationToken cancellationToken = default) => Task.CompletedTask;
 }
 
+file class NotSupportedShipmentTaskLookupService : IShipmentTaskLookupService
+{
+    public Task<ShipmentTaskInfo?> GetTaskInfoAsync(Guid shipmentId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+}
+
 public class RiderServiceTasksTests
 {
     private class TestDbContext : DbContext
@@ -160,7 +165,7 @@ public class RiderServiceTasksTests
         var service = new RiderService(
             dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), new NotSupportedUserProvisioningService(),
             new NotSupportedBranchLookup(), new AllBranchesAuthorizationChecker(), shipments, new NotSupportedObjectStorage(), new NotSupportedNdrCreationService(),
-            new NoopCodCollectionService(), new AlwaysTruePermissionChecker(), new NoopOutboxWriter());
+            new NoopCodCollectionService(), new AlwaysTruePermissionChecker(), new NoopOutboxWriter(), new NotSupportedShipmentTaskLookupService());
         return (service, shipments, rider.Id);
     }
 
