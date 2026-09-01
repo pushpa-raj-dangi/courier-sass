@@ -372,7 +372,48 @@ before/after values.
 visible and actionable through the UI, matching the backend's already-proven
 Phase 10 chain; every adjustment UI action requires and displays a reason.
 
-*Status: Not started.*
+*Status: Complete.* Shipped `CollectionsTab`, `RiderSettlementsTab` (+create/detail
+Sheets), `BranchSettlementsTab` (+create/detail Sheet with an embedded Finance
+Verify action, since no `FinancialTransaction` list endpoint exists),
+`MerchantSettlementsTab` (+create/detail Sheet with Settle and per-line-item
+Request Adjustment), `AdjustmentsTab` (+detail Sheet with Approve), and a
+`ReconciliationTab` surfacing CLAUDE.md §22–23's six summary figures — all under
+the existing `/cod` nav entry with a plain button-row tab switcher (no new Tabs
+library). 4 backend gaps closed first: 3 Cod enums missing
+`JsonStringEnumConverter`, no list endpoints for `RiderCashSettlement`/
+`BranchCashSettlement`/`Adjustment` (flagged in Phase 10's own final review as
+worth surfacing here), and a missing guard letting `ApproveAdjustmentAsync`
+silently rewrite `TotalPayable` on an already-`Settled` `MerchantSettlement`. See
+`docs/CLARIFICATIONS.md` entry #17 and
+`docs/superpowers/specs/2026-09-01-frontend-phase-f7-cod-operations-design.md`
+for full detail.
+
+Validating the new `Cod.*` status-badge token group (via the dataviz skill)
+surfaced a second, pre-existing bug: `--status-in-transit` and
+`--status-out-for-delivery` are byte-identical in dark mode (ΔE 0.0, not just a
+marginal floor miss), already affecting every `ShipmentStatus` badge using these
+tokens today. The `Cod.*` chain avoids `--status-in-transit` entirely — a
+brute-force search over the 7 candidate tokens' orderings found an arrangement
+using `--status-sealed`/`--status-received`/`--status-rto` instead that cleanly
+passes both the normal-vision and CVD floors for every adjacent pair. Root-cause
+fix (re-deriving a correct third amber shade for dark mode, app-wide) parked in
+`docs/CLARIFICATIONS.md` entry #17 as its own properly-scoped design task.
+
+Manual E2E verification (registered a fresh org via the API, seeded
+branches/zones/rate-card/merchant/riders via the API using the exact shapes
+`CodEndpointsTests.cs` already uses, then drove a real COD shipment through the
+live UI across all 6 tabs including an adjustment + settle) found and fixed one
+real bug: `MerchantSettlementCreateSheet` sent a bare `"YYYY-MM-DD"` from
+`<input type="date">` with no explicit offset — .NET's `DateTimeOffset` JSON
+deserializer then defaulted to the API host's *local* timezone offset (this host
+runs in Nepal Standard Time, UTC+5:45), and Npgsql's `timestamptz` writer rejects
+any non-zero offset outright, so every real merchant-settlement creation 500'd.
+Fixed by anchoring both period dates to explicit UTC (`T00:00:00Z`/`T23:59:59Z`)
+before they leave the create-Sheet. Branch-scoping for the 3 new list endpoints
+was verified via the existing branch-restricted unit/integration test coverage
+(Tasks 2–4, 6) rather than a full second-user UI walkthrough, since those tests
+already exercise the identical `_branchAuthorizationChecker` code path this
+phase's endpoints reuse verbatim from `ListCollectionsAsync`.
 
 ## Phase F8 — Reports & Analytics
 
