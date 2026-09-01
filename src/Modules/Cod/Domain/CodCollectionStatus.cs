@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Courier.Cod.Domain;
 
 // COD-LIFECYCLE.md §1's full seven-state chain, all living on CODCollection.Status — this plan's
@@ -5,6 +7,7 @@ namespace Courier.Cod.Domain;
 // CODCollection, not on Shipment"), not the narrower Expected/Collected pair the entity's
 // field-list table alone shows. Strictly forward-only; no step in this plan ever moves a
 // CODCollection backward.
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum CodCollectionStatus
 {
     CodExpected,

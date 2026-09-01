@@ -777,6 +777,46 @@ of the Frontend Phase F6 plan.
 
 ---
 
+## 17. Frontend Phase F7: `Cod` enums need JSON serialization, no list endpoints for rider/branch settlements or adjustments, and a missing settle-guard on adjustment approval
+
+**Where:** `Cod.Domain.CodCollectionStatus`/`MerchantSettlementStatus`/`FinancialTransactionType`, `Cod.Application.CodService`, `Cod.Presentation.CodEndpoints`
+
+**Gap 1 — no `JsonStringEnumConverter` on any of the 3 Cod enums.** Same latent bug class hit and
+fixed in every prior phase (`BranchType` F2, `ShipmentStatus` F3, `ManifestPurpose`/`ManifestStatus`
+F4, 5 Riders enums F5, 3 Ndr enums F6). Fixed proactively here for all 3 Cod enums at once.
+
+**Gap 2 — no `GET` to list `RiderCashSettlement` or `BranchCashSettlement` rows.** Only `POST`
+(create) existed for either, so a branch user had no way to see which rider settlements were still
+unreconciled or which branch settlements were still unverified without already knowing an id —
+exactly the gap Phase 10's final review flagged as making shortages/overages structurally
+unreadable.
+
+**Gap 3 — no `GET` to list `Adjustment` rows.** Only `POST /adjustments` (needs an `EntityId` the
+caller already knows) and `POST /adjustments/{id}/approve` (needs an `Id` the caller already knows)
+existed — an approver had no way to discover pending adjustments at all. Also flagged in Phase 10's
+final review.
+
+**Resolution (gaps 2–3):** `GET /api/v1/cod/rider-settlements`, `GET /api/v1/cod/branch-settlements`,
+and `GET /api/v1/cod/adjustments` added, all paginated and `cod.read`-gated, matching
+`ListCollectionsAsync`'s existing filter/branch-scoping shape.
+
+**Gap 4 — `ApproveAdjustmentAsync` had no guard against approving against an already-`Settled`
+`MerchantSettlement`.** It unconditionally rewrote `MerchantSettlementItem.OtherDeductions`/
+`NetPayable` and recomputed `MerchantSettlement.TotalPayable` with no check on
+`MerchantSettlement.Status`. If the parent settlement was already settled (merchant already paid
+the old figure), approving a pending adjustment silently changed `TotalPayable` on a row that's
+supposed to be closed, with no new payout to match — a real correctness bug against CLAUDE.md §23.
+
+**Resolution (gap 4):** `ApproveAdjustmentAsync` now throws `CodValidationException` before opening
+its transaction when the target `MerchantSettlement.Status == Settled`, mirroring
+`SettleMerchantSettlementAsync`'s own status guard.
+
+Discovered planning Frontend Phase F7 (`docs/FRONTEND-ROADMAP.md`,
+`docs/superpowers/specs/2026-09-01-frontend-phase-f7-cod-operations-design.md`). Implemented as
+Tasks 1–5 of the Frontend Phase F7 plan.
+
+---
+
 ## Summary of schema additions implied by this document
 
 * `UserRole` (new entity) — resolves #1, carries `BranchScope` enum — resolves #6.
