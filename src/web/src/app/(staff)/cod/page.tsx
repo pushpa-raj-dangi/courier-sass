@@ -6,6 +6,9 @@ import { CollectionDetailSheet } from "@/features/cod/components/CollectionDetai
 import { RiderSettlementsTab } from "@/features/cod/components/RiderSettlementsTab";
 import { RiderSettlementCreateSheet } from "@/features/cod/components/RiderSettlementCreateSheet";
 import { RiderSettlementDetailSheet } from "@/features/cod/components/RiderSettlementDetailSheet";
+import { BranchSettlementsTab } from "@/features/cod/components/BranchSettlementsTab";
+import { BranchSettlementCreateSheet } from "@/features/cod/components/BranchSettlementCreateSheet";
+import { BranchSettlementDetailSheet } from "@/features/cod/components/BranchSettlementDetailSheet";
 
 // Plain button-row tab switcher, not @radix-ui/react-tabs — no Tabs primitive exists in this repo
 // and a 6-way conditional render doesn't need one (CLAUDE.md's YAGNI guidance). Tasks 10-14 each
@@ -14,6 +17,7 @@ import { RiderSettlementDetailSheet } from "@/features/cod/components/RiderSettl
 const TABS = [
   { key: "collections", label: "Collections" },
   { key: "rider-settlements", label: "Rider Settlements" },
+  { key: "branch-settlements", label: "Branch Settlements" },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -45,10 +49,13 @@ export default function CodPage() {
 
       {activeTab === "collections" && <CollectionsTab />}
       {activeTab === "rider-settlements" && <RiderSettlementsTab />}
+      {activeTab === "branch-settlements" && <BranchSettlementsTab />}
 
       <CollectionDetailSheet />
       <RiderSettlementCreateSheet />
       <RiderSettlementDetailSheet />
+      <BranchSettlementCreateSheet />
+      <BranchSettlementDetailSheet />
     </div>
   );
 }
