@@ -121,6 +121,7 @@ public class NdrServiceReturnShipmentTests
 
         Assert.Equal(ShipmentStatus.RtoAtOrigin, result!.CurrentStatus);
         Assert.Equal(returnShipment.ReturnAwb, result.ReturnAwb);
+        Assert.Equal("AWB001", result.OriginalAwb);
     }
 
     [Fact]

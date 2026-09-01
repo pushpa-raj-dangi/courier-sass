@@ -13,7 +13,7 @@ public record NdrResponse(
     DateTimeOffset CreatedAt);
 
 public record ReturnShipmentResponse(
-    Guid Id, Guid OriginalShipmentId, string ReturnAwb, string RtoReason, Guid OriginBranchId, Guid DestinationBranchId,
+    Guid Id, Guid OriginalShipmentId, string OriginalAwb, string ReturnAwb, string RtoReason, Guid OriginBranchId, Guid DestinationBranchId,
     ShipmentStatus CurrentStatus, Guid? CurrentBranchId, DateTimeOffset? MerchantConfirmedAt);
 
 public class NdrValidationException : Exception
