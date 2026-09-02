@@ -21,6 +21,39 @@ public class UserManagementService
         _branchLookupService = branchLookupService;
     }
 
+    public async Task<PagedResult<UserListItem>> ListUsersAsync(int? page, int? pageSize, CancellationToken cancellationToken = default)
+    {
+        var organizationId = _currentTenantProvider.OrganizationId
+            ?? throw new UserManagementException("No active organization context.");
+
+        var (normalizedPage, normalizedPageSize) = PaginationDefaults.Normalize(page, pageSize);
+        var query = _dbContext.Set<User>().Where(u => u.OrganizationId == organizationId);
+        var totalCount = await query.CountAsync(cancellationToken);
+        var users = await query
+            .OrderBy(u => u.Email)
+            .Skip((normalizedPage - 1) * normalizedPageSize)
+            .Take(normalizedPageSize)
+            .ToListAsync(cancellationToken);
+
+        var userIds = users.Select(u => u.Id).ToArray();
+        var roleNamesByUser = await _dbContext.Set<UserRole>()
+            .Where(ur => userIds.Contains(ur.UserId) && ur.OrganizationId == organizationId)
+            .Join(_dbContext.Set<Role>(), ur => ur.RoleId, r => r.Id, (ur, r) => new { ur.UserId, r.Name })
+            .ToListAsync(cancellationToken);
+        var branchCountsByUser = await _dbContext.Set<UserBranch>()
+            .Where(ub => userIds.Contains(ub.UserId) && ub.OrganizationId == organizationId)
+            .GroupBy(ub => ub.UserId)
+            .Select(g => new { UserId = g.Key, Count = g.Count() })
+            .ToListAsync(cancellationToken);
+
+        var items = users.Select(u => new UserListItem(
+            u.Id, u.Email, u.FullName, u.IsActive,
+            string.Join(", ", roleNamesByUser.Where(r => r.UserId == u.Id).Select(r => r.Name)) is { Length: > 0 } names ? names : null,
+            branchCountsByUser.FirstOrDefault(b => b.UserId == u.Id)?.Count ?? 0)).ToList();
+
+        return new PagedResult<UserListItem>(items, normalizedPage, normalizedPageSize, totalCount);
+    }
+
     // Explicit OrganizationId filter: userId alone is not enough to scope this read — without it,
     // any caller could enumerate another org's user id and read their branch grants. Same
     // defense-in-depth reasoning as RoleService.ListRolesAsync.

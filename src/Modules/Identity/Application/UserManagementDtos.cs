@@ -2,6 +2,7 @@ namespace Courier.Identity.Application;
 
 public record UserBranchGrantResponse(Guid BranchId, string BranchName, DateTimeOffset GrantedAt, DateTimeOffset? ExpiresAt);
 public record GrantBranchRequest(Guid BranchId, DateTimeOffset? ExpiresAt);
+public record UserListItem(Guid Id, string Email, string FullName, bool IsActive, string? RoleName, int BranchCount);
 
 public class UserManagementException : Exception
 {
