@@ -120,7 +120,8 @@ public class RoleService
         {
             throw new RoleValidationException("System-default roles cannot be deleted.");
         }
-        var stillAssigned = await _dbContext.Set<UserRole>().AnyAsync(ur => ur.RoleId == id, cancellationToken);
+        var stillAssigned = await _dbContext.Set<UserRole>()
+            .AnyAsync(ur => ur.RoleId == id && ur.OrganizationId == organizationId, cancellationToken);
         if (stillAssigned)
         {
             throw new RoleValidationException("This role is still assigned to at least one user. Reassign or remove those users first.");

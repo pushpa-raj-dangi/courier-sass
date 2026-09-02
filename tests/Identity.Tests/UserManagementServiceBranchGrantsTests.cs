@@ -30,6 +30,19 @@ file class StubBranchLookupService : IBranchLookupService
         Task.FromResult<IReadOnlyDictionary<Guid, string>>(branchIds.ToDictionary(id => id, id => $"Branch {id:N}"[..16]));
 }
 
+// Only recognizes an explicit allowlist — mirrors IBranchLookupService's real contract of
+// returning null for a branch outside the caller's tenant (or nonexistent), which
+// GrantBranchAsync/InviteUserAsync now rely on to reject a foreign-org BranchId.
+file class SelectiveBranchLookupService : IBranchLookupService
+{
+    private readonly HashSet<Guid> _knownBranchIds;
+    public SelectiveBranchLookupService(params Guid[] knownBranchIds) => _knownBranchIds = knownBranchIds.ToHashSet();
+    public Task<BranchZoneInfo?> GetZoneInfoAsync(Guid branchId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(_knownBranchIds.Contains(branchId) ? new BranchZoneInfo(branchId, null) : null);
+    public Task<IReadOnlyDictionary<Guid, string>> GetNamesByIdsAsync(IReadOnlySet<Guid> branchIds, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyDictionary<Guid, string>>(branchIds.ToDictionary(id => id, id => $"Branch {id:N}"[..16]));
+}
+
 public class UserManagementServiceBranchGrantsTests
 {
     private class TestDbContext : DbContext
@@ -52,8 +65,11 @@ public class UserManagementServiceBranchGrantsTests
         return dbContext;
     }
 
-    private static UserManagementService CreateService(TestDbContext dbContext, Guid organizationId) => new(
-        dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), new StubBranchLookupService(),
+    private static UserManagementService CreateService(TestDbContext dbContext, Guid organizationId) =>
+        CreateService(dbContext, organizationId, new StubBranchLookupService());
+
+    private static UserManagementService CreateService(TestDbContext dbContext, Guid organizationId, IBranchLookupService branchLookupService) => new(
+        dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), branchLookupService,
         new PasswordHasherAdapter(), new OutboxWriterService(dbContext), new ConfigurationBuilder().Build());
 
     [Fact]
@@ -152,6 +168,20 @@ public class UserManagementServiceBranchGrantsTests
         var grants = await callerFromAnotherOrg.ListUserBranchGrantsAsync(userId);
 
         Assert.Empty(grants);
+    }
+
+    [Fact]
+    public async Task GrantBranchAsync_UnknownOrForeignOrgBranchId_Throws_AndDoesNotCreateAGrant()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var foreignBranchId = Guid.NewGuid();
+        var service = CreateService(dbContext, organizationId, new SelectiveBranchLookupService()); // no known branches
+
+        await Assert.ThrowsAsync<UserManagementException>(() =>
+            service.GrantBranchAsync(userId, new GrantBranchRequest(foreignBranchId, null), Guid.NewGuid()));
+        Assert.False(await dbContext.Set<UserBranch>().AnyAsync(ub => ub.BranchId == foreignBranchId));
     }
 
     [Fact]

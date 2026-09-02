@@ -88,6 +88,15 @@ public class UserManagementService
         var organizationId = _currentTenantProvider.OrganizationId
             ?? throw new UserManagementException("No active organization context.");
 
+        // Explicit branch-ownership check: without it, a caller could grant a user access to
+        // another org's branch by guessing its id. GetZoneInfoAsync returns null both when the
+        // branch doesn't exist and when it's outside the caller's tenant (its own ambient query
+        // filter) — exactly the check needed here, matching every other lookup this phase.
+        if (await _branchLookupService.GetZoneInfoAsync(request.BranchId, cancellationToken) is null)
+        {
+            throw new UserManagementException("Branch not found.");
+        }
+
         var now = DateTimeOffset.UtcNow;
         var hasActiveGrant = await _dbContext.Set<UserBranch>()
             .AnyAsync(ub => ub.UserId == userId && ub.BranchId == request.BranchId && (ub.ExpiresAt == null || ub.ExpiresAt > now), cancellationToken);
@@ -178,6 +187,13 @@ public class UserManagementService
         // another org's role by guessing its id. Same reasoning as every other lookup this phase.
         var role = await _dbContext.Set<Role>().FirstOrDefaultAsync(r => r.Id == request.RoleId && r.OrganizationId == organizationId, cancellationToken)
             ?? throw new UserManagementException("Role not found.");
+
+        // Same reasoning as GrantBranchAsync — without this, an invite with a foreign-org
+        // BranchId would silently grant the new user cross-tenant branch access.
+        if (await _branchLookupService.GetZoneInfoAsync(request.BranchId, cancellationToken) is null)
+        {
+            throw new UserManagementException("Branch not found.");
+        }
 
         // Unusable on purpose (same DummyPasswordHash technique AuthService already establishes
         // for its own timing-safety hash) — this user cannot log in until AcceptInviteAsync

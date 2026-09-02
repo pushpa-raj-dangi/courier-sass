@@ -24,11 +24,19 @@ export function AcceptInviteForm() {
 
   async function onSubmit(values: AcceptInviteFormValues) {
     setServerError(null);
-    const response = await fetch("/api/auth/accept-invite", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token, password: values.password }),
-    });
+    let response: Response;
+    try {
+      response = await fetch("/api/auth/accept-invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, password: values.password }),
+      });
+    } catch {
+      // A public, one-shot, unauthenticated page — the invitee has no other way to tell a
+      // network failure apart from a bad/expired link without this feedback.
+      setServerError("Couldn't reach the server. Check your connection and try again.");
+      return;
+    }
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
       setServerError(body.error ?? "Something went wrong.");

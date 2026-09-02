@@ -18,9 +18,10 @@ export function UserDetailSheet() {
   const isOpen = panel.mode === "user-detail";
   const id = panel.mode === "user-detail" ? panel.id : "";
 
-  // Reuses the already-loaded list page rather than a dedicated GET /users/{id} — no such
-  // endpoint exists (Task 7 only paginated the list), and the tab is almost always open with the
-  // list already fetched when a row is clicked.
+  // No dedicated GET /users/{id} endpoint exists (Task 7 only paginated the list), so this
+  // fetches its own page-size-1000 snapshot rather than the list tab's own paginated query — a
+  // distinct TanStack Query cache entry, not a reuse of UsersTab's. Acceptable for a staff
+  // back-office org's user count; revisit with a real single-user endpoint if that stops holding.
   const { data } = useAdminUsers({ pageSize: 1000 });
   const user = data?.items.find((u) => u.id === id);
   const setActive = useSetUserActive(id);
