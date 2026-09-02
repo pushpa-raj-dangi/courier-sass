@@ -107,6 +107,25 @@ public class AuthService
             pickupRiderRole.Permissions.Add(permission);
         }
 
+        // The 11 CLAUDE.md §6 roles not already seeded above (Frontend Phase F9,
+        // CLARIFICATIONS.md #18) — same "load once, join tracked Permission rows" pattern as
+        // OrganizationOwner/DeliveryRider/PickupRider.
+        foreach (var (roleName, permissionKeys) in AdditionalRoleSeeds.ByRoleName)
+        {
+            var role = new Role
+            {
+                Id = Guid.NewGuid(),
+                OrganizationId = organization.Id,
+                Name = roleName,
+                IsSystemDefault = true
+            };
+            _dbContext.Set<Role>().Add(role);
+            foreach (var permission in allPermissions.Where(p => permissionKeys.Contains(p.Key)))
+            {
+                role.Permissions.Add(permission);
+            }
+        }
+
         var owner = new User
         {
             Id = Guid.NewGuid(),
