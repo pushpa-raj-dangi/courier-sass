@@ -1961,6 +1961,35 @@ namespace Persistence.Migrations
                     b.ToTable("UserBranches", (string)null);
                 });
 
+            modelBuilder.Entity("Courier.Identity.Domain.UserInvite", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("AcceptedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("UserInvites", (string)null);
+                });
+
             modelBuilder.Entity("Courier.Identity.Domain.UserRole", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3707,6 +3736,15 @@ namespace Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Courier.Identity.Domain.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Courier.Identity.Domain.UserInvite", b =>
+                {
                     b.HasOne("Courier.Identity.Domain.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")

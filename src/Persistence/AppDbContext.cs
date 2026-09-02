@@ -51,6 +51,7 @@ public class AppDbContext : DbContext, IDataProtectionKeyContext
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<Branch> Branches => Set<Branch>();
     public DbSet<UserBranch> UserBranches => Set<UserBranch>();
+    public DbSet<UserInvite> UserInvites => Set<UserInvite>();
     public DbSet<Province> Provinces => Set<Province>();
     public DbSet<District> Districts => Set<District>();
     public DbSet<LocalLevel> LocalLevels => Set<LocalLevel>();
@@ -117,6 +118,9 @@ public class AppDbContext : DbContext, IDataProtectionKeyContext
         modelBuilder.ApplyConfiguration(new AuditLogConfiguration());
         modelBuilder.ApplyConfiguration(new BranchConfiguration());
         modelBuilder.ApplyConfiguration(new UserBranchConfiguration());
+        // No tenant filter on UserInvite: no own OrganizationId — tenant isolation flows
+        // transitively through UserId -> User.OrganizationId (which does have a filter, above).
+        modelBuilder.ApplyConfiguration(new UserInviteConfiguration());
         modelBuilder.ApplyConfiguration(new ProvinceConfiguration());
         modelBuilder.ApplyConfiguration(new DistrictConfiguration());
         modelBuilder.ApplyConfiguration(new LocalLevelConfiguration());
