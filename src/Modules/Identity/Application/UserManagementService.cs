@@ -125,4 +125,27 @@ public class UserManagementService
 
         await _auditLogger.LogAsync(new AuditEntry(organizationId, actingUserId, "user.branch_revoked", "UserBranch", $"{userId}:{branchId}"), cancellationToken);
     }
+
+    public Task DeactivateUserAsync(Guid userId, Guid actingUserId, CancellationToken cancellationToken = default) =>
+        SetActiveAsync(userId, isActive: false, "user.deactivated", actingUserId, cancellationToken);
+
+    public Task ReactivateUserAsync(Guid userId, Guid actingUserId, CancellationToken cancellationToken = default) =>
+        SetActiveAsync(userId, isActive: true, "user.reactivated", actingUserId, cancellationToken);
+
+    // Explicit OrganizationId filter: without it, a caller could deactivate/reactivate another
+    // org's user by guessing their id. Same reasoning as ListUserBranchGrantsAsync/RevokeBranchAsync.
+    private async Task SetActiveAsync(Guid userId, bool isActive, string auditAction, Guid actingUserId, CancellationToken cancellationToken)
+    {
+        var organizationId = _currentTenantProvider.OrganizationId
+            ?? throw new UserManagementException("No active organization context.");
+
+        var user = await _dbContext.Set<User>().FirstOrDefaultAsync(u => u.Id == userId && u.OrganizationId == organizationId, cancellationToken)
+            ?? throw new UserManagementException("User not found.");
+        var before = user.IsActive;
+        user.IsActive = isActive;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await _auditLogger.LogAsync(new AuditEntry(organizationId, actingUserId, auditAction, "User", userId.ToString(),
+            Before: before.ToString(), After: isActive.ToString()), cancellationToken);
+    }
 }

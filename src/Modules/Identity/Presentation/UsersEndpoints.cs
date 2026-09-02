@@ -46,5 +46,33 @@ public static class UsersEndpoints
             }
         }).RequirePermission("user.update")
         .WithTags("Users Management");
+
+        app.MapPatch("/api/v1/users/{id:guid}/deactivate", async (Guid id, UserManagementService service, HttpContext httpContext) =>
+        {
+            try
+            {
+                await service.DeactivateUserAsync(id, httpContext.User.GetUserId()!.Value, httpContext.RequestAborted);
+                return Results.NoContent();
+            }
+            catch (UserManagementException ex)
+            {
+                return Results.BadRequest(new { error = new { code = "USER_MANAGEMENT_FAILED", message = ex.Message } });
+            }
+        }).RequirePermission("user.update")
+        .WithTags("Users Management");
+
+        app.MapPatch("/api/v1/users/{id:guid}/reactivate", async (Guid id, UserManagementService service, HttpContext httpContext) =>
+        {
+            try
+            {
+                await service.ReactivateUserAsync(id, httpContext.User.GetUserId()!.Value, httpContext.RequestAborted);
+                return Results.NoContent();
+            }
+            catch (UserManagementException ex)
+            {
+                return Results.BadRequest(new { error = new { code = "USER_MANAGEMENT_FAILED", message = ex.Message } });
+            }
+        }).RequirePermission("user.update")
+        .WithTags("Users Management");
     }
 }
