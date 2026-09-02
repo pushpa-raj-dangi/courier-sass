@@ -5,11 +5,14 @@ function formatPercent(value: number | null): string {
   return value === null ? "—" : `${(value * 100).toFixed(1)}%`;
 }
 
-// .NET TimeSpan's default JSON string, e.g. "02:15:30" or "1.02:15:30" (d.hh:mm:ss)
+// .NET TimeSpan's default JSON string: "[d.]hh:mm:ss[.fffffff]" — the day separator and the
+// fractional-seconds separator are both ".", so a naive first-"." split misparses a day-less
+// value that has fractional seconds (e.g. "00:00:02.8836000") by treating "8836000" as hours.
 function formatDuration(value: string | null): string {
   if (value === null) return "—";
-  const [dayPart, timePart] = value.includes(".") ? value.split(".") : [null, value];
-  const [hh, mm] = timePart.split(":");
+  const match = value.match(/^(?:(\d+)\.)?(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?$/);
+  if (!match) return "—";
+  const [, dayPart, hh, mm] = match;
   const hours = (dayPart ? parseInt(dayPart, 10) * 24 : 0) + parseInt(hh, 10);
   return `${hours}h ${parseInt(mm, 10)}m`;
 }
