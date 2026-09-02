@@ -44,7 +44,7 @@ describe("DataTable", () => {
     );
 
     expect(screen.getByText("Row One")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+    fireEvent.click(screen.getByRole("link", { name: /go to next page/i }));
     expect(onPageChange).toHaveBeenCalledWith(2);
   });
 });

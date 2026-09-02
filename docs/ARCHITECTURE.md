@@ -882,18 +882,28 @@ errors. Not yet subject to a dedicated accessibility audit pass.
 
 ## 25. Component Strategy
 
-Use shadcn/ui as the foundation. **Prefer official shadcn/ui blocks over hand-built compositions**
-for standard patterns it already ships a well-fitting block for (sidebar navigation, login/signup
-pages, dashboard shells) — install via `npx shadcn add ...` and restyle onto this project's design
-tokens rather than rebuilding the same structure from primitives. This convention applies starting
-Frontend Phase F1 onward; Phase F0's hand-built `AppShell`/`Sidebar`/`LoginForm` predate it and
-aren't retroactively required to change.
+Use shadcn/ui as the foundation. **Every control — from a full page pattern down to a single form
+input — must be a shadcn/ui block or component, never a raw HTML primitive (`<input type="date">`,
+`<input type="checkbox">`, a hand-rolled `role="tablist"` button row, a bespoke Previous/Next
+pager) and never a from-scratch reimplementation of something shadcn already ships.** Install via
+`npx shadcn add <name>` and restyle onto this project's design tokens rather than rebuilding the
+structure by hand. This convention applies starting Frontend Phase F1 onward; Phase F0's hand-built
+`AppShell`/`Sidebar`/`LoginForm` predate it and aren't retroactively required to change. `npx shadcn
+add <name> -y -o` runs non-interactively in this environment (confirmed working as of the
+Pagination install below) — pass `-o` whenever the component's dependency graph touches an
+already-installed file (e.g. `pagination` pulls in `button`), since the CLI otherwise stops on an
+overwrite prompt it can't answer non-interactively without that flag; diff first with `npx shadcn
+diff <name>` if an existing file might carry local edits worth preserving.
 
-**Currently installed primitives** (`components/ui/`, several hand-authored against the
-underlying `@radix-ui/react-*` package directly, since `npx shadcn add` hangs on an unscriptable
-interactive library-choice prompt in this environment): `avatar`, `badge`, `button`, `card`,
-`dialog`, `dropdown-menu`, `input`, `label`, `select`, `separator`, `sheet`, `skeleton`, `spinner`,
-`table`.
+**Currently installed** (`components/ui/`): `avatar`, `badge`, `breadcrumb`, `button`, `calendar`,
+`card`, `chart`, `checkbox`, `date-picker` (custom, `Calendar`+`Popover`-based, not a shadcn
+registry item), `date-time-picker` (same), `dialog`, `dropdown-menu`, `input`, `label`,
+`pagination`, `popover`, `select`, `separator`, `sheet`, `sidebar`, `skeleton`, `spinner`, `table`,
+`tabs`, `textarea`, `tooltip`. `DataTable` (§13) drives its pager through `pagination`'s
+`Pagination`/`PaginationContent`/`PaginationItem`/`PaginationPrevious`/`PaginationNext` rather than
+a hand-built `<Button>` pair — the last raw-primitive control in the shared component layer was
+retired this way; every list page routes through `DataTable`, so no other hand-built pagination
+exists anywhere in `src/web`.
 
 Every visible component should trace back to a shadcn primitive or block, restyled — never a
 from-scratch reimplementation of something shadcn already provides.

@@ -7,7 +7,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import { EmptyState } from "@/components/states/EmptyState";
 import { LoadingState } from "@/components/states/LoadingState";
 
@@ -75,24 +81,34 @@ export function DataTable<T>({
         <p className="text-sm text-muted-foreground">
           Page {data.page} of {data.totalPages} ({data.totalCount} total)
         </p>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={data.page <= 1}
-            onClick={() => onPageChange(data.page - 1)}
-          >
-            Previous
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={data.page >= data.totalPages}
-            onClick={() => onPageChange(data.page + 1)}
-          >
-            Next
-          </Button>
-        </div>
+        <Pagination className="mx-0 w-auto">
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious
+                href="#"
+                aria-disabled={data.page <= 1}
+                className={data.page <= 1 ? "pointer-events-none opacity-50" : undefined}
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (data.page > 1) onPageChange(data.page - 1);
+                }}
+              />
+            </PaginationItem>
+            <PaginationItem>
+              <PaginationNext
+                href="#"
+                aria-disabled={data.page >= data.totalPages}
+                className={
+                  data.page >= data.totalPages ? "pointer-events-none opacity-50" : undefined
+                }
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (data.page < data.totalPages) onPageChange(data.page + 1);
+                }}
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
       </div>
     </div>
   );
