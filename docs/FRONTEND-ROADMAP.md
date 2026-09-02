@@ -424,7 +424,29 @@ streaming export endpoints).
 *Entry:* F7 done. *Exit:* all Phase 13 reporting/export endpoints have a
 corresponding UI, no hardcoded/demo data paths remain.
 
-*Status: Not started.*
+*Status: Complete.* Closed the 4 real gaps found while investigating: `OrgDashboardResponse.RiderPerformance`
+was already returned by the backend but silently dropped by the frontend (new `RiderPerformanceChart`,
+structurally identical to `BranchPerformanceChart`, labeling riders by `licenseNumber` per every other
+rider-identifying UI in this app); the organization dashboard had no date-range control despite the
+backend already supporting one (new From/To filter, UTC-anchored per Frontend Phase F7's own lesson,
+also fixing `RateTiles`' previously-hardcoded "Last 30 days" caption to reflect the active range); and
+neither CSV export endpoint (`/export/shipments`, `/export/cod-summary`) had any frontend UI or a
+`Content-Disposition` header (fixed on the backend first — without it, browsers try to render the CSV
+instead of downloading it), closed with a new `ExportReportsCard` (branch + date-range filters, two
+download links via plain browser navigation to a BFF passthrough route) gated on `report.export`. See
+`docs/superpowers/specs/2026-09-01-frontend-phase-f8-reports-analytics-design.md` for full detail.
+
+Manual E2E verification against the real API/Postgres (fresh org, seeded branches/zones/rate card/
+merchant/riders, one shipment run through pickup → manifest → delivery with COD collected) found one
+real bug in `RateTiles.formatDuration`: it split .NET's TimeSpan "c"-format string on the first "."
+assuming that character was always the day separator, so a day-less duration that still carries
+fractional seconds (the common case, e.g. `"00:00:02.8836000"`) rendered as `"8836000h NaNm"` on the
+dashboard's Key Rates card. Fixed with a regex that only treats a leading `d.` as a day part when it's
+actually followed by `hh:mm:ss`, with regression tests for both the day-less and with-day cases.
+Confirmed the Rider Performance chart, the date-range filter (including its empty-range and
+reset-to-real-data behavior), both CSV exports (content, `Content-Disposition` filename, and
+branch-scoped filtering), and the `report.export` permission gate (enforced server-side; the frontend
+card returns `null` outright when absent, matching this codebase's `canCreate`/`canUpdate` convention).
 
 ## Phase F9 — RBAC / Admin
 
