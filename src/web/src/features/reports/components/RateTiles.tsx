@@ -16,12 +16,14 @@ function formatDuration(value: string | null): string {
 
 export function RateTiles({
   data,
+  rangeLabel = "Last 30 days",
 }: {
   data: {
     overallNdrRate: number | null;
     overallRtoRate: number | null;
     averageDeliveryTime: string | null;
   };
+  rangeLabel?: string;
 }) {
   const tiles = [
     {
@@ -52,7 +54,7 @@ export function RateTiles({
           </span>
           Key Rates
         </CardTitle>
-        <CardDescription>Last 30 days</CardDescription>
+        <CardDescription>{rangeLabel}</CardDescription>
       </CardHeader>
       <CardContent className="grid grid-cols-1 gap-4">
         {tiles.map((tile) => {
