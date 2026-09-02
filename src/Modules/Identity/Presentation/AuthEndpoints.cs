@@ -50,6 +50,19 @@ public static class AuthEndpoints
             }
         });
 
+        group.MapPost("/accept-invite", async (AcceptInviteRequest request, AuthService authService) =>
+        {
+            try
+            {
+                var result = await authService.AcceptInviteAsync(request);
+                return Results.Ok(result);
+            }
+            catch (AuthenticationFailedException ex)
+            {
+                return Results.BadRequest(new { error = new { code = "ACCEPT_INVITE_FAILED", message = ex.Message } });
+            }
+        });
+
         group.MapGet("/me", async (HttpContext httpContext, AuthService authService) =>
         {
             var result = await authService.GetMeAsync(httpContext.User);

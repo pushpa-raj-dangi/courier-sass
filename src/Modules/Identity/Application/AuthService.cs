@@ -219,6 +219,35 @@ public class AuthService
         return new AuthResult(accessToken, newRefreshToken.PlainText, user.Id, user.OrganizationId.Value);
     }
 
+    public async Task<AuthResult> AcceptInviteAsync(AcceptInviteRequest request, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(request.Password))
+        {
+            throw new AuthenticationFailedException("Password is required.");
+        }
+
+        var hash = HashToken(request.Token);
+        var invite = await _dbContext.Set<UserInvite>().FirstOrDefaultAsync(i => i.TokenHash == hash, cancellationToken);
+        if (invite is null || invite.AcceptedAt is not null || invite.ExpiresAt < DateTimeOffset.UtcNow)
+        {
+            throw new AuthenticationFailedException("This invite link is invalid or has expired.");
+        }
+
+        // No tenant is known yet at this pre-authentication endpoint — same reasoning as
+        // RegisterOrganizationAsync's/LoginAsync's own IgnoreQueryFilters() reads.
+        var user = await _dbContext.Set<User>().IgnoreQueryFilters().FirstAsync(u => u.Id == invite.UserId, cancellationToken);
+        user.PasswordHash = _passwordHasher.Hash(request.Password);
+        invite.AcceptedAt = DateTimeOffset.UtcNow;
+
+        var refreshToken = await IssueRefreshTokenAsync(user.Id, cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await _auditLogger.LogAsync(new AuditEntry(user.OrganizationId, user.Id, "user.invite_accepted", "User", user.Id.ToString()), cancellationToken);
+
+        var accessToken = _jwtTokenService.IssueAccessToken(user.Id, user.OrganizationId!.Value, user.Email);
+        return new AuthResult(accessToken, refreshToken.PlainText, user.Id, user.OrganizationId.Value);
+    }
+
     private async Task<(RefreshToken Entity, string PlainText)> IssueRefreshTokenAsync(Guid userId, CancellationToken cancellationToken)
     {
         var plainText = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
