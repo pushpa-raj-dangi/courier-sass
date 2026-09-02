@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { ErrorState } from "@/components/states/ErrorState";
@@ -31,11 +31,11 @@ export default function DashboardPage() {
       <div className="flex flex-wrap items-end gap-3">
         <div className="space-y-1">
           <Label htmlFor="dashboard-from">From</Label>
-          <Input id="dashboard-from" aria-label="From date" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+          <DatePicker id="dashboard-from" aria-label="From date" value={from} onChange={setFrom} clearable />
         </div>
         <div className="space-y-1">
           <Label htmlFor="dashboard-to">To</Label>
-          <Input id="dashboard-to" aria-label="To date" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+          <DatePicker id="dashboard-to" aria-label="To date" value={to} onChange={setTo} clearable />
         </div>
       </div>
 

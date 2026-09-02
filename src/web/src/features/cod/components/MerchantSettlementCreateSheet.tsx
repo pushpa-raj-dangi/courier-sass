@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -35,7 +35,7 @@ export function MerchantSettlementCreateSheet() {
   async function onSubmit(values: CreateMerchantSettlementFormValues) {
     setServerError(null);
     try {
-      // A bare "YYYY-MM-DD" from <input type="date"> has no offset — .NET's DateTimeOffset JSON
+      // A bare "YYYY-MM-DD" from DatePicker's value has no offset — .NET's DateTimeOffset JSON
       // deserializer then defaults to the API host's *local* timezone offset, not UTC. Npgsql's
       // timestamptz writer rejects any non-zero offset outright, so this must be UTC-anchored here
       // rather than left for the backend to normalize (real bug hit during this phase's own manual
@@ -85,7 +85,7 @@ export function MerchantSettlementCreateSheet() {
             <Controller
               name="periodFrom"
               control={control}
-              render={({ field }) => <Input id="periodFrom" aria-label="Period From" type="date" {...field} />}
+              render={({ field }) => <DatePicker id="periodFrom" aria-label="Period From" value={field.value} onChange={field.onChange} />}
             />
             {errors.periodFrom && <p className="text-sm text-destructive">{errors.periodFrom.message}</p>}
           </div>
@@ -94,7 +94,7 @@ export function MerchantSettlementCreateSheet() {
             <Controller
               name="periodTo"
               control={control}
-              render={({ field }) => <Input id="periodTo" aria-label="Period To" type="date" {...field} />}
+              render={({ field }) => <DatePicker id="periodTo" aria-label="Period To" value={field.value} onChange={field.onChange} />}
             />
             {errors.periodTo && <p className="text-sm text-destructive">{errors.periodTo.message}</p>}
           </div>

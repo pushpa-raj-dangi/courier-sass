@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Banknote, Wallet, Building2, HandCoins, Receipt, PackageCheck } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
@@ -78,11 +78,11 @@ export function ReconciliationTab() {
         </div>
         <div className="space-y-1">
           <Label htmlFor="recon-from">From</Label>
-          <Input id="recon-from" aria-label="From date" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+          <DatePicker id="recon-from" aria-label="From date" value={from} onChange={setFrom} clearable />
         </div>
         <div className="space-y-1">
           <Label htmlFor="recon-to">To</Label>
-          <Input id="recon-to" aria-label="To date" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+          <DatePicker id="recon-to" aria-label="To date" value={to} onChange={setTo} clearable />
         </div>
       </div>
 

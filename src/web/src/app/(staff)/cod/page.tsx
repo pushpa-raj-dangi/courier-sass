@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CollectionsTab } from "@/features/cod/components/CollectionsTab";
 import { CollectionDetailSheet } from "@/features/cod/components/CollectionDetailSheet";
 import { RiderSettlementsTab } from "@/features/cod/components/RiderSettlementsTab";
@@ -16,10 +17,8 @@ import { AdjustmentsTab } from "@/features/cod/components/AdjustmentsTab";
 import { AdjustmentDetailSheet } from "@/features/cod/components/AdjustmentDetailSheet";
 import { ReconciliationTab } from "@/features/cod/components/ReconciliationTab";
 
-// Plain button-row tab switcher, not @radix-ui/react-tabs — no Tabs primitive exists in this repo
-// and a 6-way conditional render doesn't need one (CLAUDE.md's YAGNI guidance). Tasks 10-14 each
-// append one more entry to TABS, one more `activeTab === "..."` branch, and their own Sheet(s) at
-// the bottom — this file grows additively, never restructured, across the rest of this plan.
+// This file grows additively — new tabs, their own `TabsContent`, and their own Sheet(s) appended
+// at the bottom, never restructured.
 const TABS = [
   { key: "collections", label: "Collections" },
   { key: "rider-settlements", label: "Rider Settlements" },
@@ -37,31 +36,19 @@ export default function CodPage() {
   return (
     <div className="space-y-4">
       <h1 className="font-display text-xl font-semibold">COD</h1>
-      <div className="flex gap-1 border-b border-border" role="tablist">
-        {TABS.map((tab) => (
-          <button
-            key={tab.key}
-            type="button"
-            role="tab"
-            aria-selected={activeTab === tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`px-3 py-2 text-sm font-medium transition-colors ${
-              activeTab === tab.key
-                ? "border-b-2 border-foreground text-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {activeTab === "collections" && <CollectionsTab />}
-      {activeTab === "rider-settlements" && <RiderSettlementsTab />}
-      {activeTab === "branch-settlements" && <BranchSettlementsTab />}
-      {activeTab === "merchant-settlements" && <MerchantSettlementsTab />}
-      {activeTab === "adjustments" && <AdjustmentsTab />}
-      {activeTab === "reconciliation" && <ReconciliationTab />}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)}>
+        <TabsList>
+          {TABS.map((tab) => (
+            <TabsTrigger key={tab.key} value={tab.key}>{tab.label}</TabsTrigger>
+          ))}
+        </TabsList>
+        <TabsContent value="collections"><CollectionsTab /></TabsContent>
+        <TabsContent value="rider-settlements"><RiderSettlementsTab /></TabsContent>
+        <TabsContent value="branch-settlements"><BranchSettlementsTab /></TabsContent>
+        <TabsContent value="merchant-settlements"><MerchantSettlementsTab /></TabsContent>
+        <TabsContent value="adjustments"><AdjustmentsTab /></TabsContent>
+        <TabsContent value="reconciliation"><ReconciliationTab /></TabsContent>
+      </Tabs>
 
       <CollectionDetailSheet />
       <RiderSettlementCreateSheet />

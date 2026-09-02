@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
@@ -85,7 +85,7 @@ export function UserBranchGrants({ userId }: { userId: string }) {
               ))}
             </SelectContent>
           </Select>
-          <Input type="date" aria-label="Expires at (optional)" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} />
+          <DatePicker aria-label="Expires at (optional)" placeholder="Expires at (optional)" value={expiresAt} onChange={setExpiresAt} clearable />
           {serverError && <p className="text-sm text-destructive">{serverError}</p>}
           <div className="flex gap-2">
             <Button type="button" size="sm" disabled={!branchId || grantBranch.isPending} onClick={handleAdd}>

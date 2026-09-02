@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -55,7 +56,7 @@ export function NdrUpdateSection({ ndr }: { ndr: Ndr }) {
       </div>
       <div className="space-y-2">
         <Label htmlFor="ndr-follow-up">Follow Up At</Label>
-        <Input id="ndr-follow-up" type="datetime-local" value={followUpAt} onChange={(e) => setFollowUpAt(e.target.value)} />
+        <DateTimePicker id="ndr-follow-up" value={followUpAt} onChange={setFollowUpAt} clearable />
       </div>
       {serverError && <p className="text-sm text-destructive">{serverError}</p>}
       <div className="flex gap-2">

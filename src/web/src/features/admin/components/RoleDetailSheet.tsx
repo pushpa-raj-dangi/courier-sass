@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
 import { usePermissionCatalog } from "@/features/admin/hooks/usePermissionCatalog";
@@ -83,15 +85,17 @@ export function RoleDetailSheet() {
                   <legend className="px-1 text-sm font-medium capitalize text-foreground">{group.group}</legend>
                   <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
                     {group.permissions.map((p) => (
-                      <label key={p.key} className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <input
-                          type="checkbox"
+                      <div key={p.key} className="flex items-center gap-2">
+                        <Checkbox
+                          id={`detail-perm-${p.key}`}
                           checked={selected.has(p.key)}
                           disabled={role.isSystemDefault}
-                          onChange={() => toggle(p.key)}
+                          onCheckedChange={() => toggle(p.key)}
                         />
-                        {p.description}
-                      </label>
+                        <Label htmlFor={`detail-perm-${p.key}`} className="text-sm font-normal text-muted-foreground">
+                          {p.description}
+                        </Label>
+                      </div>
                     ))}
                   </div>
                 </fieldset>

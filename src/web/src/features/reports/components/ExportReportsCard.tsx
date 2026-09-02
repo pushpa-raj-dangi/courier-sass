@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useBranches } from "@/features/branches/hooks/useBranches";
@@ -61,11 +61,11 @@ export function ExportReportsCard() {
           </div>
           <div className="space-y-1">
             <Label htmlFor="export-from">From</Label>
-            <Input id="export-from" aria-label="Export from date" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+            <DatePicker id="export-from" aria-label="Export from date" value={from} onChange={setFrom} clearable />
           </div>
           <div className="space-y-1">
             <Label htmlFor="export-to">To</Label>
-            <Input id="export-to" aria-label="Export to date" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+            <DatePicker id="export-to" aria-label="Export to date" value={to} onChange={setTo} clearable />
           </div>
         </div>
         <div className="flex flex-wrap gap-3">

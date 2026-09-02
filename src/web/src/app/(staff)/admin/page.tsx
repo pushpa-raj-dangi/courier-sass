@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RolesTab } from "@/features/admin/components/RolesTab";
 import { RoleCreateSheet } from "@/features/admin/components/RoleCreateSheet";
 import { RoleDetailSheet } from "@/features/admin/components/RoleDetailSheet";
@@ -9,7 +10,6 @@ import { UserInviteSheet } from "@/features/admin/components/UserInviteSheet";
 import { UserDetailSheet } from "@/features/admin/components/UserDetailSheet";
 import { usePermission } from "@/features/auth/hooks/usePermission";
 
-// Plain button-row tab switcher, matching /cod's own precedent (no Tabs primitive in this repo).
 // This file grows additively — new tabs and their Sheets appended, never restructured.
 const TABS = [
   { key: "roles", label: "Roles", permission: "role.manage" },
@@ -33,27 +33,17 @@ export default function AdminPage() {
   return (
     <div className="space-y-4">
       <h1 className="font-display text-xl font-semibold">Admin</h1>
-      <div className="flex gap-1 border-b border-border" role="tablist">
-        {visibleTabs.map((tab) => (
-          <button
-            key={tab.key}
-            type="button"
-            role="tab"
-            aria-selected={activeTab === tab.key}
-            onClick={() => setRequestedTab(tab.key)}
-            className={`px-3 py-2 text-sm font-medium transition-colors ${
-              activeTab === tab.key
-                ? "border-b-2 border-foreground text-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {activeTab === "roles" && <RolesTab />}
-      {activeTab === "users" && <UsersTab />}
+      {activeTab && (
+        <Tabs value={activeTab} onValueChange={(v) => setRequestedTab(v as TabKey)}>
+          <TabsList>
+            {visibleTabs.map((tab) => (
+              <TabsTrigger key={tab.key} value={tab.key}>{tab.label}</TabsTrigger>
+            ))}
+          </TabsList>
+          <TabsContent value="roles"><RolesTab /></TabsContent>
+          <TabsContent value="users"><UsersTab /></TabsContent>
+        </Tabs>
+      )}
 
       <RoleCreateSheet />
       <RoleDetailSheet />

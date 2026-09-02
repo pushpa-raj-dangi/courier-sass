@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -67,10 +68,12 @@ export function RoleCreateSheet() {
                 <legend className="px-1 text-sm font-medium capitalize text-foreground">{group.group}</legend>
                 <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
                   {group.permissions.map((p) => (
-                    <label key={p.key} className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <input type="checkbox" checked={selected.has(p.key)} onChange={() => toggle(p.key)} />
-                      {p.description}
-                    </label>
+                    <div key={p.key} className="flex items-center gap-2">
+                      <Checkbox id={`create-perm-${p.key}`} checked={selected.has(p.key)} onCheckedChange={() => toggle(p.key)} />
+                      <Label htmlFor={`create-perm-${p.key}`} className="text-sm font-normal text-muted-foreground">
+                        {p.description}
+                      </Label>
+                    </div>
                   ))}
                 </div>
               </fieldset>

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -98,7 +99,7 @@ export function UserInviteSheet() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="invite-expires">Branch Access Expires (optional)</Label>
-            <Input id="invite-expires" type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} />
+            <DatePicker id="invite-expires" value={expiresAt} onChange={setExpiresAt} clearable />
           </div>
           {serverError && <p className="text-sm text-destructive">{serverError}</p>}
           <Button type="submit" disabled={inviteUser.isPending || !email || !fullName || !roleId || !branchId}>
