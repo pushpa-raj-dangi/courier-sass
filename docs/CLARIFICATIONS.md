@@ -832,6 +832,78 @@ scoped design task on its own, not a one-line color tweak bundled into this phas
 
 ---
 
+## 18. Frontend Phase F9: `Identity` had almost no Role/Permission/UserBranch/invite management surface at all
+
+**Where:** `Identity.Domain.BranchScope`, `Identity.Application.AuthService`/`RoleService`/`UserManagementService`, `Identity.Presentation.RolesEndpoints`/`UsersEndpoints`/`AuthEndpoints`, `Notifications.Application.NotificationDispatchService`
+
+**Gap 1 — no `JsonStringEnumConverter` on `BranchScope`.** Same latent bug class hit and fixed in
+every prior phase (`BranchType` F2, `ShipmentStatus` F3, `ManifestPurpose`/`ManifestStatus` F4, 5
+Riders enums F5, 3 Ndr enums F6, 3 Cod enums F7). Fixed proactively here.
+
+**Gap 2 — no Role CRUD, no Permission catalog read endpoint, no RolePermission assignment
+endpoint.** The `Role`/`Permission`/`UserRole` domain model has carried the shape needed for all
+of this since Phase 1 (`Role.OrganizationId` non-null already distinguishes a custom org role from
+a `null`-owned platform role, `Role.IsSystemDefault` already distinguishes a seeded role), but
+zero HTTP surface existed to create, edit, delete, or even list a role, or to see what permissions
+exist to assign. **Resolution:** `GET /api/v1/permissions` (grouped catalog), `GET/POST/PUT/DELETE
+/api/v1/roles[/{id}]`, all `role.manage`-gated (Tasks 3–5).
+
+**Gap 3 — only 3 of CLAUDE.md §6's 17 default roles were ever seeded** (`OrganizationOwner`,
+`DeliveryRider`, `PickupRider`, added incrementally across Phases 1 and 8). Any org wanting e.g. a
+`FinanceManager` or `BranchManager` role had no way to get one short of hand-rolling a custom role
+through this phase's own new Role UI. **Resolution:** 11 more org-scoped roles from CLAUDE.md §6
+seeded at registration (`OrganizationAdmin`, `OperationsManager`, `BranchManager`, `Dispatcher`,
+`SortingStaff`, `CounterStaff`, `FinanceManager`, `FinanceStaff`, `CustomerSupport`, `Auditor`,
+`HubStaff` — 14 seeded roles total), permission sets grounded in `docs/RBAC.md` §4's illustrative
+coverage table where it names one explicitly, reasoned from the same table's role descriptions
+otherwise (Task 2). `SuperAdmin` (platform-level, `OrganizationId = null`) and `Merchant`/
+`MerchantStaff` (the existing `MerchantUser`/API-key auth track, `docs/RBAC.md` §5, a wholly
+separate identity space) are deliberately excluded — no platform-admin UI exists or is planned
+this phase, and merchant-side roles belong to Frontend Phase F10's merchant portal, not this one.
+
+**Gap 4 — no `UserBranch` grant/list/revoke endpoint at all**, despite
+`BranchAuthorizationChecker.GetAccessibleBranchIdsAsync` (`Infrastructure/
+BranchAuthorizationChecker.cs`) already reading and correctly enforcing `UserBranch.ExpiresAt` —
+confirmed by the pre-existing `HasAccessAsync_ExpiredGrant_IsRejected`/
+`HasAccessAsync_ExpiredAndValidGrants_FiltersPerRow` tests in
+`tests/Identity.Tests/BranchAuthorizationCheckerTests.cs`, which needed no changes this phase. The
+enforcement was real; only the management surface to create/see/revoke a grant was missing.
+**Resolution:** `GET/POST /api/v1/users/{id}/branches`, `DELETE /api/v1/users/{id}/branches/
+{branchId}`, `user.read`/`user.update`-gated (Task 6).
+
+**Gap 5 — `GET /api/v1/users` had no pagination and returned only `{Id, Email, FullName,
+IsActive}`, with no role or branch-grant visibility.** Its missing explicit `OrganizationId`
+filter is *not* a cross-tenant bug — `Persistence/AppDbContext.cs` already registers a global
+`HasQueryFilter` on `User` scoped to the ambient tenant (line 328) — but the endpoint was
+otherwise unusable for an admin screen. **Resolution:** pagination + `RoleName`/`BranchCount`
+enrichment (Task 7).
+
+**Gap 6 — no user deactivate/reactivate endpoint**, despite `AuthService.LoginAsync`/
+`RefreshTokenAsync` already correctly rejecting an inactive `User.IsActive == false` account — the
+enforcement existed, the toggle didn't. **Resolution:** `PATCH /api/v1/users/{id}/deactivate` /
+`/reactivate`, `user.update`-gated (Task 8).
+
+**Gap 7 — no user-invite flow of any kind**, and the one adjacent mechanism
+(`IUserProvisioningService.ProvisionStaffUserAsync`) is deliberately narrow (an upfront plaintext
+password, a role name that must already be seeded, a single branch — built for Riders' internal
+self-service rider creation, not a general admin invite). **Resolution:** a new `UserInvite`
+entity (Task 9) plus `POST /api/v1/users/invite` (Task 11) and `POST /api/v1/auth/accept-invite`
+(Task 12), following the email-invite design decision recorded in the phase's design spec.
+
+**Gap 8 (discovered building Gap 7's resolution) — `NotificationDispatchService.
+DispatchEventAsync` could only resolve a recipient by reading `MerchantId` from the event payload
+and looking it up via `IMerchantContactLookupService`; there was no path for an event whose
+payload already carries its own recipient address**, which the `user.invited` event needs (the
+invited user is not a merchant). **Resolution:** an additive `RecipientEmail` payload-property
+check before the existing `MerchantId` branch (Task 10) — existing `MerchantId`-keyed events are
+untouched.
+
+Discovered planning Frontend Phase F9 (`docs/FRONTEND-ROADMAP.md`,
+`docs/superpowers/specs/2026-09-02-frontend-phase-f9-rbac-admin-design.md`). Implemented as
+Tasks 1–13 of the Frontend Phase F9 plan.
+
+---
+
 ## Summary of schema additions implied by this document
 
 * `UserRole` (new entity) — resolves #1, carries `BranchScope` enum — resolves #6.
