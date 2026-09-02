@@ -6,6 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { ErrorState } from "@/components/states/ErrorState";
 import { useOrgDashboard } from "@/features/reports/hooks/useOrgDashboard";
+import { DashboardHeader } from "@/features/reports/components/DashboardHeader";
+import { QuickStatsStrip } from "@/features/reports/components/QuickStatsStrip";
 import { ShipmentFunnel } from "@/features/reports/components/ShipmentFunnel";
 import { FinancialSummary } from "@/features/reports/components/FinancialSummary";
 import { RateTiles } from "@/features/reports/components/RateTiles";
@@ -28,6 +30,8 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      <DashboardHeader />
+
       <div className="flex flex-wrap items-end gap-3">
         <div className="space-y-1">
           <Label htmlFor="dashboard-from">From</Label>
@@ -53,6 +57,7 @@ export default function DashboardPage() {
       )}
       {!isLoading && data && (
         <>
+          <QuickStatsStrip data={data} />
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
             <ShipmentFunnel data={data.todaysShipmentsByStatus} />
             <BranchPerformanceChart data={data.branchPerformance} />

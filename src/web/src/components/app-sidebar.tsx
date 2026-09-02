@@ -4,6 +4,7 @@ import * as React from "react";
 import { Package } from "lucide-react";
 import { NavMain } from "@/components/nav-main";
 import { BranchSwitcher } from "@/components/layout/BranchSwitcher";
+import { useSession } from "@/features/auth/hooks/useSession";
 import {
   Sidebar,
   SidebarContent,
@@ -15,10 +16,12 @@ import {
 } from "@/components/ui/sidebar";
 
 // No team-switching concept exists in this app (a staff user belongs to exactly one
-// organization) — the block's TeamSwitcher is replaced by a static brand lockup, with
-// BranchSwitcher (this app's real "which scope am I acting in" control) underneath it.
+// organization) — the block's TeamSwitcher is replaced by a brand lockup showing that one
+// organization's real name (falling back to the generic product name only until the session
+// loads), with BranchSwitcher (this app's real "which scope am I acting in" control) underneath.
 function SidebarBrand() {
   const { state } = useSidebar();
+  const { data: session } = useSession();
   return (
     <SidebarMenu>
       <SidebarMenuItem className="flex items-center gap-2 px-2 py-1.5">
@@ -27,7 +30,7 @@ function SidebarBrand() {
         </span>
         {state === "expanded" && (
           <span className="truncate font-display text-base font-semibold tracking-tight">
-            Courier Platform
+            {session?.organizationName ?? "Courier Platform"}
           </span>
         )}
       </SidebarMenuItem>

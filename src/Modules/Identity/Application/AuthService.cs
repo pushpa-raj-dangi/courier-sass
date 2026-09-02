@@ -271,6 +271,11 @@ public class AuthService
         var userId = principal.GetUserId()!.Value;
         var user = await _dbContext.Set<User>().FirstAsync(u => u.Id == userId, cancellationToken);
 
+        var organizationName = await _dbContext.Set<Organization>()
+            .Where(o => o.Id == user.OrganizationId)
+            .Select(o => o.Name)
+            .FirstAsync(cancellationToken);
+
         var permissions = await _dbContext.Set<Role>()
             .Where(r => _dbContext.Set<UserRole>().Any(ur => ur.UserId == userId && ur.RoleId == r.Id))
             .SelectMany(r => r.Permissions)
@@ -295,6 +300,6 @@ public class AuthService
                 ub.ExpiresAt))
             .ToList();
 
-        return new MeResponse(user.Id, user.OrganizationId!.Value, user.Email, user.FullName, permissions, hasAllBranchesScope, branches);
+        return new MeResponse(user.Id, user.OrganizationId!.Value, organizationName, user.Email, user.FullName, permissions, hasAllBranchesScope, branches);
     }
 }

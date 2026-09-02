@@ -78,6 +78,7 @@ public class AuthEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
         Assert.NotNull(me);
         Assert.Equal(auth.UserId, me!.UserId);
         Assert.Equal(auth.OrganizationId, me.OrganizationId);
+        Assert.Equal($"Me Org {suffix}", me.OrganizationName);
         Assert.Equal("Owner Person", me.FullName);
         Assert.Contains("shipment.create", me.Permissions);
         Assert.True(me.HasAllBranchesScope);

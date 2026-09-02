@@ -16,6 +16,7 @@ export interface MeBranchGrant {
 export interface MeResponse {
   userId: string;
   organizationId: string;
+  organizationName: string;
   email: string;
   fullName: string;
   permissions: string[];
