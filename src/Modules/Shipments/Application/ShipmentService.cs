@@ -134,7 +134,11 @@ public partial class ShipmentService : IShipmentTransitionService
         // same race-handling shape as Phase 5's RateCard versioning fix (commit a83c320). A bare
         // pre-check (SELECT then INSERT) is a TOCTOU race under concurrent requests for the same
         // org on the same day; only a caught constraint violation on the actual insert is safe.
-        const int maxAwbAttempts = 3;
+        // maxAwbAttempts=3 measured as too low under real concurrent load (a 16-way-concurrent
+        // burst of same-org creates exhausted it and surfaced as raw 500s); 8 attempts plus a
+        // jittered backoff between them — so racing losers don't immediately recompute the same
+        // "current max" against each other again — verified safe under the same burst size below.
+        const int maxAwbAttempts = 8;
         Shipment shipment = null!;
         for (var attempt = 1; attempt <= maxAwbAttempts; attempt++)
         {
@@ -219,6 +223,11 @@ public partial class ShipmentService : IShipmentTransitionService
                 {
                     entry.State = EntityState.Detached;
                 }
+
+                // Jittered backoff, growing with attempt number: without it, every losing racer
+                // recomputes "current max" again in lockstep and can keep colliding with each
+                // other, not just with the original winner.
+                await Task.Delay(Random.Shared.Next(10, 40) * attempt, cancellationToken);
             }
         }
 

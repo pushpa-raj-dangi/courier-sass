@@ -324,4 +324,29 @@ public class ShipmentsEndpointsTests : IClassFixture<WebApplicationFactory<Progr
         Assert.NotEqual(shipment1!.Awb, shipment2!.Awb);
     }
 
+    // The 2-way test above only ever needs one retry to resolve, which already passed even with
+    // the AWB collision-retry loop's original 3-attempt budget. This reproduces the real bug found
+    // seeding 2000 demo shipments at concurrency 16: 20 requests racing the same (OrganizationId,
+    // day-prefix) can collide with each other repeatedly, not just with one winner, and the
+    // original 3-attempt budget with no backoff between retries exhausted for several of them
+    // (raw 500s). maxAwbAttempts=8 plus jittered backoff (ShipmentService.cs) fixes it.
+    [Fact]
+    public async Task CreateShipment_ManyConcurrentRequestsForSameOrg_AllSucceedWithDistinctAwbs()
+    {
+        const int concurrency = 20;
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "awb-race-many");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (originBranchId, destinationBranchId, serviceTypeId) = await SeedRoutableBranchesAsync(client);
+        await SeedRateCardAsync(client, originBranchId, destinationBranchId, serviceTypeId, 100m);
+        var merchantId = await CreateMerchantAsync(client);
+
+        var tasks = Enumerable.Range(0, concurrency)
+            .Select(_ => client.PostAsJsonAsync("/api/v1/shipments", ValidShipmentRequest(merchantId, originBranchId, destinationBranchId, serviceTypeId)));
+        var responses = await Task.WhenAll(tasks);
+
+        Assert.All(responses, r => Assert.Equal(HttpStatusCode.Created, r.StatusCode));
+        var shipments = await Task.WhenAll(responses.Select(r => r.Content.ReadFromJsonAsync<ShipmentResponse>()));
+        Assert.Equal(concurrency, shipments.Select(s => s!.Awb).Distinct().Count());
+    }
 }
