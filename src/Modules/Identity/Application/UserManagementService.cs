@@ -1,8 +1,11 @@
+using System.Security.Cryptography;
 using Courier.Audit.Application;
 using Courier.Branches.Application;
+using Courier.Events.Application;
 using Courier.Identity.Domain;
 using Courier.SharedKernel;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace Courier.Identity.Application;
 
@@ -12,13 +15,21 @@ public class UserManagementService
     private readonly ICurrentTenantProvider _currentTenantProvider;
     private readonly IAuditLogger _auditLogger;
     private readonly IBranchLookupService _branchLookupService;
+    private readonly IPasswordHasher _passwordHasher;
+    private readonly IOutboxWriter _outboxWriter;
+    private readonly IConfiguration _configuration;
 
-    public UserManagementService(DbContext dbContext, ICurrentTenantProvider currentTenantProvider, IAuditLogger auditLogger, IBranchLookupService branchLookupService)
+    public UserManagementService(
+        DbContext dbContext, ICurrentTenantProvider currentTenantProvider, IAuditLogger auditLogger, IBranchLookupService branchLookupService,
+        IPasswordHasher passwordHasher, IOutboxWriter outboxWriter, IConfiguration configuration)
     {
         _dbContext = dbContext;
         _currentTenantProvider = currentTenantProvider;
         _auditLogger = auditLogger;
         _branchLookupService = branchLookupService;
+        _passwordHasher = passwordHasher;
+        _outboxWriter = outboxWriter;
+        _configuration = configuration;
     }
 
     public async Task<PagedResult<UserListItem>> ListUsersAsync(int? page, int? pageSize, CancellationToken cancellationToken = default)
@@ -148,4 +159,79 @@ public class UserManagementService
         await _auditLogger.LogAsync(new AuditEntry(organizationId, actingUserId, auditAction, "User", userId.ToString(),
             Before: before.ToString(), After: isActive.ToString()), cancellationToken);
     }
+
+    public async Task<InviteUserResponse> InviteUserAsync(InviteUserRequest request, Guid actingUserId, CancellationToken cancellationToken = default)
+    {
+        var organizationId = _currentTenantProvider.OrganizationId
+            ?? throw new UserManagementException("No active organization context.");
+
+        var email = request.Email.ToLowerInvariant();
+        // Same platform-wide uniqueness check as AuthService.RegisterOrganizationAsync/
+        // UserProvisioningService.ProvisionStaffUserAsync — User.Email has no per-org uniqueness.
+        var emailTaken = await _dbContext.Set<User>().IgnoreQueryFilters().AnyAsync(u => u.Email == email, cancellationToken);
+        if (emailTaken)
+        {
+            throw new UserManagementException("Email is already registered.");
+        }
+
+        // Explicit OrganizationId filter: without it, a caller could invite a user directly into
+        // another org's role by guessing its id. Same reasoning as every other lookup this phase.
+        var role = await _dbContext.Set<Role>().FirstOrDefaultAsync(r => r.Id == request.RoleId && r.OrganizationId == organizationId, cancellationToken)
+            ?? throw new UserManagementException("Role not found.");
+
+        // Unusable on purpose (same DummyPasswordHash technique AuthService already establishes
+        // for its own timing-safety hash) — this user cannot log in until AcceptInviteAsync
+        // (Task 12) sets a real one.
+        var user = new User
+        {
+            Id = Guid.NewGuid(),
+            OrganizationId = organizationId,
+            Email = email,
+            PasswordHash = _passwordHasher.Hash(Guid.NewGuid().ToString()),
+            FullName = request.FullName,
+            Phone = request.Phone,
+            IsActive = true
+        };
+        _dbContext.Set<User>().Add(user);
+
+        var now = DateTimeOffset.UtcNow;
+        _dbContext.Set<UserRole>().Add(new UserRole
+        {
+            Id = Guid.NewGuid(), UserId = user.Id, RoleId = role.Id, OrganizationId = organizationId,
+            BranchScope = BranchScope.SpecificBranches, AssignedAt = now, AssignedByUserId = actingUserId
+        });
+        _dbContext.Set<UserBranch>().Add(new UserBranch
+        {
+            Id = Guid.NewGuid(), UserId = user.Id, BranchId = request.BranchId, OrganizationId = organizationId,
+            GrantedAt = now, ExpiresAt = request.ExpiresAt, GrantedByUserId = actingUserId
+        });
+
+        var plainTextToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+        _dbContext.Set<UserInvite>().Add(new UserInvite
+        {
+            Id = Guid.NewGuid(), UserId = user.Id, TokenHash = HashToken(plainTextToken),
+            ExpiresAt = now.AddDays(7), AcceptedAt = null
+        });
+
+        var organizationName = await _dbContext.Set<Organization>().Where(o => o.Id == organizationId).Select(o => o.Name).FirstAsync(cancellationToken);
+        var baseUrl = _configuration["Frontend:BaseUrl"] ?? "http://localhost:3000";
+        var inviteUrl = $"{baseUrl}/accept-invite?token={Uri.EscapeDataString(plainTextToken)}";
+        await _outboxWriter.WriteAsync(organizationId, "user.invited", new
+        {
+            RecipientEmail = request.Email,
+            FullName = request.FullName,
+            OrganizationName = organizationName,
+            InviteUrl = inviteUrl
+        }, cancellationToken);
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await _auditLogger.LogAsync(new AuditEntry(organizationId, actingUserId, "user.invited", "User", user.Id.ToString(),
+            After: $"Email={request.Email},RoleId={request.RoleId}"), cancellationToken);
+
+        return new InviteUserResponse(user.Id, request.Email);
+    }
+
+    private static string HashToken(string token) =>
+        Convert.ToBase64String(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(token)));
 }

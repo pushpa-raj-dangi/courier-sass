@@ -74,5 +74,18 @@ public static class UsersEndpoints
             }
         }).RequirePermission("user.update")
         .WithTags("Users Management");
+
+        app.MapPost("/api/v1/users/invite", async (InviteUserRequest request, UserManagementService service, HttpContext httpContext) =>
+        {
+            try
+            {
+                return Results.Ok(await service.InviteUserAsync(request, httpContext.User.GetUserId()!.Value, httpContext.RequestAborted));
+            }
+            catch (UserManagementException ex)
+            {
+                return Results.BadRequest(new { error = new { code = "USER_MANAGEMENT_FAILED", message = ex.Message } });
+            }
+        }).RequirePermission("user.create")
+        .WithTags("Users Management");
     }
 }

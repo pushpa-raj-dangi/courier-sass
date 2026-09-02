@@ -1,9 +1,12 @@
 using Courier.Audit.Application;
 using Courier.Branches.Application;
+using Courier.Events.Application;
 using Courier.Identity.Application;
 using Courier.Identity.Domain;
+using Courier.Identity.Infrastructure;
 using Courier.SharedKernel;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Xunit;
 
 namespace Courier.Identity.Tests;
@@ -49,8 +52,9 @@ public class UserManagementServiceListUsersTests
         return dbContext;
     }
 
-    private static UserManagementService CreateService(TestDbContext dbContext, Guid organizationId) =>
-        new(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), new StubBranchLookupService());
+    private static UserManagementService CreateService(TestDbContext dbContext, Guid organizationId) => new(
+        dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), new StubBranchLookupService(),
+        new PasswordHasherAdapter(), new OutboxWriterService(dbContext), new ConfigurationBuilder().Build());
 
     private static async Task<User> SeedUserAsync(TestDbContext dbContext, Guid organizationId, string? roleName = null, int branchGrantCount = 0)
     {
