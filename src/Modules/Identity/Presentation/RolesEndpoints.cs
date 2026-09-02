@@ -32,6 +32,31 @@ public static class RolesEndpoints
             }
         }).RequirePermission("role.manage");
 
+        group.MapPut("/roles/{id:guid}", async (Guid id, UpdateRoleRequest request, RoleService service, HttpContext httpContext) =>
+        {
+            try
+            {
+                return Results.Ok(await service.UpdateRoleAsync(id, request, httpContext.User.GetUserId()!.Value, httpContext.RequestAborted));
+            }
+            catch (RoleValidationException ex)
+            {
+                return Results.BadRequest(new { error = new { code = "ROLE_VALIDATION_FAILED", message = ex.Message } });
+            }
+        }).RequirePermission("role.manage");
+
+        group.MapDelete("/roles/{id:guid}", async (Guid id, RoleService service, HttpContext httpContext) =>
+        {
+            try
+            {
+                await service.DeleteRoleAsync(id, httpContext.User.GetUserId()!.Value, httpContext.RequestAborted);
+                return Results.NoContent();
+            }
+            catch (RoleValidationException ex)
+            {
+                return Results.BadRequest(new { error = new { code = "ROLE_VALIDATION_FAILED", message = ex.Message } });
+            }
+        }).RequirePermission("role.manage");
+
         group.MapGet("/permissions", () =>
             Results.Ok(GroupPermissions(PermissionCatalog.All)))
             .RequirePermission("role.manage");

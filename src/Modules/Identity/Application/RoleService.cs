@@ -73,6 +73,65 @@ public class RoleService
         return ToResponse(role);
     }
 
+    public async Task<RoleResponse> UpdateRoleAsync(Guid id, UpdateRoleRequest request, Guid actingUserId, CancellationToken cancellationToken = default)
+    {
+        var organizationId = _currentTenantProvider.OrganizationId
+            ?? throw new RoleValidationException("No active organization context.");
+
+        var role = await _dbContext.Set<Role>().Include(r => r.Permissions)
+            .FirstOrDefaultAsync(r => r.Id == id && r.OrganizationId == organizationId, cancellationToken)
+            ?? throw new RoleValidationException("Role not found.");
+        if (role.IsSystemDefault)
+        {
+            throw new RoleValidationException("System-default roles cannot be edited.");
+        }
+
+        var permissions = await _dbContext.Set<Permission>()
+            .Where(p => request.PermissionKeys.Contains(p.Key))
+            .ToListAsync(cancellationToken);
+        if (permissions.Count != request.PermissionKeys.Distinct().Count())
+        {
+            var unknown = request.PermissionKeys.Except(permissions.Select(p => p.Key));
+            throw new RoleValidationException($"Unknown permission key(s): {string.Join(", ", unknown)}");
+        }
+
+        role.Permissions.Clear();
+        foreach (var permission in permissions)
+        {
+            role.Permissions.Add(permission);
+        }
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await _auditLogger.LogAsync(new AuditEntry(organizationId, actingUserId, "role.updated", "Role", role.Id.ToString(),
+            After: string.Join(",", permissions.Select(p => p.Key))), cancellationToken);
+
+        return ToResponse(role);
+    }
+
+    public async Task DeleteRoleAsync(Guid id, Guid actingUserId, CancellationToken cancellationToken = default)
+    {
+        var organizationId = _currentTenantProvider.OrganizationId
+            ?? throw new RoleValidationException("No active organization context.");
+
+        var role = await _dbContext.Set<Role>()
+            .FirstOrDefaultAsync(r => r.Id == id && r.OrganizationId == organizationId, cancellationToken)
+            ?? throw new RoleValidationException("Role not found.");
+        if (role.IsSystemDefault)
+        {
+            throw new RoleValidationException("System-default roles cannot be deleted.");
+        }
+        var stillAssigned = await _dbContext.Set<UserRole>().AnyAsync(ur => ur.RoleId == id, cancellationToken);
+        if (stillAssigned)
+        {
+            throw new RoleValidationException("This role is still assigned to at least one user. Reassign or remove those users first.");
+        }
+
+        _dbContext.Set<Role>().Remove(role);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await _auditLogger.LogAsync(new AuditEntry(organizationId, actingUserId, "role.deleted", "Role", id.ToString()), cancellationToken);
+    }
+
     private static RoleResponse ToResponse(Role role) =>
         new(role.Id, role.Name, role.IsSystemDefault, role.Permissions.Select(p => p.Key).ToList());
 }
