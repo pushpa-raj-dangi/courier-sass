@@ -130,6 +130,7 @@ builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IAuditLogger, AuditLogger>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<IUserProvisioningService, UserProvisioningService>();
+builder.Services.AddScoped<RoleService>();
 builder.Services.AddScoped<IPermissionChecker, Courier.Identity.Infrastructure.PermissionChecker>();
 builder.Services.AddScoped<IOrganizationLookupService, OrganizationLookupService>();
 builder.Services.AddScoped<IBranchHierarchyService, BranchHierarchyService>();

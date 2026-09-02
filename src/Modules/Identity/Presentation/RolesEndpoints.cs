@@ -15,6 +15,23 @@ public static class RolesEndpoints
     {
         var group = app.MapGroup("/api/v1").WithTags("Roles Management");
 
+        group.MapGet("/roles", async (RoleService service, CancellationToken cancellationToken) =>
+            Results.Ok(await service.ListRolesAsync(cancellationToken)))
+            .RequirePermission("role.manage");
+
+        group.MapPost("/roles", async (CreateRoleRequest request, RoleService service, HttpContext httpContext) =>
+        {
+            try
+            {
+                var result = await service.CreateRoleAsync(request, httpContext.User.GetUserId()!.Value, httpContext.RequestAborted);
+                return Results.Ok(result);
+            }
+            catch (RoleValidationException ex)
+            {
+                return Results.BadRequest(new { error = new { code = "ROLE_VALIDATION_FAILED", message = ex.Message } });
+            }
+        }).RequirePermission("role.manage");
+
         group.MapGet("/permissions", () =>
             Results.Ok(GroupPermissions(PermissionCatalog.All)))
             .RequirePermission("role.manage");
