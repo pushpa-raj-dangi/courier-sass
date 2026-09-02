@@ -77,7 +77,12 @@ services:
     ports:
       - "3000:3000"
     environment:
-      NEXT_PUBLIC_API_BASE_URL: "http://localhost:5001"
+      # Server-side only (src/web/src/lib/env.ts) — the API's address on the Docker network,
+      # not the host-mapped port ("http://localhost:5001" is unreachable from inside this
+      # container). Deliberately not NEXT_PUBLIC_-prefixed: see env.ts for why that prefix
+      # would bake in whatever value happened to be in a local .env.local at image build time
+      # and ignore this at runtime.
+      API_BASE_URL: "http://api:8080"
     depends_on:
       - api
 
