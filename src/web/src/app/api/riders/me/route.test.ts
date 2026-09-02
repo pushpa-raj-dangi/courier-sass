@@ -21,12 +21,17 @@ describe("GET /api/riders/me", () => {
     expect(response.status).toBe(200);
   });
 
-  it("returns 404 when the backend returns 404", async () => {
+  it("returns 404 (not 401) when the backend returns a bodyless 404", async () => {
+    // Results.NotFound() on the backend sends no body at all — response.json() on a real
+    // empty-body Response rejects, it doesn't resolve to null. A mock that resolves here
+    // would hide the exact bug this route previously had (see route.ts).
     vi.mocked(apiFetch).mockResolvedValue({
       ok: false,
       status: 404,
-      json: async () => null,
-    } as Response);
+      json: async () => {
+        throw new SyntaxError("Unexpected end of JSON input");
+      },
+    } as unknown as Response);
 
     const response = await GET();
 
