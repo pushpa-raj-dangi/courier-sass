@@ -142,4 +142,33 @@ public class NotificationDispatchServiceTests
 
         Assert.Single(emailChannel.Sent, s => s.Body.Contains("ABC123") && !s.Body.Contains("Should never be used"));
     }
+
+    [Fact]
+    public async Task DispatchEventAsync_PayloadHasRecipientEmail_SendsToItDirectly_NoMerchantLookup()
+    {
+        await using var dbContext = CreateContext();
+        var merchantLookup = new FakeMerchantContactLookupService { ContactEmail = null }; // proves this isn't consulted
+        var emailChannel = new RecordingEmailChannel();
+        var service = new NotificationDispatchService(dbContext, merchantLookup, new INotificationChannel[] { emailChannel });
+        var payload = System.Text.Json.JsonSerializer.Serialize(new { RecipientEmail = "invitee@example.com", FullName = "New Person", OrganizationName = "Acme Courier", InviteUrl = "https://app.example.com/accept-invite?token=abc" });
+
+        await service.DispatchEventAsync(Guid.NewGuid(), "user.invited", payload);
+
+        Assert.Single(emailChannel.Sent, s => s.RecipientAddress == "invitee@example.com" && s.Body.Contains("Acme Courier") && s.Body.Contains("https://app.example.com/accept-invite?token=abc"));
+    }
+
+    [Fact]
+    public async Task DispatchEventAsync_RecipientEmailPresent_IgnoresAbsentMerchantId()
+    {
+        await using var dbContext = CreateContext();
+        var merchantLookup = new FakeMerchantContactLookupService { ContactEmail = "shipper@example.com" };
+        var emailChannel = new RecordingEmailChannel();
+        var service = new NotificationDispatchService(dbContext, merchantLookup, new INotificationChannel[] { emailChannel });
+        // No MerchantId at all in this payload — must not throw NotificationValidationException.
+        var payload = System.Text.Json.JsonSerializer.Serialize(new { RecipientEmail = "invitee@example.com", FullName = "New Person", OrganizationName = "Acme Courier", InviteUrl = "https://app.example.com/accept-invite?token=abc" });
+
+        await service.DispatchEventAsync(Guid.NewGuid(), "user.invited", payload);
+
+        Assert.Single(emailChannel.Sent, s => s.RecipientAddress == "invitee@example.com");
+    }
 }

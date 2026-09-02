@@ -34,9 +34,24 @@ public class NotificationDispatchService
         }
 
         var payload = JsonDocument.Parse(payloadJson).RootElement;
-        if (!payload.TryGetProperty("MerchantId", out var merchantIdProperty) || !merchantIdProperty.TryGetGuid(out var merchantId))
+
+        // Two ways an event can name its recipient: a self-contained RecipientEmail (user.invited
+        // — the invitee isn't a merchant, there's nothing to look up) or, for every other existing
+        // event, a MerchantId this method resolves via IMerchantContactLookupService as before.
+        // Checked first and independently so a RecipientEmail payload never needs a MerchantId at
+        // all, and an existing MerchantId-keyed payload is completely unaffected by this branch.
+        string? recipientEmail;
+        if (payload.TryGetProperty("RecipientEmail", out var recipientEmailProperty) && recipientEmailProperty.ValueKind == JsonValueKind.String)
         {
-            throw new NotificationValidationException($"Event '{eventType}' payload has no MerchantId — cannot resolve a recipient.");
+            recipientEmail = recipientEmailProperty.GetString();
+        }
+        else
+        {
+            if (!payload.TryGetProperty("MerchantId", out var merchantIdProperty) || !merchantIdProperty.TryGetGuid(out var merchantId))
+            {
+                throw new NotificationValidationException($"Event '{eventType}' payload has no RecipientEmail or MerchantId — cannot resolve a recipient.");
+            }
+            recipientEmail = await _merchantContactLookupService.GetContactEmailAsync(organizationId, merchantId, cancellationToken);
         }
 
         // IgnoreQueryFilters() is required here, not optional: this method's real caller
@@ -54,7 +69,6 @@ public class NotificationDispatchService
             .FirstOrDefaultAsync(cancellationToken);
         var body = Render(template ?? defaultBody, payload);
 
-        var recipientEmail = await _merchantContactLookupService.GetContactEmailAsync(organizationId, merchantId, cancellationToken);
         if (recipientEmail is null)
         {
             await WriteLogAsync(organizationId, eventType, null, NotificationStatus.NoRecipient, null, cancellationToken);

@@ -14,6 +14,7 @@ public static class NotificationDefaultTemplates
         ["shipment.created"] = "Your shipment {Awb} has been created and is being processed.",
         ["shipment.delivered"] = "Your shipment {Awb} has been delivered.",
         ["shipment.ndr_created"] = "We were unable to deliver shipment {Awb}. Our team will contact you shortly.",
-        ["cod.collected"] = "COD amount of Rs. {CollectedAmount} has been collected for shipment {ShipmentId}."
+        ["cod.collected"] = "COD amount of Rs. {CollectedAmount} has been collected for shipment {ShipmentId}.",
+        ["user.invited"] = "You've been invited to join {OrganizationName} on Courier. Set your password: {InviteUrl}"
     };
 }
