@@ -17,10 +17,18 @@ export interface BranchPerformance {
   rtoRate: number | null;
 }
 
+export interface RiderPerformance {
+  riderId: string;
+  attempts: number;
+  successes: number;
+  successRate: number | null;
+}
+
 export interface OrgDashboardSummary {
   todaysShipmentsByStatus: Record<string, number>;
   financial: CodFinancialSummary;
   branchPerformance: Record<string, BranchPerformance>;
+  riderPerformance: RiderPerformance[];
   overallDeliverySuccessRate: number | null;
   overallNdrRate: number | null;
   overallRtoRate: number | null;

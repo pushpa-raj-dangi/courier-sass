@@ -30,4 +30,32 @@ describe("useOrgDashboard", () => {
     expect(result.current.data?.financial.expected).toBe(100);
     expect(global.fetch).toHaveBeenCalledWith("/api/reports/dashboard/organization", undefined);
   });
+
+  it("forwards from/to as a query string when provided", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        todaysShipmentsByStatus: {},
+        financial: { expected: 0, collected: 0, pending: 0, settled: 0, merchantPayable: 0 },
+        branchPerformance: {},
+        riderPerformance: [],
+        overallDeliverySuccessRate: null,
+        overallNdrRate: null,
+        overallRtoRate: null,
+        averageDeliveryTime: null,
+      }),
+    });
+
+    const { result } = renderHook(
+      () => useOrgDashboard({ from: "2026-08-01T00:00:00Z", to: "2026-08-31T23:59:59Z" }),
+      { wrapper }
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(global.fetch).toHaveBeenCalledWith(
+      "/api/reports/dashboard/organization?from=2026-08-01T00%3A00%3A00Z&to=2026-08-31T23%3A59%3A59Z",
+      undefined
+    );
+  });
 });

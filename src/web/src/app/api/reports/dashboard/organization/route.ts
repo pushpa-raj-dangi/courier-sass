@@ -1,9 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { apiFetch } from "@/lib/auth/apiFetch";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const query = request.nextUrl.search;
   try {
-    const response = await apiFetch("/api/v1/reports/dashboard/organization");
+    const response = await apiFetch(`/api/v1/reports/dashboard/organization${query}`);
     const body = await response.json();
     return NextResponse.json(body, { status: response.status });
   } catch {
