@@ -4,12 +4,15 @@ import { useState } from "react";
 import { RolesTab } from "@/features/admin/components/RolesTab";
 import { RoleCreateSheet } from "@/features/admin/components/RoleCreateSheet";
 import { RoleDetailSheet } from "@/features/admin/components/RoleDetailSheet";
+import { UsersTab } from "@/features/admin/components/UsersTab";
+import { UserInviteSheet } from "@/features/admin/components/UserInviteSheet";
+import { UserDetailSheet } from "@/features/admin/components/UserDetailSheet";
 
 // Plain button-row tab switcher, matching /cod's own precedent (no Tabs primitive in this repo).
-// Task 17 appends the "users" tab entry, its `activeTab === "users"` branch, and its own Sheets
-// at the bottom — this file grows additively, never restructured, the same way CodPage did.
+// This file grows additively — new tabs and their Sheets appended, never restructured.
 const TABS = [
   { key: "roles", label: "Roles" },
+  { key: "users", label: "Users" },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -40,9 +43,12 @@ export default function AdminPage() {
       </div>
 
       {activeTab === "roles" && <RolesTab />}
+      {activeTab === "users" && <UsersTab />}
 
       <RoleCreateSheet />
       <RoleDetailSheet />
+      <UserInviteSheet />
+      <UserDetailSheet />
     </div>
   );
 }

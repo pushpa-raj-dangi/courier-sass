@@ -15,7 +15,7 @@ import {
 interface NavItem {
   href: string;
   label: string;
-  permission: string;
+  permission: string | string[];
   icon: LucideIcon;
 }
 
@@ -32,7 +32,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/riders", label: "Riders", permission: "rider.read", icon: Bike },
   { href: "/my-deliveries", label: "My Deliveries", permission: "delivery.attempt", icon: ClipboardCheck },
   { href: "/cod", label: "COD", permission: "cod.read", icon: Wallet },
-  { href: "/admin", label: "Admin", permission: "role.manage", icon: ShieldCheck },
+  { href: "/admin", label: "Admin", permission: ["role.manage", "user.read"], icon: ShieldCheck },
 ];
 
 // Flat links, not the block's original collapsible groups — no nav item in this app has
@@ -52,7 +52,10 @@ export function NavMain({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 function NavMainItem({ item, active, onNavigate }: { item: NavItem; active: boolean; onNavigate?: () => void }) {
-  const allowed = usePermission(item.permission);
+  const permissions = Array.isArray(item.permission) ? item.permission : [item.permission];
+  const hasFirst = usePermission(permissions[0]);
+  const hasSecond = usePermission(permissions[1] ?? permissions[0]);
+  const allowed = hasFirst || hasSecond;
   if (!allowed) {
     return null;
   }
