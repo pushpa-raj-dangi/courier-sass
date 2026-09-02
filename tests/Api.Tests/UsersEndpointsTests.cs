@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Courier.Identity.Application;
+using Courier.SharedKernel;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
 
@@ -46,10 +47,11 @@ public class UsersEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
         var response = await client.GetAsync("/api/v1/users");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var users = await response.Content.ReadFromJsonAsync<List<UserListItem>>();
-        Assert.Single(users!);
-        Assert.Equal(auth.UserId, users![0].Id);
+        var page = await response.Content.ReadFromJsonAsync<PagedResult<UserListItem>>();
+        var self = Assert.Single(page!.Items);
+        Assert.Equal(auth.UserId, self.Id);
+        Assert.Equal("OrganizationOwner", self.RoleName);
     }
 }
 
-file record UserListItem(Guid Id, string Email, string FullName, bool IsActive);
+file record UserListItem(Guid Id, string Email, string FullName, bool IsActive, string? RoleName, int BranchCount);
