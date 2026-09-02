@@ -282,6 +282,7 @@ app.UseMiddleware<Courier.Api.Middleware.IdempotencyMiddleware>();
 
 app.MapAuthEndpoints();
 app.MapUsersEndpoints();
+app.MapRolesEndpoints();
 app.MapBranchesEndpoints();
 app.MapGeographyEndpoints();
 app.MapDeliveryZonesEndpoints();
