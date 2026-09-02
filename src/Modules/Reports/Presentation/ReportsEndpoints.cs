@@ -23,11 +23,11 @@ public static class ReportsEndpoints
             .RequirePermission("report.read");
 
         group.MapGet("/export/shipments", async (Guid? branchId, DateTimeOffset? from, DateTimeOffset? to, ReportExportService service, HttpContext httpContext) =>
-            await HandleCsvAsync(httpContext, () => service.GetShipmentsCsvAsync(branchId, from, to, httpContext.User, httpContext.RequestAborted)))
+            await HandleCsvAsync(httpContext, "shipments", () => service.GetShipmentsCsvAsync(branchId, from, to, httpContext.User, httpContext.RequestAborted)))
             .RequirePermission("report.export");
 
         group.MapGet("/export/cod-summary", async (Guid? branchId, DateTimeOffset? from, DateTimeOffset? to, ReportExportService service, HttpContext httpContext) =>
-            await HandleCsvAsync(httpContext, () => service.GetCodSummaryCsvAsync(branchId, from, to, httpContext.User, httpContext.RequestAborted)))
+            await HandleCsvAsync(httpContext, "cod-summary", () => service.GetCodSummaryCsvAsync(branchId, from, to, httpContext.User, httpContext.RequestAborted)))
             .RequirePermission("report.export");
     }
 
@@ -47,7 +47,7 @@ public static class ReportsEndpoints
         }
     }
 
-    private static async Task<IResult> HandleCsvAsync(HttpContext httpContext, Func<Task<IEnumerable<string>>> operation)
+    private static async Task<IResult> HandleCsvAsync(HttpContext httpContext, string fileNamePrefix, Func<Task<IEnumerable<string>>> operation)
     {
         IEnumerable<string> lines;
         try
@@ -64,6 +64,7 @@ public static class ReportsEndpoints
         }
 
         httpContext.Response.ContentType = "text/csv";
+        httpContext.Response.Headers.ContentDisposition = $"attachment; filename=\"{fileNamePrefix}-{DateTimeOffset.UtcNow:yyyyMMdd-HHmmss}.csv\"";
         await using var writer = new StreamWriter(httpContext.Response.Body, leaveOpen: true);
         foreach (var line in lines)
         {

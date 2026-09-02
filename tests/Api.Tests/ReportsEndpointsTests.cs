@@ -99,6 +99,21 @@ public class ReportsEndpointsTests : IClassFixture<WebApplicationFactory<Program
     }
 
     [Fact]
+    public async Task ExportShipments_SetsContentDispositionAttachmentWithCsvFilename()
+    {
+        var (client, _) = await RegisterOrgWithBranchAsync("export-ship-disp");
+
+        var response = await client.GetAsync("/api/v1/reports/export/shipments");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var disposition = response.Content.Headers.ContentDisposition;
+        Assert.NotNull(disposition);
+        Assert.Equal("attachment", disposition!.DispositionType);
+        Assert.StartsWith("shipments-", disposition.FileName?.Trim('"'));
+        Assert.EndsWith(".csv", disposition.FileName?.Trim('"'));
+    }
+
+    [Fact]
     public async Task ExportShipments_BranchFromAnotherOrganization_ReturnsReportsValidationFailed()
     {
         // AllBranches-scope caller (an OrganizationOwner) must not be able to use a branchId query
@@ -126,6 +141,21 @@ public class ReportsEndpointsTests : IClassFixture<WebApplicationFactory<Program
         Assert.StartsWith("text/csv", response.Content.Headers.ContentType?.MediaType);
         var body = await response.Content.ReadAsStringAsync();
         Assert.StartsWith("Awb,MerchantName,BranchName,ExpectedAmount,CollectedAmount,Status,CollectedAt", body);
+    }
+
+    [Fact]
+    public async Task ExportCodSummary_SetsContentDispositionAttachmentWithCsvFilename()
+    {
+        var (client, _) = await RegisterOrgWithBranchAsync("export-cod-disp");
+
+        var response = await client.GetAsync("/api/v1/reports/export/cod-summary");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var disposition = response.Content.Headers.ContentDisposition;
+        Assert.NotNull(disposition);
+        Assert.Equal("attachment", disposition!.DispositionType);
+        Assert.StartsWith("cod-summary-", disposition.FileName?.Trim('"'));
+        Assert.EndsWith(".csv", disposition.FileName?.Trim('"'));
     }
 
     [Fact]
