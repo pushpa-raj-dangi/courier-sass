@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Package, Building2, Wallet, Truck, Bike, ClipboardCheck, AlertTriangle, Undo2, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, Package, Building2, Wallet, Truck, Bike, ClipboardCheck, AlertTriangle, Undo2, ShieldCheck, type LucideIcon } from "lucide-react";
 import { usePermission } from "@/features/auth/hooks/usePermission";
 import {
   SidebarGroup,
@@ -32,6 +32,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/riders", label: "Riders", permission: "rider.read", icon: Bike },
   { href: "/my-deliveries", label: "My Deliveries", permission: "delivery.attempt", icon: ClipboardCheck },
   { href: "/cod", label: "COD", permission: "cod.read", icon: Wallet },
+  { href: "/admin", label: "Admin", permission: "role.manage", icon: ShieldCheck },
 ];
 
 // Flat links, not the block's original collapsible groups — no nav item in this app has
