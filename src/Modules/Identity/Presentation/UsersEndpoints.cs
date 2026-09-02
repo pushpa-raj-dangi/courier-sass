@@ -1,3 +1,4 @@
+using Courier.Identity.Application;
 using Courier.Identity.Domain;
 using Courier.SharedKernel;
 using Microsoft.AspNetCore.Builder;
@@ -20,6 +21,38 @@ public static class UsersEndpoints
                 .ToListAsync();
             return Results.Ok(users);
         }).RequirePermission("user.read")
+        .WithTags("Users Management");
+
+        app.MapGet("/api/v1/users/{id:guid}/branches", async (Guid id, UserManagementService service, CancellationToken cancellationToken) =>
+            Results.Ok(await service.ListUserBranchGrantsAsync(id, cancellationToken)))
+            .RequirePermission("user.read")
+            .WithTags("Users Management");
+
+        app.MapPost("/api/v1/users/{id:guid}/branches", async (Guid id, GrantBranchRequest request, UserManagementService service, HttpContext httpContext) =>
+        {
+            try
+            {
+                return Results.Ok(await service.GrantBranchAsync(id, request, httpContext.User.GetUserId()!.Value, httpContext.RequestAborted));
+            }
+            catch (UserManagementException ex)
+            {
+                return Results.BadRequest(new { error = new { code = "USER_MANAGEMENT_FAILED", message = ex.Message } });
+            }
+        }).RequirePermission("user.update")
+        .WithTags("Users Management");
+
+        app.MapDelete("/api/v1/users/{id:guid}/branches/{branchId:guid}", async (Guid id, Guid branchId, UserManagementService service, HttpContext httpContext) =>
+        {
+            try
+            {
+                await service.RevokeBranchAsync(id, branchId, httpContext.User.GetUserId()!.Value, httpContext.RequestAborted);
+                return Results.NoContent();
+            }
+            catch (UserManagementException ex)
+            {
+                return Results.BadRequest(new { error = new { code = "USER_MANAGEMENT_FAILED", message = ex.Message } });
+            }
+        }).RequirePermission("user.update")
         .WithTags("Users Management");
     }
 }
