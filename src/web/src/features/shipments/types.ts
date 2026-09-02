@@ -73,9 +73,7 @@ export interface CreateShipmentInput {
 
 export interface ServiceType {
   id: string;
-  // `code` deliberately omitted — ServiceTypeResponse.Code has no JsonStringEnumConverter and
-  // serializes as a raw integer over the wire (same latent bug BranchType had before its
-  // Phase F2 fix). Only `id`/`name` are safe to consume; never render `.code`.
+  code: string;
   name: string;
 }
 
