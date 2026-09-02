@@ -457,7 +457,51 @@ temporary/expiring grants), user invite/deactivate management.
 permissions, and grant a user branch access (including a temporary grant) entirely
 through the UI.
 
-*Status: Not started.*
+*Status: Complete.* Shipped an `/admin` page with permission-gated `RolesTab`
+(list, create, edit-permissions, delete) and `UsersTab` (paginated list, invite,
+deactivate/reactivate, per-user branch grants with an optional expiry) — each tab's
+own Sheets (`RoleCreateSheet`/`RoleDetailSheet`, `UserInviteSheet`/
+`UserDetailSheet`) plus a `UserBranchGrants` panel. The sidebar's `Admin` entry is
+visible to `role.manage` OR `user.read`; the page itself gates each tab
+independently and defaults to whichever tab the caller can actually see, since the
+backend's per-endpoint permission check is stricter than that OR. New public
+`/accept-invite?token=` page lets an invited user set their password and lands
+them signed in.
+
+8 backend gaps closed first (`docs/CLARIFICATIONS.md` entry #18): `BranchScope`
+had no `JsonStringEnumConverter`; role default-seeding covered only 3 of 14
+non-platform roles (`AdditionalRoleSeeds` now seeds all 14, grounded in
+`docs/RBAC.md` §4); no `/roles` or `/permissions` endpoints existed at all; no
+paginated `/users` list, per-user branch grant list/grant/revoke, or
+deactivate/reactivate endpoints existed; no invite flow existed end-to-end
+(`UserInvite` entity + migration, `POST /users/invite`, `POST
+/auth/accept-invite`, a `user.invited` notification template, and `Identity`
+gaining its first dependency on `Events` for `IOutboxWriter`). See
+`docs/superpowers/specs/2026-09-02-frontend-phase-f9-rbac-admin-design.md` and
+the accompanying plan for full detail.
+
+A whole-branch review (10 findings) caught two CRITICAL cross-tenant gaps before
+merge: `GrantBranchAsync` and `InviteUserAsync` both wrote a `UserBranch`/
+invite-scoped grant against a caller-supplied `BranchId` without ever checking it
+belonged to the caller's own organization — a org admin could grant (or invite a
+user into) another tenant's branch by ID. Both now validate the branch through
+`IBranchLookupService` first and write nothing if it doesn't resolve, with
+regression tests. Also fixed: `admin/page.tsx`'s tab-gating (see above),
+`AcceptInviteForm`'s fetch call missing a try/catch on this public unauthenticated
+page, and a consistency-only `OrganizationId` filter added to
+`RoleService.DeleteRoleAsync`'s still-assigned check.
+
+Manual E2E verification against the real API/Postgres/Mailhog (fresh org
+registration confirmed all 14 default roles seed correctly; created a custom role
+with a permission subset, then edited and attempted-deleted it while assigned —
+correctly rejected; invited a user by email and retrieved the real invite email
+from Mailhog with a correctly-scoped one-time token; accepted the invite, then
+confirmed login with the new password and that the token cannot be reused; granted
+a second branch with a near-immediate expiry and confirmed the branch-scoped
+`branch.read` list correctly excluded it once expired while keeping the
+unexpired grant; deactivated the user and confirmed both login and the
+already-issued refresh token were rejected, then reactivated and confirmed both
+work again) found no further bugs beyond the review's two CRITICAL findings above.
 
 ## Later (not yet planned in detail)
 
