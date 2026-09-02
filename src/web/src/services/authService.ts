@@ -43,6 +43,25 @@ export const authService = {
     };
   },
 
+  async acceptInvite(token: string, password: string): Promise<AuthTokens> {
+    const response = await fetch(`${getUpstreamApiUrl()}/api/v1/auth/accept-invite`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, password }),
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      throw new Error("ACCEPT_INVITE_FAILED");
+    }
+    const data = await response.json();
+    return {
+      accessToken: data.accessToken,
+      refreshToken: data.refreshToken,
+      userId: data.userId,
+      organizationId: data.organizationId,
+    };
+  },
+
   async refresh(refreshToken: string): Promise<AuthTokens> {
     const response = await fetch(`${getUpstreamApiUrl()}/api/v1/auth/refresh`, {
       method: "POST",
