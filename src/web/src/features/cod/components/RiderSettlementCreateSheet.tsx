@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
+import { FieldError } from "@/components/ui/field-error";
 import { useBranches } from "@/features/branches/hooks/useBranches";
 import { useRiders } from "@/features/riders/hooks/useRiders";
 import { createRiderSettlementSchema, type CreateRiderSettlementFormValues } from "@/features/cod/schema";
@@ -63,7 +64,12 @@ export function RiderSettlementCreateSheet() {
               control={control}
               render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger id="branchId" aria-label="Branch">
+                  <SelectTrigger
+                    id="branchId"
+                    aria-label="Branch"
+                    aria-invalid={!!errors.branchId}
+                    aria-describedby={errors.branchId ? "branchId-error" : undefined}
+                  >
                     <SelectValue placeholder="Select branch" />
                   </SelectTrigger>
                   <SelectContent>
@@ -74,7 +80,7 @@ export function RiderSettlementCreateSheet() {
                 </Select>
               )}
             />
-            {errors.branchId && <p className="text-sm text-destructive">{errors.branchId.message}</p>}
+            {errors.branchId && <FieldError id="branchId-error">{errors.branchId.message}</FieldError>}
           </div>
           <div className="space-y-2">
             <Label htmlFor="riderId">Rider</Label>
@@ -83,7 +89,12 @@ export function RiderSettlementCreateSheet() {
               control={control}
               render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger id="riderId" aria-label="Rider">
+                  <SelectTrigger
+                    id="riderId"
+                    aria-label="Rider"
+                    aria-invalid={!!errors.riderId}
+                    aria-describedby={errors.riderId ? "riderId-error" : undefined}
+                  >
                     <SelectValue placeholder="Select rider" />
                   </SelectTrigger>
                   <SelectContent>
@@ -94,7 +105,7 @@ export function RiderSettlementCreateSheet() {
                 </Select>
               )}
             />
-            {errors.riderId && <p className="text-sm text-destructive">{errors.riderId.message}</p>}
+            {errors.riderId && <FieldError id="riderId-error">{errors.riderId.message}</FieldError>}
           </div>
           <div className="space-y-2">
             <Label htmlFor="declaredAmount">Declared Amount</Label>
@@ -107,14 +118,16 @@ export function RiderSettlementCreateSheet() {
                   aria-label="Declared Amount"
                   type="number"
                   step="0.01"
+                  aria-invalid={!!errors.declaredAmount}
+                  aria-describedby={errors.declaredAmount ? "declaredAmount-error" : undefined}
                   value={field.value ?? ""}
                   onChange={(e) => field.onChange(e.target.value === "" ? undefined : Number(e.target.value))}
                 />
               )}
             />
-            {errors.declaredAmount && <p className="text-sm text-destructive">{errors.declaredAmount.message}</p>}
+            {errors.declaredAmount && <FieldError id="declaredAmount-error">{errors.declaredAmount.message}</FieldError>}
           </div>
-          {serverError && <p className="text-sm text-destructive">{serverError}</p>}
+          {serverError && <FieldError id="rider-settlement-server-error">{serverError}</FieldError>}
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? <Spinner className="h-4 w-4" /> : "Create Settlement"}
           </Button>

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FieldError } from "@/components/ui/field-error";
 import { loginSchema, type LoginFormValues } from "@/features/auth/schema";
 
 export function LoginForm() {
@@ -55,14 +56,16 @@ export function LoginForm() {
                 type="email"
                 autoComplete="email"
                 className="pl-9"
+                aria-invalid={!!errors.email}
+                aria-describedby={errors.email ? "email-error" : undefined}
                 {...register("email")}
               />
             </div>
             {errors.email && (
-              <p className="flex items-center gap-1.5 text-sm text-destructive">
+              <FieldError id="email-error" className="flex items-center gap-1.5">
                 <AlertCircle className="h-3.5 w-3.5" strokeWidth={2} />
                 {errors.email.message}
-              </p>
+              </FieldError>
             )}
           </div>
           <div className="space-y-2">
@@ -77,6 +80,8 @@ export function LoginForm() {
                 type={showPassword ? "text" : "password"}
                 autoComplete="current-password"
                 className="pl-9 pr-9"
+                aria-invalid={!!errors.password}
+                aria-describedby={errors.password ? "password-error" : undefined}
                 {...register("password")}
               />
               <button
@@ -93,17 +98,17 @@ export function LoginForm() {
               </button>
             </div>
             {errors.password && (
-              <p className="flex items-center gap-1.5 text-sm text-destructive">
+              <FieldError id="password-error" className="flex items-center gap-1.5">
                 <AlertCircle className="h-3.5 w-3.5" strokeWidth={2} />
                 {errors.password.message}
-              </p>
+              </FieldError>
             )}
           </div>
           {serverError && (
-            <p className="flex items-center gap-1.5 text-sm text-destructive">
+            <FieldError id="login-server-error" className="flex items-center gap-1.5">
               <AlertCircle className="h-3.5 w-3.5" strokeWidth={2} />
               {serverError}
-            </p>
+            </FieldError>
           )}
           <Button type="submit" className="group w-full" disabled={isSubmitting}>
             {isSubmitting ? "Signing in..." : "Sign in"}

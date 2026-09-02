@@ -59,24 +59,26 @@ export function DataTable<T>({
 
   return (
     <div className="space-y-4">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            {columns.map((col) => (
-              <TableHead key={col.key}>{col.header}</TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {data.items.map((row) => (
-            <TableRow key={rowKey(row)}>
+      <div className="overflow-hidden rounded-xl border border-border bg-muted/40">
+        <Table>
+          <TableHeader>
+            <TableRow>
               {columns.map((col) => (
-                <TableCell key={col.key}>{col.render(row)}</TableCell>
+                <TableHead key={col.key}>{col.header}</TableHead>
               ))}
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {data.items.map((row) => (
+              <TableRow key={rowKey(row)}>
+                {columns.map((col) => (
+                  <TableCell key={col.key}>{col.render(row)}</TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
           Page {data.page} of {data.totalPages} ({data.totalCount} total)

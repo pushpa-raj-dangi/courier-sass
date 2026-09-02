@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { FieldError } from "@/components/ui/field-error";
 import { ErrorState } from "@/components/states/ErrorState";
 import { useAdjustments } from "@/features/cod/hooks/useAdjustments";
 import { useApproveAdjustment } from "@/features/cod/hooks/useApproveAdjustment";
@@ -80,7 +81,7 @@ export function AdjustmentDetailSheet() {
               ) : (
                 canAdjust && (
                   <div className="space-y-2">
-                    {serverError && <p className="text-sm text-destructive">{serverError}</p>}
+                    {serverError && <FieldError id="adjustment-server-error">{serverError}</FieldError>}
                     <Button type="button" disabled={approveMutation.isPending} onClick={handleApprove}>
                       {approveMutation.isPending ? <Spinner className="h-4 w-4" /> : "Approve"}
                     </Button>

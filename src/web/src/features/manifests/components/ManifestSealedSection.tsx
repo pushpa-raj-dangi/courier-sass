@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { FieldError } from "@/components/ui/field-error";
 import { useDispatchManifest } from "@/features/manifests/hooks/useDispatchManifest";
 import { useRiders } from "@/features/riders/hooks/useRiders";
 import type { Manifest } from "@/features/manifests/types";
@@ -34,7 +35,13 @@ export function ManifestSealedSection({ manifest }: { manifest: Manifest }) {
     <div className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="vehiclePlate">Vehicle Plate</Label>
-        <Input id="vehiclePlate" value={vehiclePlate} onChange={(e) => setVehiclePlate(e.target.value)} />
+        <Input
+          id="vehiclePlate"
+          aria-invalid={!!error}
+          aria-describedby={error ? "vehiclePlate-error" : undefined}
+          value={vehiclePlate}
+          onChange={(e) => setVehiclePlate(e.target.value)}
+        />
       </div>
       <div className="space-y-2">
         <Label htmlFor="driverId">Driver</Label>
@@ -49,7 +56,7 @@ export function ManifestSealedSection({ manifest }: { manifest: Manifest }) {
           </SelectContent>
         </Select>
       </div>
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && <FieldError id="vehiclePlate-error">{error}</FieldError>}
       <Button type="button" disabled={dispatchManifest.isPending} onClick={handleDispatch}>
         {dispatchManifest.isPending ? <Spinner className="h-4 w-4" /> : "Dispatch"}
       </Button>

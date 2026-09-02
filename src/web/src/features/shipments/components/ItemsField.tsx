@@ -5,6 +5,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldError } from "@/components/ui/field-error";
 import type { CreateShipmentFormValues } from "@/features/shipments/schema";
 
 export function ItemsField() {
@@ -60,7 +61,7 @@ export function ItemsField() {
         </div>
       ))}
       {formState.errors.items?.message && (
-        <p className="text-sm text-destructive">{formState.errors.items.message}</p>
+        <FieldError id="items-error">{formState.errors.items.message}</FieldError>
       )}
     </div>
   );

@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { FieldError } from "@/components/ui/field-error";
 import { ErrorState } from "@/components/states/ErrorState";
 import { useBranchSettlements } from "@/features/cod/hooks/useBranchSettlements";
 import { useRiderSettlements } from "@/features/cod/hooks/useRiderSettlements";
@@ -109,7 +110,7 @@ export function BranchSettlementDetailSheet() {
                     onChange={(e) => setVerifyAmount(e.target.value)}
                     placeholder="Verified amount"
                   />
-                  {serverError && <p className="text-sm text-destructive">{serverError}</p>}
+                  {serverError && <FieldError id="branch-settlement-detail-server-error">{serverError}</FieldError>}
                   <Button type="button" disabled={verifyFinance.isPending} onClick={handleVerify}>
                     {verifyFinance.isPending ? <Spinner className="h-4 w-4" /> : "Verify"}
                   </Button>

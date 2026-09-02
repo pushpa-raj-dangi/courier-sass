@@ -6,6 +6,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
+import { FieldError } from "@/components/ui/field-error";
 import { EmptyState } from "@/components/states/EmptyState";
 import { useUserBranchGrants } from "@/features/admin/hooks/useUserBranchGrants";
 import { useGrantBranch } from "@/features/admin/hooks/useGrantBranch";
@@ -86,7 +87,7 @@ export function UserBranchGrants({ userId }: { userId: string }) {
             </SelectContent>
           </Select>
           <DatePicker aria-label="Expires at (optional)" placeholder="Expires at (optional)" value={expiresAt} onChange={setExpiresAt} clearable />
-          {serverError && <p className="text-sm text-destructive">{serverError}</p>}
+          {serverError && <FieldError id="branch-grant-server-error">{serverError}</FieldError>}
           <div className="flex gap-2">
             <Button type="button" size="sm" disabled={!branchId || grantBranch.isPending} onClick={handleAdd}>
               {grantBranch.isPending ? <Spinner className="h-4 w-4" /> : "Grant"}

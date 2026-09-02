@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
+import { FieldError } from "@/components/ui/field-error";
 import { usePermissionCatalog } from "@/features/admin/hooks/usePermissionCatalog";
 import { useRoles } from "@/features/admin/hooks/useRoles";
 import { useUpdateRole } from "@/features/admin/hooks/useUpdateRole";
@@ -101,7 +102,7 @@ export function RoleDetailSheet() {
                 </fieldset>
               ))}
             </div>
-            {serverError && <p className="text-sm text-destructive">{serverError}</p>}
+            {serverError && <FieldError id="role-detail-server-error">{serverError}</FieldError>}
             {!role.isSystemDefault && (
               <div className="flex gap-2">
                 <Button type="button" onClick={handleSave} disabled={updateRole.isPending}>

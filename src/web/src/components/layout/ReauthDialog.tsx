@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
+import { FieldError } from "@/components/ui/field-error";
 import { useAuthStore } from "@/lib/store/authStore";
 import { useSession } from "@/features/auth/hooks/useSession";
 
@@ -92,7 +93,7 @@ export function ReauthDialog() {
               />
             </div>
           </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && <FieldError id="reauth-error">{error}</FieldError>}
           <DialogFooter className="flex-col gap-2 sm:flex-col">
             <Button type="submit" className="w-full" disabled={submitting}>
               {submitting ? <Spinner className="h-4 w-4" /> : "Sign in"}

@@ -45,32 +45,34 @@ export function MerchantSettlementsTab() {
         <EmptyState title="No merchant settlements" description="Create one from finance-verified COD collections for a merchant and period." />
       )}
       {!isLoading && (settlements?.length ?? 0) > 0 && (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Merchant</TableHead>
-              <TableHead>Period</TableHead>
-              <TableHead>Total Payable</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Settled At</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {settlements!.map((s) => (
-              <TableRow key={s.id}>
-                <TableCell>
-                  <button type="button" onClick={() => openDetail(s.id)} className="font-medium text-foreground hover:underline">
-                    {merchantsById.get(s.merchantId) ?? s.merchantId}
-                  </button>
-                </TableCell>
-                <TableCell>{new Date(s.periodFrom).toLocaleDateString()} – {new Date(s.periodTo).toLocaleDateString()}</TableCell>
-                <TableCell>Rs. {s.totalPayable.toFixed(2)}</TableCell>
-                <TableCell><StatusBadge status={s.status} namespace="MerchantSettlement" /></TableCell>
-                <TableCell>{s.settledAt ? new Date(s.settledAt).toLocaleDateString() : "—"}</TableCell>
+        <div className="overflow-hidden rounded-xl border border-border bg-muted/40">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Merchant</TableHead>
+                <TableHead>Period</TableHead>
+                <TableHead>Total Payable</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Settled At</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {settlements!.map((s) => (
+                <TableRow key={s.id}>
+                  <TableCell>
+                    <button type="button" onClick={() => openDetail(s.id)} className="font-medium text-foreground hover:underline">
+                      {merchantsById.get(s.merchantId) ?? s.merchantId}
+                    </button>
+                  </TableCell>
+                  <TableCell>{new Date(s.periodFrom).toLocaleDateString()} – {new Date(s.periodTo).toLocaleDateString()}</TableCell>
+                  <TableCell>Rs. {s.totalPayable.toFixed(2)}</TableCell>
+                  <TableCell><StatusBadge status={s.status} namespace="MerchantSettlement" /></TableCell>
+                  <TableCell>{s.settledAt ? new Date(s.settledAt).toLocaleDateString() : "—"}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       )}
     </div>
   );

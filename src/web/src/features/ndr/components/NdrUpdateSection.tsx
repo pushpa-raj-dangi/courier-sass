@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
+import { FieldError } from "@/components/ui/field-error";
 import { useUpdateNdr } from "@/features/ndr/hooks/useUpdateNdr";
 import type { Ndr, NdrStatus } from "@/features/ndr/types";
 
@@ -58,7 +59,7 @@ export function NdrUpdateSection({ ndr }: { ndr: Ndr }) {
         <Label htmlFor="ndr-follow-up">Follow Up At</Label>
         <DateTimePicker id="ndr-follow-up" value={followUpAt} onChange={setFollowUpAt} clearable />
       </div>
-      {serverError && <p className="text-sm text-destructive">{serverError}</p>}
+      {serverError && <FieldError id="ndr-update-server-error">{serverError}</FieldError>}
       <div className="flex gap-2">
         {moves.map((move) => (
           <Button key={move.status} type="button" disabled={updateNdr.isPending} onClick={() => handleMove(move.status)}>

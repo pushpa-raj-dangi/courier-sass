@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
+import { FieldError } from "@/components/ui/field-error";
 import { createVehicleSchema, type CreateVehicleFormValues } from "@/features/riders/schema";
 import { useCreateVehicle } from "@/features/riders/hooks/useCreateVehicle";
 import { useRiders } from "@/features/riders/hooks/useRiders";
@@ -57,13 +58,24 @@ export function VehicleCreateSheet() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="type">Type</Label>
-              <Input id="type" placeholder="Motorcycle" {...register("type")} />
-              {errors.type && <p className="text-sm text-destructive">{errors.type.message}</p>}
+              <Input
+                id="type"
+                placeholder="Motorcycle"
+                aria-invalid={!!errors.type}
+                aria-describedby={errors.type ? "type-error" : undefined}
+                {...register("type")}
+              />
+              {errors.type && <FieldError id="type-error">{errors.type.message}</FieldError>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="plateNumber">Plate Number</Label>
-              <Input id="plateNumber" {...register("plateNumber")} />
-              {errors.plateNumber && <p className="text-sm text-destructive">{errors.plateNumber.message}</p>}
+              <Input
+                id="plateNumber"
+                aria-invalid={!!errors.plateNumber}
+                aria-describedby={errors.plateNumber ? "plateNumber-error" : undefined}
+                {...register("plateNumber")}
+              />
+              {errors.plateNumber && <FieldError id="plateNumber-error">{errors.plateNumber.message}</FieldError>}
             </div>
           </div>
           <div className="space-y-2">
@@ -85,7 +97,7 @@ export function VehicleCreateSheet() {
               )}
             />
           </div>
-          {serverError && <p className="text-sm text-destructive">{serverError}</p>}
+          {serverError && <FieldError id="vehicle-server-error">{serverError}</FieldError>}
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? <Spinner className="h-4 w-4" /> : "Create Vehicle"}
           </Button>

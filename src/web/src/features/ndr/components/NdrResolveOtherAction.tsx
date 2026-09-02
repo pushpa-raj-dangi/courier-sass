@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { FieldError } from "@/components/ui/field-error";
 import { useResolveNdr } from "@/features/ndr/hooks/useResolveNdr";
 import type { Ndr } from "@/features/ndr/types";
 
@@ -25,7 +26,7 @@ export function NdrResolveOtherAction({ ndr }: { ndr: Ndr }) {
 
   return (
     <div className="space-y-2">
-      {serverError && <p className="text-sm text-destructive">{serverError}</p>}
+      {serverError && <FieldError id="ndr-resolve-other-server-error">{serverError}</FieldError>}
       <Button type="button" variant="ghost" size="sm" disabled={resolveNdr.isPending} onClick={handleResolve}>
         {resolveNdr.isPending ? <Spinner className="h-4 w-4" /> : "Resolve — Other"}
       </Button>

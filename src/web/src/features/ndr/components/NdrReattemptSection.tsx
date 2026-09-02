@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { FieldError } from "@/components/ui/field-error";
 import { useResolveNdr } from "@/features/ndr/hooks/useResolveNdr";
 import type { Ndr } from "@/features/ndr/types";
 
@@ -24,7 +25,7 @@ export function NdrReattemptSection({ ndr }: { ndr: Ndr }) {
       <p className="text-sm text-muted-foreground">
         Resolving sends this shipment back to Out for Delivery for another attempt.
       </p>
-      {serverError && <p className="text-sm text-destructive">{serverError}</p>}
+      {serverError && <FieldError id="ndr-reattempt-server-error">{serverError}</FieldError>}
       <Button type="button" disabled={resolveNdr.isPending} onClick={handleResolve}>
         {resolveNdr.isPending ? <Spinner className="h-4 w-4" /> : "Resolve — Reattempt Delivery"}
       </Button>

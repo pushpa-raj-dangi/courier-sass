@@ -17,6 +17,8 @@ export interface DatePickerProps {
   className?: string;
   clearable?: boolean;
   "aria-label"?: string;
+  "aria-invalid"?: boolean | "true" | "false";
+  "aria-describedby"?: string;
 }
 
 export function DatePicker({

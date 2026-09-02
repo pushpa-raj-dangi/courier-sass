@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
+import { FieldError } from "@/components/ui/field-error";
 import { useRoles } from "@/features/admin/hooks/useRoles";
 import { useInviteUser } from "@/features/admin/hooks/useInviteUser";
 import { useAdminPanelStore } from "@/features/admin/store/adminPanelStore";
@@ -101,7 +102,7 @@ export function UserInviteSheet() {
             <Label htmlFor="invite-expires">Branch Access Expires (optional)</Label>
             <DatePicker id="invite-expires" value={expiresAt} onChange={setExpiresAt} clearable />
           </div>
-          {serverError && <p className="text-sm text-destructive">{serverError}</p>}
+          {serverError && <FieldError id="user-invite-server-error">{serverError}</FieldError>}
           <Button type="submit" disabled={inviteUser.isPending || !email || !fullName || !roleId || !branchId}>
             {inviteUser.isPending ? <Spinner className="h-4 w-4" /> : "Send Invite"}
           </Button>

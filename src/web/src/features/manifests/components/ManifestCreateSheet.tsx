@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
+import { FieldError } from "@/components/ui/field-error";
 import { useBranches } from "@/features/branches/hooks/useBranches";
 import { createManifestSchema, type CreateManifestFormValues } from "@/features/manifests/schema";
 import { useCreateManifest } from "@/features/manifests/hooks/useCreateManifest";
@@ -58,7 +59,12 @@ export function ManifestCreateSheet() {
               control={control}
               render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger id="fromBranchId" aria-label="From branch">
+                  <SelectTrigger
+                    id="fromBranchId"
+                    aria-label="From branch"
+                    aria-invalid={!!errors.fromBranchId}
+                    aria-describedby={errors.fromBranchId ? "fromBranchId-error" : undefined}
+                  >
                     <SelectValue placeholder="Select origin branch" />
                   </SelectTrigger>
                   <SelectContent>
@@ -69,7 +75,7 @@ export function ManifestCreateSheet() {
                 </Select>
               )}
             />
-            {errors.fromBranchId && <p className="text-sm text-destructive">{errors.fromBranchId.message}</p>}
+            {errors.fromBranchId && <FieldError id="fromBranchId-error">{errors.fromBranchId.message}</FieldError>}
           </div>
           <div className="space-y-2">
             <Label htmlFor="toBranchId">To Branch</Label>
@@ -78,7 +84,12 @@ export function ManifestCreateSheet() {
               control={control}
               render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger id="toBranchId" aria-label="To branch">
+                  <SelectTrigger
+                    id="toBranchId"
+                    aria-label="To branch"
+                    aria-invalid={!!errors.toBranchId}
+                    aria-describedby={errors.toBranchId ? "toBranchId-error" : undefined}
+                  >
                     <SelectValue placeholder="Select destination branch" />
                   </SelectTrigger>
                   <SelectContent>
@@ -89,7 +100,7 @@ export function ManifestCreateSheet() {
                 </Select>
               )}
             />
-            {errors.toBranchId && <p className="text-sm text-destructive">{errors.toBranchId.message}</p>}
+            {errors.toBranchId && <FieldError id="toBranchId-error">{errors.toBranchId.message}</FieldError>}
           </div>
           <div className="space-y-2">
             <Label htmlFor="purpose">Purpose</Label>
@@ -109,7 +120,7 @@ export function ManifestCreateSheet() {
               )}
             />
           </div>
-          {serverError && <p className="text-sm text-destructive">{serverError}</p>}
+          {serverError && <FieldError id="manifest-server-error">{serverError}</FieldError>}
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? <Spinner className="h-4 w-4" /> : "Create Manifest"}
           </Button>

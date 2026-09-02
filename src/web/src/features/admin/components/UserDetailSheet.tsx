@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
+import { FieldError } from "@/components/ui/field-error";
 import { useAdminUsers } from "@/features/admin/hooks/useAdminUsers";
 import { useSetUserActive } from "@/features/admin/hooks/useSetUserActive";
 import { useAdminPanelStore } from "@/features/admin/store/adminPanelStore";
@@ -63,7 +64,7 @@ export function UserDetailSheet() {
                 <p className="font-medium text-foreground">{user.roleName ?? "—"}</p>
               </div>
             </div>
-            {serverError && <p className="text-sm text-destructive">{serverError}</p>}
+            {serverError && <FieldError id="user-detail-server-error">{serverError}</FieldError>}
             {canUpdate && (
               <Button type="button" variant={user.isActive ? "destructive" : "default"} disabled={setActive.isPending} onClick={handleToggleActive}>
                 {setActive.isPending ? <Spinner className="h-4 w-4" /> : user.isActive ? "Deactivate" : "Reactivate"}

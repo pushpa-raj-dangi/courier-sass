@@ -5,8 +5,9 @@
 /*
  * Design tokens for the Courier Platform staff back-office (Frontend Phase F0).
  * Palette grounded in Nepal courier/ledger vernacular: warm lokta-paper background,
- * deep indigo ink, and a status-semantic accent set (marigold/pine/vermillion/brick)
- * carrying the shipment lifecycle's motion/success/urgent-failure/return states.
+ * deep indigo ink, a "Courier Cobalt" brand-blue interactive layer, and a
+ * status-semantic accent set (marigold/pine/vermillion/brick) carrying the
+ * shipment lifecycle's motion/success/urgent-failure/return states.
  *
  * Every color below was verified against WCAG AA (4.5:1 text, 3:1 non-text) via
  * docs/superpowers/specs/2026-08-29-frontend-roadmap-design.md's Task 3 process
@@ -39,6 +40,28 @@
  * never color-only, which is the validator's own stated mitigation for a
  * borderline separation — the two checks that are NOT excusable that way (CVD
  * separation, normal-vision floor) both pass clean.
+ *
+ * --primary / --ring / --accent / --sidebar-primary / --sidebar-accent (color
+ * theme pass, 2026-09-02): introduced "Courier Cobalt", the system's first actual
+ * brand hue — previously --primary was just --foreground (ink) inverted, so
+ * buttons/focus rings/the active sidebar state had no color identity of their
+ * own. Cobalt shares ink's hue family (~230°) rather than an unrelated hue, so it
+ * reads as "ink brought to life" rather than a bolt-on accent, and it deliberately
+ * sits away from every status hue except --status-sealed/--status-received
+ * (blue/cyan, 195–221°), which it can't fully avoid — the wheel is otherwise
+ * saturated by the 7 shipment-status hues. Light mode clears full categorical
+ * separation from both (ΔE 19.2 normal-vision, floor is 15) using a large
+ * lightness gap (cobalt sits at L 0.31 OKLCH, both manifest hues sit >0.4).
+ * Dark mode cannot use that trick — Sealed's dark value is already bright to read
+ * on a dark surface, so Cobalt must compete in the same lightness range to also
+ * clear 3:1 against the page background. Best achievable under that constraint is
+ * ΔE 11.4 (normal-vision) / 9.7 (deutan) — below the unlabeled-legend floor but
+ * still well clear of the CVD hard-fail floor (6.0) and target (8.0). Accepted
+ * because, unlike a chart legend, Sealed never appears unlabeled (StatusBadge's
+ * Label-Always Rule) and is a single rare manifest-only dot, not a color primary
+ * is ever actually competing with for identification. Re-run the validator
+ * (`"<primary-hex>,<status-sealed-hex>,<status-received-hex>" --mode dark --pairs
+ * all`) before changing either hue.
  */
 
 :root {
@@ -51,7 +74,7 @@
   --popover: 37.5 44.4% 96.5%;
   --popover-foreground: 229.1 20.0% 10.8%;
 
-  --primary: 229.1 20.0% 10.8%;
+  --primary: 230.0 55.0% 25.0%;
   --primary-foreground: 37.5 44.4% 96.5%;
 
   --secondary: 230 10% 92%;
@@ -60,7 +83,7 @@
   --muted: 230 10% 94%;
   --muted-foreground: 230.8 6.7% 38.2%;
 
-  --accent: 38 78% 94%;
+  --accent: 230.0 45.0% 94.0%;
   --accent-foreground: 229.1 20.0% 10.8%;
 
   --destructive: 9.1 64.7% 40.0%;
@@ -68,7 +91,7 @@
 
   --border: 230 10% 87%;
   --input: 230 10% 87%;
-  --ring: 229 20% 30%;
+  --ring: 230.0 55.0% 25.0%;
 
   --radius: 0.375rem;
 
@@ -103,6 +126,19 @@
 
   --status-received: 195.0 90.0% 50.0%;
   --status-received-foreground: 229.1 20.0% 10.8%;
+
+  /* Single-hue ordinal ramp (Courier Cobalt) for rank/magnitude bar charts — e.g.
+     BranchPerformanceChart, RiderPerformanceChart — where every bar is the same
+     metric split by a category with no inherent color meaning (a branch/rider has
+     no "brand color"), so a categorical rainbow would be pure decoration. Rank 1
+     = highest value = --primary itself; ranks 2-3 step down in lightness/chroma.
+     Verified via dataviz's validateOrdinal (one hue, monotone OKLCH L, >=0.06
+     adjacent gap, lightest step >=2:1 vs --card) rather than the stricter 3:1/15
+     ΔE categorical bar — these are magnitude marks with axis labels underneath,
+     not unlabeled legend swatches. */
+  --chart-rank-1: 230.0 55.0% 25.0%;
+  --chart-rank-2: 230.0 45.0% 45.0%;
+  --chart-rank-3: 230.0 35.0% 66.0%;
 }
 
 .dark {
@@ -115,8 +151,8 @@
   --popover: 228.8 21.1% 14.9%;
   --popover-foreground: 40.0 33.3% 92.9%;
 
-  --primary: 40.0 33.3% 92.9%;
-  --primary-foreground: 230.0 23.1% 10.2%;
+  --primary: 236.0 73.0% 60.0%;
+  --primary-foreground: 40.0 33.3% 92.9%;
 
   --secondary: 228.8 15% 22%;
   --secondary-foreground: 40.0 33.3% 92.9%;
@@ -124,7 +160,7 @@
   --muted: 228.8 15% 20%;
   --muted-foreground: 232.5 9.8% 67.8%;
 
-  --accent: 228.8 20% 24%;
+  --accent: 236.0 28.0% 22.0%;
   --accent-foreground: 40.0 33.3% 92.9%;
 
   --destructive: 11.8 77.5% 60.0%;
@@ -132,7 +168,7 @@
 
   --border: 228.8 15% 24%;
   --input: 228.8 15% 24%;
-  --ring: 40 20% 70%;
+  --ring: 236.0 73.0% 60.0%;
 
   --status-created: 234.3 13.2% 68.8%;
   --status-created-foreground: 40.0 33.3% 92.9%;
@@ -160,6 +196,19 @@
 
   --status-received: 195.0 85.0% 60.0%;
   --status-received-foreground: 230.0 23.1% 10.2%;
+
+  /* Rank 1 is a brighter cobalt than --primary itself (72% L vs 60%), not the
+     literal token: --primary only clears 2.9:1 against --card here, leaving no
+     safe room below it in dark mode for two more accessible, visibly distinct
+     steps (validateOrdinal's adjacent-gap and light-end-contrast checks both
+     failed every attempt anchored at the literal --primary value). Same hue
+     (236°) as --primary throughout, which is what the "one brand hue" claim
+     actually rests on, not a shared exact value — this codebase already treats
+     bright-dot/dark-text variants of one status hue as legitimate (see
+     --status-* header comment above). */
+  --chart-rank-1: 236.0 80.0% 72.0%;
+  --chart-rank-2: 236.0 65.0% 58.0%;
+  --chart-rank-3: 236.0 50.0% 48.0%;
 }
 
 body {
@@ -194,21 +243,21 @@ body {
   :root {
     --sidebar-background: 37.5 44.4% 96.5%;
     --sidebar-foreground: 229.1 20.0% 10.8%;
-    --sidebar-primary: 229.1 20.0% 10.8%;
+    --sidebar-primary: 230.0 55.0% 25.0%;
     --sidebar-primary-foreground: 37.5 44.4% 96.5%;
-    --sidebar-accent: 38 78% 94%;
+    --sidebar-accent: 230.0 45.0% 94.0%;
     --sidebar-accent-foreground: 229.1 20.0% 10.8%;
     --sidebar-border: 230 10% 87%;
-    --sidebar-ring: 229 20% 30%;
+    --sidebar-ring: 230.0 55.0% 25.0%;
   }
   .dark {
     --sidebar-background: 230.0 23.1% 10.2%;
     --sidebar-foreground: 40.0 33.3% 92.9%;
-    --sidebar-primary: 40.0 33.3% 92.9%;
-    --sidebar-primary-foreground: 230.0 23.1% 10.2%;
-    --sidebar-accent: 228.8 20% 24%;
+    --sidebar-primary: 236.0 73.0% 60.0%;
+    --sidebar-primary-foreground: 40.0 33.3% 92.9%;
+    --sidebar-accent: 236.0 28.0% 22.0%;
     --sidebar-accent-foreground: 40.0 33.3% 92.9%;
     --sidebar-border: 228.8 15% 24%;
-    --sidebar-ring: 40 20% 70%;
+    --sidebar-ring: 236.0 73.0% 60.0%;
   }
 }

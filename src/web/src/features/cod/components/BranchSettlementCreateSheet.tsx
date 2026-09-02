@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
+import { FieldError } from "@/components/ui/field-error";
 import { useBranches } from "@/features/branches/hooks/useBranches";
 import { useRiders } from "@/features/riders/hooks/useRiders";
 import { useRiderSettlements } from "@/features/cod/hooks/useRiderSettlements";
@@ -132,8 +133,8 @@ export function BranchSettlementCreateSheet() {
               onChange={(e) => setConfirmedAmount(e.target.value)}
             />
           </div>
-          {validationError && <p className="text-sm text-destructive">{validationError}</p>}
-          {serverError && <p className="text-sm text-destructive">{serverError}</p>}
+          {validationError && <FieldError id="branch-settlement-validation-error">{validationError}</FieldError>}
+          {serverError && <FieldError id="branch-settlement-server-error">{serverError}</FieldError>}
           <Button type="button" disabled={createSettlement.isPending} onClick={handleSubmit}>
             {createSettlement.isPending ? <Spinner className="h-4 w-4" /> : "Create Settlement"}
           </Button>

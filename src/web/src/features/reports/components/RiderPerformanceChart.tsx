@@ -1,19 +1,20 @@
 "use client";
 
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, XAxis, YAxis } from "recharts";
 import { Bike } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/states/EmptyState";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { useRiders } from "@/features/riders/hooks/useRiders";
 import type { RiderPerformance } from "@/features/reports/types";
+import { rankFill } from "@/features/reports/lib/rankFill";
 
 function formatPercent(value: number | null): string {
   return value === null ? "—" : `${(value * 100).toFixed(1)}%`;
 }
 
 const chartConfig = {
-  attempts: { label: "Delivery attempts", color: "hsl(var(--primary))" },
+  attempts: { label: "Delivery attempts" },
 } satisfies ChartConfig;
 
 export function RiderPerformanceChart({ data }: { data: RiderPerformance[] }) {
@@ -24,7 +25,12 @@ export function RiderPerformanceChart({ data }: { data: RiderPerformance[] }) {
     .map((perf) => ({ riderId: perf.riderId, label: riderLabel(perf.riderId), perf }))
     .sort((a, b) => b.perf.attempts - a.perf.attempts);
 
-  const chartData = rows.map((row) => ({ rider: row.label, attempts: row.perf.attempts }));
+  const maxAttempts = rows[0]?.perf.attempts ?? 0;
+  const chartData = rows.map((row) => ({
+    rider: row.label,
+    attempts: row.perf.attempts,
+    fill: rankFill(row.perf.attempts, maxAttempts),
+  }));
 
   return (
     <Card>
@@ -57,7 +63,11 @@ export function RiderPerformanceChart({ data }: { data: RiderPerformance[] }) {
                 />
                 <YAxis dataKey="attempts" type="number" hide />
                 <ChartTooltip cursor={{ fill: "hsl(var(--muted))" }} content={<ChartTooltipContent indicator="line" />} />
-                <Bar dataKey="attempts" fill="var(--color-attempts)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="attempts" radius={[4, 4, 0, 0]}>
+                  {chartData.map((entry) => (
+                    <Cell key={entry.rider} fill={entry.fill} />
+                  ))}
+                </Bar>
               </BarChart>
             </ChartContainer>
             <div className="space-y-2 border-t border-border pt-4">

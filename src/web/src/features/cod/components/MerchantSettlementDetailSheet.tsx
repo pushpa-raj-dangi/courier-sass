@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { FieldError } from "@/components/ui/field-error";
 import { ErrorState } from "@/components/states/ErrorState";
 import { StatusBadge } from "@/components/status-badge/StatusBadge";
 import { useMerchantSettlement } from "@/features/cod/hooks/useMerchantSettlement";
@@ -59,16 +60,26 @@ function AdjustmentForm({ item, onDone }: { item: MerchantSettlementItem; onDone
           aria-label="New Other Deductions"
           type="number"
           step="0.01"
+          aria-invalid={!!errors.afterValue}
+          aria-describedby={errors.afterValue ? `adjust-value-${item.id}-error` : undefined}
           {...register("afterValue", { valueAsNumber: true })}
         />
-        {errors.afterValue && <p className="text-sm text-destructive">{errors.afterValue.message}</p>}
+        {errors.afterValue && (
+          <FieldError id={`adjust-value-${item.id}-error`}>{errors.afterValue.message}</FieldError>
+        )}
       </div>
       <div className="space-y-1">
         <Label htmlFor={`adjust-reason-${item.id}`}>Reason</Label>
-        <Input id={`adjust-reason-${item.id}`} aria-label="Reason" {...register("reason")} />
-        {errors.reason && <p className="text-sm text-destructive">{errors.reason.message}</p>}
+        <Input
+          id={`adjust-reason-${item.id}`}
+          aria-label="Reason"
+          aria-invalid={!!errors.reason}
+          aria-describedby={errors.reason ? `adjust-reason-${item.id}-error` : undefined}
+          {...register("reason")}
+        />
+        {errors.reason && <FieldError id={`adjust-reason-${item.id}-error`}>{errors.reason.message}</FieldError>}
       </div>
-      {serverError && <p className="text-sm text-destructive">{serverError}</p>}
+      {serverError && <FieldError id={`adjust-server-error-${item.id}`}>{serverError}</FieldError>}
       <div className="flex gap-2">
         <Button type="submit" size="sm" disabled={isSubmitting}>
           {isSubmitting ? <Spinner className="h-4 w-4" /> : "Request Adjustment"}
@@ -157,7 +168,7 @@ export function MerchantSettlementDetailSheet() {
 
               {canSettle && (
                 <div className="space-y-2">
-                  {settleError && <p className="text-sm text-destructive">{settleError}</p>}
+                  {settleError && <FieldError id="settle-error">{settleError}</FieldError>}
                   <Button type="button" disabled={settlement.status !== "Created" || settleMutation.isPending} onClick={handleSettle}>
                     {settleMutation.isPending ? <Spinner className="h-4 w-4" /> : "Settle"}
                   </Button>

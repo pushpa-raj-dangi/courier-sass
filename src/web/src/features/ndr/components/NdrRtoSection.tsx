@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
+import { FieldError } from "@/components/ui/field-error";
 import { useResolveNdr } from "@/features/ndr/hooks/useResolveNdr";
 import type { Ndr } from "@/features/ndr/types";
 
@@ -29,7 +30,7 @@ export function NdrRtoSection({ ndr }: { ndr: Ndr }) {
         <Label htmlFor="ndr-rto-reason">RTO Reason</Label>
         <Textarea id="ndr-rto-reason" value={rtoReason} onChange={(e) => setRtoReason(e.target.value)} />
       </div>
-      {serverError && <p className="text-sm text-destructive">{serverError}</p>}
+      {serverError && <FieldError id="ndr-rto-server-error">{serverError}</FieldError>}
       <Button type="button" disabled={!rtoReason.trim() || resolveNdr.isPending} onClick={handleResolve}>
         {resolveNdr.isPending ? <Spinner className="h-4 w-4" /> : "Resolve — Initiate RTO"}
       </Button>

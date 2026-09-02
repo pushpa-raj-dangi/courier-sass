@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
+import { FieldError } from "@/components/ui/field-error";
 import { createRiderSchema, type CreateRiderFormValues } from "@/features/riders/schema";
 import { useCreateRider } from "@/features/riders/hooks/useCreateRider";
 import { useRiderPanelStore } from "@/features/riders/store/riderPanelStore";
@@ -58,19 +59,36 @@ export function RiderCreateSheet() {
         <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4" noValidate>
           <div className="space-y-2">
             <Label htmlFor="fullName">Full Name</Label>
-            <Input id="fullName" {...register("fullName")} />
-            {errors.fullName && <p className="text-sm text-destructive">{errors.fullName.message}</p>}
+            <Input
+              id="fullName"
+              aria-invalid={!!errors.fullName}
+              aria-describedby={errors.fullName ? "fullName-error" : undefined}
+              {...register("fullName")}
+            />
+            {errors.fullName && <FieldError id="fullName-error">{errors.fullName.message}</FieldError>}
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" {...register("email")} />
-              {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
+              <Input
+                id="email"
+                type="email"
+                aria-invalid={!!errors.email}
+                aria-describedby={errors.email ? "email-error" : undefined}
+                {...register("email")}
+              />
+              {errors.email && <FieldError id="email-error">{errors.email.message}</FieldError>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" {...register("password")} />
-              {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
+              <Input
+                id="password"
+                type="password"
+                aria-invalid={!!errors.password}
+                aria-describedby={errors.password ? "password-error" : undefined}
+                {...register("password")}
+              />
+              {errors.password && <FieldError id="password-error">{errors.password.message}</FieldError>}
             </div>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -80,8 +98,13 @@ export function RiderCreateSheet() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="licenseNumber">License Number</Label>
-              <Input id="licenseNumber" {...register("licenseNumber")} />
-              {errors.licenseNumber && <p className="text-sm text-destructive">{errors.licenseNumber.message}</p>}
+              <Input
+                id="licenseNumber"
+                aria-invalid={!!errors.licenseNumber}
+                aria-describedby={errors.licenseNumber ? "licenseNumber-error" : undefined}
+                {...register("licenseNumber")}
+              />
+              {errors.licenseNumber && <FieldError id="licenseNumber-error">{errors.licenseNumber.message}</FieldError>}
             </div>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -92,7 +115,12 @@ export function RiderCreateSheet() {
                 control={control}
                 render={({ field }) => (
                   <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger id="baseBranchId" aria-label="Base branch">
+                    <SelectTrigger
+                      id="baseBranchId"
+                      aria-label="Base branch"
+                      aria-invalid={!!errors.baseBranchId}
+                      aria-describedby={errors.baseBranchId ? "baseBranchId-error" : undefined}
+                    >
                       <SelectValue placeholder="Select branch" />
                     </SelectTrigger>
                     <SelectContent>
@@ -103,7 +131,7 @@ export function RiderCreateSheet() {
                   </Select>
                 )}
               />
-              {errors.baseBranchId && <p className="text-sm text-destructive">{errors.baseBranchId.message}</p>}
+              {errors.baseBranchId && <FieldError id="baseBranchId-error">{errors.baseBranchId.message}</FieldError>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="roleType">Role</Label>
@@ -112,7 +140,12 @@ export function RiderCreateSheet() {
                 control={control}
                 render={({ field }) => (
                   <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger id="roleType" aria-label="Role">
+                    <SelectTrigger
+                      id="roleType"
+                      aria-label="Role"
+                      aria-invalid={!!errors.roleType}
+                      aria-describedby={errors.roleType ? "roleType-error" : undefined}
+                    >
                       <SelectValue placeholder="Select role" />
                     </SelectTrigger>
                     <SelectContent>
@@ -123,10 +156,10 @@ export function RiderCreateSheet() {
                   </Select>
                 )}
               />
-              {errors.roleType && <p className="text-sm text-destructive">{errors.roleType.message}</p>}
+              {errors.roleType && <FieldError id="roleType-error">{errors.roleType.message}</FieldError>}
             </div>
           </div>
-          {serverError && <p className="text-sm text-destructive">{serverError}</p>}
+          {serverError && <FieldError id="rider-server-error">{serverError}</FieldError>}
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? <Spinner className="h-4 w-4" /> : "Create Rider"}
           </Button>

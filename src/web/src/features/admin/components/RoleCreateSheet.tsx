@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
+import { FieldError } from "@/components/ui/field-error";
 import { usePermissionCatalog } from "@/features/admin/hooks/usePermissionCatalog";
 import { useCreateRole } from "@/features/admin/hooks/useCreateRole";
 import { useAdminPanelStore } from "@/features/admin/store/adminPanelStore";
@@ -79,7 +80,7 @@ export function RoleCreateSheet() {
               </fieldset>
             ))}
           </div>
-          {serverError && <p className="text-sm text-destructive">{serverError}</p>}
+          {serverError && <FieldError id="role-server-error">{serverError}</FieldError>}
           <Button type="submit" disabled={createRole.isPending || name.length === 0}>
             {createRole.isPending ? <Spinner className="h-4 w-4" /> : "Create Role"}
           </Button>

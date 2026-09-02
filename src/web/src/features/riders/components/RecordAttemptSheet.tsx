@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
+import { FieldError } from "@/components/ui/field-error";
 import { SignaturePad } from "@/features/riders/components/SignaturePad";
 import { useMyDeliveriesPanelStore } from "@/features/riders/store/myDeliveriesPanelStore";
 import { useRecordFailedAttempt } from "@/features/riders/hooks/useRecordFailedAttempt";
@@ -169,7 +170,7 @@ export function RecordAttemptSheet({ riderId }: { riderId: string }) {
                   <Label htmlFor="attempt-notes">Notes</Label>
                   <Textarea id="attempt-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
                 </div>
-                {serverError && <p className="text-sm text-destructive">{serverError}</p>}
+                {serverError && <FieldError id="record-attempt-server-error">{serverError}</FieldError>}
                 <Button type="button" disabled={!reason || recordFailedAttempt.isPending} onClick={handleSubmitFailure}>
                   {recordFailedAttempt.isPending ? <Spinner className="h-4 w-4" /> : "Submit"}
                 </Button>
@@ -215,7 +216,7 @@ export function RecordAttemptSheet({ riderId }: { riderId: string }) {
                     />
                   </div>
                 )}
-                {serverError && <p className="text-sm text-destructive">{serverError}</p>}
+                {serverError && <FieldError id="record-attempt-server-error">{serverError}</FieldError>}
                 <Button
                   type="button"
                   disabled={!canSubmitSuccess || podUpload.isPending || completeDelivery.isPending}

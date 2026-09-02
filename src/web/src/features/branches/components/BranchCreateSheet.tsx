@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
+import { FieldError } from "@/components/ui/field-error";
 import { GeographyPicker, type GeographyValue } from "@/features/branches/GeographyPicker";
 import { createBranchSchema, type CreateBranchFormValues } from "@/features/branches/schema";
 import { useCreateBranch } from "@/features/branches/hooks/useCreateBranch";
@@ -70,13 +71,23 @@ export function BranchCreateSheet() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="code">Code</Label>
-              <Input id="code" {...register("code")} />
-              {errors.code && <p className="text-sm text-destructive">{errors.code.message}</p>}
+              <Input
+                id="code"
+                aria-invalid={!!errors.code}
+                aria-describedby={errors.code ? "code-error" : undefined}
+                {...register("code")}
+              />
+              {errors.code && <FieldError id="code-error">{errors.code.message}</FieldError>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="name">Name</Label>
-              <Input id="name" {...register("name")} />
-              {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
+              <Input
+                id="name"
+                aria-invalid={!!errors.name}
+                aria-describedby={errors.name ? "name-error" : undefined}
+                {...register("name")}
+              />
+              {errors.name && <FieldError id="name-error">{errors.name.message}</FieldError>}
             </div>
           </div>
           <div className="space-y-2">
@@ -86,7 +97,12 @@ export function BranchCreateSheet() {
               control={control}
               render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger id="type" aria-label="Type">
+                  <SelectTrigger
+                    id="type"
+                    aria-label="Type"
+                    aria-invalid={!!errors.type}
+                    aria-describedby={errors.type ? "type-error" : undefined}
+                  >
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -99,7 +115,7 @@ export function BranchCreateSheet() {
                 </Select>
               )}
             />
-            {errors.type && <p className="text-sm text-destructive">{errors.type.message}</p>}
+            {errors.type && <FieldError id="type-error">{errors.type.message}</FieldError>}
           </div>
           <GeographyPicker
             value={geographyValue}
@@ -112,9 +128,14 @@ export function BranchCreateSheet() {
           />
           <div className="space-y-2">
             <Label htmlFor="addressLine">Address</Label>
-            <Input id="addressLine" {...register("addressLine")} />
+            <Input
+              id="addressLine"
+              aria-invalid={!!errors.addressLine}
+              aria-describedby={errors.addressLine ? "addressLine-error" : undefined}
+              {...register("addressLine")}
+            />
             {errors.addressLine && (
-              <p className="text-sm text-destructive">{errors.addressLine.message}</p>
+              <FieldError id="addressLine-error">{errors.addressLine.message}</FieldError>
             )}
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -148,7 +169,7 @@ export function BranchCreateSheet() {
               )}
             />
           </div>
-          {serverError && <p className="text-sm text-destructive">{serverError}</p>}
+          {serverError && <FieldError id="branch-server-error">{serverError}</FieldError>}
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? <Spinner className="h-4 w-4" /> : "Create Branch"}
           </Button>

@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
+import { FieldError } from "@/components/ui/field-error";
 import { useMerchants } from "@/features/shipments/hooks/useMerchants";
 import { createMerchantSettlementSchema, type CreateMerchantSettlementFormValues } from "@/features/cod/schema";
 import { useCreateMerchantSettlement } from "@/features/cod/hooks/useCreateMerchantSettlement";
@@ -67,7 +68,12 @@ export function MerchantSettlementCreateSheet() {
               control={control}
               render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger id="merchantId" aria-label="Merchant">
+                  <SelectTrigger
+                    id="merchantId"
+                    aria-label="Merchant"
+                    aria-invalid={!!errors.merchantId}
+                    aria-describedby={errors.merchantId ? "merchantId-error" : undefined}
+                  >
                     <SelectValue placeholder="Select merchant" />
                   </SelectTrigger>
                   <SelectContent>
@@ -78,27 +84,45 @@ export function MerchantSettlementCreateSheet() {
                 </Select>
               )}
             />
-            {errors.merchantId && <p className="text-sm text-destructive">{errors.merchantId.message}</p>}
+            {errors.merchantId && <FieldError id="merchantId-error">{errors.merchantId.message}</FieldError>}
           </div>
           <div className="space-y-2">
             <Label htmlFor="periodFrom">Period From</Label>
             <Controller
               name="periodFrom"
               control={control}
-              render={({ field }) => <DatePicker id="periodFrom" aria-label="Period From" value={field.value} onChange={field.onChange} />}
+              render={({ field }) => (
+                <DatePicker
+                  id="periodFrom"
+                  aria-label="Period From"
+                  aria-invalid={!!errors.periodFrom}
+                  aria-describedby={errors.periodFrom ? "periodFrom-error" : undefined}
+                  value={field.value}
+                  onChange={field.onChange}
+                />
+              )}
             />
-            {errors.periodFrom && <p className="text-sm text-destructive">{errors.periodFrom.message}</p>}
+            {errors.periodFrom && <FieldError id="periodFrom-error">{errors.periodFrom.message}</FieldError>}
           </div>
           <div className="space-y-2">
             <Label htmlFor="periodTo">Period To</Label>
             <Controller
               name="periodTo"
               control={control}
-              render={({ field }) => <DatePicker id="periodTo" aria-label="Period To" value={field.value} onChange={field.onChange} />}
+              render={({ field }) => (
+                <DatePicker
+                  id="periodTo"
+                  aria-label="Period To"
+                  aria-invalid={!!errors.periodTo}
+                  aria-describedby={errors.periodTo ? "periodTo-error" : undefined}
+                  value={field.value}
+                  onChange={field.onChange}
+                />
+              )}
             />
-            {errors.periodTo && <p className="text-sm text-destructive">{errors.periodTo.message}</p>}
+            {errors.periodTo && <FieldError id="periodTo-error">{errors.periodTo.message}</FieldError>}
           </div>
-          {serverError && <p className="text-sm text-destructive">{serverError}</p>}
+          {serverError && <FieldError id="settlement-server-error">{serverError}</FieldError>}
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? <Spinner className="h-4 w-4" /> : "Create Settlement"}
           </Button>

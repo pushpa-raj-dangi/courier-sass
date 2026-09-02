@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
+import { FieldError } from "@/components/ui/field-error";
 import { GeographyPicker, type GeographyValue } from "@/features/branches/GeographyPicker";
 import { useBranches } from "@/features/branches/hooks/useBranches";
 import { createShipmentSchema, type CreateShipmentFormValues } from "@/features/shipments/schema";
@@ -102,7 +103,12 @@ export function ShipmentCreateSheet() {
                     control={control}
                     render={({ field }) => (
                       <Select value={field.value} onValueChange={field.onChange}>
-                        <SelectTrigger id="merchantId" aria-label="Merchant">
+                        <SelectTrigger
+                          id="merchantId"
+                          aria-label="Merchant"
+                          aria-invalid={!!errors.merchantId}
+                          aria-describedby={errors.merchantId ? "merchantId-error" : undefined}
+                        >
                           <SelectValue placeholder="Select merchant" />
                         </SelectTrigger>
                         <SelectContent>
@@ -113,7 +119,7 @@ export function ShipmentCreateSheet() {
                       </Select>
                     )}
                   />
-                  {errors.merchantId && <p className="text-sm text-destructive">{errors.merchantId.message}</p>}
+                  {errors.merchantId && <FieldError id="merchantId-error">{errors.merchantId.message}</FieldError>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="serviceTypeId">Service Type</Label>
@@ -122,7 +128,12 @@ export function ShipmentCreateSheet() {
                     control={control}
                     render={({ field }) => (
                       <Select value={field.value} onValueChange={field.onChange}>
-                        <SelectTrigger id="serviceTypeId" aria-label="Service type">
+                        <SelectTrigger
+                          id="serviceTypeId"
+                          aria-label="Service type"
+                          aria-invalid={!!errors.serviceTypeId}
+                          aria-describedby={errors.serviceTypeId ? "serviceTypeId-error" : undefined}
+                        >
                           <SelectValue placeholder="Select service type" />
                         </SelectTrigger>
                         <SelectContent>
@@ -133,7 +144,7 @@ export function ShipmentCreateSheet() {
                       </Select>
                     )}
                   />
-                  {errors.serviceTypeId && <p className="text-sm text-destructive">{errors.serviceTypeId.message}</p>}
+                  {errors.serviceTypeId && <FieldError id="serviceTypeId-error">{errors.serviceTypeId.message}</FieldError>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="originBranchId">Origin Branch</Label>
@@ -142,7 +153,12 @@ export function ShipmentCreateSheet() {
                     control={control}
                     render={({ field }) => (
                       <Select value={field.value} onValueChange={field.onChange}>
-                        <SelectTrigger id="originBranchId" aria-label="Origin branch">
+                        <SelectTrigger
+                          id="originBranchId"
+                          aria-label="Origin branch"
+                          aria-invalid={!!errors.originBranchId}
+                          aria-describedby={errors.originBranchId ? "originBranchId-error" : undefined}
+                        >
                           <SelectValue placeholder="Select origin branch" />
                         </SelectTrigger>
                         <SelectContent>
@@ -153,7 +169,7 @@ export function ShipmentCreateSheet() {
                       </Select>
                     )}
                   />
-                  {errors.originBranchId && <p className="text-sm text-destructive">{errors.originBranchId.message}</p>}
+                  {errors.originBranchId && <FieldError id="originBranchId-error">{errors.originBranchId.message}</FieldError>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="destinationBranchId">Destination Branch</Label>
@@ -162,7 +178,12 @@ export function ShipmentCreateSheet() {
                     control={control}
                     render={({ field }) => (
                       <Select value={field.value} onValueChange={field.onChange}>
-                        <SelectTrigger id="destinationBranchId" aria-label="Destination branch">
+                        <SelectTrigger
+                          id="destinationBranchId"
+                          aria-label="Destination branch"
+                          aria-invalid={!!errors.destinationBranchId}
+                          aria-describedby={errors.destinationBranchId ? "destinationBranchId-error" : undefined}
+                        >
                           <SelectValue placeholder="Select destination branch" />
                         </SelectTrigger>
                         <SelectContent>
@@ -173,7 +194,7 @@ export function ShipmentCreateSheet() {
                       </Select>
                     )}
                   />
-                  {errors.destinationBranchId && <p className="text-sm text-destructive">{errors.destinationBranchId.message}</p>}
+                  {errors.destinationBranchId && <FieldError id="destinationBranchId-error">{errors.destinationBranchId.message}</FieldError>}
                 </div>
               </div>
             </section>
@@ -183,8 +204,15 @@ export function ShipmentCreateSheet() {
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                 <div className="space-y-2">
                   <Label htmlFor="weightKg">Weight (kg)</Label>
-                  <Input id="weightKg" type="number" step="0.1" {...register("weightKg", { valueAsNumber: true })} />
-                  {errors.weightKg && <p className="text-sm text-destructive">{errors.weightKg.message}</p>}
+                  <Input
+                    id="weightKg"
+                    type="number"
+                    step="0.1"
+                    aria-invalid={!!errors.weightKg}
+                    aria-describedby={errors.weightKg ? "weightKg-error" : undefined}
+                    {...register("weightKg", { valueAsNumber: true })}
+                  />
+                  {errors.weightKg && <FieldError id="weightKg-error">{errors.weightKg.message}</FieldError>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="lengthCm">Length (cm)</Label>
@@ -219,8 +247,14 @@ export function ShipmentCreateSheet() {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="codAmount">COD Amount</Label>
-                  <Input id="codAmount" type="number" {...register("codAmount", { valueAsNumber: true })} />
-                  {errors.codAmount && <p className="text-sm text-destructive">{errors.codAmount.message}</p>}
+                  <Input
+                    id="codAmount"
+                    type="number"
+                    aria-invalid={!!errors.codAmount}
+                    aria-describedby={errors.codAmount ? "codAmount-error" : undefined}
+                    {...register("codAmount", { valueAsNumber: true })}
+                  />
+                  {errors.codAmount && <FieldError id="codAmount-error">{errors.codAmount.message}</FieldError>}
                 </div>
                 <div className="flex items-center gap-2 pt-6">
                   <Controller
@@ -252,13 +286,23 @@ export function ShipmentCreateSheet() {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="recipientName">Name</Label>
-                  <Input id="recipientName" {...register("recipientName")} />
-                  {errors.recipientName && <p className="text-sm text-destructive">{errors.recipientName.message}</p>}
+                  <Input
+                    id="recipientName"
+                    aria-invalid={!!errors.recipientName}
+                    aria-describedby={errors.recipientName ? "recipientName-error" : undefined}
+                    {...register("recipientName")}
+                  />
+                  {errors.recipientName && <FieldError id="recipientName-error">{errors.recipientName.message}</FieldError>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="recipientPhone">Phone</Label>
-                  <Input id="recipientPhone" {...register("recipientPhone")} />
-                  {errors.recipientPhone && <p className="text-sm text-destructive">{errors.recipientPhone.message}</p>}
+                  <Input
+                    id="recipientPhone"
+                    aria-invalid={!!errors.recipientPhone}
+                    aria-describedby={errors.recipientPhone ? "recipientPhone-error" : undefined}
+                    {...register("recipientPhone")}
+                  />
+                  {errors.recipientPhone && <FieldError id="recipientPhone-error">{errors.recipientPhone.message}</FieldError>}
                 </div>
               </div>
               <GeographyPicker
@@ -273,8 +317,13 @@ export function ShipmentCreateSheet() {
               />
               <div className="space-y-2">
                 <Label htmlFor="recipientAddressLine">Address</Label>
-                <Input id="recipientAddressLine" {...register("recipientAddressLine")} />
-                {errors.recipientAddressLine && <p className="text-sm text-destructive">{errors.recipientAddressLine.message}</p>}
+                <Input
+                  id="recipientAddressLine"
+                  aria-invalid={!!errors.recipientAddressLine}
+                  aria-describedby={errors.recipientAddressLine ? "recipientAddressLine-error" : undefined}
+                  {...register("recipientAddressLine")}
+                />
+                {errors.recipientAddressLine && <FieldError id="recipientAddressLine-error">{errors.recipientAddressLine.message}</FieldError>}
               </div>
             </section>
 
@@ -283,13 +332,23 @@ export function ShipmentCreateSheet() {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="senderName">Name</Label>
-                  <Input id="senderName" {...register("senderName")} />
-                  {errors.senderName && <p className="text-sm text-destructive">{errors.senderName.message}</p>}
+                  <Input
+                    id="senderName"
+                    aria-invalid={!!errors.senderName}
+                    aria-describedby={errors.senderName ? "senderName-error" : undefined}
+                    {...register("senderName")}
+                  />
+                  {errors.senderName && <FieldError id="senderName-error">{errors.senderName.message}</FieldError>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="senderPhone">Phone</Label>
-                  <Input id="senderPhone" {...register("senderPhone")} />
-                  {errors.senderPhone && <p className="text-sm text-destructive">{errors.senderPhone.message}</p>}
+                  <Input
+                    id="senderPhone"
+                    aria-invalid={!!errors.senderPhone}
+                    aria-describedby={errors.senderPhone ? "senderPhone-error" : undefined}
+                    {...register("senderPhone")}
+                  />
+                  {errors.senderPhone && <FieldError id="senderPhone-error">{errors.senderPhone.message}</FieldError>}
                 </div>
               </div>
               <GeographyPicker
@@ -304,12 +363,17 @@ export function ShipmentCreateSheet() {
               />
               <div className="space-y-2">
                 <Label htmlFor="senderAddressLine">Address</Label>
-                <Input id="senderAddressLine" {...register("senderAddressLine")} />
-                {errors.senderAddressLine && <p className="text-sm text-destructive">{errors.senderAddressLine.message}</p>}
+                <Input
+                  id="senderAddressLine"
+                  aria-invalid={!!errors.senderAddressLine}
+                  aria-describedby={errors.senderAddressLine ? "senderAddressLine-error" : undefined}
+                  {...register("senderAddressLine")}
+                />
+                {errors.senderAddressLine && <FieldError id="senderAddressLine-error">{errors.senderAddressLine.message}</FieldError>}
               </div>
             </section>
 
-            {serverError && <p className="text-sm text-destructive">{serverError}</p>}
+            {serverError && <FieldError id="shipment-server-error">{serverError}</FieldError>}
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? <Spinner className="h-4 w-4" /> : "Create Shipment"}
             </Button>

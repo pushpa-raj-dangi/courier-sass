@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FieldError } from "@/components/ui/field-error";
 import { acceptInviteSchema, type AcceptInviteFormValues } from "@/features/auth/schema";
 
 export function AcceptInviteForm() {
@@ -49,10 +50,10 @@ export function AcceptInviteForm() {
     return (
       <Card className="w-full max-w-sm shadow-xl shadow-primary/5">
         <CardContent className="pt-6">
-          <p className="flex items-center gap-1.5 text-sm text-destructive">
+          <FieldError id="invite-token-error" className="flex items-center gap-1.5">
             <AlertCircle className="h-3.5 w-3.5" strokeWidth={2} />
             This invite link is missing its token. Check the link in your email and try again.
-          </p>
+          </FieldError>
         </CardContent>
       </Card>
     );
@@ -67,29 +68,43 @@ export function AcceptInviteForm() {
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
-            <Input id="password" type="password" autoComplete="new-password" {...register("password")} />
+            <Input
+              id="password"
+              type="password"
+              autoComplete="new-password"
+              aria-invalid={!!errors.password}
+              aria-describedby={errors.password ? "password-error" : undefined}
+              {...register("password")}
+            />
             {errors.password && (
-              <p className="flex items-center gap-1.5 text-sm text-destructive">
+              <FieldError id="password-error" className="flex items-center gap-1.5">
                 <AlertCircle className="h-3.5 w-3.5" strokeWidth={2} />
                 {errors.password.message}
-              </p>
+              </FieldError>
             )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="confirmPassword">Confirm Password</Label>
-            <Input id="confirmPassword" type="password" autoComplete="new-password" {...register("confirmPassword")} />
+            <Input
+              id="confirmPassword"
+              type="password"
+              autoComplete="new-password"
+              aria-invalid={!!errors.confirmPassword}
+              aria-describedby={errors.confirmPassword ? "confirmPassword-error" : undefined}
+              {...register("confirmPassword")}
+            />
             {errors.confirmPassword && (
-              <p className="flex items-center gap-1.5 text-sm text-destructive">
+              <FieldError id="confirmPassword-error" className="flex items-center gap-1.5">
                 <AlertCircle className="h-3.5 w-3.5" strokeWidth={2} />
                 {errors.confirmPassword.message}
-              </p>
+              </FieldError>
             )}
           </div>
           {serverError && (
-            <p className="flex items-center gap-1.5 text-sm text-destructive">
+            <FieldError id="accept-invite-server-error" className="flex items-center gap-1.5">
               <AlertCircle className="h-3.5 w-3.5" strokeWidth={2} />
               {serverError}
-            </p>
+            </FieldError>
           )}
           <Button type="submit" className="w-full" disabled={isSubmitting}>
             {isSubmitting ? "Setting password..." : "Set Password & Sign In"}

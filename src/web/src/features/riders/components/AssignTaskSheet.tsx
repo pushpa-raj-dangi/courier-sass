@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
+import { FieldError } from "@/components/ui/field-error";
 import { useShipment } from "@/features/shipments/hooks/useShipment";
 import { useRiders } from "@/features/riders/hooks/useRiders";
 import { useAssignTask } from "@/features/riders/hooks/useAssignTask";
@@ -87,7 +88,7 @@ export function AssignTaskSheet() {
               placeholder="Scan or type an AWB, then press Enter"
             />
             {isFetching && <Spinner className="h-4 w-4" />}
-            {isError && <p className="text-sm text-destructive">No shipment found for that AWB.</p>}
+            {isError && <FieldError id="assign-task-awb-error">No shipment found for that AWB.</FieldError>}
           </div>
 
           {shipment && (
@@ -118,7 +119,7 @@ export function AssignTaskSheet() {
             </div>
           )}
 
-          {serverError && <p className="text-sm text-destructive">{serverError}</p>}
+          {serverError && <FieldError id="assign-task-server-error">{serverError}</FieldError>}
           <Button type="button" disabled={!shipment || !taskType || !riderId || assignTask.isPending} onClick={handleAssign}>
             {assignTask.isPending ? <Spinner className="h-4 w-4" /> : `Assign ${taskType ?? "Task"}`}
           </Button>

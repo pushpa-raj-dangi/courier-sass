@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { FieldError } from "@/components/ui/field-error";
 import { useScanManifestShipment } from "@/features/manifests/hooks/useScanManifestShipment";
 import { useSealManifest } from "@/features/manifests/hooks/useSealManifest";
 import { manifestScanErrorMessage } from "@/features/manifests/lib/manifestErrorMessages";
@@ -49,6 +50,8 @@ export function ManifestDraftSection({ manifest }: { manifest: Manifest }) {
         <Input
           id="scan-awb"
           aria-label="Scan AWB"
+          aria-invalid={!!scanError}
+          aria-describedby={scanError ? "manifest-draft-scan-error" : undefined}
           value={awbInput}
           onChange={(e) => setAwbInput(e.target.value)}
           onKeyDown={(e) => {
@@ -59,7 +62,7 @@ export function ManifestDraftSection({ manifest }: { manifest: Manifest }) {
           }}
           placeholder="Scan or type an AWB, then press Enter"
         />
-        {scanError && <p className="text-sm text-destructive">{scanError}</p>}
+        {scanError && <FieldError id="manifest-draft-scan-error">{scanError}</FieldError>}
       </div>
       {scanned.length > 0 && (
         <ul className="space-y-1 text-sm">

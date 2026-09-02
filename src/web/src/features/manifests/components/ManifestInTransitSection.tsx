@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldError } from "@/components/ui/field-error";
 import { useReceiveScanManifestShipment } from "@/features/manifests/hooks/useReceiveScanManifestShipment";
 import { manifestScanErrorMessage } from "@/features/manifests/lib/manifestErrorMessages";
 import type { Manifest, ManifestShipmentScan } from "@/features/manifests/types";
@@ -45,6 +46,8 @@ export function ManifestInTransitSection({ manifest }: { manifest: Manifest }) {
         <Input
           id="receive-scan-awb"
           aria-label="Receive scan AWB"
+          aria-invalid={!!scanError}
+          aria-describedby={scanError ? "manifest-in-transit-scan-error" : undefined}
           value={awbInput}
           onChange={(e) => setAwbInput(e.target.value)}
           onKeyDown={(e) => {
@@ -55,7 +58,7 @@ export function ManifestInTransitSection({ manifest }: { manifest: Manifest }) {
           }}
           placeholder="Scan or type an AWB, then press Enter"
         />
-        {scanError && <p className="text-sm text-destructive">{scanError}</p>}
+        {scanError && <FieldError id="manifest-in-transit-scan-error">{scanError}</FieldError>}
       </div>
       {scanned.length > 0 && (
         <ul className="space-y-1 text-sm">

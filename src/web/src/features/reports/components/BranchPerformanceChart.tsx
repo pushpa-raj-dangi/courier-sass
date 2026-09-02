@@ -1,19 +1,20 @@
 "use client";
 
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, XAxis, YAxis } from "recharts";
 import { Building2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/states/EmptyState";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { useBranches } from "@/features/branches/hooks/useBranches";
 import type { BranchPerformance } from "@/features/reports/types";
+import { rankFill } from "@/features/reports/lib/rankFill";
 
 function formatPercent(value: number | null): string {
   return value === null ? "—" : `${(value * 100).toFixed(1)}%`;
 }
 
 const chartConfig = {
-  volume: { label: "Shipments", color: "hsl(var(--primary))" },
+  volume: { label: "Shipments" },
 } satisfies ChartConfig;
 
 export function BranchPerformanceChart({ data }: { data: Record<string, BranchPerformance> }) {
@@ -24,7 +25,12 @@ export function BranchPerformanceChart({ data }: { data: Record<string, BranchPe
     .map(([branchId, perf]) => ({ branchId, label: branchName(branchId), perf }))
     .sort((a, b) => b.perf.shipmentVolume - a.perf.shipmentVolume);
 
-  const chartData = rows.map((row) => ({ branch: row.label, volume: row.perf.shipmentVolume }));
+  const maxVolume = rows[0]?.perf.shipmentVolume ?? 0;
+  const chartData = rows.map((row) => ({
+    branch: row.label,
+    volume: row.perf.shipmentVolume,
+    fill: rankFill(row.perf.shipmentVolume, maxVolume),
+  }));
 
   return (
     <Card>
@@ -57,7 +63,11 @@ export function BranchPerformanceChart({ data }: { data: Record<string, BranchPe
                 />
                 <YAxis dataKey="volume" type="number" hide />
                 <ChartTooltip cursor={{ fill: "hsl(var(--muted))" }} content={<ChartTooltipContent indicator="line" />} />
-                <Bar dataKey="volume" fill="var(--color-volume)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="volume" radius={[4, 4, 0, 0]}>
+                  {chartData.map((entry) => (
+                    <Cell key={entry.branch} fill={entry.fill} />
+                  ))}
+                </Bar>
               </BarChart>
             </ChartContainer>
             <div className="space-y-2 border-t border-border pt-4">

@@ -4,13 +4,14 @@ description: A muted, ledger-grounded design system for a Nepal domestic courier
 colors:
   paper: "#faf7f2"
   ink: "#161821"
+  courier-cobalt: "#1d2863"
+  cobalt-tint: "#e9ebf7"
   slate-mist: "#e9e9ed"
   fog: "#eeeff1"
   fog-ink: "#5b5d68"
-  marigold-tint: "#fcf3e4"
   terracotta: "#a83824"
   hairline: "#dbdce1"
-  focus-ring: "#3d435c"
+  focus-ring: "#1d2863"
   status-neutral: "#75778a"
   status-in-transit: "#b8791f"
   status-out-for-delivery: "#e8a93c"
@@ -57,12 +58,12 @@ spacing:
   lg: "24px"
 components:
   button-primary:
-    backgroundColor: "{colors.ink}"
+    backgroundColor: "{colors.courier-cobalt}"
     textColor: "{colors.paper}"
     rounded: "{rounded.lg}"
     padding: "8px 16px"
   button-primary-hover:
-    backgroundColor: "{colors.ink}"
+    backgroundColor: "{colors.courier-cobalt}"
   button-secondary:
     backgroundColor: "{colors.slate-mist}"
     textColor: "{colors.ink}"
@@ -83,16 +84,17 @@ components:
 
 **Creative North Star: "The Ledger Counter"**
 
-This is the visual language of a courier branch counter's paper ledger, digitized: a warm, unbleached paper background, deep-indigo ink for text, and a restrained set of status colors that behave like rubber-stamp categories, not marketing accents. It exists to be read quickly and correctly under time pressure by dispatchers, counter staff, and finance clerks — not to persuade or delight. Density and legibility come first; the main "expression" the system allows itself is Space Grotesk's slightly more geometric, confident display face on titles, section headers, and the two authentication surfaces (login, session-expired), which keeps the interface from reading as generic gray SaaS while staying almost entirely out of the way in working content.
+This is the visual language of a courier branch counter's paper ledger, digitized: a warm, unbleached paper background, deep-indigo ink for text, a confident cobalt-blue brand accent for everything actionable, and a restrained set of status colors that behave like rubber-stamp categories, not marketing accents. It exists to be read quickly and correctly under time pressure by dispatchers, counter staff, and finance clerks — not to persuade or delight. Density and legibility come first; the main "expression" the system allows itself is Space Grotesk's slightly more geometric, confident display face on titles, section headers, and the two authentication surfaces (login, session-expired), plus Courier Cobalt carrying every interactive surface, which keeps the interface from reading as generic gray SaaS while staying almost entirely out of the way in working content.
 
-The palette is deliberately calmer than a typical categorical status system: every status hue was tuned to clear WCAG AA contrast and CVD-safe adjacent-pair separation first, vivid-and-legible-as-a-swatch second (`src/app/globals.css`'s header comment; verified with the dataviz skill's contrast validator). Status is never carried by color alone — every colored dot or badge ships with its text label next to it, because color is a confirmation signal here, not the message itself.
+The palette is deliberately calmer than a typical categorical status system: every status hue was tuned to clear WCAG AA contrast and CVD-safe adjacent-pair separation first, vivid-and-legible-as-a-swatch second (`src/app/globals.css`'s header comment; verified with the dataviz skill's contrast validator). Status is never carried by color alone — every colored dot or badge ships with its text label next to it, because color is a confirmation signal here, not the message itself. Courier Cobalt, the interactive/brand hue introduced in the 2026-09-02 color pass, was checked the same way against every status hue before shipping — see the Colors section and `globals.css`'s header comment for the one accepted trade-off (dark-mode separation from Sealed/Received).
 
-Two rejections are explicit and confirmed, not just absent: no camera/scanner chrome or courier-brand marketing gloss (this is Operate-mode software, not a storefront for the courier company), and no invented brand identity — the product has no confirmed name or logo yet (`PRODUCT.md`), so this system stays intentionally generic/white-label rather than pretending to a personality it hasn't earned.
+Two rejections are explicit and confirmed, not just absent: no camera/scanner chrome or courier-brand marketing gloss (this is Operate-mode software, not a storefront for the courier company), and no invented brand *name* — the product has no confirmed market name or logo yet (`PRODUCT.md`), so nothing here claims to be a logo or wordmark. Courier Cobalt is a color decision, not a naming one, and doesn't change that white-label status.
 
 This system is still mid-build (Phases F0–F4 of nine staff-portal phases; see `docs/FRONTEND-ROADMAP.md`), and it shows two small, real seams rather than one seamless language — both called out honestly below instead of papered over: dashboards use two different shapes for a "tinted emphasis" icon badge (Colors' Named Rules), and the global header search bar is a visual placeholder with no function behind it yet (Do's and Don'ts).
 
 **Key Characteristics:**
 - Warm paper background + deep indigo ink, not black-on-white or cool gray-on-white.
+- Courier Cobalt — a single brand-blue hue, sharing ink's hue family — carries every interactive surface: primary buttons, links, focus rings, the active sidebar state, and KPI-highlight accents.
 - A muted, WCAG-AA-first status palette — legible over loud, colorblind-safe over saturated.
 - Space Grotesk display type for titles, section headers, and the two auth surfaces; IBM Plex Sans everywhere else, including Sheet titles.
 - Almost flat: one soft default shadow for in-page surfaces, a second tinted lift reserved for the two auth surfaces, no elevation ladder beyond that.
@@ -103,10 +105,11 @@ This system is still mid-build (Phases F0–F4 of nine staff-portal phases; see 
 A warm, low-saturation ledger palette: paper and ink for structure, a small set of desaturated status hues for meaning. Values below are light mode (`:root` in `globals.css`), the shipped default; dark mode (`.dark`) independently re-tunes every token's lightness rather than inverting it mechanically — see the Dark Mode note at the end of this section.
 
 ### Primary
-- **Deep Indigo Ink** (`#161821`): the sole "primary" color — used as text-on-paper, and inverted as the fill for primary buttons, the active sidebar icon chip, and focus rings. There is no separate brand-accent hue; ink itself carries the weight a brand color would elsewhere.
+- **Deep Indigo Ink** (`#161821`): body text on paper, and the `foreground` role generally — headings, table cells, form values. Ink is a neutral now, not a stand-in for a brand color.
+- **Courier Cobalt** (`#1d2863`, light mode): the system's one brand hue, introduced in the 2026-09-02 color pass. Shares ink's ~230° hue family — deliberately "ink brought to life" rather than an unrelated accent — and carries the `primary` role (button fills), `ring` (focus rings), the sidebar's active state and brand-lockup icon chip, and (via `accent`, below) hover/selection tints and KPI-highlight panel backgrounds. Text/links/buttons on top of it use paper (`#faf7f2`) for a 12.8:1 contrast ratio. This is the one token that changes hue between themes rather than just lightness — dark mode uses a brighter `#4f58e3` (see Dark Mode below) since a dark-lightness fill would disappear against the dark background.
 
 ### Secondary
-- **Warm Marigold Tint** (`#fcf3e4`): the `accent` role — hover/active backgrounds (menu items, dropdown items, sidebar active state, selection), and `::selection`. A near-paper warm cream, not a saturated highlight.
+- **Cobalt Tint** (`#e9ebf7`): the `accent` role — hover/active backgrounds (menu items, dropdown items, sidebar active state, selection), `::selection`, and the background of highlighted KPI callout panels (e.g. Merchant Payable). A pale wash of Courier Cobalt, not a saturated highlight — replaces the previous "Warm Marigold Tint," which was disconnected from the (then ink-based) interactive palette. Marigold is retired from this role entirely; nothing else in the system references it.
 - **Cool Slate Mist** (`#e9e9ed`) / **Fog** (`#eeeff1`): `secondary` and `muted` surfaces — secondary buttons, badge backgrounds, neutral icon-chip backgrounds, dropdown separators, disabled/quiet regions.
 
 ### Neutral
@@ -123,13 +126,16 @@ A warm, low-saturation ledger palette: paper and ink for structure, a small set 
 - **Muted Brick Rose — RTO** (`#7a4b52`): return-to-origin, a desaturated rose-brick distinct from both terracotta (destructive) and vermillion (NDR) at a glance.
 - **Manifest Blue — Sealed** (`#2857bd`) and **Sky Cyan — Received** (`#0db9f2`): manifest-only statuses, namespaced separately from shipment statuses in `statusConfig.ts` since both state machines have their own `InTransit`.
 
+### Chart Rank Ramp
+A single-series bar chart whose bars are split by a category with no inherent color meaning — `BranchPerformanceChart` (volume by branch), `RiderPerformanceChart` (attempts by rider) — uses a 3-step single-hue ordinal ramp (`--chart-rank-1/2/3`, Courier Cobalt) instead of one flat color for every bar or an arbitrary categorical rainbow. Branches/riders have no "brand color" of their own and the X-axis already labels every bar directly (no legend to disambiguate), so a distinct hue per bar would be pure decoration, not information — a color strategy needs a relationship to hierarchy or meaning to earn its place. The ramp instead re-encodes magnitude: each bar is bucketed by its value relative to the series' own maximum (`rankFill()`, `features/reports/lib/rankFill.ts` — ≥66% of max, ≥33%, else lowest tier), so a set of near-equal values reads as near-equal color instead of an artificial 3-way split. Rank 1 (light mode) is the literal `--primary` value; rank 1 (dark mode) is a brighter cobalt than `--primary` itself, not the literal token — `--primary`'s dark value only clears 2.9:1 against `--card`, leaving no room below it in dark mode for two more steps that stay both visibly distinct (OKLCH ΔL ≥0.06) and legible (≥2:1, the ordinal-mark floor, not the stricter categorical-swatch floor since these are magnitude marks with axis labels, not unlabeled legend swatches) — verified with the dataviz skill's `validateOrdinal` check. Same hue (236° dark, 230° light) throughout, which is what "one brand hue" actually rests on here, not a shared exact value — this codebase already treats a bright-dot/dark-text pair of one status hue as legitimate for the identical reason (see the `--status-*` header comment in `globals.css`).
+
 ### Named Rules
 **The Label-Always Rule.** No status is ever communicated by color alone. `StatusBadge` always pairs its colored dot with the status's text label, and any bare-dot use (funnel tiles) sits directly beside the same label — confirmed as the system's own mitigation for status hues that read calmer than a fully saturated categorical palette.
 
 **The Tint-From-Token Rule.** A colored icon-chip or highlight-panel background is always an existing status or accent token at reduced opacity (`/15`) or the `accent` role, never a new ad hoc hex value introduced for one component. What is **not** yet settled is the chip's *shape* for this treatment: the org dashboard's rate tiles use a full circle (`rounded-full`), while the branch dashboard's "Merchant Payable" highlight panel uses a rounded square (`rounded-lg`) for the same tinted-emphasis concept. Treat this as an open inconsistency to resolve in a future `/impeccable polish` pass, not as a rule with two exceptions — pick one shape for tinted-emphasis badges and apply it everywhere the next time either component is touched.
 
 ### Dark Mode
-Dark mode is a fully independent tuning, not an inversion: background `#141620`, foreground/ink `#f3efe7`, cards one step lighter than background (`#1e212e`). Status hues are re-lightened per-color rather than uniformly brightened — e.g. Delivered becomes a lighter teal (`#3fb39f`) and NDR a lighter vermillion (`#d45b3d`) — because a hue tuned for a light background does not carry the same contrast on a dark one.
+Dark mode is a fully independent tuning, not an inversion: background `#141620`, foreground/ink `#f3efe7`, cards one step lighter than background (`#1e212e`). Status hues are re-lightened per-color rather than uniformly brightened — e.g. Delivered becomes a lighter teal (`#3fb39f`) and NDR a lighter vermillion (`#d45b3d`) — because a hue tuned for a light background does not carry the same contrast on a dark one. Courier Cobalt gets the same independent treatment, but shifts hue as well as lightness (`#1d2863` light → `#4f58e3` dark, 230°→236°): light mode gets its separation from Sealed/Received (both blue-family status hues) from a large lightness gap, but a dark-mode fill has to sit in the same bright range as those two status hues to clear 3:1 against the dark background, so it leans a few degrees further from Sealed's 221° instead. That's a real, checked trade-off, not an oversight — see `globals.css`'s header comment for the exact numbers and the re-validation command.
 
 ## Typography
 
@@ -157,13 +163,13 @@ A single main content column per page (`p-6` on the content region, `space-y-4`/
 
 ## Elevation & Depth
 
-The system is almost flat and leans on paper/ink contrast and hairline borders for structure rather than shadows, with exactly one deliberate exception. At rest, ordinary in-page surfaces use Tailwind's default `shadow` (Cards, primary/secondary/destructive buttons — a very soft, colorless ambient lift) or `shadow-sm` (Input, outline Button, dropdown/select popovers use `shadow-md`, the Sheet panel uses `shadow-lg`) — all colorless, all subtle. The **Login card and the session-expired Dialog** are the one place the system reaches for something stronger: both use `shadow-xl shadow-primary/5`, a wider, ink-tinted shadow that makes these two "you are not inside the app yet" surfaces read as visibly more elevated than any ordinary dashboard card. Nothing elevates on hover; state changes are communicated by background-color shifts (`hover:bg-accent`, `hover:bg-primary/90`), not by adding depth — the one motion exception is a small icon-translate on the login button (see Components → Buttons).
+The system is almost flat and leans on paper/ink contrast and hairline borders for structure rather than shadows, with exactly one deliberate exception. At rest, ordinary in-page surfaces use Tailwind's default `shadow` (Cards, primary/secondary/destructive buttons — a very soft, colorless ambient lift) or `shadow-sm` (Input, outline Button, dropdown/select popovers use `shadow-md`, the Sheet panel uses `shadow-lg`) — all colorless, all subtle. The **Login card and the session-expired Dialog** are the one place the system reaches for something stronger: both use `shadow-xl shadow-primary/5`, a wider, cobalt-tinted shadow that makes these two "you are not inside the app yet" surfaces read as visibly more elevated than any ordinary dashboard card. Nothing elevates on hover; state changes are communicated by background-color shifts (`hover:bg-accent`, `hover:bg-primary/90`), not by adding depth — the one motion exception is a small icon-translate on the login button (see Components → Buttons).
 
 ### Shadow Vocabulary
 - **Ambient rest** (`shadow`): Cards, primary/secondary/destructive buttons at rest.
 - **Ambient subtle** (`shadow-sm`): Input, Select trigger, outline Button.
 - **Overlay** (`shadow-md`/`shadow-lg`): dropdown/select popovers, the Sheet panel — reserved for surfaces that float above the page.
-- **Auth-gate lift** (`shadow-xl shadow-primary/5`): the Login card and the session-expired Dialog only — a wider, ink-tinted shadow signaling "this is the one thing on screen right now," not used anywhere else.
+- **Auth-gate lift** (`shadow-xl shadow-primary/5`): the Login card and the session-expired Dialog only — a wider, cobalt-tinted shadow signaling "this is the one thing on screen right now," not used anywhere else.
 
 ### Named Rules
 **The Flat-Ledger Rule.** Depth exists only to separate an overlay (Sheet, dialog, dropdown) from the page beneath it, or to mark the two authentication gate surfaces. A surface sitting in the normal document flow — card, tile, table row — never gains a shadow, tinted or otherwise, that it didn't already have at rest.
@@ -176,11 +182,11 @@ Two independent radius scales coexist deliberately. The base UI scale follows sh
 
 ### Buttons
 - **Shape:** `rounded-lg` (6px), consistent across every variant.
-- **Primary:** ink (`#161821`) fill, paper text, soft default `shadow`; `hover:bg-primary/90`. The only button variant that reads as "the" action on a screen. The login page's submit button adds one micro-interaction not used elsewhere: its trailing arrow icon nudges right on hover (`group-hover:translate-x-0.5`) — a confirmed, deliberate one-off for the highest-stakes single action in the app, not a pattern to spread to every button.
+- **Primary:** Courier Cobalt (`#1d2863`) fill, paper text, soft default `shadow`; `hover:bg-primary/90`. The only button variant that reads as "the" action on a screen — previously an ink fill with no color identity of its own; the 2026-09-02 color pass gave it the system's one brand hue instead. The login page's submit button adds one micro-interaction not used elsewhere: its trailing arrow icon nudges right on hover (`group-hover:translate-x-0.5`) — a confirmed, deliberate one-off for the highest-stakes single action in the app, not a pattern to spread to every button.
 - **Secondary:** slate-mist fill, ink text, `shadow-sm`, `hover:bg-secondary/80` — used for the second-priority action beside a primary (e.g. Previous/Next pagination is `outline`, not `secondary`).
-- **Outline:** paper fill, hairline border, `hover:bg-accent` (marigold tint) — the default for non-destructive secondary actions (Retry, pagination, Cancel).
+- **Outline:** paper fill, hairline border, `hover:bg-accent` (cobalt tint) — the default for non-destructive secondary actions (Retry, pagination, Cancel).
 - **Destructive:** terracotta fill, paper text — reserved for genuinely destructive/irreversible actions.
-- **Ghost / Link:** no fill at rest; ghost gets the same `hover:bg-accent` treatment as outline (used for lower-emphasis actions like "Sign in as someone else"), link underlines on hover only.
+- **Ghost / Link:** no fill at rest; ghost gets the same `hover:bg-accent` treatment as outline (used for lower-emphasis actions like "Sign in as someone else"); link renders in Courier Cobalt (`text-primary`) and underlines on hover only — this is the one place the brand hue appears as text color, not just fill.
 - **Icon-only:** square `icon` size (36px) by default (e.g. the sidebar trigger), but the header's theme toggle overrides this to `rounded-full` — the one confirmed case of a circular icon button; don't treat it as license to round every icon button.
 - **Sizes:** `sm` (32px), `default` (36px), `lg` (40px), `icon` (36px square) — heights step in 4px increments.
 
@@ -220,20 +226,20 @@ Reserved for app-level interruptions outside the normal page flow — today, onl
 The user menu is the only dropdown in the app today: an avatar + name trigger (`hover:bg-accent`, `rounded-full`) opening a `bg-popover` panel (`rounded-md`, hairline border, `shadow-md`, `min-w-56`) with a header row (avatar + name + email), a hairline separator, and one or more `DropdownMenuItem`s that share the sidebar's `focus:bg-accent` hover treatment. Avatars are initials-only (no image upload exists yet) on a `secondary`-tinted circle with a `ring-1 ring-border`.
 
 ### Navigation (Sidebar)
-- **Style:** icon-rail sidebar, `collapsible="icon"`, with a static brand lockup (rounded-md ink-filled icon chip + "Courier Platform" in Space Grotesk when expanded) replacing the shadcn block's default team-switcher — this app has no multi-org concept per user.
+- **Style:** icon-rail sidebar, `collapsible="icon"`, with a static brand lockup (rounded-md Courier-Cobalt-filled icon chip + "Courier Platform" in Space Grotesk when expanded) replacing the shadcn block's default team-switcher — this app has no multi-org concept per user. The lockup was ink-filled before the 2026-09-02 color pass; it's the one static "logo-ish" element in the app, so it's where the brand hue reads strongest.
 - **Items:** flat list (no nested groups — deliberately not built until a nav item actually needs sub-items), each gated behind `usePermission(item.permission)` and rendering `null` entirely when denied, not disabled/grayed-out.
-- **Active state:** `isActive` on `SidebarMenuButton`, which resolves to the marigold-tint accent background.
+- **Active state:** `isActive` on `SidebarMenuButton`, which resolves to the cobalt-tint accent background.
 - **Mobile:** below `md`, the permanent rail is replaced by a `Sheet`-based drawer opened via a header hamburger trigger — sharing the same `SidebarNav` content as desktop so the two can't drift apart.
 
 ### Header
 Sticky, `h-16`, hairline bottom border, `bg-card`: sidebar trigger, a global search bar, then theme toggle + vertical hairline separator + user menu, right-aligned. The search bar (`⌘K`-labeled) is a confirmed **visual placeholder only** — `aria-hidden`, no click handler, no keyboard listener — because there is nothing in the app yet for it to search across; see Do's and Don'ts before building on top of it.
 
 ### Data Table
-Header row + body rows with 1px hairline row separators (shadcn `Table` default), no zebra striping, no row hover highlight beyond the default. Below the table: a plain-text "Page X of Y (N total)" caption on the left, Previous/Next `outline` buttons (disabled at the bounds) on the right — no numbered page links, no jump-to-page input.
+The table itself sits in its own bordered container — `rounded-xl border border-border bg-muted/40` (`overflow-hidden` to clip the corners), the same corner radius as a Card. `bg-muted/40` rather than `bg-card` is deliberate: `DataTable` is typically the entire content of a list page, sitting directly on the page background rather than nested inside a Card, and `bg-card` is hex-identical to the page background in light mode (see Cards, above) — invisible as a container fill there. A light `muted` tint reads as a distinct, lifted panel in both themes. Header row + body rows keep the shadcn `Table` default 1px hairline row separators inside that container, no zebra striping, no row hover highlight beyond the default. Below the table, outside the bordered container: a plain-text "Page X of Y (N total)" caption on the left, Previous/Next `outline` buttons (disabled at the bounds) on the right — no numbered page links, no jump-to-page input. `MerchantSettlementsTab` hand-rolls the same raw `Table` primitives instead of `DataTable` (its list endpoint isn't paginated — see the file's own comment) but wraps them in the identical bordered container by hand; if a third non-`DataTable` table ever shows up, promote this wrapper into a small shared component instead of a third copy-paste.
 
 ### Empty / Loading / Error States
 - **Empty:** dashed hairline border, `rounded-lg`, generous `p-12` padding, centered content — an optional circular `bg-muted` icon chip, a Space Grotesk `text-sm font-medium` title, an optional `muted-foreground` description, and an optional action below.
-- **Loading:** a stack of `Skeleton` bars (`h-10 w-full`, default 5 rows) standing in for the eventual table/list shape — never a full-page spinner for list content (a bare `Spinner` is reserved for page-level "nothing has rendered yet" waits, e.g. the shipments list's initial load).
+- **Loading:** a stack of `Skeleton` bars (`h-10 w-full`, default 5 rows) inside the same `rounded-xl border border-border bg-muted/40 p-3` container the populated table uses, standing in for the eventual table/list shape — the container previews the exact shape the table pops into once data arrives, rather than skeleton bars sitting flush with the page and the framed card appearing out of nowhere on load. Never a full-page spinner for list content (a bare `Spinner` is reserved for page-level "nothing has rendered yet" waits, e.g. the shipments list's initial load).
 - **Error:** terracotta-tinted (`border-destructive/30 bg-destructive/5`) variant of the same centered `p-12` card shape, terracotta title text, optional Retry (`outline` button).
 
 ## Do's and Don'ts
