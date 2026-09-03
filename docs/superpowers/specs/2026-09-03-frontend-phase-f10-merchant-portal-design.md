@@ -176,9 +176,11 @@ A fully separate portal, parallel to (not nested inside) the existing
   new `merchantAuthService` (`src/web/src/services/merchantAuthService.ts`,
   same shape as `authService.ts`: `login`, `refresh`, `me` against
   `/api/v1/merchant/auth/{login,refresh,me}`).
-- New BFF routes: `app/api/merchant-auth/{login,logout,refresh,session}/route.ts`
-  — same bodies as their `app/api/auth/*` counterparts, importing from
-  `merchantSession.ts`/`merchantAuthService.ts` instead.
+- New BFF routes: `app/api/merchant-auth/{login,logout,session}/route.ts` —
+  same bodies as their `app/api/auth/*` counterparts (verified: staff has no
+  `refresh` BFF route either — refresh happens transparently inside
+  `getValidAccessToken`, not as its own client-callable route), importing
+  from `merchantSession.ts`/`merchantAuthService.ts` instead.
 - New route group `app/(merchant)/...` with its own `layout.tsx` rendering a
   new `MerchantAppShell` (`components/merchant-layout/MerchantAppShell.tsx`) —
   reuses the shadcn `Sidebar`/`SidebarProvider` primitives `AppShell` already
