@@ -93,6 +93,15 @@ export const STATUS_CONFIG: Record<string, StatusConfigEntry> = {
   // Record.
   "MerchantSettlement.Created": { label: "Created", token: "status-created" },
   "MerchantSettlement.Settled": { label: "Settled", token: "status-delivered" },
+
+  // PickupRequestStatus — namespaced ("PickupRequest.X") for the same collision-avoidance
+  // reason every other namespace here is (a flat key risks colliding with another enum's same
+  // member name; PickupRequestStatus has no direct name clash today, but every multi-enum
+  // status set in this file is namespaced on principle, not only when a clash is proven).
+  "PickupRequest.Requested": { label: "Requested", token: "status-created" },
+  "PickupRequest.Scheduled": { label: "Scheduled", token: "status-sealed" },
+  "PickupRequest.Completed": { label: "Completed", token: "status-delivered" },
+  "PickupRequest.Cancelled": { label: "Cancelled", token: "status-cancelled" },
 };
 
 export function resolveStatusConfig(status: string, namespace?: string): StatusConfigEntry {
