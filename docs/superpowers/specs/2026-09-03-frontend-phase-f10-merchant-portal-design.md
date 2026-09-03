@@ -97,19 +97,43 @@ exposed. Route: `group.MapGet("/me", ...)` on the existing
 valid, active merchant user, the same bar `RequireMerchantPermission` already
 enforces internally before any scope check).
 
-### 3. Merchant-callable price quote
+### 3. Merchant-callable price quote and service-type reference data
 
 `POST /api/v1/pricing/quote` (`PricingEndpoints.cs`) is currently gated
 `if (httpContext.User.GetUserId() is null) return Unauthorized();` followed by
 `.RequirePermission("pricing.read")` — both staff-only. The merchant booking
 form needs the same live quote-preview UX the staff `ShipmentCreateSheet`
-already has (`useShipmentQuote`, per Phase F3). Fix: apply the same
-manual dual-auth branch `ShipmentsEndpoints.cs` already uses for its own
-group (staff JWT via `IPermissionChecker`/`"pricing.read"`, or merchant
-JWT/API-key via `IMerchantAuthorizationChecker`/a new
+already has (`useShipmentQuote`, per Phase F3), which also means it needs the
+Service Type picker the staff form populates from `GET /api/v1/service-types`
+— verified that route carries the identical staff-only gate
+(`.RequirePermission("pricing.read")`, same `referenceGroup`). Fix both
+together: apply the same manual dual-auth branch `ShipmentsEndpoints.cs`
+already uses for its own group (staff JWT via `IPermissionChecker`/
+`"pricing.read"`, or merchant JWT/API-key via
+`IMerchantAuthorizationChecker`/a new
 `MerchantPermissionCatalog.PricingRead = "merchant.pricing.read"` constant
 added to both `OwnerPermissions` and `StaffPermissions`, since both merchant
-roles need to book). Route itself changes from a plain `MapPost` to the
+roles need to book) to `GET /api/v1/service-types`. `ServiceType` has no
+`OrganizationId` at all (global reference data, confirmed in
+`ReferenceDataService.ListServiceTypesAsync`) — no tenant-isolation risk in
+exposing it further, only an authorization-scheme change.
+
+For the quote route itself, one more real risk beyond just widening auth:
+`PricingService.QuoteAsync(request, cancellationToken)` takes no
+`ClaimsPrincipal` and applies `request.MerchantId` exactly as the client
+sends it (used to resolve a `MerchantRateCard` override) — today this is
+safe only because every caller is staff. A merchant caller reaching this
+route unmodified could pass an arbitrary `MerchantId` and read *another*
+merchant's negotiated rate card through the quote response, a real
+cross-merchant data leak this phase would otherwise introduce. Fix: at the
+endpoint (not the service, which stays unchanged), when
+`httpContext.User.GetMerchantId()` is not null, construct the outgoing
+`PriceQuoteRequest` with `MerchantId` forced to that value regardless of
+what the client sent — same "server overrides the client-supplied
+`MerchantId`" principle `CreateShipmentRequest`'s own doc comment already
+establishes for shipment booking.
+
+Route itself changes from a plain `MapPost` to the
 `RequireAuthorization(AddAuthenticationSchemes(Bearer, ApiKey))` pattern
 `ShipmentsEndpoints`'s group already establishes.
 
@@ -242,7 +266,9 @@ stat-tile component. No new backend read.
   `useMerchantShipmentQuote` hook hitting the now-dual-auth
   `POST /api/v1/pricing/quote` for a live preview): Origin/Destination branch
   Select (new `useMerchantBranches()` read-only list hook against the new
-  `GET /api/v1/merchant/branches` from Backend changes §4), service type, weight/dimensions, COD amount,
+  `GET /api/v1/merchant/branches` from Backend changes §4), Service Type
+  Select (new `useMerchantServiceTypes()` hook against the now-dual-auth
+  `GET /api/v1/service-types` from Backend changes §3), weight/dimensions, COD amount,
   insurance toggle, recipient details + `GeographyPicker`, sender details +
   a second `GeographyPicker` (manually entered every time, exactly like the
   staff `ShipmentCreateSheet` requires today — verified `Merchant`'s
@@ -335,9 +361,14 @@ insufficient" for F12, same YAGNI reasoning applies here)
   inactive-user rejection, inactive-merchant rejection, correct
   `Permissions` per role), a unit test for the enum-serialization fix (round-
   trip a `KycDocumentType`/`MerchantUserRole` value through JSON), unit +
-  integration tests for the dual-auth `pricing/quote` path proving a merchant
-  JWT and a scoped API key can both reach it while an unscoped API key
-  cannot (mirrors the existing `ShipmentsEndpoints` dual-auth test pattern),
+  integration tests for the dual-auth `pricing/quote` and `service-types`
+  paths proving a merchant JWT and a scoped API key can both reach them
+  while an unscoped API key cannot (mirrors the existing `ShipmentsEndpoints`
+  dual-auth test pattern), plus a dedicated test proving a merchant caller's
+  client-supplied `MerchantId` on `POST /pricing/quote` is always overridden
+  to their own id (quote a second merchant's `MerchantRateCard`-discounted
+  route, confirm the merchant caller never sees that discount even when it
+  passes the other merchant's id explicitly),
   and a unit + integration test for `GET /api/v1/merchant/branches` proving
   it returns every active branch org-wide for a merchant caller (no
   accessible-branch-id narrowing) while still respecting tenant isolation
