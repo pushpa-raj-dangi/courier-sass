@@ -102,6 +102,14 @@ export const STATUS_CONFIG: Record<string, StatusConfigEntry> = {
   "PickupRequest.Scheduled": { label: "Scheduled", token: "status-sealed" },
   "PickupRequest.Completed": { label: "Completed", token: "status-delivered" },
   "PickupRequest.Cancelled": { label: "Cancelled", token: "status-cancelled" },
+
+  // KycStatus — first UI anywhere to render this enum (Frontend Phase F10). Reuses existing
+  // tokens: Pending reads as "just submitted, nothing decided yet" (same as Created), Approved
+  // as a positive terminal state (same as Delivered), Rejected as a negative terminal state
+  // (same as Cancelled).
+  "Kyc.Pending": { label: "Pending", token: "status-created" },
+  "Kyc.Approved": { label: "Approved", token: "status-delivered" },
+  "Kyc.Rejected": { label: "Rejected", token: "status-cancelled" },
 };
 
 export function resolveStatusConfig(status: string, namespace?: string): StatusConfigEntry {
