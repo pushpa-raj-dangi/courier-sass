@@ -243,10 +243,13 @@ stat-tile component. No new backend read.
   `POST /api/v1/pricing/quote` for a live preview): Origin/Destination branch
   Select (new `useMerchantBranches()` read-only list hook against the new
   `GET /api/v1/merchant/branches` from Backend changes §4), service type, weight/dimensions, COD amount,
-  insurance toggle, recipient details + `GeographyPicker`, sender details
-  (defaulted from the merchant's own profile address where available, still
-  editable), items → `POST /api/v1/shipments` (`MerchantId` omitted — backend
-  forces it to the caller's own id per the DTO's own doc comment).
+  insurance toggle, recipient details + `GeographyPicker`, sender details +
+  a second `GeographyPicker` (manually entered every time, exactly like the
+  staff `ShipmentCreateSheet` requires today — verified `Merchant`'s
+  `MerchantAddress` entity has no Presentation endpoint at all to read from,
+  so defaulting from a saved address is a real but separately-scoped gap,
+  not built here), items → `POST /api/v1/shipments` (`MerchantId` omitted —
+  backend forces it to the caller's own id per the DTO's own doc comment).
 - Detail Sheet: mirrors the staff `ShipmentDetailSheet`'s existing field
   layout exactly (status via `StatusBadge`, route, package, money, items,
   NDR/RTO links when applicable) — verified directly: neither
