@@ -503,10 +503,103 @@ unexpired grant; deactivated the user and confirmed both login and the
 already-issued refresh token were rejected, then reactivated and confirmed both
 work again) found no further bugs beyond the review's two CRITICAL findings above.
 
+## Phase F10 — Merchant Portal
+
+Booking, tracking, COD settlements/invoices, KYC, staff management, and API key
+management for merchants — the original backend Phase 12b scope, on top of
+Phase 12's merchant JWT/API-key track.
+
+*Entry:* F9 done. *Exit:* a merchant can log in through a session fully
+separate from staff, book a shipment with a live price preview, track it
+through delivery, raise and cancel pickup requests, view and export their COD
+settlements as invoices, upload and track KYC documents, invite staff (Owner
+only), and manage API keys (Owner only).
+
+*Status: Complete.* Shipped a full `MerchantAppShell` (session cookie
+separate from the staff track, permission-gated `MerchantNavMain`) with six
+feature pages under `/merchant`: `Shipments` (booking Sheet with a live
+debounced price-quote preview, list, detail Sheet, cancel), `Pickups`
+(request/cancel), `COD & Invoices` (settlement list, printable/exportable
+invoice Sheet), `KYC` (document upload with client-side type/extension
+validation), `Staff` (Owner-only invite, list), and `API Keys` (Owner-only
+create with a one-time plaintext reveal, scope selection, revoke). 16 tasks
+executed via `superpowers:subagent-driven-development`
+(`docs/superpowers/plans/2026-09-03-frontend-phase-f10-merchant-portal.md`),
+plus a route-tree fix mid-plan (Next.js route-group vs. real segment
+collision between `(merchant)` and `(staff)`) and a final whole-branch review.
+
+4 backend gaps closed first: `KycDocumentType`/`MerchantUserRole`/
+`PickupRequestStatus` missing `JsonStringEnumConverter` (the same recurring
+bug class as every prior phase); `GET /api/v1/merchant/auth/me`; making
+`/service-types` and `/pricing/quote` dual-auth (staff JWT or merchant
+JWT/API-key, forcing `MerchantId` server-side on the merchant path); and `GET
+/api/v1/merchant/branches` for the booking form's origin/destination picker.
+
+**Real bugs found only by a genuine live E2E pass (dotnet run + npm run dev
+against real Postgres, not mocks or unit tests) — the only verification this
+Sheet/list UI surface had, since Tasks 9-15 shipped with no dedicated
+component tests for the Sheets themselves:**
+1. `LocalLevelType` also missing `JsonStringEnumConverter` — the recurring
+   bug class hit an 8th time (`docs/CLARIFICATIONS.md` #19 already covered
+   the three F10-specific enums; this is a 4th, discovered only once the
+   booking Sheet's Recipient/Sender `GeographyPicker` was actually driven
+   live) — every local-level select rendered an empty `"City ()"` type
+   suffix.
+2. The merchant booking form's `GeographyPicker` calls
+   `/api/v1/geography/*`, which was staff-only — a merchant JWT/API-key got
+   403 for every province/district/local-level lookup, permanently blocking
+   the Recipient/Sender address section. Fixed with dual-auth on
+   `GeographyEndpoints` (mirroring `PricingEndpoints`'s established pattern)
+   plus a new `merchant.geography.read` permission and parallel
+   `/api/merchant/geography/*` BFF routes.
+3. A blank COD Amount field serializes to `NaN` via React Hook Form's
+   `valueAsNumber: true`, and `JSON.stringify(NaN)` is the literal `null`,
+   500ing the backend's non-nullable `PriceQuoteRequest.CodAmount` — hit on
+   both the merchant and (latent, previously unexercised) staff booking
+   Sheets. Fixed with a shared `toSafeQuoteAmount` coercion.
+4. The backend's `IdempotencyMiddleware` requires an `Idempotency-Key` header
+   on every merchant-JWT POST to `/shipments`, `/shipments/{id}/cancel`, and
+   `/pickups` (staff JWT is exempt) — none of the merchant BFF routes or
+   their mutation hooks ever sent one, so every booking/cancel/pickup attempt
+   400'd with `IDEMPOTENCY_KEY_REQUIRED`. Fixed with a shared
+   `generateIdempotencyKey()` helper wired into all three mutation hooks and
+   their BFF routes.
+5. Every merchant BFF route unconditionally called `await response.json()`
+   on the backend response; a bare `Results.Forbid()`/`Results.Unauthorized()`
+   returns an empty body, which throws on parse and was being swallowed into
+   a hardcoded generic 401 — masking the backend's real 403 for a Staff-role
+   session hitting an Owner-only route (`/merchant/staff`, `/merchant/api-keys`).
+   Fixed uniformly across all 16 merchant BFF route files with
+   `.catch(() => null)` on the parse, preserving the real status code.
+
+All 5 fixed directly, each as its own `fix:` commit, with regression tests
+added where the bug class was testable (`GeographyEndpointsTests`'
+`GetProvinces_MerchantOwnerToken_Succeeds`/`GetDistricts_..._FiltersByProvince`
+and a raw-JSON-body assertion for the enum fix; `toSafeQuoteAmount.test.ts`;
+per-route Idempotency-Key-forwarding tests on the shipments/cancel/pickups
+BFF routes plus their mutation hooks; a new `staff/route.test.ts` — this BFF
+route had none before — covering the empty-body-403 case specifically).
+
+Manual E2E verification drove the full merchant journey end-to-end: Owner
+login → book a shipment with a live NPR quote preview → raise and cancel a
+pickup → (staff side) pickup-scan, manifest transfer, COD delivery → rider,
+branch, finance, and merchant COD settlement, confirmed `Settled` with the
+correct `NPR 2,400.00` total payable (COD 2,500 − courier fee 100) both via
+the API and the invoice Sheet's line item → KYC upload accepted for PDF/JPEG/
+PNG, a `.txt` rejected client-side with zero network request → staff invite,
+confirmed a Staff-role session's nav correctly hides `Staff`/`API Keys` and a
+direct navigation to `/merchant/staff` is genuinely blocked server-side (not
+just hidden client-side) → API key create/reveal-once/revoke lifecycle,
+confirmed the plaintext is never present in `GET /api/v1/merchant/api-keys`'s
+response and cannot be recovered after the create Sheet closes.
+
+**Deliberately deferred, not fixed:** the CSV invoice download's
+formula-injection guard (`toCsv`, shipped in a prior COD phase) was not
+re-verified against a real spreadsheet application during this pass — parked
+consistent with the existing test-only verification noted for that guard.
+
 ## Later (not yet planned in detail)
 
-- **Phase F10 — Merchant Portal** (booking, tracking, COD settlements, invoices,
-  API key management — the original backend Phase 12b scope).
 - **Phase F11 — Public Tracking** (`/track/{awb}`, unauthenticated, withholds the
   fields listed in CLAUDE.md §24).
 - **Phase F12 — Rider Mobile-Web** (if F5's desktop approximation proves
