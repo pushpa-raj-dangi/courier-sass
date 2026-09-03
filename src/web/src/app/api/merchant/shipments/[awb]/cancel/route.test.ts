@@ -7,7 +7,7 @@ vi.mock("@/lib/auth/merchantApiFetch", () => ({
 import { POST } from "./route";
 import { merchantApiFetch } from "@/lib/auth/merchantApiFetch";
 
-describe("POST /api/merchant/shipments/[id]/cancel", () => {
+describe("POST /api/merchant/shipments/[awb]/cancel", () => {
   it("proxies the cancel action for the given id", async () => {
     vi.mocked(merchantApiFetch).mockResolvedValue({
       ok: true,
@@ -16,7 +16,7 @@ describe("POST /api/merchant/shipments/[id]/cancel", () => {
     } as Response);
 
     const response = await POST(new Request("http://localhost/api/merchant/shipments/s1/cancel"), {
-      params: { id: "s1" },
+      params: { awb: "s1" },
     });
 
     expect(merchantApiFetch).toHaveBeenCalledWith("/api/v1/shipments/s1/cancel", { method: "POST" });
