@@ -63,6 +63,10 @@ export function MerchantApiKeyCreateSheet() {
       setCreatedKey(null);
       setSelectedScopes([]);
       setCopied(false);
+      // This Sheet is mounted permanently in the merchant layout, so the mutation observer
+      // outlives the Sheet being closed — its own `.data` would otherwise keep holding the raw
+      // plaintextKey in memory after close, beyond what the local useState reset above covers.
+      createKey.reset();
     }
   }
 
