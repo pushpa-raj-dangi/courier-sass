@@ -40,15 +40,22 @@ public static class MerchantPermissionCatalog
     // Both merchant roles book shipments and need to pick an origin/destination branch
     // (Frontend Phase F10) — same Owner+Staff tier as PricingRead.
     public const string BranchesRead = "merchant.branches.read";
+    // Both merchant roles fill in a Recipient/Sender province/district/local-level for a booking
+    // (Frontend Phase F10 Task 16 E2E fix) — same Owner+Staff tier as BranchesRead/PricingRead.
+    // GeographyEndpoints (Geography module) checks this permission via IMerchantAuthorizationChecker
+    // by string literal rather than referencing this constant directly: Merchants already depends
+    // on Geography (for address fields), so a Geography -> Merchants reference would cycle. Keep
+    // the literal "merchant.geography.read" in GeographyEndpoints.cs in sync with this constant.
+    public const string GeographyRead = "merchant.geography.read";
 
     private static readonly string[] OwnerPermissions =
     {
-        ProfileRead, ProfileUpdate, StaffManage, KycUpload, ShipmentCreate, ShipmentRead, ShipmentCancel, WebhooksManage, ApiKeysManage, PickupsCreate, PickupsRead, PickupsCancel, CodSettlementsRead, PricingRead, BranchesRead
+        ProfileRead, ProfileUpdate, StaffManage, KycUpload, ShipmentCreate, ShipmentRead, ShipmentCancel, WebhooksManage, ApiKeysManage, PickupsCreate, PickupsRead, PickupsCancel, CodSettlementsRead, PricingRead, BranchesRead, GeographyRead
     };
 
     private static readonly string[] StaffPermissions =
     {
-        ProfileRead, KycUpload, ShipmentCreate, ShipmentRead, ShipmentCancel, PickupsCreate, PickupsRead, PickupsCancel, CodSettlementsRead, PricingRead, BranchesRead
+        ProfileRead, KycUpload, ShipmentCreate, ShipmentRead, ShipmentCancel, PickupsCreate, PickupsRead, PickupsCancel, CodSettlementsRead, PricingRead, BranchesRead, GeographyRead
     };
 
     public static readonly IReadOnlyDictionary<MerchantUserRole, IReadOnlySet<string>> RolePermissions =

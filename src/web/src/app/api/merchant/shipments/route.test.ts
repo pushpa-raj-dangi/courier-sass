@@ -53,4 +53,27 @@ describe("POST /api/merchant/shipments", () => {
     );
     expect(response.status).toBe(201);
   });
+
+  // Regression test for the Task 16 E2E-discovered bug: the backend's IdempotencyMiddleware
+  // 400s every merchant-JWT POST to /api/v1/shipments with IDEMPOTENCY_KEY_REQUIRED unless an
+  // Idempotency-Key header is present — this route must forward the client's header through.
+  it("forwards the client's Idempotency-Key header to the backend", async () => {
+    vi.mocked(merchantApiFetch).mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: async () => ({ id: "s1", awb: "AWB123" }),
+    } as Response);
+
+    const request = new NextRequest("http://localhost/api/merchant/shipments", {
+      method: "POST",
+      headers: { "Idempotency-Key": "key-123" },
+      body: JSON.stringify({ weightKg: 2 }),
+    });
+    await POST(request);
+
+    expect(merchantApiFetch).toHaveBeenCalledWith(
+      "/api/v1/shipments",
+      expect.objectContaining({ headers: expect.objectContaining({ "Idempotency-Key": "key-123" }) })
+    );
+  });
 });

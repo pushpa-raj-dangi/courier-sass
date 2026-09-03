@@ -12,6 +12,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Spinner } from "@/components/ui/spinner";
 import { FieldError } from "@/components/ui/field-error";
 import { GeographyPicker, type GeographyValue } from "@/features/branches/GeographyPicker";
+import { toSafeQuoteAmount } from "@/lib/pricing/toSafeQuoteAmount";
 import { useMerchantBranches } from "@/features/merchant-shipments/hooks/useMerchantBranches";
 import { useMerchantServiceTypes } from "@/features/merchant-shipments/hooks/useMerchantServiceTypes";
 import { useMerchantShipmentQuote } from "@/features/merchant-shipments/hooks/useMerchantShipmentQuote";
@@ -64,7 +65,7 @@ export function MerchantShipmentCreateSheet() {
           destinationBranchId,
           weightKg,
           serviceTypeId,
-          codAmount: codAmount ?? 0,
+          codAmount: toSafeQuoteAmount(codAmount),
           declaredValue,
           wantsInsurance: wantsInsurance ?? false,
         }
@@ -280,6 +281,7 @@ export function MerchantShipmentCreateSheet() {
               </div>
               <GeographyPicker
                 idPrefix="recipient"
+                source="merchant"
                 value={recipientGeography}
                 onChange={(next) => {
                   setValue("recipientProvinceId", next.provinceId ?? "");
@@ -326,6 +328,7 @@ export function MerchantShipmentCreateSheet() {
               </div>
               <GeographyPicker
                 idPrefix="sender"
+                source="merchant"
                 value={senderGeography}
                 onChange={(next) => {
                   setValue("senderProvinceId", next.provinceId ?? "");

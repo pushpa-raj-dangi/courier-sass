@@ -3,7 +3,14 @@
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useProvinces, useDistricts, useLocalLevels } from "@/features/geography/hooks/useGeography";
+import {
+  useProvinces,
+  useDistricts,
+  useLocalLevels,
+  useMerchantProvinces,
+  useMerchantDistricts,
+  useMerchantLocalLevels,
+} from "@/features/geography/hooks/useGeography";
 
 export interface GeographyValue {
   provinceId: string | null;
@@ -23,6 +30,7 @@ export function GeographyPicker({
   value,
   onChange,
   idPrefix = "",
+  source = "staff",
 }: {
   value: GeographyValue;
   onChange: (next: GeographyValue) => void;
@@ -30,10 +38,22 @@ export function GeographyPicker({
    * than once (e.g. Recipient + Sender) — without it, every instance shares the same hardcoded
    * ids and every `<label htmlFor>` past the first only ever associates with the first instance. */
   idPrefix?: string;
+  /** Which session's BFF routes to query: "staff" (default, /api/geography/*, apiFetch) for
+   * staff-side forms (BranchCreateSheet, staff ShipmentCreateSheet), or "merchant"
+   * (/api/merchant/geography/*, merchantApiFetch) for the merchant portal's booking Sheet — the
+   * merchant session carries no staff cookie, so the staff routes always 401 for it. */
+  source?: "staff" | "merchant";
 }) {
-  const { data: provinces } = useProvinces();
-  const { data: districts } = useDistricts(value.provinceId);
-  const { data: localLevels } = useLocalLevels(value.districtId);
+  const staffProvinces = useProvinces(source === "staff");
+  const staffDistricts = useDistricts(value.provinceId, source === "staff");
+  const staffLocalLevels = useLocalLevels(value.districtId, source === "staff");
+  const merchantProvinces = useMerchantProvinces(source === "merchant");
+  const merchantDistricts = useMerchantDistricts(value.provinceId, source === "merchant");
+  const merchantLocalLevels = useMerchantLocalLevels(value.districtId, source === "merchant");
+
+  const { data: provinces } = source === "merchant" ? merchantProvinces : staffProvinces;
+  const { data: districts } = source === "merchant" ? merchantDistricts : staffDistricts;
+  const { data: localLevels } = source === "merchant" ? merchantLocalLevels : staffLocalLevels;
 
   const provinceId = idPrefix ? `${idPrefix}-province` : "province";
   const districtId = idPrefix ? `${idPrefix}-district` : "district";

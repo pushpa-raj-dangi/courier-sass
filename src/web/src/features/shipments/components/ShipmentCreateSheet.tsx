@@ -13,6 +13,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { FieldError } from "@/components/ui/field-error";
 import { GeographyPicker, type GeographyValue } from "@/features/branches/GeographyPicker";
 import { useBranches } from "@/features/branches/hooks/useBranches";
+import { toSafeQuoteAmount } from "@/lib/pricing/toSafeQuoteAmount";
 import { createShipmentSchema, type CreateShipmentFormValues } from "@/features/shipments/schema";
 import { useCreateShipment } from "@/features/shipments/hooks/useCreateShipment";
 import { useMerchants } from "@/features/shipments/hooks/useMerchants";
@@ -64,7 +65,7 @@ export function ShipmentCreateSheet() {
           destinationBranchId,
           weightKg,
           serviceTypeId,
-          codAmount: codAmount ?? 0,
+          codAmount: toSafeQuoteAmount(codAmount),
           declaredValue,
           wantsInsurance: wantsInsurance ?? false,
           merchantId: merchantId ?? null,

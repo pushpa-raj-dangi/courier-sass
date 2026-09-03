@@ -3,7 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { GeographyPicker } from "./GeographyPicker";
 
-function renderPicker(onChange = vi.fn()) {
+function renderPicker(onChange = vi.fn(), source?: "staff" | "merchant") {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return {
     onChange,
@@ -12,6 +12,7 @@ function renderPicker(onChange = vi.fn()) {
         <GeographyPicker
           value={{ provinceId: null, districtId: null, localLevelId: null, wardNumber: null }}
           onChange={onChange}
+          source={source}
         />
       </QueryClientProvider>
     ),
@@ -48,5 +49,19 @@ describe("GeographyPicker", () => {
     renderPicker();
 
     expect(screen.getByLabelText(/local level/i)).toBeDisabled();
+  });
+
+  // Regression test for the Task 16 E2E-discovered bug: the merchant booking Sheet's
+  // Recipient/Sender GeographyPicker instances must query the merchant-session BFF routes
+  // (/api/merchant/geography/*), not the staff-only ones (/api/geography/*) — the merchant
+  // session carries no staff cookie, so the staff routes always 401 for it, leaving the
+  // Province/District/Local Level selects permanently empty.
+  it("queries the merchant geography routes, not the staff ones, when source is merchant", async () => {
+    renderPicker(vi.fn(), "merchant");
+
+    await waitFor(() =>
+      expect(global.fetch).toHaveBeenCalledWith("/api/merchant/geography/provinces", undefined)
+    );
+    expect(global.fetch).not.toHaveBeenCalledWith("/api/geography/provinces", undefined);
   });
 });
