@@ -146,4 +146,71 @@ public class MerchantAuthServiceTests
         await Assert.ThrowsAsync<MerchantAuthenticationFailedException>(
             () => service.RefreshTokenAsync(new MerchantRefreshRequest(loginResult.RefreshToken)));
     }
+
+    [Fact]
+    public async Task GetMeAsync_ActiveOwner_ReturnsProfileAndOwnerPermissions()
+    {
+        await using var dbContext = CreateContext();
+        var owner = await SeedOwnerAsync(dbContext, "me-owner@example.com", "P@ssw0rd123!");
+        var service = CreateService(dbContext);
+        var principal = PrincipalFor(owner.Id);
+
+        var result = await service.GetMeAsync(principal);
+
+        Assert.NotNull(result);
+        Assert.Equal(owner.Id, result!.MerchantUserId);
+        Assert.Equal(owner.MerchantId, result.MerchantId);
+        Assert.Equal(owner.OrganizationId, result.OrganizationId);
+        Assert.Equal(owner.Email, result.Email);
+        Assert.Equal(owner.FullName, result.FullName);
+        Assert.Equal(MerchantUserRole.Owner, result.Role);
+        Assert.Equal(MerchantPermissionCatalog.RolePermissions[MerchantUserRole.Owner].Count, result.Permissions.Count);
+        Assert.Contains(MerchantPermissionCatalog.StaffManage, result.Permissions);
+    }
+
+    [Fact]
+    public async Task GetMeAsync_InactiveMerchantUser_ReturnsNull()
+    {
+        await using var dbContext = CreateContext();
+        var owner = await SeedOwnerAsync(dbContext, "me-inactive@example.com", "P@ssw0rd123!");
+        owner.IsActive = false;
+        await dbContext.SaveChangesAsync();
+        var service = CreateService(dbContext);
+
+        var result = await service.GetMeAsync(PrincipalFor(owner.Id));
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task GetMeAsync_ActiveUserUnderInactiveMerchant_ReturnsNull()
+    {
+        await using var dbContext = CreateContext();
+        var owner = await SeedOwnerAsync(dbContext, "me-inactive-merchant@example.com", "P@ssw0rd123!", merchantIsActive: false);
+        var service = CreateService(dbContext);
+
+        var result = await service.GetMeAsync(PrincipalFor(owner.Id));
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task GetMeAsync_UnknownMerchantUserId_ReturnsNull()
+    {
+        await using var dbContext = CreateContext();
+        var service = CreateService(dbContext);
+
+        var result = await service.GetMeAsync(PrincipalFor(Guid.NewGuid()));
+
+        Assert.Null(result);
+    }
+
+    private static System.Security.Claims.ClaimsPrincipal PrincipalFor(Guid merchantUserId)
+    {
+        var identity = new System.Security.Claims.ClaimsIdentity(new[]
+        {
+            new System.Security.Claims.Claim("sub", merchantUserId.ToString())
+        }, "TestAuth");
+        return new System.Security.Claims.ClaimsPrincipal(identity);
+    }
 }

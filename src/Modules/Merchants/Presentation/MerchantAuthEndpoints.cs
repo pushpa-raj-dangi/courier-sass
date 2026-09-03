@@ -36,5 +36,18 @@ public static class MerchantAuthEndpoints
                 return Results.Json(new { error = new { code = "REFRESH_FAILED", message = ex.Message } }, statusCode: StatusCodes.Status401Unauthorized);
             }
         });
+
+        // Bare RequireAuthorization() defaults to the app's default scheme ("Bearer" —
+        // Program.cs's AddAuthentication(JwtBearerDefaults.AuthenticationScheme)), which both
+        // staff and merchant JWTs validate under (shared signing config) but an ApiKey-scheme
+        // credential never does — this alone is the JWT-only self-escalation carve-out, same
+        // bar ApiKeyEndpoints' three routes already enforce, no separate filter needed. No
+        // MerchantPermissionCatalog check either: /me only requires being a valid, active
+        // merchant user, not any specific permission.
+        group.MapGet("/me", async (HttpContext httpContext, MerchantAuthService authService, CancellationToken cancellationToken) =>
+        {
+            var result = await authService.GetMeAsync(httpContext.User, cancellationToken);
+            return result is null ? Results.Unauthorized() : Results.Ok(result);
+        }).RequireAuthorization();
     }
 }

@@ -1,7 +1,9 @@
+using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using Courier.Audit.Application;
 using Courier.Merchants.Domain;
+using Courier.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 
 namespace Courier.Merchants.Application;
@@ -104,6 +106,42 @@ public class MerchantAuthService
         _dbContext.Set<MerchantRefreshToken>().Add(entity);
         await Task.CompletedTask;
         return (entity, plainText);
+    }
+
+    // Merchant JWT `sub` claim carries the MerchantUserId, same accessor the login/refresh path
+    // already relies on via GetUserId(). IgnoreQueryFilters() for the same reason LoginAsync's
+    // own lookups use it: no tenant-scoped DbContext filter is active for a merchant-JWT
+    // caller. Returns null (never throws) for every rejection reason — same non-disclosure
+    // intent as LoginAsync's single generic failure message, though this route's caller is
+    // already authenticated so there's no email-enumeration risk; null just means "not a valid
+    // session," mapped to 401 by the endpoint.
+    public async Task<MerchantMeResponse?> GetMeAsync(ClaimsPrincipal user, CancellationToken cancellationToken = default)
+    {
+        var merchantUserId = user.GetUserId();
+        if (merchantUserId is null)
+        {
+            return null;
+        }
+
+        var merchantUser = await _dbContext.Set<MerchantUser>().IgnoreQueryFilters()
+            .FirstOrDefaultAsync(mu => mu.Id == merchantUserId && mu.IsActive, cancellationToken);
+        if (merchantUser is null)
+        {
+            return null;
+        }
+
+        var merchant = await _dbContext.Set<Merchant>().IgnoreQueryFilters()
+            .FirstOrDefaultAsync(m => m.Id == merchantUser.MerchantId, cancellationToken);
+        if (merchant is null || !merchant.IsActive)
+        {
+            return null;
+        }
+
+        var permissions = MerchantPermissionCatalog.RolePermissions[merchantUser.Role].ToList();
+        return new MerchantMeResponse(
+            merchantUser.Id, merchantUser.MerchantId, merchantUser.OrganizationId,
+            merchant.DisplayName, merchantUser.Email, merchantUser.FullName,
+            merchantUser.Role, permissions, merchant.KycStatus);
     }
 
     private static string HashToken(string token)

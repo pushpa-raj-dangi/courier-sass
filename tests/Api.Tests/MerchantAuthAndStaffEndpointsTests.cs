@@ -140,4 +140,48 @@ public class MerchantAuthAndStaffEndpointsTests : IClassFixture<WebApplicationFa
 
         Assert.Equal(HttpStatusCode.Forbidden, merchantsListResponse.StatusCode);
     }
+
+    [Fact]
+    public async Task GetMe_ValidOwnerToken_ReturnsProfileWithOwnerPermissions()
+    {
+        var staffClient = _factory.CreateClient();
+        var staffToken = await RegisterOrgAndGetStaffTokenAsync(staffClient, "f");
+        staffClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", staffToken);
+        var (ownerEmail, password) = await CreateMerchantAsync(staffClient, "f");
+
+        var merchantClient = _factory.CreateClient();
+        var loginResponse = await merchantClient.PostAsJsonAsync("/api/v1/merchant/auth/login", new MerchantLoginRequest(ownerEmail, password));
+        var auth = await loginResponse.Content.ReadFromJsonAsync<MerchantAuthResult>();
+        merchantClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth!.AccessToken);
+
+        var meResponse = await merchantClient.GetAsync("/api/v1/merchant/auth/me");
+
+        Assert.Equal(HttpStatusCode.OK, meResponse.StatusCode);
+        var me = await meResponse.Content.ReadFromJsonAsync<MerchantMeResponse>();
+        Assert.Equal("Owner", me!.Role.ToString());
+        Assert.True(me.Permissions.Count > 0);
+        Assert.Equal("Acme Traders", me.MerchantDisplayName);
+    }
+
+    [Fact]
+    public async Task GetMe_NoToken_ReturnsUnauthorized()
+    {
+        var merchantClient = _factory.CreateClient();
+
+        var response = await merchantClient.GetAsync("/api/v1/merchant/auth/me");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetMe_StaffToken_ReturnsUnauthorized()
+    {
+        var staffClient = _factory.CreateClient();
+        var staffToken = await RegisterOrgAndGetStaffTokenAsync(staffClient, "g");
+        staffClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", staffToken);
+
+        var response = await staffClient.GetAsync("/api/v1/merchant/auth/me");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
 }
