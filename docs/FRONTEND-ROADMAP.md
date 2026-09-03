@@ -598,6 +598,54 @@ formula-injection guard (`toCsv`, shipped in a prior COD phase) was not
 re-verified against a real spreadsheet application during this pass — parked
 consistent with the existing test-only verification noted for that guard.
 
+**Final whole-branch review (opus, `master..HEAD`) found 9 items; 3 fixed in
+one fix-wave commit, 6 parked.** All 3 fixed items trace back to the same root
+cause — `MerchantPermissionCatalog` gaining `GeographyRead` (this phase's own
+Task 16 E2E fix) without propagating to every place that enumerates the
+merchant permission set: `MerchantPermissionCatalogTests.
+Owner_HoldsAllFifteenPermissions` was a genuinely failing test on HEAD
+(`Expected: 15, Actual: 16`) — the count and `Contains` list were never
+updated; `MerchantApiKeyCreateSheet`'s 14-entry scope picker was missing
+`merchant.geography.read`, so a merchant narrowing a new API key's scopes
+could never grant it geography access even though an unscoped key could; and
+(found during the same read, not GeographyRead-related) `codAmount` in the
+booking schema is a required `z.number()` with no default — a blank input
+reaches Zod as `NaN` via `valueAsNumber`, forcing every non-COD booking to
+explicitly type "0", which the live quote preview on the same field already
+tolerated via `toSafeQuoteAmount` but the actual submit-time validation did
+not. Fixed with a `setValueAs` coercion at the `register()` call (not a
+`z.preprocess`, which breaks the resolver's inferred type against `useForm`'s
+declared `FieldValues`).
+
+**6 items deliberately deferred, not fixed — worth a glance in a future
+phase or a small F10.1 patch:** (1) no merchant-specific reauth/session-expiry
+recovery UI exists — `MerchantAppShell.tsx` never mounts a `ReauthDialog`
+equivalent, so a merchant session that actually expires mid-use leaves every
+page's queries silently erroring with no path back to a working session
+short of manually navigating to `/merchant-login`; the existing
+`ReauthDialog` is hardcoded to the staff `/api/auth/login` route and
+`useSession()`, so this needs a dedicated merchant variant, not just
+re-mounting the existing one. (2) The staff-vs-merchant dual-auth check
+(`HasPricingReadAccessAsync`/`HasGeographyReadAccessAsync` and inline logic
+in `ShipmentsEndpoints.cs`) is hand-rolled independently three times rather
+than through one shared filter — a future merchant-scoped endpoint will
+likely need a fourth copy. (3) The `merchant.geography.read` permission
+string is checked in `GeographyEndpoints.cs` via a hardcoded literal rather
+than `MerchantPermissionCatalog.GeographyRead` (to avoid a Geography→
+Merchants circular reference), with only a code comment — not the compiler —
+keeping the two in sync. (4) All ~16 merchant BFF `route.ts` files repeat an
+identical fetch/parse/status-forward/catch block (the shape this phase's own
+empty-body-403 fix had to be retrofitted across one file at a time) with no
+shared `proxyJson()` helper. (5) `MerchantShipmentCreateSheet.tsx` and its
+siblings are a near-total copy-paste of the staff `ShipmentCreateSheet.tsx`
+family; the `codAmount` bug above already shows the duplication lapsing in
+practice (fixed on the merchant copy, latent on the staff copy, out of this
+phase's scope). (6) `MerchantDashboardStats.tsx` fetches only the first 100
+shipments (`useMerchantShipments(1, 100)`) to compute its tile counts —
+already documented in-code as an accepted no-new-backend-read tradeoff, but a
+merchant with more than 100 shipments gets silently undercounted tiles with
+no indication the numbers are partial.
+
 ## Later (not yet planned in detail)
 
 - **Phase F11 — Public Tracking** (`/track/{awb}`, unauthenticated, withholds the
