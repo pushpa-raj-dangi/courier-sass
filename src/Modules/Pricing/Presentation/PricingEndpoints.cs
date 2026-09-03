@@ -1,3 +1,4 @@
+using Courier.Merchants.Application;
 using Courier.Pricing.Application;
 using Courier.SharedKernel;
 using Microsoft.AspNetCore.Builder;
@@ -10,11 +11,28 @@ public static class PricingEndpoints
 {
     public static void MapPricingEndpoints(this IEndpointRouteBuilder app)
     {
-        var referenceGroup = app.MapGroup("/api/v1");
+        // Dual-auth for the two routes a merchant caller needs to build a booking-form quote
+        // preview (service-types below, and /quote further down) — staff via "pricing.read", or
+        // merchant JWT/API-key via MerchantPermissionCatalog.PricingRead. Same manual
+        // per-credential-type branching ShipmentsEndpoints already establishes, since no
+        // existing filter covers "either token kind, different permission string per kind."
+        var referenceGroup = app.MapGroup("/api/v1")
+            .RequireAuthorization(policy => policy
+                .AddAuthenticationSchemes(AuthSchemes.Bearer, AuthSchemes.ApiKey)
+                .RequireAssertion(ctx => ctx.User.Identity?.IsAuthenticated == true))
+            .RequireApiKeyRateLimit();
 
-        referenceGroup.MapGet("/service-types", async (ReferenceDataService referenceDataService, CancellationToken cancellationToken) =>
-            Results.Ok(await referenceDataService.ListServiceTypesAsync(cancellationToken))).RequirePermission("pricing.read")
-            .WithTags("Price Management");
+        // ServiceType has no OrganizationId at all (global reference data, confirmed in
+        // ReferenceDataService.ListServiceTypesAsync) — no tenant-isolation risk in exposing it
+        // further, only an authorization-scheme change.
+        referenceGroup.MapGet("/service-types", async (ReferenceDataService referenceDataService, HttpContext httpContext, IPermissionChecker permissionChecker, IMerchantAuthorizationChecker merchantAuthorizationChecker, CancellationToken cancellationToken) =>
+        {
+            if (!await HasPricingReadAccessAsync(httpContext, permissionChecker, merchantAuthorizationChecker))
+            {
+                return httpContext.User.GetMerchantId() is null && httpContext.User.GetUserId() is null ? Results.Unauthorized() : Results.Forbid();
+            }
+            return Results.Ok(await referenceDataService.ListServiceTypesAsync(cancellationToken));
+        }).WithTags("Price Management");
 
         referenceGroup.MapGet("/weight-slabs", async (ReferenceDataService referenceDataService, CancellationToken cancellationToken) =>
             Results.Ok(await referenceDataService.ListWeightSlabsAsync(cancellationToken))).RequirePermission("pricing.read").WithTags("Price Management");
@@ -124,13 +142,28 @@ public static class PricingEndpoints
             }
         }).RequirePermission("pricing.manage");
 
-        var quoteGroup = app.MapGroup("/api/v1/pricing").WithTags("Price Quote");
+        var quoteGroup = app.MapGroup("/api/v1/pricing")
+            .RequireAuthorization(policy => policy
+                .AddAuthenticationSchemes(AuthSchemes.Bearer, AuthSchemes.ApiKey)
+                .RequireAssertion(ctx => ctx.User.Identity?.IsAuthenticated == true))
+            .RequireApiKeyRateLimit()
+            .WithTags("Price Quote");
 
-        quoteGroup.MapPost("/quote", async (PriceQuoteRequest request, PricingService pricingService, HttpContext httpContext) =>
+        quoteGroup.MapPost("/quote", async (PriceQuoteRequest request, PricingService pricingService, HttpContext httpContext, IPermissionChecker permissionChecker, IMerchantAuthorizationChecker merchantAuthorizationChecker) =>
         {
-            if (httpContext.User.GetUserId() is null)
+            if (!await HasPricingReadAccessAsync(httpContext, permissionChecker, merchantAuthorizationChecker))
             {
-                return Results.Unauthorized();
+                return httpContext.User.GetMerchantId() is null && httpContext.User.GetUserId() is null ? Results.Unauthorized() : Results.Forbid();
+            }
+
+            // A merchant caller's client-supplied MerchantId is never trusted — forced to the
+            // caller's own id regardless of what the request body said, same principle
+            // CreateShipmentRequest's own doc comment establishes for booking. Without this, a
+            // merchant JWT could pass another merchant's id and read their MerchantRateCard
+            // discount through the quote response.
+            if (httpContext.User.GetMerchantId() is Guid callerMerchantId)
+            {
+                request = request with { MerchantId = callerMerchantId };
             }
 
             try
@@ -142,6 +175,21 @@ public static class PricingEndpoints
             {
                 return Results.BadRequest(new { error = new { code = "PRICING_VALIDATION_FAILED", message = ex.Message } });
             }
-        }).RequirePermission("pricing.read");
+        });
+    }
+
+    // Shared by /service-types (reference data a quote preview needs) and /quote itself — staff
+    // via "pricing.read", merchant JWT/API-key via MerchantPermissionCatalog.PricingRead.
+    private static async Task<bool> HasPricingReadAccessAsync(HttpContext httpContext, IPermissionChecker permissionChecker, IMerchantAuthorizationChecker merchantAuthorizationChecker)
+    {
+        if (httpContext.User.GetMerchantId() is not null)
+        {
+            return await merchantAuthorizationChecker.HasPermissionAsync(httpContext.User, MerchantPermissionCatalog.PricingRead, httpContext.RequestAborted);
+        }
+        if (httpContext.User.GetUserId() is not null)
+        {
+            return await permissionChecker.HasPermissionAsync(httpContext.User, "pricing.read", httpContext.RequestAborted);
+        }
+        return false;
     }
 }

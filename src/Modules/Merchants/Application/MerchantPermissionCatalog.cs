@@ -33,15 +33,19 @@ public static class MerchantPermissionCatalog
     // /shipments — a settlements read for the same merchant is no new sensitive exposure, so
     // this sits at the same Owner+Staff tier as ShipmentRead, not the Owner-only management tier.
     public const string CodSettlementsRead = "merchant.cod.read";
+    // Both merchant roles book shipments and need the same live price-quote preview the staff
+    // ShipmentCreateSheet already has (Frontend Phase F10) — same Owner+Staff tier as
+    // ShipmentRead/CodSettlementsRead, not an Owner-only management permission.
+    public const string PricingRead = "merchant.pricing.read";
 
     private static readonly string[] OwnerPermissions =
     {
-        ProfileRead, ProfileUpdate, StaffManage, KycUpload, ShipmentCreate, ShipmentRead, ShipmentCancel, WebhooksManage, ApiKeysManage, PickupsCreate, PickupsRead, PickupsCancel, CodSettlementsRead
+        ProfileRead, ProfileUpdate, StaffManage, KycUpload, ShipmentCreate, ShipmentRead, ShipmentCancel, WebhooksManage, ApiKeysManage, PickupsCreate, PickupsRead, PickupsCancel, CodSettlementsRead, PricingRead
     };
 
     private static readonly string[] StaffPermissions =
     {
-        ProfileRead, KycUpload, ShipmentCreate, ShipmentRead, ShipmentCancel, PickupsCreate, PickupsRead, PickupsCancel, CodSettlementsRead
+        ProfileRead, KycUpload, ShipmentCreate, ShipmentRead, ShipmentCancel, PickupsCreate, PickupsRead, PickupsCancel, CodSettlementsRead, PricingRead
     };
 
     public static readonly IReadOnlyDictionary<MerchantUserRole, IReadOnlySet<string>> RolePermissions =

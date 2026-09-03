@@ -7,15 +7,16 @@ namespace Courier.Merchants.Tests;
 public class MerchantPermissionCatalogTests
 {
     [Fact]
-    public void Owner_HoldsAllThirteenPermissions()
+    public void Owner_HoldsAllFourteenPermissions()
     {
         var ownerPermissions = MerchantPermissionCatalog.RolePermissions[MerchantUserRole.Owner];
 
-        // 13: Phase 12 added ApiKeysManage as Owner-only (same sensitivity tier as
+        // 14: Phase 12 added ApiKeysManage as Owner-only (same sensitivity tier as
         // StaffManage/WebhooksManage/ProfileUpdate), three pickup permissions
-        // (PickupsCreate/Read/Cancel) shared with Staff, and CodSettlementsRead (Task 11) shared
-        // with Staff at the same tier as ShipmentRead.
-        Assert.Equal(13, ownerPermissions.Count);
+        // (PickupsCreate/Read/Cancel) shared with Staff, CodSettlementsRead shared with Staff,
+        // and Frontend Phase F10 added PricingRead shared with Staff (both merchant roles book
+        // shipments and need a live quote preview).
+        Assert.Equal(14, ownerPermissions.Count);
         Assert.Contains(MerchantPermissionCatalog.ProfileRead, ownerPermissions);
         Assert.Contains(MerchantPermissionCatalog.ProfileUpdate, ownerPermissions);
         Assert.Contains(MerchantPermissionCatalog.StaffManage, ownerPermissions);
@@ -26,6 +27,7 @@ public class MerchantPermissionCatalogTests
         Assert.Contains(MerchantPermissionCatalog.PickupsRead, ownerPermissions);
         Assert.Contains(MerchantPermissionCatalog.PickupsCancel, ownerPermissions);
         Assert.Contains(MerchantPermissionCatalog.CodSettlementsRead, ownerPermissions);
+        Assert.Contains(MerchantPermissionCatalog.PricingRead, ownerPermissions);
     }
 
     [Fact]
@@ -39,6 +41,7 @@ public class MerchantPermissionCatalogTests
         Assert.Contains(MerchantPermissionCatalog.PickupsRead, staffPermissions);
         Assert.Contains(MerchantPermissionCatalog.PickupsCancel, staffPermissions);
         Assert.Contains(MerchantPermissionCatalog.CodSettlementsRead, staffPermissions);
+        Assert.Contains(MerchantPermissionCatalog.PricingRead, staffPermissions);
         Assert.DoesNotContain(MerchantPermissionCatalog.StaffManage, staffPermissions);
         Assert.DoesNotContain(MerchantPermissionCatalog.ProfileUpdate, staffPermissions);
         Assert.DoesNotContain(MerchantPermissionCatalog.WebhooksManage, staffPermissions);

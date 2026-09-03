@@ -200,6 +200,113 @@ public class PricingEndpointsTests : IClassFixture<WebApplicationFactory<Program
         Assert.Equal(240m, quoteWithMerchant!.Total); // 300 - 20%
     }
 
+    private async Task<HttpClient> CreateMerchantOwnerClientAsync(HttpClient staffClient, string label)
+    {
+        var ownerEmail = $"owner-{label}-{Guid.NewGuid():N}@example.com";
+        var request = new CreateMerchantRequest(
+            "Merchant Quote Pvt. Ltd.", "Merchant Quote Co.", "01-4444444", "contact@merchantquote.example",
+            ownerEmail, "P@ssw0rd123!", "Merchant Owner",
+            KathmanduProvinceId, KathmanduDistrictId, KathmanduLocalLevelId, KathmanduWardNumber, "New Road, Kathmandu");
+        var createResponse = await staffClient.PostAsJsonAsync("/api/v1/merchants", request);
+        createResponse.EnsureSuccessStatusCode();
+
+        var merchantClient = _factory.CreateClient();
+        var loginResponse = await merchantClient.PostAsJsonAsync("/api/v1/merchant/auth/login", new MerchantLoginRequest(ownerEmail, "P@ssw0rd123!"));
+        loginResponse.EnsureSuccessStatusCode();
+        var auth = await loginResponse.Content.ReadFromJsonAsync<MerchantAuthResult>();
+        merchantClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth!.AccessToken);
+        return merchantClient;
+    }
+
+    [Fact]
+    public async Task ServiceTypes_MerchantToken_ReturnsOk()
+    {
+        var staffClient = _factory.CreateClient();
+        var org = await RegisterOrgAsync(staffClient, "svc-types-merchant");
+        staffClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var merchantClient = await CreateMerchantOwnerClientAsync(staffClient, "svc-types-merchant");
+
+        var response = await merchantClient.GetAsync("/api/v1/service-types");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Quote_MerchantToken_ReturnsOkAndAppliesOrgDefaultRateCard()
+    {
+        var staffClient = _factory.CreateClient();
+        var org = await RegisterOrgAsync(staffClient, "quote-merchant");
+        staffClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+
+        var (originBranchId, destinationBranchId, serviceTypeId) = await SeedRoutableBranchesAsync(staffClient);
+        await SeedRateCardWithZoneRateAsync(staffClient, originBranchId, destinationBranchId, serviceTypeId, 150m);
+
+        var merchantClient = await CreateMerchantOwnerClientAsync(staffClient, "quote-merchant");
+
+        var response = await merchantClient.PostAsJsonAsync("/api/v1/pricing/quote",
+            new PriceQuoteRequest(originBranchId, destinationBranchId, 0.7m, serviceTypeId, 0m, 0m, false, null));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var quote = await response.Content.ReadFromJsonAsync<PriceQuoteResponse>();
+        Assert.Equal(150m, quote!.Total);
+    }
+
+    [Fact]
+    public async Task Quote_MerchantSuppliesAnotherMerchantId_IsOverriddenToOwnId()
+    {
+        var staffClient = _factory.CreateClient();
+        var org = await RegisterOrgAsync(staffClient, "quote-spoof");
+        staffClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+
+        var (originBranchId, destinationBranchId, serviceTypeId) = await SeedRoutableBranchesAsync(staffClient);
+        var rateCard = await SeedRateCardWithZoneRateAsync(staffClient, originBranchId, destinationBranchId, serviceTypeId, 100m);
+
+        // Merchant A gets a 50% discount override on the org's own default rate card.
+        var merchantAResponse = await staffClient.PostAsJsonAsync("/api/v1/merchants", new CreateMerchantRequest(
+            "Merchant A Pvt. Ltd.", "Merchant A", "01-1111111", "a@example.com",
+            $"owner-a-{Guid.NewGuid():N}@example.com", "P@ssw0rd123!", "Owner A",
+            KathmanduProvinceId, KathmanduDistrictId, KathmanduLocalLevelId, KathmanduWardNumber, "New Road, Kathmandu"));
+        var merchantA = await merchantAResponse.Content.ReadFromJsonAsync<MerchantResponse>();
+        await staffClient.PutAsJsonAsync($"/api/v1/merchants/{merchantA!.Id}/rate-card", new UpsertMerchantRateCardRequest(rateCard.Id, 50m));
+
+        // Merchant B has no override of its own.
+        var merchantBClient = await CreateMerchantOwnerClientAsync(staffClient, "quote-spoof-b");
+
+        // Merchant B attempts to spoof Merchant A's id to get the 50% discount.
+        var response = await merchantBClient.PostAsJsonAsync("/api/v1/pricing/quote",
+            new PriceQuoteRequest(originBranchId, destinationBranchId, 0.7m, serviceTypeId, 0m, 0m, false, merchantA.Id));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var quote = await response.Content.ReadFromJsonAsync<PriceQuoteResponse>();
+        // The org default (100), not Merchant A's discounted 50 — proving the server ignored the
+        // client-supplied MerchantId and used Merchant B's own (override-less) identity instead.
+        Assert.Equal(100m, quote!.Total);
+    }
+
+    [Fact]
+    public async Task Quote_UnscopedApiKey_ReturnsForbidden()
+    {
+        var staffClient = _factory.CreateClient();
+        var org = await RegisterOrgAsync(staffClient, "quote-apikey");
+        staffClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (originBranchId, destinationBranchId, serviceTypeId) = await SeedRoutableBranchesAsync(staffClient);
+        await SeedRateCardWithZoneRateAsync(staffClient, originBranchId, destinationBranchId, serviceTypeId, 100m);
+
+        var merchantClient = await CreateMerchantOwnerClientAsync(staffClient, "quote-apikey");
+        var keyResponse = await merchantClient.PostAsJsonAsync("/api/v1/merchant/api-keys",
+            new CreateApiKeyRequest(new[] { MerchantPermissionCatalog.ShipmentRead })); // no PricingRead
+        keyResponse.EnsureSuccessStatusCode();
+        var apiKey = await keyResponse.Content.ReadFromJsonAsync<ApiKeyCreatedResponse>();
+
+        var apiKeyClient = _factory.CreateClient();
+        apiKeyClient.DefaultRequestHeaders.Add("X-Api-Key", apiKey!.PlaintextKey);
+
+        var response = await apiKeyClient.PostAsJsonAsync("/api/v1/pricing/quote",
+            new PriceQuoteRequest(originBranchId, destinationBranchId, 0.7m, serviceTypeId, 0m, 0m, false, null));
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
     [Fact]
     public async Task RateCards_OrgBCannotSeeOrgAsRateCards()
     {
