@@ -245,13 +245,20 @@ stat-tile component. No new backend read.
   (defaulted from the merchant's own profile address where available, still
   editable), items → `POST /api/v1/shipments` (`MerchantId` omitted — backend
   forces it to the caller's own id per the DTO's own doc comment).
-- Detail Sheet: status, tracking events (reuses `ShipmentDetailSheet`'s
-  existing tracking-event list rendering pattern), Cancel action
-  (`merchant.shipments.cancel` i.e. `"shipment.cancel"`) →
+- Detail Sheet: mirrors the staff `ShipmentDetailSheet`'s existing field
+  layout exactly (status via `StatusBadge`, route, package, money, items,
+  NDR/RTO links when applicable) — verified directly: neither
+  `ShipmentResponse` nor any endpoint exposes a `ShipmentEvent`
+  timeline today, so the staff app itself has no tracking-event list to
+  reuse; this phase does not add one either (a real, separately-scoped gap,
+  not silently built here). Cancel action (`"shipment.cancel"`, the shared
+  string `MerchantPermissionCatalog.ShipmentCancel` also uses) →
   `POST /api/v1/shipments/{id}/cancel`.
-- Also serves the roadmap entry's "tracking" scope item — the detail Sheet's
-  tracking-event list *is* the merchant's tracking view; no separate public
-  `/track/{awb}` work here (that's Phase F11).
+- Serves the roadmap entry's "tracking" scope item at the same fidelity the
+  staff app already has: current status + route/branch fields. A richer
+  event-by-event timeline is a real gap (affects staff too, not merchant-
+  specific) — noted in `docs/CLARIFICATIONS.md` as a follow-up, not built
+  here. No separate public `/track/{awb}` work either (that's Phase F11).
 
 **Pickups** (`/merchant/pickups`) — new `features/merchant-pickups/`: list
 against `GET /api/v1/pickups` (already merchant-scoped), create Sheet
