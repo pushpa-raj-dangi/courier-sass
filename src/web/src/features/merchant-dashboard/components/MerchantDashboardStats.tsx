@@ -27,7 +27,11 @@ export function MerchantDashboardStats() {
   const { data: settlements } = useMerchantSettlements();
 
   const items = shipments?.items ?? [];
-  const created = items.filter((s) => s.currentStatus === "Created").length;
+  // PickupAssigned is grouped with Created here to match statusConfig.ts's STATUS_CONFIG, which
+  // gives PickupAssigned the same "Created" label/token as Created everywhere else in the app
+  // (StatusBadge etc.) — without this, a shipment sitting in that normal transitional status
+  // would vanish from every tile on this dashboard.
+  const created = items.filter((s) => ["Created", "PickupAssigned"].includes(s.currentStatus)).length;
   const inTransit = items.filter((s) =>
     ["PickedUp", "AtOriginBranch", "Sorted", "InTransit", "AtDestinationBranch"].includes(s.currentStatus)
   ).length;
