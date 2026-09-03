@@ -79,4 +79,31 @@ public class BranchServiceTests
 
         Assert.Null(await service.GetZoneInfoAsync(Guid.NewGuid()));
     }
+
+    [Fact]
+    public async Task ListBranchesForMerchantAsync_ReturnsOnlyActiveBranches_NoAccessNarrowing()
+    {
+        await using var dbContext = CreateSeededContext();
+        var orgId = Guid.NewGuid();
+        var active = new Branch
+        {
+            Id = Guid.NewGuid(), OrganizationId = orgId, Code = "KTM-01", Name = "Kathmandu Hub",
+            Type = BranchType.Hub, ProvinceId = Guid.NewGuid(), DistrictId = Guid.NewGuid(),
+            LocalLevelId = Guid.NewGuid(), WardNumber = 1, AddressLine = "New Road", IsActive = true
+        };
+        var inactive = new Branch
+        {
+            Id = Guid.NewGuid(), OrganizationId = orgId, Code = "KTM-02", Name = "Closed Branch",
+            Type = BranchType.Branch, ProvinceId = Guid.NewGuid(), DistrictId = Guid.NewGuid(),
+            LocalLevelId = Guid.NewGuid(), WardNumber = 2, AddressLine = "Old Road", IsActive = false
+        };
+        dbContext.Set<Branch>().AddRange(active, inactive);
+        await dbContext.SaveChangesAsync();
+        var service = new BranchService(dbContext, new FixedTenantProvider(orgId), new NoopAuditLogger(), new AllBranchesAuthorizationChecker(), new GeographyQueryService(dbContext));
+
+        var result = await service.ListBranchesForMerchantAsync();
+
+        var single = Assert.Single(result);
+        Assert.Equal(active.Id, single.Id);
+    }
 }

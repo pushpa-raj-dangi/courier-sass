@@ -37,15 +37,18 @@ public static class MerchantPermissionCatalog
     // ShipmentCreateSheet already has (Frontend Phase F10) — same Owner+Staff tier as
     // ShipmentRead/CodSettlementsRead, not an Owner-only management permission.
     public const string PricingRead = "merchant.pricing.read";
+    // Both merchant roles book shipments and need to pick an origin/destination branch
+    // (Frontend Phase F10) — same Owner+Staff tier as PricingRead.
+    public const string BranchesRead = "merchant.branches.read";
 
     private static readonly string[] OwnerPermissions =
     {
-        ProfileRead, ProfileUpdate, StaffManage, KycUpload, ShipmentCreate, ShipmentRead, ShipmentCancel, WebhooksManage, ApiKeysManage, PickupsCreate, PickupsRead, PickupsCancel, CodSettlementsRead, PricingRead
+        ProfileRead, ProfileUpdate, StaffManage, KycUpload, ShipmentCreate, ShipmentRead, ShipmentCancel, WebhooksManage, ApiKeysManage, PickupsCreate, PickupsRead, PickupsCancel, CodSettlementsRead, PricingRead, BranchesRead
     };
 
     private static readonly string[] StaffPermissions =
     {
-        ProfileRead, KycUpload, ShipmentCreate, ShipmentRead, ShipmentCancel, PickupsCreate, PickupsRead, PickupsCancel, CodSettlementsRead, PricingRead
+        ProfileRead, KycUpload, ShipmentCreate, ShipmentRead, ShipmentCancel, PickupsCreate, PickupsRead, PickupsCancel, CodSettlementsRead, PricingRead, BranchesRead
     };
 
     public static readonly IReadOnlyDictionary<MerchantUserRole, IReadOnlySet<string>> RolePermissions =

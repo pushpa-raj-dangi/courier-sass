@@ -19,6 +19,7 @@
     <ProjectReference Include="..\..\SharedKernel\SharedKernel.csproj" />
     <ProjectReference Include="..\Audit\Audit.csproj" />
     <ProjectReference Include="..\Geography\Geography.csproj" />
+    <ProjectReference Include="..\Merchants\Merchants.csproj" />
   </ItemGroup>
 
 </Project>

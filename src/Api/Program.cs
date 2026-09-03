@@ -286,6 +286,7 @@ app.MapAuthEndpoints();
 app.MapUsersEndpoints();
 app.MapRolesEndpoints();
 app.MapBranchesEndpoints();
+app.MapMerchantBranchesEndpoints();
 app.MapGeographyEndpoints();
 app.MapDeliveryZonesEndpoints();
 app.MapMerchantsEndpoints();

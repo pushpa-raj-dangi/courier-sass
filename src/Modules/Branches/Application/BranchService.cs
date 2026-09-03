@@ -124,6 +124,20 @@ public class BranchService : IBranchLookupService
         return branches.Select(ToResponse).ToList();
     }
 
+    // No accessible-branch-id narrowing — unlike ListBranchesAsync, a merchant caller has no
+    // branch-grant concept to narrow by; they need every active branch as a candidate booking
+    // origin/destination. Relies on the ambient AppDbContext tenant query filter for
+    // organization scoping, same as ListBranchesAsync itself does. IsActive filter is a
+    // deliberate addition ListBranchesAsync doesn't have: a merchant shouldn't be offered a
+    // deactivated branch to book against.
+    public async Task<List<BranchResponse>> ListBranchesForMerchantAsync(CancellationToken cancellationToken = default)
+    {
+        var branches = await _dbContext.Set<Branch>()
+            .Where(b => b.IsActive)
+            .ToListAsync(cancellationToken);
+        return branches.Select(ToResponse).ToList();
+    }
+
     public async Task<BranchZoneInfo?> GetZoneInfoAsync(Guid branchId, CancellationToken cancellationToken = default)
     {
         var branch = await _dbContext.Set<Branch>().FirstOrDefaultAsync(b => b.Id == branchId, cancellationToken);
