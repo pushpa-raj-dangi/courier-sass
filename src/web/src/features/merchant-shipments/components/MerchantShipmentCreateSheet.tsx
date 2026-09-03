@@ -226,7 +226,15 @@ export function MerchantShipmentCreateSheet() {
                     type="number"
                     aria-invalid={!!errors.codAmount}
                     aria-describedby={errors.codAmount ? "codAmount-error" : undefined}
-                    {...register("codAmount", { valueAsNumber: true })}
+                    {...register("codAmount", {
+                      // A blank input reaches setValueAs as "" — valueAsNumber alone would turn
+                      // that into NaN, which Zod's z.number() rejects as invalid, forcing every
+                      // merchant booking a plain non-COD shipment to explicitly type "0" (found
+                      // via Frontend Phase F10's final whole-branch review). Coercing an empty
+                      // string to 0 here matches the live-quote-preview's toSafeQuoteAmount
+                      // coercion for the same field, without touching the schema's inferred type.
+                      setValueAs: (value) => (value === "" ? 0 : Number(value)),
+                    })}
                   />
                   {errors.codAmount && <FieldError id="codAmount-error">{errors.codAmount.message}</FieldError>}
                 </div>

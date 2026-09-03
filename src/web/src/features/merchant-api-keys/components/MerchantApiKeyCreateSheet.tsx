@@ -30,6 +30,7 @@ const AVAILABLE_SCOPES = [
   "merchant.cod.read",
   "merchant.pricing.read",
   "merchant.branches.read",
+  "merchant.geography.read",
 ];
 
 export function MerchantApiKeyCreateSheet() {
