@@ -12,7 +12,7 @@ export async function POST(request: Request, { params }: { params: { awb: string
       method: "POST",
       headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : undefined,
     });
-    const body = await response.json();
+    const body = await response.json().catch(() => null);
     return NextResponse.json(body, { status: response.status });
   } catch {
     return NextResponse.json(null, { status: 401 });

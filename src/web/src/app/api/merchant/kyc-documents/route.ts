@@ -4,7 +4,7 @@ import { merchantApiFetch } from "@/lib/auth/merchantApiFetch";
 export async function GET() {
   try {
     const response = await merchantApiFetch("/api/v1/merchant/kyc-documents");
-    const body = await response.json();
+    const body = await response.json().catch(() => null);
     return NextResponse.json(body, { status: response.status });
   } catch {
     return NextResponse.json(null, { status: 401 });
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
       headers: { "Content-Type": contentType },
       body: bodyBuffer,
     });
-    const body = await response.json();
+    const body = await response.json().catch(() => null);
     return NextResponse.json(body, { status: response.status });
   } catch {
     return NextResponse.json(null, { status: 401 });
