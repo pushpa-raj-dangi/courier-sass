@@ -904,6 +904,52 @@ Tasks 1–13 of the Frontend Phase F9 plan.
 
 ---
 
+## 19. Frontend Phase F10: three more enums needed `JsonStringEnumConverter`, plus three new merchant-reachable read routes
+
+Same recurring bug class hit in every prior phase (`BranchType` F2, `ShipmentStatus` F3,
+`ManifestPurpose`/`ManifestStatus` F4, 5 Riders enums F5, 3 Ndr enums F6, 3 Cod enums F7):
+`KycDocumentType`, `MerchantUserRole`, and `PickupRequestStatus` had no
+`[JsonConverter(typeof(JsonStringEnumConverter))]`. `PickupRequestStatus` dates back to Phase 12
+but was never caught until this phase's merchant-pickups screen became the first UI anywhere to
+render `PickupRequestResponse.Status`. Fixed directly on all three enums.
+
+Building the Merchant Portal frontend also required three backend reads that had no
+merchant-reachable path at all, found by direct inspection before any frontend code was written:
+
+1. No `GET /api/v1/merchant/auth/me` existed — the frontend session hook needs one call
+   to learn who is logged in, their role, and their resolved permission set, mirroring staff's
+   own `GET /api/v1/auth/me`. Added.
+2. `GET /api/v1/branches`, while nominally reachable by a merchant JWT (staff and merchant
+   tokens both validate under the shared "Bearer" scheme), always returned `403` for a merchant
+   caller — `RequirePermissionFilter` resolves the generic `"sub"` claim against staff
+   `UserRole`/`RolePermission` tables, where no matching row exists for a merchant user id.
+   Added a dedicated `GET /api/v1/merchant/branches` (org-scoped, no accessible-branch-id
+   narrowing — merchants have no branch concept) instead of touching the staff route.
+3. `POST /api/v1/pricing/quote` and `GET /api/v1/service-types` were both staff-only
+   (`GetUserId() is null → Unauthorized`, `.RequirePermission("pricing.read")`) — the merchant
+   booking form needs both for its live quote preview and Service Type picker. Extended both to
+   the same dual-auth pattern `ShipmentsEndpoints` already uses, gated by a new
+   `MerchantPermissionCatalog.PricingRead = "merchant.pricing.read"` (Owner + Staff). Also fixed
+   a real latent risk this widening would otherwise have introduced: `PricingService.QuoteAsync`
+   trusted the client-supplied `MerchantId` unmodified (used to resolve a `MerchantRateCard`
+   discount) — a merchant caller could have read another merchant's negotiated rate by passing
+   their id. The endpoint now forces `MerchantId` to the caller's own id for any merchant-JWT/
+   API-key caller, mirroring `CreateShipmentRequest`'s existing "server overrides the
+   client-supplied value" doc comment.
+
+Deferred, not fixed this phase (recorded here so they aren't silently dropped):
+- No update-role/deactivate endpoint on `MerchantStaffEndpoints` (only invite + list exist).
+- No public tracking-event timeline for a shipment anywhere in the backend — affects the staff
+  app too, not merchant-specific; `ShipmentResponse` has no embedded event history and no
+  `/events` route exists.
+- `MerchantAddress` has no Presentation endpoint at all — a merchant cannot save/reuse a sender
+  address; the booking form's sender fields are entered manually every time.
+- No merchant-facing webhook-subscription UI, though the backend (`WebhooksEndpoints`,
+  `MerchantPermissionCatalog.WebhooksManage`) already fully supports it — out of this phase's
+  named scope (booking/tracking/COD/invoices/API keys).
+
+---
+
 ## Summary of schema additions implied by this document
 
 * `UserRole` (new entity) — resolves #1, carries `BranchScope` enum — resolves #6.
