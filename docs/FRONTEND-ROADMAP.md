@@ -646,10 +646,82 @@ already documented in-code as an accepted no-new-backend-read tradeoff, but a
 merchant with more than 100 shipments gets silently undercounted tiles with
 no indication the numbers are partial.
 
+## Phase F11 — Public Tracking
+
+A standalone, unauthenticated `/track` (AWB search) + `/track/[awb]` (results
+timeline) surface over the existing backend `GET /track/{awb}` endpoint
+(built in backend Phase 12), withholding the fields listed in CLAUDE.md §24.
+
+*Entry:* F10 done. *Exit:* a visitor with only an AWB can open `/track`,
+enter it, and land on `/track/{awb}` showing the current status and a
+chronological event timeline — no login, no cookies, no app-shell chrome —
+and the public endpoint's per-IP rate limit works correctly once real
+browser traffic routes through the Next.js BFF.
+
+*Status: Complete.* Spec at
+`docs/superpowers/specs/2026-09-04-frontend-phase-f11-public-tracking-design.md`,
+plan at
+`docs/superpowers/plans/2026-09-04-frontend-phase-f11-public-tracking.md`,
+8 tasks executed inline via `superpowers:executing-plans`, TDD throughout.
+
+2 backend gaps closed first, found while inspecting the existing (Phase 12)
+`/track/{awb}` endpoint rather than during any live E2E pass:
+1. `PublicTrackingStatus` missing `JsonStringEnumConverter` — the same
+   recurring bug class hit in every prior phase for a different enum
+   (`ShipmentStatus`, `BranchType`, `KycDocumentType`/`MerchantUserRole`/
+   `PickupRequestStatus`, etc.); this one had simply never been touched
+   until now.
+2. The IP rate limiter (`IpRateLimitFilter`) read
+   `Connection.RemoteIpAddress` directly — once real browser traffic routes
+   through the Next.js BFF (required, since the backend has no CORS policy
+   for direct browser calls), every visitor would have collapsed into one
+   shared rate-limit bucket keyed on the BFF's own connection IP, a
+   self-inflicted DoS flagged as a known-deferred risk in Phase 12's final
+   review (`docs/CLARIFICATIONS.md` §13.1). Fixed with a configuration-driven
+   `ForwardedHeadersMiddleware` (`ForwardedHeaders:KnownProxies`/
+   `KnownNetworks`, empty by default in `appsettings.json` — a production
+   deployment must explicitly configure its real load balancer/ingress
+   network) plus the BFF route forwarding an inbound `X-Forwarded-For`
+   verbatim. Deliberately scoped so an untrusted direct caller can't spoof
+   the header to bypass the limit — verified with a dedicated integration
+   test proving exactly that.
+
+New `features/tracking/` folder: `useTrackShipment` (a dedicated fetcher, not
+the shared `clientFetch`, since public tracking needs a real 404-vs-429
+distinction and the actual `Retry-After` value that `clientFetch` discards),
+`TrackingSearchForm`, `TrackingTimeline`, and new `"Public.*"` entries in the
+shared `statusConfig.ts` namespace (reusing the existing `StatusBadge`
+component rather than a bespoke one).
+
+**Verified against the real backend end-to-end** (registered a fresh org via
+the API, seeded branches/zones/rate-card/merchant/rider, booked a real
+shipment, drove it through pickup → origin-receive → manifest scan/seal/
+dispatch/receive to `AtDestinationBranch`, then hit the public `/track/{awb}`
+endpoint both directly and through the Next.js BFF route): the public status
+serializes as a string and collapses the internal event history correctly
+(4 public events from 7 internal `ShipmentEvent` rows), no excluded field
+(branch id, staff/rider identity, financial fields) appears anywhere in the
+response, an unknown AWB returns 404, and the BFF correctly forwards an
+inbound `X-Forwarded-For` header. No real bugs found in this pass — every
+DTO field-name mismatch was caught and fixed while writing the verification
+script itself, not after.
+
+**One thing this session could not verify:** the actual `/track` and
+`/track/[awb]` React pages rendered in a browser. This sandbox has no
+outbound network access, and `next/font/google` in the root `layout.tsx` —
+shared by every page in the app, not just this phase's — hangs indefinitely
+retrying its font fetch during dev-server compilation of any page route
+(confirmed twice, independent of any change in this phase; API routes like
+`/api/track/{awb}` compile and serve fine, since route handlers never import
+the root layout). The full frontend test suite (275 tests, covering every
+loading/success/404/429/error state with mocked data) plus the real
+backend+BFF verification above are the evidence this phase's UI logic is
+correct; the actual pixels were never seen rendered this session. Worth a
+quick visual confirmation in an environment with normal network access
+before or shortly after this ships.
+
 ## Later (not yet planned in detail)
 
-- **Phase F11 — Public Tracking** (`/track/{awb}`, unauthenticated, withholds the
-  fields listed in CLAUDE.md §24).
 - **Phase F12 — Rider Mobile-Web** (if F5's desktop approximation proves
   insufficient for real field use).
 
