@@ -264,6 +264,12 @@ using (var warmupScope = app.Services.CreateScope())
         .Protect("startup-warmup");
 }
 
+// Must run before every other request-handling middleware — IpRateLimitFilter (on
+// /track/{awb}) reads Connection.RemoteIpAddress, which this middleware corrects from
+// X-Forwarded-For only when the immediate connection is a configured trusted proxy. See
+// ForwardedHeadersConfiguration.cs.
+app.UseForwardedHeaders(Courier.Api.ForwardedHeadersConfiguration.Build(app.Configuration));
+
 // Explicit Logger, not the default (options.Logger left null, which falls back to the static
 // Serilog.Log.Logger): UseSerilog(...) above is configured with preserveStaticLogger: true, so it
 // no longer assigns Log.Logger as a side effect — that static field stays at Serilog's silent
