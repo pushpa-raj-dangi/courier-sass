@@ -30,7 +30,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/ndrs", label: "NDRs", permission: "ndr.read", icon: AlertTriangle },
   { href: "/return-shipments", label: "Return Shipments", permission: "rto.read", icon: Undo2 },
   { href: "/riders", label: "Riders", permission: "rider.read", icon: Bike },
-  { href: "/my-deliveries", label: "My Deliveries", permission: "delivery.attempt", icon: ClipboardCheck },
+  { href: "/rider/tasks", label: "My Deliveries", permission: "delivery.attempt", icon: ClipboardCheck },
   { href: "/cod", label: "COD", permission: "cod.read", icon: Wallet },
   { href: "/admin", label: "Admin", permission: ["role.manage", "user.read"], icon: ShieldCheck },
 ];
