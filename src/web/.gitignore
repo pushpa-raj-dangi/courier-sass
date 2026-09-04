@@ -34,3 +34,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# serwist (generated service worker output)
+/public/sw-rider.js
+/public/sw-rider.js.map
