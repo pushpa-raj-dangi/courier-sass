@@ -23,11 +23,27 @@ export function BarcodeScanner({ onDetect }: { onDetect: (awb: string) => void }
   // available with no prompt).
   const [scanning, setScanning] = useState(false);
 
+  // Held in a ref (rather than read directly as an effect dependency) so a parent re-render that
+  // produces a new onDetect reference — e.g. RiderScanPage re-rendering after setMessage(...) or
+  // the re-render useRiderPickupScan's useMutation triggers — never restarts the scanning effect
+  // below. Restarting mid-scan would re-request getUserMedia and reconstruct BarcodeDetector while
+  // the same barcode is still in frame, firing a duplicate onDetect (and, on the rider Scan page, a
+  // duplicate pickup-scan write with its own idempotency key) for one physical scan.
+  const onDetectRef = useRef(onDetect);
+  onDetectRef.current = onDetect;
+
   useEffect(() => {
     if (!scanning) return;
     let stream: MediaStream | null = null;
     let cancelled = false;
     let rafId: number | null = null;
+
+    function stopScanning() {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = null;
+      stream?.getTracks().forEach((track) => track.stop());
+      stream = null;
+    }
 
     async function start() {
       try {
@@ -43,7 +59,12 @@ export function BarcodeScanner({ onDetect }: { onDetect: (awb: string) => void }
             try {
               const results = await detector.detect(videoRef.current);
               if (results[0]?.rawValue) {
-                onDetect(results[0].rawValue.trim().toUpperCase());
+                onDetectRef.current(results[0].rawValue.trim().toUpperCase());
+                // One physical scan, one detection: stop the camera and drop back to the "Start
+                // Scanning" button rather than continuing to fire on the same barcode still in
+                // frame. The rider explicitly starts scanning again for the next parcel.
+                stopScanning();
+                if (!cancelled) setScanning(false);
                 return;
               }
             } catch {
@@ -57,8 +78,10 @@ export function BarcodeScanner({ onDetect }: { onDetect: (awb: string) => void }
           const reader = new BrowserMultiFormatReader();
           const controls = await reader.decodeFromVideoElement(videoRef.current, (result) => {
             if (result && !cancelled) {
-              onDetect(result.getText().trim().toUpperCase());
+              onDetectRef.current(result.getText().trim().toUpperCase());
               controls.stop();
+              stopScanning();
+              setScanning(false);
             }
           });
         }
@@ -70,10 +93,9 @@ export function BarcodeScanner({ onDetect }: { onDetect: (awb: string) => void }
     void start();
     return () => {
       cancelled = true;
-      if (rafId) cancelAnimationFrame(rafId);
-      stream?.getTracks().forEach((track) => track.stop());
+      stopScanning();
     };
-  }, [scanning, onDetect]);
+  }, [scanning]);
 
   function submitManual() {
     const trimmed = manualValue.trim().toUpperCase();
