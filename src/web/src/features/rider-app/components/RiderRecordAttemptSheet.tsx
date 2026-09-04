@@ -166,7 +166,13 @@ export function RiderRecordAttemptSheet({ riderId }: { riderId: string }) {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="pod-photo">Photo</Label>
-                  <input id="pod-photo" type="file" accept="image/*" capture="environment" onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)} />
+                  <Input
+                    id="pod-photo"
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
+                  />
                 </div>
                 <Button type="button" variant="outline" size="sm" onClick={captureLocation}>
                   {latitude !== null ? "Location captured" : "Capture current location"}
