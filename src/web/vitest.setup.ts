@@ -5,8 +5,16 @@ import { Blob as NodeBlob, File as NodeFile } from "node:buffer";
 // structuredClone (used internally by fake-indexeddb on every IndexedDB write, per
 // https://github.com/dumbmatter/fakeIndexedDB#jsdom-often-used-with-jest) only recognizes
 // its own Blob/File implementation — a jsdom Blob silently clones to `{}`, losing its
-// content. Rider outbox tests persist signature/photo Blobs through the real (fake)
-// IndexedDB, so the global constructor must be the one structuredClone understands.
+// content. This is global (not scoped to one test file via vi.stubGlobal) because more than
+// one suite constructs real Blobs that flow through the same fake-indexeddb/structuredClone
+// path: rider-app/hooks/useCompleteDelivery.test.tsx (this task) AND
+// rider-app/sync/syncManager.test.ts's completeAction/completeActionWithPhoto fixtures
+// (Task 5), which persist signature/photo Blobs via addOutboxItem/updateOutboxItem the same
+// way. Scoping the shim to only the newer test file would leave Task 5's suite silently
+// exercising corrupted (`{}`) Blobs — its assertions happen to still pass on corrupted data
+// (a truthy `{}` still satisfies `if (action.signatureBlob && ...)` in syncManager.ts's
+// replayAction), which hides the bug rather than avoiding it. Every suite that touches a
+// Blob through this persistence path deserves real Blob fidelity, so the fix is global.
 if (typeof window !== "undefined") {
   window.Blob = NodeBlob as unknown as typeof Blob;
   window.File = NodeFile as unknown as typeof File;
