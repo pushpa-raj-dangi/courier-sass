@@ -28,4 +28,24 @@ describe("POST /api/riders/[id]/pod-uploads", () => {
     );
     expect(response.status).toBe(200);
   });
+
+  it("forwards the client's Idempotency-Key header to the backend", async () => {
+    vi.mocked(apiFetch).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ storageKey: "pod/Signature/r1/abc" }),
+    } as Response);
+
+    const request = new Request("http://localhost/api/riders/r1/pod-uploads?kind=Signature", {
+      method: "POST",
+      headers: { "Content-Type": "image/png", "Idempotency-Key": "key-abc" },
+      body: new Uint8Array([1, 2, 3, 4]),
+    });
+    await POST(request, { params: { id: "r1" } });
+
+    expect(apiFetch).toHaveBeenCalledWith(
+      "/api/v1/riders/r1/pod-uploads?kind=Signature",
+      expect.objectContaining({ headers: expect.objectContaining({ "Idempotency-Key": "key-abc" }) })
+    );
+  });
 });

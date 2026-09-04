@@ -27,4 +27,24 @@ describe("POST /api/riders/[id]/scan/pickup", () => {
     );
     expect(response.status).toBe(200);
   });
+
+  it("forwards the client's Idempotency-Key header to the backend", async () => {
+    vi.mocked(apiFetch).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ id: "s1", currentStatus: "PickedUp" }),
+    } as Response);
+
+    const request = new Request("http://localhost/api/riders/r1/scan/pickup", {
+      method: "POST",
+      headers: { "Idempotency-Key": "key-123" },
+      body: JSON.stringify({ awb: "AWB001" }),
+    });
+    await POST(request, { params: { id: "r1" } });
+
+    expect(apiFetch).toHaveBeenCalledWith(
+      "/api/v1/riders/r1/scan/pickup",
+      expect.objectContaining({ headers: expect.objectContaining({ "Idempotency-Key": "key-123" }) })
+    );
+  });
 });
