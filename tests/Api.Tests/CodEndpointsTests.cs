@@ -177,7 +177,12 @@ public class CodEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
         Assert.Equal(CodCollectionStatus.CodExpected, atBooking.Status);
 
         await client.PostAsJsonAsync("/api/v1/riders/tasks", new AssignDeliveryTaskRequest(pickupRiderId, shipment!.Id, DeliveryTaskType.Pickup));
-        await client.PostAsJsonAsync($"/api/v1/riders/{pickupRiderId}/scan/pickup", new RiderScanRequest(shipment.Awb));
+        using (var scanRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/riders/{pickupRiderId}/scan/pickup")
+        { Content = JsonContent.Create(new RiderScanRequest(shipment.Awb)) })
+        {
+            scanRequest.Headers.Add("Idempotency-Key", $"scan-{Guid.NewGuid():N}");
+            await client.SendAsync(scanRequest);
+        }
         await client.PostAsJsonAsync($"/api/v1/shipments/{shipment.Id}/receive-origin", new { });
 
         var manifest = await (await client.PostAsJsonAsync("/api/v1/manifests", new CreateManifestRequest(originBranchId, destinationBranchId))).Content.ReadFromJsonAsync<ManifestResponse>();
@@ -187,8 +192,10 @@ public class CodEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
         await client.PostAsJsonAsync($"/api/v1/manifests/{manifest.Id}/receive-scan", new ScanShipmentRequest(shipment.Awb));
 
         await client.PostAsJsonAsync("/api/v1/riders/tasks", new AssignDeliveryTaskRequest(deliveryRiderId, shipment.Id, DeliveryTaskType.Delivery));
-        var completeResponse = await client.PostAsJsonAsync($"/api/v1/riders/{deliveryRiderId}/delivery-attempts/complete",
-            new CompleteDeliveryRequest(shipment.Id, "Recipient One", true, null, null, null, null, codAmount));
+        using var completeRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/riders/{deliveryRiderId}/delivery-attempts/complete")
+        { Content = JsonContent.Create(new CompleteDeliveryRequest(shipment.Id, "Recipient One", true, null, null, null, null, codAmount)) };
+        completeRequest.Headers.Add("Idempotency-Key", $"complete-{Guid.NewGuid():N}");
+        var completeResponse = await client.SendAsync(completeRequest);
         completeResponse.EnsureSuccessStatusCode();
 
         return (await (await client.GetAsync($"/api/v1/shipments/{shipment.Awb}")).Content.ReadFromJsonAsync<ShipmentResponse>())!;

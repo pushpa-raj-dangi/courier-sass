@@ -120,7 +120,12 @@ public class NdrEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
         var shipment = await createResponse.Content.ReadFromJsonAsync<ShipmentResponse>();
 
         await client.PostAsJsonAsync("/api/v1/riders/tasks", new AssignDeliveryTaskRequest(pickupRiderId, shipment!.Id, DeliveryTaskType.Pickup));
-        await client.PostAsJsonAsync($"/api/v1/riders/{pickupRiderId}/scan/pickup", new RiderScanRequest(shipment.Awb));
+        using (var scanRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/riders/{pickupRiderId}/scan/pickup")
+        { Content = JsonContent.Create(new RiderScanRequest(shipment.Awb)) })
+        {
+            scanRequest.Headers.Add("Idempotency-Key", $"scan-{Guid.NewGuid():N}");
+            await client.SendAsync(scanRequest);
+        }
         await client.PostAsJsonAsync($"/api/v1/shipments/{shipment.Id}/receive-origin", new { });
 
         var manifest = await (await client.PostAsJsonAsync("/api/v1/manifests", new CreateManifestRequest(originBranchId, destinationBranchId))).Content.ReadFromJsonAsync<ManifestResponse>();
@@ -130,8 +135,10 @@ public class NdrEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
         await client.PostAsJsonAsync($"/api/v1/manifests/{manifest.Id}/receive-scan", new ScanShipmentRequest(shipment.Awb));
 
         await client.PostAsJsonAsync("/api/v1/riders/tasks", new AssignDeliveryTaskRequest(deliveryRiderId, shipment.Id, DeliveryTaskType.Delivery));
-        await client.PostAsJsonAsync($"/api/v1/riders/{deliveryRiderId}/delivery-attempts/fail",
-            new RecordFailedAttemptRequest(shipment.Id, DeliveryAttemptReason.CustomerUnavailable, "No one home", null, null, true, "Try tomorrow"));
+        using var failRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/riders/{deliveryRiderId}/delivery-attempts/fail")
+        { Content = JsonContent.Create(new RecordFailedAttemptRequest(shipment.Id, DeliveryAttemptReason.CustomerUnavailable, "No one home", null, null, true, "Try tomorrow")) };
+        failRequest.Headers.Add("Idempotency-Key", $"fail-{Guid.NewGuid():N}");
+        await client.SendAsync(failRequest);
 
         return (await (await client.GetAsync($"/api/v1/shipments/{shipment.Awb}")).Content.ReadFromJsonAsync<ShipmentResponse>())!;
     }
@@ -265,8 +272,10 @@ public class NdrEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
         Assert.Equal(ShipmentStatus.OutForDelivery, afterReattempt!.CurrentStatus);
         Assert.Equal(deliveryRiderId, afterReattempt.CurrentCustodianRiderId);
 
-        var completeResponse = await client.PostAsJsonAsync($"/api/v1/riders/{deliveryRiderId}/delivery-attempts/complete",
-            new CompleteDeliveryRequest(shipment.Id, "Recipient One", true, null, null, null, null));
+        using var completeRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/riders/{deliveryRiderId}/delivery-attempts/complete")
+        { Content = JsonContent.Create(new CompleteDeliveryRequest(shipment.Id, "Recipient One", true, null, null, null, null)) };
+        completeRequest.Headers.Add("Idempotency-Key", $"complete-{Guid.NewGuid():N}");
+        var completeResponse = await client.SendAsync(completeRequest);
         Assert.Equal(HttpStatusCode.OK, completeResponse.StatusCode);
         var attempt = await completeResponse.Content.ReadFromJsonAsync<DeliveryAttemptResponse>();
         Assert.True(attempt!.Succeeded);

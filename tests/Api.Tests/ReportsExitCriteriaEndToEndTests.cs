@@ -121,7 +121,12 @@ public class ReportsExitCriteriaEndToEndTests : IClassFixture<WebApplicationFact
         var created = await (await client.PostAsJsonAsync("/api/v1/shipments", createShipmentRequest)).Content.ReadFromJsonAsync<ShipmentResponse>();
 
         await client.PostAsJsonAsync("/api/v1/riders/tasks", new AssignDeliveryTaskRequest(pickupRiderId, created!.Id, DeliveryTaskType.Pickup));
-        await client.PostAsJsonAsync($"/api/v1/riders/{pickupRiderId}/scan/pickup", new RiderScanRequest(created.Awb));
+        using (var scanRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/riders/{pickupRiderId}/scan/pickup")
+        { Content = JsonContent.Create(new RiderScanRequest(created.Awb)) })
+        {
+            scanRequest.Headers.Add("Idempotency-Key", $"scan-{Guid.NewGuid():N}");
+            await client.SendAsync(scanRequest);
+        }
         await client.PostAsJsonAsync($"/api/v1/shipments/{created.Id}/receive-origin", new { });
 
         var manifest = await (await client.PostAsJsonAsync("/api/v1/manifests", new CreateManifestRequest(originBranchId, destinationBranchId))).Content.ReadFromJsonAsync<ManifestResponse>();
@@ -131,8 +136,10 @@ public class ReportsExitCriteriaEndToEndTests : IClassFixture<WebApplicationFact
         await client.PostAsJsonAsync($"/api/v1/manifests/{manifest.Id}/receive-scan", new ScanShipmentRequest(created.Awb));
 
         await client.PostAsJsonAsync("/api/v1/riders/tasks", new AssignDeliveryTaskRequest(deliveryRiderId, created.Id, DeliveryTaskType.Delivery));
-        var completeResponse = await client.PostAsJsonAsync($"/api/v1/riders/{deliveryRiderId}/delivery-attempts/complete",
-            new CompleteDeliveryRequest(created.Id, "Recipient One", true, null, null, null, null, codAmount));
+        using var completeRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/riders/{deliveryRiderId}/delivery-attempts/complete")
+        { Content = JsonContent.Create(new CompleteDeliveryRequest(created.Id, "Recipient One", true, null, null, null, null, codAmount)) };
+        completeRequest.Headers.Add("Idempotency-Key", $"complete-{Guid.NewGuid():N}");
+        var completeResponse = await client.SendAsync(completeRequest);
         completeResponse.EnsureSuccessStatusCode();
         var delivered = await (await client.GetAsync($"/api/v1/shipments/{created.Awb}")).Content.ReadFromJsonAsync<ShipmentResponse>();
         Assert.Equal(ShipmentStatus.Delivered, delivered!.CurrentStatus);

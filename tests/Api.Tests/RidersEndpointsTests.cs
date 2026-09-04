@@ -116,7 +116,12 @@ public class RidersEndpointsTests : IClassFixture<WebApplicationFactory<Program>
         var shipment = await createResponse.Content.ReadFromJsonAsync<ShipmentResponse>();
 
         await client.PostAsJsonAsync("/api/v1/riders/tasks", new AssignDeliveryTaskRequest(pickupRiderId, shipment!.Id, DeliveryTaskType.Pickup));
-        await client.PostAsJsonAsync($"/api/v1/riders/{pickupRiderId}/scan/pickup", new RiderScanRequest(shipment.Awb));
+        using (var scanRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/riders/{pickupRiderId}/scan/pickup")
+        { Content = JsonContent.Create(new RiderScanRequest(shipment.Awb)) })
+        {
+            scanRequest.Headers.Add("Idempotency-Key", $"scan-{Guid.NewGuid():N}");
+            await client.SendAsync(scanRequest);
+        }
         await client.PostAsJsonAsync($"/api/v1/shipments/{shipment.Id}/receive-origin", new { });
 
         var manifest = await (await client.PostAsJsonAsync("/api/v1/manifests", new CreateManifestRequest(originBranchId, destinationBranchId))).Content.ReadFromJsonAsync<ManifestResponse>();
@@ -148,7 +153,10 @@ public class RidersEndpointsTests : IClassFixture<WebApplicationFactory<Program>
         Assert.Equal(ShipmentStatus.PickupAssigned, afterAssignPickup!.CurrentStatus);
         Assert.Equal(pickupRiderId, afterAssignPickup.CurrentCustodianRiderId);
 
-        var scanResponse = await client.PostAsJsonAsync($"/api/v1/riders/{pickupRiderId}/scan/pickup", new RiderScanRequest(shipment.Awb));
+        using var scanRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/riders/{pickupRiderId}/scan/pickup")
+        { Content = JsonContent.Create(new RiderScanRequest(shipment.Awb)) };
+        scanRequest.Headers.Add("Idempotency-Key", $"scan-{Guid.NewGuid():N}");
+        var scanResponse = await client.SendAsync(scanRequest);
         Assert.Equal(HttpStatusCode.OK, scanResponse.StatusCode);
         var afterScan = await (await client.GetAsync($"/api/v1/shipments/{shipment.Awb}")).Content.ReadFromJsonAsync<ShipmentResponse>();
         Assert.Equal(ShipmentStatus.PickedUp, afterScan!.CurrentStatus);
@@ -170,12 +178,17 @@ public class RidersEndpointsTests : IClassFixture<WebApplicationFactory<Program>
 
         var signatureContent = new ByteArrayContent(new byte[] { 1, 2, 3, 4 });
         signatureContent.Headers.ContentType = new MediaTypeHeaderValue("image/png");
-        var uploadResponse = await client.PostAsync($"/api/v1/riders/{deliveryRiderId}/pod-uploads?kind=Signature", signatureContent);
+        using var uploadRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/riders/{deliveryRiderId}/pod-uploads?kind=Signature")
+        { Content = signatureContent };
+        uploadRequest.Headers.Add("Idempotency-Key", $"pod-{Guid.NewGuid():N}");
+        var uploadResponse = await client.SendAsync(uploadRequest);
         Assert.Equal(HttpStatusCode.OK, uploadResponse.StatusCode);
         var uploadResult = await uploadResponse.Content.ReadFromJsonAsync<UploadPodFileResponse>();
 
-        var completeResponse = await client.PostAsJsonAsync($"/api/v1/riders/{deliveryRiderId}/delivery-attempts/complete",
-            new CompleteDeliveryRequest(shipment.Id, "Recipient One", true, uploadResult!.StorageKey, null, null, null));
+        using var completeRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/riders/{deliveryRiderId}/delivery-attempts/complete")
+        { Content = JsonContent.Create(new CompleteDeliveryRequest(shipment.Id, "Recipient One", true, uploadResult!.StorageKey, null, null, null)) };
+        completeRequest.Headers.Add("Idempotency-Key", $"complete-{Guid.NewGuid():N}");
+        var completeResponse = await client.SendAsync(completeRequest);
         Assert.Equal(HttpStatusCode.OK, completeResponse.StatusCode);
         var attempt = await completeResponse.Content.ReadFromJsonAsync<DeliveryAttemptResponse>();
         Assert.True(attempt!.Succeeded);
@@ -199,8 +212,10 @@ public class RidersEndpointsTests : IClassFixture<WebApplicationFactory<Program>
         var shipment = await BookAndMoveToDestinationAsync(client, merchantId, originBranchId, destinationBranchId, serviceTypeId, pickupRiderId);
         await client.PostAsJsonAsync("/api/v1/riders/tasks", new AssignDeliveryTaskRequest(deliveryRiderId, shipment.Id, DeliveryTaskType.Delivery));
 
-        var failResponse = await client.PostAsJsonAsync($"/api/v1/riders/{deliveryRiderId}/delivery-attempts/fail",
-            new RecordFailedAttemptRequest(shipment.Id, DeliveryAttemptReason.CustomerUnavailable, "No one home", null, null, true, "Retry tomorrow"));
+        using var failRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/riders/{deliveryRiderId}/delivery-attempts/fail")
+        { Content = JsonContent.Create(new RecordFailedAttemptRequest(shipment.Id, DeliveryAttemptReason.CustomerUnavailable, "No one home", null, null, true, "Retry tomorrow")) };
+        failRequest.Headers.Add("Idempotency-Key", $"fail-{Guid.NewGuid():N}");
+        var failResponse = await client.SendAsync(failRequest);
         Assert.Equal(HttpStatusCode.OK, failResponse.StatusCode);
         var attempt = await failResponse.Content.ReadFromJsonAsync<DeliveryAttemptResponse>();
         Assert.False(attempt!.Succeeded);
@@ -231,9 +246,18 @@ public class RidersEndpointsTests : IClassFixture<WebApplicationFactory<Program>
         var shipment = await BookAndMoveToDestinationAsync(client, merchantId, originBranchId, destinationBranchId, serviceTypeId, pickupRiderId);
         await client.PostAsJsonAsync("/api/v1/riders/tasks", new AssignDeliveryTaskRequest(deliveryRiderId, shipment.Id, DeliveryTaskType.Delivery));
 
-        var completeRequest = new CompleteDeliveryRequest(shipment.Id, "Recipient One", true, null, null, null, null);
-        var task1 = client.PostAsJsonAsync($"/api/v1/riders/{deliveryRiderId}/delivery-attempts/complete", completeRequest);
-        var task2 = client.PostAsJsonAsync($"/api/v1/riders/{deliveryRiderId}/delivery-attempts/complete", completeRequest);
+        // Distinct Idempotency-Key per concurrent request — this test targets the shipment's
+        // xmin-based optimistic concurrency (the real handler-level race), not the idempotency
+        // store's own dedup path, so the two calls must both actually reach the handler.
+        var completeRequestBody = new CompleteDeliveryRequest(shipment.Id, "Recipient One", true, null, null, null, null);
+        using var completeRequest1 = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/riders/{deliveryRiderId}/delivery-attempts/complete")
+        { Content = JsonContent.Create(completeRequestBody) };
+        completeRequest1.Headers.Add("Idempotency-Key", $"complete-race-1-{Guid.NewGuid():N}");
+        using var completeRequest2 = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/riders/{deliveryRiderId}/delivery-attempts/complete")
+        { Content = JsonContent.Create(completeRequestBody) };
+        completeRequest2.Headers.Add("Idempotency-Key", $"complete-race-2-{Guid.NewGuid():N}");
+        var task1 = client.SendAsync(completeRequest1);
+        var task2 = client.SendAsync(completeRequest2);
         var responses = await Task.WhenAll(task1, task2);
 
         Assert.Single(responses, r => r.StatusCode == HttpStatusCode.OK);

@@ -116,7 +116,12 @@ public class ManifestsEndpointsTests : IClassFixture<WebApplicationFactory<Progr
         var rider = await riderResponse.Content.ReadFromJsonAsync<RiderResponse>();
 
         await client.PostAsJsonAsync("/api/v1/riders/tasks", new AssignDeliveryTaskRequest(rider!.Id, shipment!.Id, DeliveryTaskType.Pickup));
-        await client.PostAsJsonAsync($"/api/v1/riders/{rider.Id}/scan/pickup", new RiderScanRequest(shipment.Awb));
+        using (var scanRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/riders/{rider.Id}/scan/pickup")
+        { Content = JsonContent.Create(new RiderScanRequest(shipment.Awb)) })
+        {
+            scanRequest.Headers.Add("Idempotency-Key", $"scan-{Guid.NewGuid():N}");
+            await client.SendAsync(scanRequest);
+        }
         var afterOrigin = await (await client.PostAsJsonAsync($"/api/v1/shipments/{shipment.Id}/receive-origin", new { })).Content.ReadFromJsonAsync<ShipmentResponse>();
         return afterOrigin!;
     }
