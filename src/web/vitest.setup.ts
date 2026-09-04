@@ -1,4 +1,18 @@
 import "@testing-library/jest-dom/vitest";
+import { Blob as NodeBlob, File as NodeFile } from "node:buffer";
+
+// jsdom's Blob/File are distinct classes from Node's built-in ones, and Node's native
+// structuredClone (used internally by fake-indexeddb on every IndexedDB write, per
+// https://github.com/dumbmatter/fakeIndexedDB#jsdom-often-used-with-jest) only recognizes
+// its own Blob/File implementation — a jsdom Blob silently clones to `{}`, losing its
+// content. Rider outbox tests persist signature/photo Blobs through the real (fake)
+// IndexedDB, so the global constructor must be the one structuredClone understands.
+if (typeof window !== "undefined") {
+  window.Blob = NodeBlob as unknown as typeof Blob;
+  window.File = NodeFile as unknown as typeof File;
+}
+globalThis.Blob = NodeBlob as unknown as typeof Blob;
+globalThis.File = NodeFile as unknown as typeof File;
 
 // jsdom doesn't implement matchMedia — needed by the sidebar primitive's mobile-breakpoint hook
 // (src/hooks/use-mobile.tsx) whenever a test renders anything inside SidebarProvider.
