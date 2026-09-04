@@ -406,9 +406,15 @@ reads, and public `/track/{awb}` are all implemented and proven end-to-end
 (`tests/Api.Tests/MerchantApiExitCriteriaEndToEndTests.cs`). `CLARIFICATIONS.md` #13 records
 seven resolved design ambiguities/fixes, including a self-escalation carve-out that keeps API-key
 management itself JWT-only, and a fail-closed fix for a cross-tenant AWB-collision risk on the
-new anonymous tracking endpoint. The frontend merchant portal (`src/web`, still an untouched
-`create-next-app` skeleton) is deliberately deferred to a follow-up Phase 12b — this phase's
-scope decision, made explicit up front in the design spec's scope note.
+new anonymous tracking endpoint. The frontend merchant portal (`src/web`, an untouched
+`create-next-app` skeleton *at the time this phase closed*) was deliberately deferred to a
+follow-up Phase 12b — this phase's scope decision, made explicit up front in the design spec's
+scope note. It has since been built via the separate Frontend Roadmap track
+(`docs/FRONTEND-ROADMAP.md`): the merchant portal itself shipped as Frontend Phase F10, and this
+endpoint's own public-facing UI (`/track`, `/track/{awb}`) shipped as Frontend Phase F11 — that
+phase also closed two small gaps in this endpoint found by inspection (`PublicTrackingStatus`'s
+missing `JsonStringEnumConverter`, and the IP rate limiter's lack of reverse-proxy awareness once
+called through a real frontend BFF), recorded in `CLARIFICATIONS.md` #20.
 
 ## Phase 13 — Reports, Analytics, Advanced Dashboards
 

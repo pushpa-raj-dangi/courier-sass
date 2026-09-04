@@ -948,6 +948,42 @@ Deferred, not fixed this phase (recorded here so they aren't silently dropped):
   `MerchantPermissionCatalog.WebhooksManage`) already fully supports it — out of this phase's
   named scope (booking/tracking/COD/invoices/API keys).
 
+## 20. Frontend Phase F11: `PublicTrackingStatus` needed `JsonStringEnumConverter`, and the public-tracking IP rate limiter needed reverse-proxy awareness
+
+Same recurring bug class hit in every prior phase (`BranchType` F2, `ShipmentStatus` F3,
+`ManifestPurpose`/`ManifestStatus` F4, 5 Riders enums F5, 3 Ndr enums F6, 3 Cod enums F7,
+`KycDocumentType`/`MerchantUserRole`/`PickupRequestStatus` F10): `PublicTrackingStatus` (Phase 12)
+had no `[JsonConverter(typeof(JsonStringEnumConverter))]` and had simply never been touched by any
+phase since. Unlike every prior instance, this one was found by direct inspection while writing
+this phase's design spec, not by a live E2E pass — fixed directly on the enum.
+
+Separately, a real gap in Phase 12's own design was found and closed: `IpRateLimitFilter`
+(`/track/{awb}`'s per-IP rate limit) reads `HttpContext.Connection.RemoteIpAddress` directly.
+Phase 12's own final review had already flagged this as a deferred risk (§13.1 of this document,
+"no reverse-proxy/`X-Forwarded-For` awareness... a self-inflicted DoS") but it stayed latent since
+nothing had ever called `/track/{awb}` through a proxy. Building this phase's frontend made it live
+— every browser visitor now reaches the backend via the Next.js BFF's single connection, which
+would collapse all public-tracking traffic site-wide into one shared rate-limit bucket. Fixed with
+`ForwardedHeadersMiddleware`, wired from a new `ForwardedHeaders:KnownProxies`/`KnownNetworks`
+configuration section (empty by default — `appsettings.json` intentionally carries no entry,
+matching this file's existing pattern of relying on code defaults rather than hardcoding a
+trusted-proxy list; `appsettings.Development.json` gets a local-docker-compose-friendly default).
+The BFF (`app/api/track/[awb]/route.ts`) forwards an inbound `X-Forwarded-For` verbatim rather than
+appending to it. This fix is deliberately narrow: an unrestricted/unconfigured trust would let a
+caller hitting `/track/{awb}` directly (bypassing the BFF) spoof `X-Forwarded-For` to bypass the
+limit entirely — a real deployment must explicitly configure its actual load balancer/ingress
+network. `Microsoft.AspNetCore.HttpOverrides.IPNetwork`/`ForwardedHeadersOptions.KnownNetworks` are
+obsolete on this codebase's .NET version; the fix uses `System.Net.IPNetwork` (.NET 8+) and
+`KnownIPNetworks` instead.
+
+Deferred, not fixed this phase (recorded here so it isn't silently dropped): the actual `/track`
+and `/track/[awb]` React pages were never visually verified in a real browser this session — the
+development sandbox had no outbound network access, and `next/font/google` in the root layout
+(shared by every page in the app) hung indefinitely during page-route compilation. Backend and BFF
+correctness was verified end-to-end against a real seeded shipment instead (see
+`docs/FRONTEND-ROADMAP.md`'s F11 section). Worth a quick visual pass in a normal-network
+environment before or shortly after this ships.
+
 ---
 
 ## Summary of schema additions implied by this document

@@ -288,12 +288,15 @@ persist as plain PostgreSQL `integer` with no `HasConversion<string>()`. Any fut
 adds enum members must **append at the end, never insert mid-list** — inserting reassigns every
 later member's ordinal against already-persisted rows (this happened once, in Phase 9, and was
 caught only at final whole-branch review — see `docs/CLARIFICATIONS.md` entry #10). Separately,
-`BranchType` is the one enum with `[JsonConverter(typeof(JsonStringEnumConverter))]` on the enum
-declaration itself, so it serializes over HTTP as its PascalCase name ("Hub") rather than an
-integer — every other enum still serializes as a raw integer over the wire (only `BranchType` was
-fixed, narrowly, during Frontend Phase F2's manual end-to-end verification; the same bug is latent
-in every other enum-typed API field and will need the same fix whenever a future frontend phase's
-own E2E pass reaches it).
+there is still no global `JsonStringEnumConverter` registered for the API — every enum-typed API
+field serializes as a raw integer over the wire *unless* it individually carries
+`[JsonConverter(typeof(JsonStringEnumConverter))]` on its own declaration. This was first fixed,
+narrowly, on `BranchType` during Frontend Phase F2's manual end-to-end verification, and the same
+recurring gap has since been found and fixed enum-by-enum in nearly every phase through F11 (full
+list and phase-by-phase detail in `docs/CLARIFICATIONS.md` #10, #14-#20) — it is not a
+comprehensively-closed class of bug, only a repeatedly-patched one. Any enum newly exposed on an
+API response should be checked for this converter before being considered done, and any enum not
+yet reached by a frontend phase's own E2E pass should still be assumed to be missing it.
 
 ### Redis
 
@@ -368,6 +371,14 @@ ASP.NET Core API
         ↓
 Application Service → Domain → Infrastructure → PostgreSQL
 ```
+
+**One deliberate exception to this diagram:** public tracking (`/track`, `/track/{awb}`, Frontend
+Phase F11) is genuinely anonymous end to end — no session exists to hold, so its BFF route
+(`app/api/track/[awb]/route.ts`) calls the API directly via plain `fetch`, not `apiFetch` (which
+requires a valid session and throws otherwise), and its client-side hook does not use the shared
+`clientFetch` either (see `docs/CLARIFICATIONS.md` #20 for why: public tracking needs the real HTTP
+status and a response header `clientFetch` discards). Any future unauthenticated route should
+follow this same pattern, not force one of the two authenticated helpers to fit.
 
 The frontend architecture prioritizes operational efficiency and visual quality.
 

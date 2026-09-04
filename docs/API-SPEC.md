@@ -99,24 +99,24 @@ Response shape (`PublicTrackingResponse`):
 ```json
 {
   "awb": "ACME20260820000001",
-  "currentStatus": 4,
+  "currentStatus": "OutForDelivery",
   "events": [
-    { "status": 0, "timestamp": "2026-08-20T04:15:00Z", "location": "Kathmandu Hub" },
-    { "status": 1, "timestamp": "2026-08-20T06:02:00Z", "location": "Kathmandu Hub" },
-    { "status": 2, "timestamp": "2026-08-20T09:40:00Z", "location": null },
-    { "status": 4, "timestamp": "2026-08-21T05:10:00Z", "location": "Pokhara Hub" }
+    { "status": "Received", "timestamp": "2026-08-20T04:15:00Z", "location": "Kathmandu Hub" },
+    { "status": "PickedUp", "timestamp": "2026-08-20T06:02:00Z", "location": "Kathmandu Hub" },
+    { "status": "InTransit", "timestamp": "2026-08-20T09:40:00Z", "location": null },
+    { "status": "OutForDelivery", "timestamp": "2026-08-21T05:10:00Z", "location": "Pokhara Hub" }
   ]
 }
 ```
 
 `status` (both `currentStatus` and each event's `status`) is one of the 8-value
-`PublicTrackingStatus` enum, serialized as its integer ordinal (no
-`JsonStringEnumConverter` is configured project-wide, so this follows the same
-raw-integer wire format every other enum in this codebase already uses):
-`0=Received, 1=PickedUp, 2=InTransit, 3=AtDestinationBranch, 4=OutForDelivery,
-5=Delivered, 6=DeliveryAttemptUnsuccessful, 7=Cancelled`. This is a coarser,
-public-safe mapping of the real 16-value internal `ShipmentStatus`, not the
-illustrative CLAUDE.md §24 status list verbatim (`PublicTrackingStatusMapper.Map`,
+`PublicTrackingStatus` enum, serialized as its member-name string (`[JsonConverter(
+typeof(JsonStringEnumConverter))]`, added Frontend Phase F11 — `CLARIFICATIONS.md` #20;
+before that it followed the raw-integer wire format most other enums in this codebase
+still use, unless individually opted in): `Received, PickedUp, InTransit,
+AtDestinationBranch, OutForDelivery, Delivered, DeliveryAttemptUnsuccessful, Cancelled`.
+This is a coarser, public-safe mapping of the real 16-value internal `ShipmentStatus`,
+not the illustrative CLAUDE.md §24 status list verbatim (`PublicTrackingStatusMapper.Map`,
 `CLARIFICATIONS.md` #13 for the three mapping corrections made during implementation).
 `location`, when present, is a city/hub-level branch name only. Consecutive internal
 events that map to the same public status (e.g. `AtOriginBranch` then `Sorted`, both
@@ -126,6 +126,19 @@ Explicitly excluded: internal staff identities, internal notes/metadata, financi
 fields (COD amount, charges), branch security/location detail beyond a
 city/hub-level label, sensitive recipient PII beyond what the requester already
 knows (the AWB itself is treated as the shared secret for this endpoint).
+
+**IP rate limiting behind the frontend BFF.** The Next.js merchant/public frontend
+(`src/web`) calls this endpoint through its own unauthenticated BFF route
+(`app/api/track/[awb]/route.ts`), not directly from the browser (the backend has no
+CORS policy for direct browser calls). Since every browser visitor would otherwise
+share the BFF's single connection IP, `ForwardedHeadersMiddleware` is wired from a
+`ForwardedHeaders:KnownProxies`/`KnownNetworks` configuration section (empty by
+default; a real deployment must configure its actual load balancer/ingress network)
+and the BFF forwards an inbound `X-Forwarded-For` verbatim — see `CLARIFICATIONS.md`
+#20 for the full rationale, including why an unrestricted trust config would be worse
+than the problem it fixes (a direct caller could spoof the header to bypass the limit).
+`src/web`'s own public surface for this endpoint is `/track` (AWB search) and
+`/track/{awb}` (results timeline), added Frontend Phase F11.
 
 ## 5. Webhooks (CLAUDE.md §26)
 
