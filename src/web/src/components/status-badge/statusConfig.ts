@@ -110,6 +110,20 @@ export const STATUS_CONFIG: Record<string, StatusConfigEntry> = {
   "Kyc.Pending": { label: "Pending", token: "status-created" },
   "Kyc.Approved": { label: "Approved", token: "status-delivered" },
   "Kyc.Rejected": { label: "Rejected", token: "status-cancelled" },
+
+  // PublicTrackingStatus — the anonymous /track/{awb} surface (Frontend Phase F11). Namespaced
+  // ("Public.X") on the same principle as every other multi-enum status set in this file, even
+  // though most member names would otherwise collide outright with ShipmentStatus's own keys
+  // above (e.g. "PickedUp", "AtDestinationBranch") and would silently inherit that internal-
+  // facing enum's mapping instead of the public-facing one intended here.
+  "Public.Received": { label: "Received", token: "status-created" },
+  "Public.PickedUp": { label: "Picked Up", token: "status-in-transit" },
+  "Public.InTransit": { label: "In Transit", token: "status-in-transit" },
+  "Public.AtDestinationBranch": { label: "At Destination Hub", token: "status-in-transit" },
+  "Public.OutForDelivery": { label: "Out for Delivery", token: "status-out-for-delivery" },
+  "Public.Delivered": { label: "Delivered", token: "status-delivered" },
+  "Public.DeliveryAttemptUnsuccessful": { label: "Delivery Attempt Unsuccessful", token: "status-ndr" },
+  "Public.Cancelled": { label: "Cancelled", token: "status-cancelled" },
 };
 
 export function resolveStatusConfig(status: string, namespace?: string): StatusConfigEntry {
