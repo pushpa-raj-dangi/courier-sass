@@ -25,6 +25,20 @@ const completeAction: QueuedAction = {
   signatureStorageKey: null,
   photoStorageKey: null,
 };
+const completeActionWithPhoto: QueuedAction = {
+  kind: "delivery-complete",
+  riderId: "r1",
+  shipmentId: "s5",
+  recipientName: "Recipient Two",
+  otpVerified: true,
+  latitude: null,
+  longitude: null,
+  collectedCodAmount: null,
+  signatureBlob: new Blob(["sig"], { type: "image/png" }),
+  photoBlob: new Blob(["photo"], { type: "image/jpeg" }),
+  signatureStorageKey: null,
+  photoStorageKey: null,
+};
 
 describe("drainOutbox", () => {
   beforeEach(() => {
@@ -61,6 +75,51 @@ describe("drainOutbox", () => {
       "/api/riders/r1/delivery-attempts/complete",
       expect.objectContaining({ body: expect.stringContaining("sig-key-1") })
     );
+  });
+
+  it("persists the signature storage key to the outbox item before the complete call — it survives that call's failure, proving it isn't just held in a local variable", async () => {
+    await addOutboxItem(completeAction);
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ storageKey: "sig-key-1" }) }) // pod-upload succeeds
+      .mockRejectedValueOnce(new TypeError("Failed to fetch")); // complete call fails (network failure)
+    vi.stubGlobal("fetch", fetchMock);
+
+    await drainOutbox();
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const [item] = await listOutboxItems();
+    // A network failure on the *second* call is retryable, so the item stays "pending" rather
+    // than "stuck" — but the point of this test is that the signature key survived that failure
+    // in the persisted record, not just in an in-memory variable that would be lost.
+    expect(item.status).toBe("pending");
+    expect(item.action.kind).toBe("delivery-complete");
+    if (item.action.kind === "delivery-complete") {
+      expect(item.action.signatureStorageKey).toBe("sig-key-1");
+    }
+  });
+
+  it("uploads both signature and photo blobs when both are present, and includes both storage keys in the complete request", async () => {
+    await addOutboxItem(completeActionWithPhoto);
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ storageKey: "sig-key-2" }) }) // signature upload
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ storageKey: "photo-key-2" }) }) // photo upload
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ id: "a2", succeeded: true }) }); // complete
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await drainOutbox();
+
+    expect(result.synced).toHaveLength(1);
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/riders/r1/pod-uploads?kind=Signature", expect.objectContaining({ method: "POST" }));
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/riders/r1/pod-uploads?kind=Photo", expect.objectContaining({ method: "POST" }));
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      "/api/riders/r1/delivery-attempts/complete",
+      expect.objectContaining({ body: expect.stringContaining("sig-key-2") })
+    );
+    const completeBody = fetchMock.mock.calls[2]?.[1]?.body as string;
+    expect(completeBody).toContain("photo-key-2");
   });
 
   it("marks a 4xx failure as stuck and does not retry it on a later drain", async () => {
@@ -117,5 +176,40 @@ describe("drainOutbox", () => {
     expect(result.synced).toHaveLength(1); // the s-other item, drained despite s1 being blocked
     const remaining = await listOutboxItems();
     expect(remaining).toHaveLength(2); // the stuck s1 item + the still-queued second s1 item
+  });
+
+  it("guards against two concurrent drainOutbox() calls double-processing the same item", async () => {
+    await addOutboxItem(pickupAction);
+
+    let resolveFetch: (value: unknown) => void = () => {};
+    const pendingResponse = new Promise((resolve) => {
+      resolveFetch = resolve;
+    });
+    const fetchMock = vi.fn().mockReturnValue(pendingResponse);
+    vi.stubGlobal("fetch", fetchMock);
+
+    // Both calls happen synchronously, before the in-flight fetch resolves — this reproduces
+    // startSyncManager()'s realistic overlap (the "online" listener, the "visibilitychange"
+    // listener, and the 30s poll can all fire while a prior drain is still mid-flight).
+    const drain1 = drainOutbox();
+    const drain2 = drainOutbox();
+
+    resolveFetch({ ok: true, status: 200, json: async () => ({}) });
+
+    const [result1, result2] = await Promise.all([drain1, drain2]);
+
+    // Only ONE network call for the item — the second caller awaited the first pass's
+    // in-flight promise instead of starting its own pass over the same "pending" item.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result1.synced).toHaveLength(1);
+    expect(result2).toBe(result1);
+    expect(await listOutboxItems()).toHaveLength(0);
+
+    // A drain started *after* the first has fully settled is a fresh, independent pass.
+    fetchMock.mockClear();
+    await addOutboxItem(pickupAction);
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({}) });
+    await drainOutbox();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

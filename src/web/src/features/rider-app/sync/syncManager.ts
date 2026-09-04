@@ -77,7 +77,31 @@ async function replayAction(item: OutboxItem): Promise<void> {
   }
 }
 
-export async function drainOutbox(): Promise<{ synced: string[]; stuck: string[] }> {
+// Reentrancy guard: startSyncManager() can trigger drainOutbox() from three independent,
+// unsynchronized call sites (the "online" listener, the "visibilitychange" listener, and the
+// 30s poll interval) plus an immediate call at mount. Without this guard, two overlapping
+// passes could each read the same "pending" item via listOutboxItems() before either writes
+// "syncing" back (outboxDb's updateOutboxItem is a non-atomic read-then-put, not a
+// compare-and-swap), and then both call replayAction on it concurrently — e.g. two near-
+// simultaneous POSTs to delivery-attempts/complete (COD collection) for the same shipment.
+// A concurrent caller must await and receive the SAME result as the already-running pass
+// rather than starting a second one.
+let inFlightDrain: Promise<{ synced: string[]; stuck: string[] }> | null = null;
+
+export function drainOutbox(): Promise<{ synced: string[]; stuck: string[] }> {
+  if (inFlightDrain) {
+    return inFlightDrain;
+  }
+  const run = runDrain().finally(() => {
+    if (inFlightDrain === run) {
+      inFlightDrain = null;
+    }
+  });
+  inFlightDrain = run;
+  return run;
+}
+
+async function runDrain(): Promise<{ synced: string[]; stuck: string[] }> {
   const items = await listOutboxItems();
   const synced: string[] = [];
   const stuck: string[] = [];
