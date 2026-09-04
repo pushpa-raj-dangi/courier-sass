@@ -720,10 +720,129 @@ correct; the actual pixels were never seen rendered this session. Worth a
 quick visual confirmation in an environment with normal network access
 before or shortly after this ships.
 
-## Later (not yet planned in detail)
+## Phase F12 — Rider Mobile-Web (PWA)
 
-- **Phase F12 — Rider Mobile-Web** (if F5's desktop approximation proves
-  insufficient for real field use).
+Replaces the F5 desktop-approximated rider self-service surface
+(`(staff)/my-deliveries`) with a real installable, offline-capable,
+camera-scanning mobile-web PWA at `/rider/*`, reusing the existing BFF/
+httpOnly-cookie session unchanged. Every rider write (pickup scan, delivery
+fail, delivery complete) goes through an IndexedDB-backed outbox queue
+(`features/rider-app/sync/`) instead of a direct fetch, drained on
+reconnect/foreground/a 30s poll.
 
-These get their own brainstorm → spec → plan cycle once F0–F9 are done, per this
-repo's standing workflow.
+*Entry:* F5 done, desktop approximation confirmed insufficient for real
+field use (no offline support, no camera scanning, not installable).
+*Exit:* a rider can install `/rider/tasks` to a phone home screen, see
+today's tasks, scan an AWB (camera or manual entry), record a delivery
+attempt (signature/photo/GPS/COD) or a failure, and have every one of those
+writes survive a real network outage — queued locally, replayed exactly
+once on reconnect, never duplicated even if a queued item's own success
+response never reached the client.
+
+*Status: Complete.* Spec at
+`docs/superpowers/specs/2026-09-04-frontend-phase-f12-rider-mobile-web-pwa-design.md`,
+plan at
+`docs/superpowers/plans/2026-09-04-frontend-phase-f12-rider-mobile-web-pwa.md`,
+14 tasks executed via `superpowers:subagent-driven-development` in an
+isolated worktree, TDD throughout.
+
+**1 backend gap closed first** (Task 1), found while designing the outbox's
+replay contract rather than during any live E2E pass: `IdempotencyMiddleware`
+protected only merchant-JWT routes (`POST /shipments`, `/pickups`, cancel).
+A rider's offline-queued mutation can be replayed after a false-negative
+network failure (the request actually succeeded server-side but the client
+never saw the response), so the four rider action routes
+(`scan/pickup`, `delivery-attempts/fail`, `delivery-attempts/complete`,
+`pod-uploads`) now require the same `Idempotency-Key` header, partitioned
+per staff user (`staff:{userId}:{key}`) rather than per merchant. 6 more
+pre-existing backend test files beyond the plan's own list turned out to
+call these routes as setup helpers and needed the identical mechanical
+header fix (`Cod`/`Manifests`/`Ndr`/`PublicTracking`/`Reports`/
+`MerchantApi` *EndpointsTests.cs) — applying the fix to every affected call
+site was correct, not scope creep.
+
+Tech: **Serwist** (`@serwist/next`) for the PWA/service worker — not
+`next-pwa` (archived since Aug 2023); **`idb`** for the outbox's IndexedDB
+access — not Dexie/RxDB (one table, no general sync engine needed); native
+`BarcodeDetector` for camera scanning, with `@zxing/browser` dynamically
+imported only when unavailable (confirmed in the production build:
+`/rider/scan` builds at 6.11 kB, proving zxing never enters the eager
+bundle). New code lives entirely under `features/rider-app/` and
+`app/rider/`; the old `features/riders/*` hooks/components/store and
+`(staff)/my-deliveries` page were deleted in Task 13 once nothing else
+referenced them, and the staff sidebar's "My Deliveries" link now points at
+`/rider/tasks` instead (kept as a legitimate secondary entry point — a
+rider using a shared office PC before ever installing to a phone home
+screen).
+
+One real, load-bearing bug found and fixed during Task 11's review (not
+during manual E2E — the task reviewer caught it from the diff): the Scan
+page's `onDetect` callback wasn't memoized and was a dependency of the
+camera-scanning effect, so nearly every detection tore down and restarted
+the camera — if the same barcode was still in view when it restarted, a
+second `pickupScan.mutate()` could fire with a fresh idempotency key,
+reaching the sync layer as a genuine duplicate write. Fixed by holding
+`onDetect` in a ref (dropping it from the effect's dependencies entirely)
+and deliberately stopping the camera after each detection so the rider
+explicitly restarts scanning for the next parcel, instead of either
+double-firing or silently freezing.
+
+**Verified against the real backend end-to-end**, live in a browser (unlike
+F11, `npm run build && npm run start` compiled and served without the
+`next/font/google` network hang F11 hit — building the fonts once earlier
+this session was apparently enough): registered a fresh org, seeded
+branches/zones/rate-card/merchant/pickup+delivery riders, booked a real
+shipment, and drove it through the actual rider actions rather than
+directly manipulating shipment state — pickup scan (400 without an
+`Idempotency-Key`, 200 with one, an identical replayed response on a
+same-key retry, no second `PickedUp` transition), origin receive, manifest
+scan/seal/dispatch/receive to `AtDestinationBranch`, a POD upload, and
+`delivery-attempts/complete` with GPS coordinates and a collected COD
+amount (again proving replay-safety and a 409 `IDEMPOTENCY_KEY_REUSED` on
+a same-key-different-body retry) — the shipment reached `Delivered`.
+Then, live in Chrome against the running app: logged in as the delivery
+rider, confirmed the sidebar's "My Deliveries" link now resolves to
+`/rider/tasks`, confirmed the bottom tab bar (Tasks/Scan/Profile) and each
+tab's real content (task list empty-state, Profile showing the seeded
+rider's role/license, no stuck-queue card when the queue is genuinely
+empty), confirmed the Scan page's manual-entry fallback correctly trims/
+uppercases input and routes an unmatched AWB to a clear error message,
+confirmed the real `courier-rider-outbox` and `serwist-expiration`
+IndexedDB databases exist and the real `sw-rider.js` service worker is
+registered at the correct `/rider/` scope with a valid manifest (name,
+icons, `start_url`, `scope`, `display: standalone` all present). Then
+proved the offline path for real, not just via unit test: seeded a second
+pickup task, logged in as the pickup rider, stubbed `fetch` to reject
+exactly the `scan/pickup` BFF call (simulating a real network failure),
+submitted the AWB — the outbox correctly queued a pending item and the
+status bar showed "1 pending" — then did a genuine full page reload
+(fetch override necessarily gone, proving this wasn't the same in-memory
+state) and confirmed both that the outbox item was gone (auto-drained on
+load) and, via a direct backend call, that the shipment's real server-side
+status was now `PickedUp` — an offline-queued write surviving a reload and
+successfully reaching the server on reconnect, exactly as designed.
+
+**What this session could not verify:** real camera hardware (no webcam in
+this sandbox — the manual-entry fallback path was verified instead, and
+Task 11's own automated tests cover the `BarcodeDetector`/`@zxing/browser`
+logic with a mocked camera), real GPS hardware, an actual "Add to Home
+Screen" install flow on a physical device, and a literal Lighthouse PWA
+audit run (no Lighthouse/DevTools-protocol tool available in this
+environment) — the individual installability criteria Lighthouse's PWA
+category checks were instead confirmed directly (valid manifest response,
+registered service worker at the correct scope, viewport meta tag present).
+One real, minor UX gap found during the live pass and left as a follow-up
+rather than fixed in this phase: the Scan page's camera-preview area
+(`aspect-square w-full`) grows disproportionately tall on wide desktop/
+tablet viewports, pushing "Start Scanning" and the manual-entry fallback
+below the fold with no obvious scroll affordance — harmless on an actual
+phone-width screen (the PWA's primary target), but worth a `max-height`
+constraint given `nav-main.tsx`'s own repointed entry deliberately keeps
+desktop as a legitimate secondary access path.
+
+## Later
+
+All frontend phases planned through F12 are complete. Any further frontend
+work (e.g. a UI for backend Phase 14 — route optimization, GPS, ETA, smart
+dispatch — once that backend phase exists) gets its own brainstorm → spec →
+plan cycle per this repo's standing workflow, same as every phase above.
