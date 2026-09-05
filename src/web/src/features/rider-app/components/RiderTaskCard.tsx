@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { useRiderPickupScan } from "@/features/rider-app/hooks/useRiderPickupScan";
+import { useOutboxStatus } from "@/features/rider-app/sync/useOutboxStatus";
 import type { MyTask } from "@/features/riders/types";
 
 export function RiderTaskCard({
@@ -17,6 +18,12 @@ export function RiderTaskCard({
   onRecordAttempt: (task: MyTask) => void;
 }) {
   const pickupScan = useRiderPickupScan(riderId);
+  const { stuckItems } = useOutboxStatus();
+  // pickupScan.isSuccess only means the action was enqueued into the outbox (optimistic) — not
+  // that the server has actually accepted it. If that outbox item later goes "stuck" (e.g. a
+  // permanent 4xx), reconcile against the outbox status so the card doesn't keep claiming
+  // "Picked up." forever with no visible link to the fix in Profile > Needs Review.
+  const isStuck = stuckItems.some((item) => item.action.shipmentId === task.shipmentId);
 
   return (
     <Card>
@@ -32,7 +39,9 @@ export function RiderTaskCard({
         <p className="text-muted-foreground">{task.recipientAddressLine}, Ward {task.recipientWardNumber}</p>
         <div className="pt-2">
           {task.type === "Pickup" && (
-            pickupScan.isSuccess ? (
+            isStuck ? (
+              <p className="text-sm font-medium text-destructive">Needs review — see Profile</p>
+            ) : pickupScan.isSuccess ? (
               <p className="text-sm text-muted-foreground">Picked up.</p>
             ) : (
               <Button

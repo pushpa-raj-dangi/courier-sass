@@ -1,6 +1,7 @@
 import { listOutboxItems, removeOutboxItem, updateOutboxItem } from "./outboxDb";
 import { isNonRetryableError, QueuedRequestError } from "./errors";
 import { useOutboxStatusStore } from "./outboxStatusStore";
+import { queryClient } from "@/lib/queryClient";
 import type { OutboxItem } from "./types";
 
 async function syncFetch<T>(url: string, init: RequestInit): Promise<T> {
@@ -41,10 +42,25 @@ async function replayAction(item: OutboxItem): Promise<void> {
       let signatureStorageKey = action.signatureStorageKey;
       let photoStorageKey = action.photoStorageKey;
 
+      // pod-uploads and delivery-attempts/complete are three distinct backend requests that all
+      // originate from one outbox item, but IdempotencyMiddleware.cs keys its replay store as
+      // `{partition}:{idempotencyKey}` with no path/route component — so reusing the item's bare
+      // idempotencyKey across all three would make the 2nd and 3rd calls collide with the 1st
+      // (409 IDEMPOTENCY_KEY_REUSED, since each has a different body). Derive three distinct but
+      // deterministic sub-keys from the same idempotencyKey instead: a retry of this item recomputes
+      // the same three keys (so it still replays correctly against a call that already succeeded),
+      // but the three calls within one attempt never collide with each other.
       if (action.signatureBlob && !signatureStorageKey) {
         const result = await syncFetch<{ storageKey: string }>(
           `/api/riders/${action.riderId}/pod-uploads?kind=Signature`,
-          { method: "POST", headers: { "Content-Type": action.signatureBlob.type || "application/octet-stream" }, body: action.signatureBlob }
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": action.signatureBlob.type || "application/octet-stream",
+              "Idempotency-Key": `${idempotencyKey}:signature`,
+            },
+            body: action.signatureBlob,
+          }
         );
         signatureStorageKey = result.storageKey;
         await updateOutboxItem(item.id, { action: { ...action, signatureStorageKey } });
@@ -52,7 +68,14 @@ async function replayAction(item: OutboxItem): Promise<void> {
       if (action.photoBlob && !photoStorageKey) {
         const result = await syncFetch<{ storageKey: string }>(
           `/api/riders/${action.riderId}/pod-uploads?kind=Photo`,
-          { method: "POST", headers: { "Content-Type": action.photoBlob.type || "application/octet-stream" }, body: action.photoBlob }
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": action.photoBlob.type || "application/octet-stream",
+              "Idempotency-Key": `${idempotencyKey}:photo`,
+            },
+            body: action.photoBlob,
+          }
         );
         photoStorageKey = result.storageKey;
         await updateOutboxItem(item.id, { action: { ...action, signatureStorageKey, photoStorageKey } });
@@ -60,7 +83,7 @@ async function replayAction(item: OutboxItem): Promise<void> {
 
       await syncFetch(`/api/riders/${action.riderId}/delivery-attempts/complete`, {
         method: "POST",
-        headers: jsonHeaders,
+        headers: { ...jsonHeaders, "Idempotency-Key": `${idempotencyKey}:complete` },
         body: JSON.stringify({
           shipmentId: action.shipmentId,
           recipientName: action.recipientName,
@@ -137,6 +160,13 @@ async function runDrain(): Promise<{ synced: string[]; stuck: string[] }> {
 
   await useOutboxStatusStore.getState().refresh();
   useOutboxStatusStore.getState().recordSync();
+  if (synced.length > 0) {
+    // A queued task (pickup/delivery) that just synced to the server should disappear from
+    // "Today's Tasks" without requiring a full page reload — the rider may have queued it
+    // offline and only reconnected minutes later via the poll/online listener, well after
+    // they've navigated away from the screen that originally triggered the mutation.
+    void queryClient.invalidateQueries({ queryKey: ["riders", "me", "tasks", "today"] });
+  }
   return { synced, stuck };
 }
 

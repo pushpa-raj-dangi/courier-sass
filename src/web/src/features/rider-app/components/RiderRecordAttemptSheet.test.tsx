@@ -64,4 +64,25 @@ describe("RiderRecordAttemptSheet", () => {
       )
     );
   });
+
+  it("rejects a photo over 10MB with an inline error and does not carry it as the photo blob on submit", async () => {
+    useRiderAppPanelStore.getState().openRecordAttempt(task);
+    renderSheet();
+
+    const oversizedFile = new File([new Uint8Array(1)], "photo.jpg", { type: "image/jpeg" });
+    Object.defineProperty(oversizedFile, "size", { value: 10 * 1024 * 1024 + 1 });
+
+    fireEvent.change(screen.getByLabelText("Photo"), { target: { files: [oversizedFile] } });
+
+    expect(await screen.findByText(/too large/i)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Recipient Name"), { target: { value: "Recipient One" } });
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+
+    await waitFor(() =>
+      expect(completeMutate).toHaveBeenCalledWith(
+        expect.objectContaining({ shipmentId: "s1", photoBlob: null })
+      )
+    );
+  });
 });

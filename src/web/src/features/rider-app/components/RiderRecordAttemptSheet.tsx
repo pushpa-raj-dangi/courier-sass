@@ -21,6 +21,12 @@ const FAILURE_REASONS: RecordFailedAttemptFields["reason"][] = [
   "CustomerRefused", "CustomerRequestedReschedule", "CashUnavailable", "DamagedParcel", "Other",
 ];
 
+// Backend pod-uploads accepts only application/pdf, image/jpeg, image/png, capped at 10MB — keep
+// the client picker aligned so the rider isn't allowed to select something the server will 400 on
+// once the sync manager tries to replay it (by which point the rider has moved on and won't see
+// the failure until they open Profile's "Needs Review").
+const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
+
 export function RiderRecordAttemptSheet({ riderId }: { riderId: string }) {
   const panel = useRiderAppPanelStore((s) => s.panel);
   const close = useRiderAppPanelStore((s) => s.close);
@@ -35,6 +41,7 @@ export function RiderRecordAttemptSheet({ riderId }: { riderId: string }) {
   const [collectedCodAmount, setCollectedCodAmount] = useState("");
   const [signatureBlob, setSignatureBlob] = useState<Blob | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -51,6 +58,7 @@ export function RiderRecordAttemptSheet({ riderId }: { riderId: string }) {
     setCollectedCodAmount("");
     setSignatureBlob(null);
     setPhotoFile(null);
+    setPhotoError(null);
     setLatitude(null);
     setLongitude(null);
     setServerError(null);
@@ -169,10 +177,23 @@ export function RiderRecordAttemptSheet({ riderId }: { riderId: string }) {
                   <Input
                     id="pod-photo"
                     type="file"
-                    accept="image/*"
+                    accept="image/jpeg,image/png"
                     capture="environment"
-                    onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
+                    aria-describedby={photoError ? "pod-photo-error" : undefined}
+                    aria-invalid={photoError ? true : undefined}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] ?? null;
+                      if (file && file.size > MAX_PHOTO_BYTES) {
+                        setPhotoFile(null);
+                        setPhotoError("Photo is too large. Choose a file under 10MB.");
+                        e.target.value = "";
+                        return;
+                      }
+                      setPhotoError(null);
+                      setPhotoFile(file);
+                    }}
                   />
+                  {photoError && <FieldError id="pod-photo-error">{photoError}</FieldError>}
                 </div>
                 <Button type="button" variant="outline" size="sm" onClick={captureLocation}>
                   {latitude !== null ? "Location captured" : "Capture current location"}

@@ -2,6 +2,7 @@ import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { addOutboxItem, listOutboxItems, resetOutboxDbForTests } from "./outboxDb";
 import { drainOutbox } from "./syncManager";
+import { queryClient } from "@/lib/queryClient";
 import type { QueuedAction } from "./types";
 
 const pickupAction: QueuedAction = { kind: "pickup-scan", riderId: "r1", shipmentId: "s1", awb: "AWB001" };
@@ -61,7 +62,7 @@ describe("drainOutbox", () => {
   });
 
   it("uploads signature/photo blobs before calling delivery-attempts/complete, and persists the storage key between attempts", async () => {
-    await addOutboxItem(completeAction);
+    const queued = await addOutboxItem(completeAction);
     const fetchMock = vi.fn()
       .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ storageKey: "sig-key-1" }) }) // pod-upload
       .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ id: "a1", succeeded: true }) }); // complete
@@ -69,12 +70,44 @@ describe("drainOutbox", () => {
 
     await drainOutbox();
 
-    expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/riders/r1/pod-uploads?kind=Signature", expect.objectContaining({ method: "POST" }));
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "/api/riders/r1/pod-uploads?kind=Signature",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({ "Idempotency-Key": `${queued.idempotencyKey}:signature` }),
+      })
+    );
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
       "/api/riders/r1/delivery-attempts/complete",
-      expect.objectContaining({ body: expect.stringContaining("sig-key-1") })
+      expect.objectContaining({
+        body: expect.stringContaining("sig-key-1"),
+        headers: expect.objectContaining({ "Idempotency-Key": `${queued.idempotencyKey}:complete` }),
+      })
     );
+  });
+
+  it("uses three different Idempotency-Key values for the signature upload, photo upload, and complete call within a single delivery-complete replay", async () => {
+    const queued = await addOutboxItem(completeActionWithPhoto);
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ storageKey: "sig-key-2" }) })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ storageKey: "photo-key-2" }) })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ id: "a2", succeeded: true }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await drainOutbox();
+
+    const usedKeys = fetchMock.mock.calls.map(
+      (call) => (call[1]?.headers as Record<string, string>)["Idempotency-Key"]
+    );
+    expect(usedKeys).toEqual([
+      `${queued.idempotencyKey}:signature`,
+      `${queued.idempotencyKey}:photo`,
+      `${queued.idempotencyKey}:complete`,
+    ]);
+    expect(new Set(usedKeys).size).toBe(3);
   });
 
   it("persists the signature storage key to the outbox item before the complete call — it survives that call's failure, proving it isn't just held in a local variable", async () => {
@@ -148,6 +181,40 @@ describe("drainOutbox", () => {
     expect(result.synced).toHaveLength(0);
     const [item] = await listOutboxItems();
     expect(item.status).toBe("pending");
+  });
+
+  it("leaves a 401 (expired session) item pending rather than stuck, so it's retried once the session refreshes", async () => {
+    await addOutboxItem(pickupAction);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 401, text: async () => "session expired" }));
+
+    const result = await drainOutbox();
+
+    expect(result.stuck).toHaveLength(0);
+    expect(result.synced).toHaveLength(0);
+    const [item] = await listOutboxItems();
+    expect(item.status).toBe("pending");
+  });
+
+  it("invalidates the today's-tasks query after a drain that successfully syncs at least one item", async () => {
+    await addOutboxItem(pickupAction);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({}) }));
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+
+    const result = await drainOutbox();
+
+    expect(result.synced).toHaveLength(1);
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["riders", "me", "tasks", "today"] });
+  });
+
+  it("does not invalidate the today's-tasks query when nothing synced", async () => {
+    await addOutboxItem(failAction);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 400, text: async () => "invalid state" }));
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+
+    const result = await drainOutbox();
+
+    expect(result.synced).toHaveLength(0);
+    expect(invalidateSpy).not.toHaveBeenCalledWith({ queryKey: ["riders", "me", "tasks", "today"] });
   });
 
   it("blocks later items for the same shipment once one goes stuck, but still drains a different shipment's item", async () => {
