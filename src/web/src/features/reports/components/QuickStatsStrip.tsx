@@ -38,7 +38,7 @@ export function QuickStatsStrip({ data }: { data: OrgDashboardSummary }) {
       highlight: true,
     },
     {
-      label: "Active Branches",
+      label: "Branches With Shipments",
       value: activeBranchCount.toLocaleString(),
       icon: Building2,
       badgeClass: "bg-muted text-muted-foreground",

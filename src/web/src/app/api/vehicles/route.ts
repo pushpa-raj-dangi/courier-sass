@@ -4,7 +4,7 @@ import { apiFetch } from "@/lib/auth/apiFetch";
 export async function GET() {
   try {
     const response = await apiFetch("/api/v1/vehicles");
-    const body = await response.json();
+    const body = await response.json().catch(() => null);
     return NextResponse.json(body, { status: response.status });
   } catch {
     return NextResponse.json(null, { status: 401 });
@@ -19,7 +19,7 @@ export async function POST(request: Request) {
       headers: { "Content-Type": "application/json" },
       body: requestBody,
     });
-    const body = await response.json();
+    const body = await response.json().catch(() => null);
     return NextResponse.json(body, { status: response.status });
   } catch {
     return NextResponse.json(null, { status: 401 });

@@ -27,7 +27,7 @@ public record FinancialTransactionResponse(
 
 public record CreateMerchantSettlementRequest(Guid MerchantId, DateTimeOffset PeriodFrom, DateTimeOffset PeriodTo);
 
-public record MerchantSettlementItemResponse(Guid Id, Guid ShipmentId, decimal CODAmount, decimal CourierFee, decimal OtherDeductions, decimal NetPayable);
+public record MerchantSettlementItemResponse(Guid Id, Guid ShipmentId, string ShipmentAwb, decimal CODAmount, decimal CourierFee, decimal OtherDeductions, decimal NetPayable);
 
 public record MerchantSettlementResponse(
     Guid Id, Guid MerchantId, DateTimeOffset PeriodFrom, DateTimeOffset PeriodTo, decimal TotalPayable,

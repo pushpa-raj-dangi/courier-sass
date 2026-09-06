@@ -157,6 +157,7 @@ builder.Services.AddScoped<IEventPublisher, RabbitMqEventPublisher>();
 builder.Services.AddScoped<OutboxPublisherJob>();
 builder.Services.AddScoped<NdrService>();
 builder.Services.AddScoped<IShipmentReportingLookupService, ShipmentReportingLookupService>();
+builder.Services.AddScoped<Courier.Cod.Application.IShipmentAwbLookupService, ShipmentReportingLookupService>();
 builder.Services.AddScoped<IManifestReportingLookupService, ManifestReportingLookupService>();
 builder.Services.AddScoped<IRiderReportingLookupService, RiderReportingLookupService>();
 builder.Services.AddScoped<INdrReportingLookupService, NdrReportingLookupService>();

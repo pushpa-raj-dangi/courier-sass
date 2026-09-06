@@ -6,6 +6,7 @@ import { ErrorState } from "@/components/states/ErrorState";
 import { StatusBadge } from "@/components/status-badge/StatusBadge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DataTable, type ColumnDef } from "@/components/data-table/DataTable";
+import { useSession } from "@/features/auth/hooks/useSession";
 import { useNdrs } from "@/features/ndr/hooks/useNdrs";
 import { useNdrPanelStore } from "@/features/ndr/store/ndrPanelStore";
 import type { Ndr, NdrStatus } from "@/features/ndr/types";
@@ -22,6 +23,7 @@ export default function NdrsPage() {
     pageSize,
   });
   const openDetail = useNdrPanelStore((s) => s.openDetail);
+  const { data: session } = useSession();
 
   const columns: ColumnDef<Ndr>[] = [
     {
@@ -36,7 +38,12 @@ export default function NdrsPage() {
     { key: "reason", header: "Reason", render: (n) => n.reason },
     { key: "status", header: "Status", render: (n) => <StatusBadge status={n.status} namespace="Ndr" /> },
     { key: "createdAt", header: "Created At", render: (n) => new Date(n.createdAt).toLocaleDateString() },
-    { key: "assignedStaff", header: "Assigned Staff", render: (n) => n.assignedStaffUserId ?? "—" },
+    {
+      key: "assignedStaff",
+      header: "Assigned Staff",
+      render: (n) =>
+        !n.assignedStaffUserId ? "—" : n.assignedStaffUserId === session?.userId ? "You" : "Assigned",
+    },
   ];
 
   if (isLoading) {

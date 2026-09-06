@@ -100,7 +100,9 @@ public partial class CodService
             }
 
             await _auditLogger.LogAsync(new AuditEntry(organizationId, actingUserId, "cod.merchant_settlement_created", "MerchantSettlement", settlement.Id.ToString()), cancellationToken);
-            return ToMerchantSettlementResponse(settlement, items);
+            var awbsById = await _shipmentAwbLookupService.GetAwbsByShipmentIdsAsync(
+                items.Select(i => i.ShipmentId).ToHashSet(), cancellationToken);
+            return ToMerchantSettlementResponse(settlement, items, awbsById);
         }
         catch
         {
@@ -171,7 +173,9 @@ public partial class CodService
             }
 
             await _auditLogger.LogAsync(new AuditEntry(organizationId, actingUserId, "cod.merchant_settlement_settled", "MerchantSettlement", settlement.Id.ToString()), cancellationToken);
-            return ToMerchantSettlementResponse(settlement, items);
+            var awbsById = await _shipmentAwbLookupService.GetAwbsByShipmentIdsAsync(
+                items.Select(i => i.ShipmentId).ToHashSet(), cancellationToken);
+            return ToMerchantSettlementResponse(settlement, items, awbsById);
         }
         catch
         {
@@ -187,8 +191,11 @@ public partial class CodService
         }
     }
 
-    private static MerchantSettlementResponse ToMerchantSettlementResponse(MerchantSettlement settlement, List<MerchantSettlementItem> items) => new(
+    private static MerchantSettlementResponse ToMerchantSettlementResponse(
+        MerchantSettlement settlement, List<MerchantSettlementItem> items, IReadOnlyDictionary<Guid, string> awbsByShipmentId) => new(
         settlement.Id, settlement.MerchantId, settlement.PeriodFrom, settlement.PeriodTo, settlement.TotalPayable,
         settlement.Status, settlement.SettledAt,
-        items.Select(i => new MerchantSettlementItemResponse(i.Id, i.ShipmentId, i.CODAmount, i.CourierFee, i.OtherDeductions, i.NetPayable)).ToList());
+        items.Select(i => new MerchantSettlementItemResponse(
+            i.Id, i.ShipmentId, awbsByShipmentId.GetValueOrDefault(i.ShipmentId, i.ShipmentId.ToString()),
+            i.CODAmount, i.CourierFee, i.OtherDeductions, i.NetPayable)).ToList());
 }

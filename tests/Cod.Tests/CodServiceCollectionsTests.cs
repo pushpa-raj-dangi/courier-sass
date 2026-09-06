@@ -56,6 +56,12 @@ file class AlwaysTrueMerchantLookup : IMerchantLookupService
         Task.FromResult<IReadOnlyDictionary<Guid, string>>(new Dictionary<Guid, string>());
 }
 
+file class AlwaysTrueShipmentAwbLookup : IShipmentAwbLookupService
+{
+    public Task<IReadOnlyDictionary<Guid, string>> GetAwbsByShipmentIdsAsync(IReadOnlySet<Guid> shipmentIds, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyDictionary<Guid, string>>(new Dictionary<Guid, string>());
+}
+
 public class CodServiceCollectionsTests
 {
     private class TestDbContext : DbContext
@@ -79,7 +85,7 @@ public class CodServiceCollectionsTests
 
     private static CodService CreateService(TestDbContext dbContext, Guid organizationId, IOutboxWriter? outboxWriter = null) => new(
         dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), new AlwaysTrueBranchLookup(),
-        new AllBranchesAuthorizationChecker(), new AlwaysTrueMerchantLookup(), outboxWriter ?? new RecordingOutboxWriter());
+        new AllBranchesAuthorizationChecker(), new AlwaysTrueMerchantLookup(), new AlwaysTrueShipmentAwbLookup(), outboxWriter ?? new RecordingOutboxWriter());
 
     [Fact]
     public async Task CreateExpectedAsync_PersistsRowWithCodExpectedStatus()

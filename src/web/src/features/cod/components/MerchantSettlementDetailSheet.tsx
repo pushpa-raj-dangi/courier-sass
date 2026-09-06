@@ -145,7 +145,7 @@ export function MerchantSettlementDetailSheet() {
                   {settlement.items.map((item) => (
                     <div key={item.id} className="rounded-md border border-border p-3 text-sm">
                       <div className="flex items-center justify-between">
-                        <span className="font-medium text-foreground">Shipment {item.shipmentId.slice(0, 8)}</span>
+                        <span className="font-medium text-foreground">{item.shipmentAwb}</span>
                         {canAdjust && settlement.status === "Created" && adjustingItemId !== item.id && (
                           <Button type="button" size="sm" variant="outline" onClick={() => setAdjustingItemId(item.id)}>
                             Request Adjustment

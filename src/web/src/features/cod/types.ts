@@ -61,6 +61,7 @@ export type MerchantSettlementStatus = "Created" | "Settled";
 export interface MerchantSettlementItem {
   id: string;
   shipmentId: string;
+  shipmentAwb: string;
   codAmount: number;
   courierFee: number;
   otherDeductions: number;

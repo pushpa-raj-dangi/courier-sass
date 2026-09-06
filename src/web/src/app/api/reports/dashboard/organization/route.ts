@@ -5,7 +5,7 @@ export async function GET(request: NextRequest) {
   const query = request.nextUrl.search;
   try {
     const response = await apiFetch(`/api/v1/reports/dashboard/organization${query}`);
-    const body = await response.json();
+    const body = await response.json().catch(() => null);
     return NextResponse.json(body, { status: response.status });
   } catch {
     return NextResponse.json(null, { status: 401 });

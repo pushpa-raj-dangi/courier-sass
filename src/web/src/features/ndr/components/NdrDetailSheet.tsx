@@ -4,6 +4,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ErrorState } from "@/components/states/ErrorState";
 import { StatusBadge } from "@/components/status-badge/StatusBadge";
+import { useSession } from "@/features/auth/hooks/useSession";
 import { useNdr } from "@/features/ndr/hooks/useNdr";
 import { useNdrPanelStore } from "@/features/ndr/store/ndrPanelStore";
 import { NdrUpdateSection } from "@/features/ndr/components/NdrUpdateSection";
@@ -28,6 +29,7 @@ export function NdrDetailSheet() {
   const id = panel.mode === "detail" ? panel.id : "";
 
   const { data: ndr, isLoading, isError, refetch } = useNdr(id);
+  const { data: session } = useSession();
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => { if (!open) close(); }}>
@@ -56,7 +58,16 @@ export function NdrDetailSheet() {
                   <StatusBadge status={ndr.status} namespace="Ndr" />
                 </div>
                 <Field label="Reason" value={ndr.reason} />
-                <Field label="Assigned Staff" value={ndr.assignedStaffUserId ?? "Unassigned"} />
+                <Field
+                  label="Assigned Staff"
+                  value={
+                    !ndr.assignedStaffUserId
+                      ? "Unassigned"
+                      : ndr.assignedStaffUserId === session?.userId
+                        ? "You"
+                        : "Assigned"
+                  }
+                />
                 <Field label="Created At" value={new Date(ndr.createdAt).toLocaleString()} />
               </div>
 

@@ -12,7 +12,7 @@ export async function GET() {
     if (response.status === 404) {
       return NextResponse.json(null, { status: 404 });
     }
-    const body = await response.json();
+    const body = await response.json().catch(() => null);
     return NextResponse.json(body, { status: response.status });
   } catch {
     return NextResponse.json(null, { status: 401 });

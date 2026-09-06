@@ -1,9 +1,14 @@
+using Courier.Cod.Application;
 using Courier.Shipments.Domain;
 using Microsoft.EntityFrameworkCore;
 
 namespace Courier.Shipments.Application;
 
-public class ShipmentReportingLookupService : IShipmentReportingLookupService
+// Also implements Cod.Application.IShipmentAwbLookupService — Shipments already references Cod
+// (to create COD collections on delivery), so this is the one direction a Shipments->Cod interface
+// implementation can flow without a circular project reference; Cod declares the interface it
+// needs and this class (already holding the Shipment DbContext access) satisfies it.
+public class ShipmentReportingLookupService : IShipmentReportingLookupService, IShipmentAwbLookupService
 {
     private readonly DbContext _dbContext;
 

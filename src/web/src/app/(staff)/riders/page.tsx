@@ -26,10 +26,16 @@ export default function RidersPage() {
     { key: "active", header: "Active", render: (r) => (r.isActive ? "Yes" : "No") },
   ];
 
+  const riderLicenseById = new Map((data ?? []).map((r) => [r.id, r.licenseNumber]));
+
   const vehicleColumns: ColumnDef<Vehicle>[] = [
     { key: "plateNumber", header: "Plate Number", render: (v) => v.plateNumber },
     { key: "type", header: "Type", render: (v) => v.type },
-    { key: "riderId", header: "Assigned Rider", render: (v) => v.riderId ?? "Unassigned" },
+    {
+      key: "riderId",
+      header: "Assigned Rider",
+      render: (v) => (v.riderId ? (riderLicenseById.get(v.riderId) ?? v.riderId) : "Unassigned"),
+    },
   ];
 
   if (isLoading) {

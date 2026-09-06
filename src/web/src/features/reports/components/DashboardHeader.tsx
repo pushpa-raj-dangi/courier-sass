@@ -29,8 +29,8 @@ export function DashboardHeader() {
         </h1>
       </div>
       <p className="text-xs text-muted-foreground">
-        As of {now.toLocaleDateString(undefined, { month: "short", day: "numeric" })},{" "}
-        {now.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
+        As of {now.toLocaleDateString("en-US", { month: "short", day: "numeric" })},{" "}
+        {now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
       </p>
     </div>
   );

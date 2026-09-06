@@ -1,12 +1,15 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ErrorState } from "@/components/states/ErrorState";
 import { StatusBadge } from "@/components/status-badge/StatusBadge";
+import { usePermission } from "@/features/auth/hooks/usePermission";
 import { useBranches } from "@/features/branches/hooks/useBranches";
 import { useShipment } from "@/features/shipments/hooks/useShipment";
 import { useMerchants } from "@/features/shipments/hooks/useMerchants";
+import { useReceiveAtOrigin } from "@/features/shipments/hooks/useReceiveAtOrigin";
 import { useServiceTypes } from "@/features/shipments/hooks/useServiceTypes";
 import { useShipmentPanelStore } from "@/features/shipments/store/shipmentPanelStore";
 import { ShipmentNdrRtoLinks } from "@/features/shipments/components/ShipmentNdrRtoLinks";
@@ -32,6 +35,8 @@ export function ShipmentDetailSheet() {
   const { data: branches } = useBranches();
   const { data: merchants } = useMerchants();
   const { data: serviceTypes } = useServiceTypes();
+  const canScan = usePermission("shipment.scan");
+  const receiveAtOrigin = useReceiveAtOrigin(shipment?.id ?? "");
 
   const branchName = (id: string) => branches?.find((b) => b.id === id)?.name ?? "—";
   const merchantName = (id: string) => merchants?.find((m) => m.id === id)?.displayName ?? "—";
@@ -62,6 +67,16 @@ export function ShipmentDetailSheet() {
                 <div className="flex flex-col gap-1">
                   <span className="text-xs text-muted-foreground">Status</span>
                   <StatusBadge status={shipment.currentStatus} />
+                  {canScan && shipment.currentStatus === "PickedUp" && (
+                    <Button
+                      size="sm"
+                      className="mt-1 w-fit"
+                      disabled={receiveAtOrigin.isPending}
+                      onClick={() => receiveAtOrigin.mutate()}
+                    >
+                      {receiveAtOrigin.isPending ? "Receiving…" : "Receive at Origin"}
+                    </Button>
+                  )}
                 </div>
                 <Field label="Service Type" value={serviceTypeName(shipment.serviceTypeId)} />
                 <Field label="Merchant" value={merchantName(shipment.merchantId)} />

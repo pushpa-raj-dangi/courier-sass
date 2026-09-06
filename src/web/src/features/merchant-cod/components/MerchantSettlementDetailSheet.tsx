@@ -35,9 +35,9 @@ export function MerchantSettlementDetailSheet() {
   function handleDownloadCsv() {
     if (!settlement) return;
     const csv = toCsv(
-      ["Shipment ID", "COD Amount", "Courier Fee", "Other Deductions", "Net Payable"],
+      ["Shipment AWB", "COD Amount", "Courier Fee", "Other Deductions", "Net Payable"],
       settlement.items.map((item) => [
-        item.shipmentId,
+        item.shipmentAwb,
         item.codAmount.toFixed(2),
         item.courierFee.toFixed(2),
         item.otherDeductions.toFixed(2),
@@ -115,7 +115,7 @@ export function MerchantSettlementDetailSheet() {
                   <tbody>
                     {settlement.items.map((item) => (
                       <tr key={item.id} className="border-b border-border/50">
-                        <td className="py-2">{item.shipmentId}</td>
+                        <td className="py-2">{item.shipmentAwb}</td>
                         <td className="py-2 text-right">{currencyFormatter.format(item.codAmount)}</td>
                         <td className="py-2 text-right">{currencyFormatter.format(item.courierFee)}</td>
                         <td className="py-2 text-right">{currencyFormatter.format(item.netPayable)}</td>

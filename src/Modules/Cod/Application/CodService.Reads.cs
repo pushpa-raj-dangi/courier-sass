@@ -173,11 +173,17 @@ public partial class CodService
         }
 
         var settlements = await query.ToListAsync(cancellationToken);
+        var settlementIds = settlements.Select(s => s.Id).ToHashSet();
+        var allItems = await _dbContext.Set<MerchantSettlementItem>()
+            .Where(i => settlementIds.Contains(i.MerchantSettlementId)).ToListAsync(cancellationToken);
+        var awbsById = await _shipmentAwbLookupService.GetAwbsByShipmentIdsAsync(
+            allItems.Select(i => i.ShipmentId).ToHashSet(), cancellationToken);
+
         var responses = new List<MerchantSettlementResponse>();
         foreach (var settlement in settlements)
         {
-            var items = await _dbContext.Set<MerchantSettlementItem>().Where(i => i.MerchantSettlementId == settlement.Id).ToListAsync(cancellationToken);
-            responses.Add(ToMerchantSettlementResponse(settlement, items));
+            var items = allItems.Where(i => i.MerchantSettlementId == settlement.Id).ToList();
+            responses.Add(ToMerchantSettlementResponse(settlement, items, awbsById));
         }
         return responses;
     }
@@ -199,7 +205,9 @@ public partial class CodService
         }
 
         var items = await _dbContext.Set<MerchantSettlementItem>().Where(i => i.MerchantSettlementId == id).ToListAsync(cancellationToken);
-        return ToMerchantSettlementResponse(settlement, items);
+        var awbsById = await _shipmentAwbLookupService.GetAwbsByShipmentIdsAsync(
+            items.Select(i => i.ShipmentId).ToHashSet(), cancellationToken);
+        return ToMerchantSettlementResponse(settlement, items, awbsById);
     }
 
     // Mirrors ListCollectionsAsync's shape exactly: RiderCashSettlement carries its own BranchId

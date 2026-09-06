@@ -46,6 +46,12 @@ file class AlwaysTrueMerchantLookup : IMerchantLookupService
         Task.FromResult<IReadOnlyDictionary<Guid, string>>(new Dictionary<Guid, string>());
 }
 
+file class AlwaysTrueShipmentAwbLookup : IShipmentAwbLookupService
+{
+    public Task<IReadOnlyDictionary<Guid, string>> GetAwbsByShipmentIdsAsync(IReadOnlySet<Guid> shipmentIds, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyDictionary<Guid, string>>(new Dictionary<Guid, string>());
+}
+
 file class NoopOutboxWriter : IOutboxWriter
 {
     public Task WriteAsync(Guid organizationId, string eventType, object payload, CancellationToken cancellationToken = default) => Task.CompletedTask;
@@ -76,7 +82,7 @@ public class CodServiceBranchSettlementsTests
 
     private static CodService CreateService(TestDbContext dbContext, Guid organizationId) => new(
         dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), new AlwaysTrueBranchLookup(),
-        new AllBranchesAuthorizationChecker(), new AlwaysTrueMerchantLookup(), new NoopOutboxWriter());
+        new AllBranchesAuthorizationChecker(), new AlwaysTrueMerchantLookup(), new AlwaysTrueShipmentAwbLookup(), new NoopOutboxWriter());
 
     private static async Task<RiderCashSettlement> SeedRiderDepositedAsync(TestDbContext dbContext, Guid organizationId, Guid branchId, decimal amount)
     {

@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
   }
   try {
     const response = await apiFetch(`/api/v1/geography/wards?localLevelId=${localLevelId}`);
-    const body = await response.json();
+    const body = await response.json().catch(() => null);
     return NextResponse.json(body, { status: response.status });
   } catch {
     return NextResponse.json(null, { status: 401 });
