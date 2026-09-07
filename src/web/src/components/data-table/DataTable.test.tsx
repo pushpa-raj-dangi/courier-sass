@@ -47,4 +47,55 @@ describe("DataTable", () => {
     fireEvent.click(screen.getByRole("link", { name: /go to next page/i }));
     expect(onPageChange).toHaveBeenCalledWith(2);
   });
+
+  it("hides the pagination nav when there is only one page", () => {
+    render(
+      <DataTable
+        columns={columns}
+        data={{
+          items: [{ id: "1", name: "Row One" }],
+          page: 1,
+          pageSize: 10,
+          totalCount: 1,
+          totalPages: 1,
+        }}
+        isLoading={false}
+        emptyTitle="No rows"
+        onPageChange={vi.fn()}
+        rowKey={(r) => r.id}
+      />
+    );
+
+    expect(screen.getByText("Page 1 of 1 (1 total)")).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: /pagination/i })).not.toBeInTheDocument();
+  });
+
+  it("renders numbered page links with the current page marked active", () => {
+    const onPageChange = vi.fn();
+    render(
+      <DataTable
+        columns={columns}
+        data={{
+          items: [{ id: "1", name: "Row One" }],
+          page: 3,
+          pageSize: 10,
+          totalCount: 100,
+          totalPages: 10,
+        }}
+        isLoading={false}
+        emptyTitle="No rows"
+        onPageChange={onPageChange}
+        rowKey={(r) => r.id}
+      />
+    );
+
+    expect(screen.getByRole("link", { name: "1" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "10" })).toBeInTheDocument();
+    const current = screen.getByRole("link", { name: "3" });
+    expect(current).toHaveAttribute("aria-current", "page");
+    expect(screen.getAllByText("More pages").length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("link", { name: "4" }));
+    expect(onPageChange).toHaveBeenCalledWith(4);
+  });
 });
