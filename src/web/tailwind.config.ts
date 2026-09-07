@@ -86,6 +86,13 @@ const config: Config = {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        "marketing-bg": "hsl(var(--marketing-bg) / <alpha-value>)",
+        "marketing-bg-elevated": "hsl(var(--marketing-bg-elevated) / <alpha-value>)",
+        "marketing-fg": "hsl(var(--marketing-fg) / <alpha-value>)",
+        "marketing-muted-fg": "hsl(var(--marketing-muted-fg) / <alpha-value>)",
+        "marketing-accent": "hsl(var(--marketing-accent) / <alpha-value>)",
+        "marketing-accent-fg": "hsl(var(--marketing-accent-foreground) / <alpha-value>)",
+        "marketing-border": "hsl(var(--marketing-border) / <alpha-value>)",
       },
       borderRadius: {
         lg: "var(--radius)",
