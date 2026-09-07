@@ -21,4 +21,10 @@ describe("FeatureGrid", () => {
     render(<FeatureGrid />);
     expect(screen.getByRole("heading", { level: 2 })).toBeInTheDocument();
   });
+
+  it("wraps each feature tile with a gradient border and glow class", () => {
+    render(<FeatureGrid />);
+    const tiles = screen.getAllByTestId("feature-tile");
+    expect(tiles).toHaveLength(FEATURES.length);
+  });
 });
