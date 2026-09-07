@@ -21,4 +21,9 @@ describe("HowItWorks", () => {
     const { container } = render(<HowItWorks />);
     expect(container.querySelector("#how-it-works")).not.toBeNull();
   });
+
+  it("renders the decorative route-line graphic", () => {
+    render(<HowItWorks />);
+    expect(screen.getByTestId("route-line-graphic")).toBeInTheDocument();
+  });
 });
