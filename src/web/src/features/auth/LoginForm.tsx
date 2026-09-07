@@ -8,7 +8,7 @@ import { Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FieldError } from "@/components/ui/field-error";
 import { loginSchema, type LoginFormValues } from "@/features/auth/schema";
 
@@ -38,12 +38,13 @@ export function LoginForm() {
   }
 
   return (
-    <Card className="w-full max-w-sm shadow-xl shadow-primary/5">
-      <CardHeader>
-        <CardTitle className="font-display text-xl">Sign in</CardTitle>
+    <Card className="w-full max-w-md shadow-xl shadow-primary/5">
+      <CardHeader className="space-y-1.5 pb-4">
+        <CardTitle className="font-display text-2xl">Sign in</CardTitle>
+        <CardDescription>Manage branches, shipments, and deliveries.</CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <div className="relative">
@@ -55,7 +56,7 @@ export function LoginForm() {
                 id="email"
                 type="email"
                 autoComplete="email"
-                className="pl-9"
+                className="h-10 pl-9"
                 aria-invalid={!!errors.email}
                 aria-describedby={errors.email ? "email-error" : undefined}
                 {...register("email")}
@@ -79,7 +80,7 @@ export function LoginForm() {
                 id="password"
                 type={showPassword ? "text" : "password"}
                 autoComplete="current-password"
-                className="pl-9 pr-9"
+                className="h-10 pl-9 pr-10"
                 aria-invalid={!!errors.password}
                 aria-describedby={errors.password ? "password-error" : undefined}
                 {...register("password")}
@@ -88,7 +89,7 @@ export function LoginForm() {
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
                 aria-label={showPassword ? "Hide password" : "Show password"}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               >
                 {showPassword ? (
                   <EyeOff className="h-4 w-4" strokeWidth={2} />
@@ -110,7 +111,7 @@ export function LoginForm() {
               {serverError}
             </FieldError>
           )}
-          <Button type="submit" className="group w-full" disabled={isSubmitting}>
+          <Button type="submit" size="lg" className="group w-full" disabled={isSubmitting}>
             {isSubmitting ? "Signing in..." : "Sign in"}
             {!isSubmitting && (
               <ArrowRight

@@ -77,6 +77,15 @@
   --primary: 230.0 55.0% 25.0%;
   --primary-foreground: 37.5 44.4% 96.5%;
 
+  /* The two auth surfaces' full-bleed showcase panel deliberately does not follow
+     --primary into dark mode: dark mode's --primary (236 73% 60%) is tuned bright
+     on purpose for small button fills against dark surfaces, but at full-panel scale
+     that reads as a glaring light block against this system's otherwise dark, muted
+     theme. Fixed to the light-mode brand navy in both themes instead, so the panel
+     stays the same confident "gate" surface regardless of the visitor's theme. */
+  --auth-panel: 230.0 55.0% 25.0%;
+  --auth-panel-foreground: 37.5 44.4% 96.5%;
+
   --secondary: 230 10% 92%;
   --secondary-foreground: 229.1 20.0% 10.8%;
 
@@ -259,5 +268,26 @@ body {
     --sidebar-accent-foreground: 40.0 33.3% 92.9%;
     --sidebar-border: 228.8 15% 24%;
     --sidebar-ring: 236.0 73.0% 60.0%;
+  }
+}
+
+/*
+ * The two auth surfaces' one animated moment (AuthLifecycleGraphic): the route line
+ * draws in once on mount. Markup already sets stroke-dashoffset to 0 (fully drawn) as
+ * the resting state, so prefers-reduced-motion or pre-hydration paints just falls back
+ * to that static line instead of an undrawn one.
+ */
+@keyframes auth-graphic-draw {
+  from {
+    stroke-dashoffset: 100;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .auth-graphic-draw {
+    animation: auth-graphic-draw 1.4s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both;
   }
 }
