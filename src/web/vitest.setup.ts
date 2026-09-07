@@ -71,3 +71,20 @@ if (typeof HTMLElement !== "undefined") {
   HTMLElement.prototype.releasePointerCapture ??= () => {};
   HTMLElement.prototype.scrollIntoView ??= () => {};
 }
+
+// jsdom doesn't implement IntersectionObserver — framer-motion's whileInView prop
+// (every marketing section, Frontend Phase F13) checks for it before observing.
+if (typeof window !== "undefined" && !window.IntersectionObserver) {
+  window.IntersectionObserver = class {
+    constructor(_callback: IntersectionObserverCallback, _options?: IntersectionObserverInit) {}
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+    takeRecords(): IntersectionObserverEntry[] {
+      return [];
+    }
+    root = null;
+    rootMargin = "";
+    thresholds: number[] = [];
+  } as unknown as typeof IntersectionObserver;
+}
