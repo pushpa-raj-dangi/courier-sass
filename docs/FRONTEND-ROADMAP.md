@@ -963,6 +963,48 @@ visually in a browser at desktop width. Mobile-viewport confirmation was
 again blocked by the same `resize_window`-doesn't-narrow-the-viewport
 sandbox limitation noted above; not re-investigated this session.
 
+### Light/Dark Toggle (2026-09-07, same-day follow-up)
+
+Explicit user request to add a real light/dark toggle to the marketing
+page, overriding the "fixed dark, independent of app theme" decision
+above (confirmed via brainstorming before implementing, since it reverses
+a documented decision). `--marketing-*` moved from unconditional `:root`
+values to a proper light (`:root`)/dark (`.dark`) pair sharing the app's
+existing `next-themes` state (`ThemeToggle`/`providers.tsx`), so a
+visitor's choice on marketing now carries through to `/login` and beyond.
+
+- Light values keep marketing's own hue family (228° neutrals, 236°
+  indigo accent) rather than the app's warm Ledger Counter paper palette,
+  per user's explicit choice — marketing keeps a distinct identity in
+  both modes rather than converging on the operational app's look.
+- Added three new tokens, `--marketing-tone-neutral/-motion/-success`,
+  so `toneColor.ts`'s `TONE_COLOR` (previously three literal dark-only
+  `hsl(...)` strings) now references `hsl(var(--marketing-tone-*))` and
+  re-themes automatically — the light values reuse the app's own
+  already-verified light-mode `--status-created/-in-transit/-delivered`
+  tokens rather than inventing new hexes.
+- New `MarketingThemeToggle.tsx` (marketing-styled, not the app's
+  `ThemeToggle` component, which would render with the wrong — app-theme
+  — tokens on this page) wired into `MarketingNav`, visible at every
+  breakpoint next to the mobile-menu trigger.
+- Every new color pairing was verified against WCAG AA (4.5:1 text, 3:1
+  non-text) with a throwaway contrast script before being committed —
+  see the `:root`/`.dark` comments in `globals.css` for the exact ratios
+  and derivation.
+
+*Verified:* all 39 marketing tests pass (3 new, for `MarketingThemeToggle`),
+lint and `next build` clean, confirmed visually in a browser — light mode
+renders correctly by default (this app's `next-themes` `defaultTheme` is
+`"light"` app-wide; marketing now follows that default rather than always
+opening dark, an accepted consequence of sharing global theme state) and
+forcing `.dark` via `localStorage` confirmed the original dark palette,
+tri-tone rail included, still renders correctly. One unrelated finding: a
+"Hydration failed" console error appeared in this sandbox's browser
+session on both `/` and `/login` (the latter untouched this session) —
+confirmed pre-existing/environmental, not a regression, since the
+original F13 session explicitly verified zero console errors and no
+`/login` code has changed since.
+
 ## Later
 
 All frontend phases planned through F13 are complete. Any further frontend

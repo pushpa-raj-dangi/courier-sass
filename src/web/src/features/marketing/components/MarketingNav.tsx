@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Menu, Package } from "lucide-react";
 import { NAV_LINKS, getPrimaryCta } from "../content";
 import { Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { MarketingThemeToggle } from "./MarketingThemeToggle";
 
 export function MarketingNav({ isAuthenticated }: { isAuthenticated: boolean }) {
   const cta = getPrimaryCta(isAuthenticated);
@@ -40,6 +41,7 @@ export function MarketingNav({ isAuthenticated }: { isAuthenticated: boolean }) 
           >
             {cta.label}
           </Link>
+          <MarketingThemeToggle />
           <Sheet>
             <SheetTrigger asChild>
               <button

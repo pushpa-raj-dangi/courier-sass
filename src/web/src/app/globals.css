@@ -149,27 +149,39 @@
   --chart-rank-2: 230.0 45.0% 45.0%;
   --chart-rank-3: 230.0 35.0% 66.0%;
 
-  /* Frontend Phase F13 — public marketing landing page ("Night Dispatch"). Fixed,
-     dark-forward tokens independent of the visitor's app theme preference (same
-     reasoning as --auth-panel above: this is a distinct "front door" surface, not
-     part of the in-app light/dark system). --marketing-fg and --marketing-muted-fg
-     reuse .dark's --foreground/--muted-foreground values directly rather than new
-     numbers, since marketing-bg (6% L) is darker than .dark's own --background
-     (10.2% L) and those tokens already clear AA there, so contrast only improves.
-     --marketing-accent reuses .dark's --primary value for the same reason. Exact
-     computed ratios: fg vs bg 16.86:1, muted-fg vs bg 8.09:1, accent vs bg 3.55:1
-     (3:1 non-text/large-text floor — do not use --marketing-accent as small body
-     text on --marketing-bg), fg vs accent 4.75:1 (safe for button label text),
-     border vs bg 3.42:1. See docs/superpowers/plans/2026-09-07-frontend-phase-f13-
-     marketing-landing-page.md's "Verified Design Tokens" table for the full
-     derivation. */
-  --marketing-bg: 228 20% 6%;
-  --marketing-bg-elevated: 228 18% 10%;
-  --marketing-fg: 40.0 33.3% 92.9%;
-  --marketing-muted-fg: 232.5 9.8% 67.8%;
-  --marketing-accent: 236.0 73.0% 60.0%;
-  --marketing-accent-foreground: 40.0 33.3% 92.9%;
-  --marketing-border: 228 15% 44%;
+  /* Frontend Phase F13 — public marketing landing page ("Night Dispatch").
+     Originally fixed dark-forward tokens, independent of the visitor's app theme
+     preference. Reworked in a later design-refinement pass (2026-09-07) to add a
+     real light/dark toggle sharing the app's existing next-themes state
+     (ThemeToggle/providers.tsx), at explicit user request overriding that
+     original decision — --auth-panel above stays intentionally fixed regardless
+     of theme; only --marketing-* now follows .dark like every other themed
+     token. Light values below keep marketing's own hue family (228° neutrals,
+     236° indigo accent) rather than the app's warm Ledger Counter paper palette,
+     so marketing keeps a distinct identity in both modes. --marketing-fg and
+     --marketing-muted-fg reuse the app's own light --foreground/--muted-foreground
+     literal values (same technique the dark values below already used for
+     .dark's --foreground/--primary). Computed ratios (light): fg vs bg 16.44:1,
+     muted-fg vs bg 6.09:1, accent vs bg 8.60:1, accent-fg vs accent 8.60:1,
+     border vs bg 3.53:1, border vs bg-elevated 3.20:1 — all clear their WCAG AA
+     floor (4.5:1 text, 3:1 non-text/large-text). --marketing-tone-* (neutral/
+     motion/success — toneColor.ts's TONE_COLOR, used only as dot/rail fills,
+     never text, so the 3:1 floor applies) reuse the app's own already-verified
+     light-mode --status-created/-in-transit/-delivered values rather than
+     inventing new hexes: neutral 4.10:1, motion 3.36:1 vs bg / 3.04:1 vs
+     bg-elevated, success 5.08:1. See the .dark block below for the original
+     dark-mode values/ratios and docs/superpowers/plans/2026-09-07-frontend-
+     phase-f13-marketing-landing-page.md for the original derivation. */
+  --marketing-bg: 228 20% 97%;
+  --marketing-bg-elevated: 228 18% 93%;
+  --marketing-fg: 229.1 20.0% 10.8%;
+  --marketing-muted-fg: 230.8 6.7% 38.2%;
+  --marketing-accent: 236.0 73.0% 46.0%;
+  --marketing-accent-foreground: 228 20% 97%;
+  --marketing-border: 228 15% 55%;
+  --marketing-tone-neutral: 234.3 8.2% 50.0%;
+  --marketing-tone-motion: 35.3 71.2% 42.2%;
+  --marketing-tone-success: 175.3 77.4% 26.1%;
 }
 
 .dark {
@@ -227,6 +239,24 @@
 
   --status-received: 195.0 85.0% 60.0%;
   --status-received-foreground: 230.0 23.1% 10.2%;
+
+  /* Marketing dark-mode values — the page's original ("Night Dispatch") look,
+     now applied via .dark instead of unconditionally; see the :root comment
+     above for the light-mode rationale. Verified ratios (dark): fg vs bg
+     16.86:1, muted-fg vs bg 8.09:1, accent vs bg 3.55:1, fg vs accent 4.75:1,
+     border vs bg 3.42:1. --marketing-tone-* equal --status-created/
+     -in-transit/-delivered's own dark-mode values (dot/rail fills only, never
+     text): neutral 8.14:1, motion 9.38:1, success 7.53:1 vs --marketing-bg. */
+  --marketing-bg: 228 20% 6%;
+  --marketing-bg-elevated: 228 18% 10%;
+  --marketing-fg: 40.0 33.3% 92.9%;
+  --marketing-muted-fg: 232.5 9.8% 67.8%;
+  --marketing-accent: 236.0 73.0% 60.0%;
+  --marketing-accent-foreground: 40.0 33.3% 92.9%;
+  --marketing-border: 228 15% 44%;
+  --marketing-tone-neutral: 234.3 13.2% 68.8%;
+  --marketing-tone-motion: 38.0 78.9% 57.3%;
+  --marketing-tone-success: 169.7 47.9% 47.5%;
 
   /* Rank 1 is a brighter cobalt than --primary itself (72% L vs 60%), not the
      literal token: --primary only clears 2.9:1 against --card here, leaving no
