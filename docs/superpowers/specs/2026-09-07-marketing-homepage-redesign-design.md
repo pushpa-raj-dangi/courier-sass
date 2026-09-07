@@ -101,9 +101,14 @@ Scoped entirely to the marketing route's existing token mechanism (the
 `src/web/src/app/globals.css` search: `--marketing-`) — no changes to the
 app's own `:root`/`.dark` tokens.
 
-- **New tokens:** `--marketing-glow` (accent-hued radial glow color),
-  `--marketing-grain` (a data-URI noise texture, applied at very low
-  opacity via a full-bleed `::before` on the page wrapper).
+- **Glow:** reuses `hsl(var(--marketing-accent) / <alpha>)` directly at
+  call sites (e.g. `AppScreenshotFrame`'s box-shadow) — no new token, since
+  `--marketing-accent` already carries independently-tuned light/dark
+  values and a glow is just that same hue at low opacity.
+- **New token — `--marketing-grain`:** a data-URI noise texture, applied at
+  very low opacity via a full-bleed `::before` on the page wrapper. One
+  value works for both themes (opacity, not hue, carries it) so it's
+  defined once outside the `:root`/`.dark` split.
 - **`AppScreenshotFrame` component** (`features/marketing/components/`):
   wraps an `<img>` in a browser-chrome header bar (three dots, matching
   `ProductMockupPanel`'s existing dot/AWB-label styling for continuity),
@@ -131,7 +136,11 @@ Headline scale pushed from `text-6xl` to `text-7xl` at desktop (already
 allowed by F13's spec ceiling).
 
 ### `ScreenShowcase` (new)
-Inserted after `FeatureGrid`, before `HowItWorks`. Four `AppScreenshotFrame`
+Inserted directly after `Hero`, before `HowItWorks` (actual current section
+order in `page.tsx` is Hero → HowItWorks → ProductWalkthrough → FeatureGrid
+→ Credibility → FinalCta) — putting the real-screenshot proof immediately
+after the hero's claim, before explaining how it works. Four
+`AppScreenshotFrame`
 cards in a responsive grid (2×2 desktop, stacked mobile), each with a short
 caption naming the real capability shown (e.g. "Dashboard — today's
 shipments, COD, and branch performance at a glance"). Staggered scroll
