@@ -840,9 +840,79 @@ phone-width screen (the PWA's primary target), but worth a `max-height`
 constraint given `nav-main.tsx`'s own repointed entry deliberately keeps
 desktop as a legitimate secondary access path.
 
+## Phase F13 — Public Marketing Landing Page
+
+Adds the one surface Phase F0's "Ledger Counter" design system deliberately
+excludes (`DESIGN.md`: *"clarity, density, and correctness outrank marketing
+polish"*): a public marketing page at `/` that sells the platform itself to
+prospective courier companies, replacing the previous `getValidAccessToken()`
+→ `redirect("/login" | "/dashboard")` behavior. Visually distinct dark
+"Night Dispatch" identity (`src/app/globals.css`'s new `--marketing-*`
+tokens, `.dark`-independent — same fixed-regardless-of-theme pattern as
+`--auth-panel`), Framer Motion throughout, all content composed in
+`features/marketing/`.
+
+*Entry:* F0–F12 complete, no backend changes required (static marketing
+copy only, reusing the existing `getValidAccessToken()` helper). *Exit:* `/`
+renders the marketing page for every visitor with an auth-aware CTA
+("Sign in" vs "Go to dashboard"), no fabricated testimonials/logos/metrics
+anywhere, every animated section falls back to a static fully-visible state
+under `prefers-reduced-motion`, `/login`/`/merchant-login`/`/dashboard`/
+`/track` unchanged.
+
+*Status: Complete.* Spec at
+`docs/superpowers/specs/2026-09-07-frontend-phase-f13-marketing-landing-page-design.md`,
+plan at
+`docs/superpowers/plans/2026-09-07-frontend-phase-f13-marketing-landing-page.md`,
+14 tasks executed inline (`superpowers:executing-plans`) in an isolated
+worktree, TDD throughout. No backend changes.
+
+One real test-infrastructure issue found and fixed during Task 3/9, not
+anticipated in the plan: `framer-motion`'s `useReducedMotion` caches a
+module-level singleton in `motion-dom` (`hasReducedMotionListener`) that
+reads `window.matchMedia(...).matches` exactly once per process and relies
+on a live `change` event afterward — a `matchMedia`-only mock (the plan's
+original approach) only ever reflects whichever test ran first, and even
+`vi.resetModules()` couldn't force a re-init because Vite pre-bundles
+`framer-motion`/`motion-dom` for tests. Fixed by mocking `useReducedMotion`
+directly via `vi.mock("framer-motion", ...)` in both
+`motionVariants.test.tsx` and `ProductWalkthrough.test.tsx` instead.
+
+**Verified live in a browser** (`npm run dev`, Chrome via
+`claude-in-chrome`): loaded `/` and confirmed, with real screenshots, that
+the hero's staggered entrance animation, the feature grid's and
+how-it-works' scroll-triggered `whileInView` reveals (real
+`IntersectionObserver`, not the jsdom stub), and the product walkthrough's
+auto-cycling through all four stops (Created → In transit → Out for
+delivery → Delivered, progress dots advancing) all genuinely animate as
+designed — this is real evidence, not just passing unit tests, since
+`whileInView`/`IntersectionObserver` behavior can't be exercised by jsdom
+at all. Confirmed zero browser console errors or warnings on load.
+Confirmed the Credibility section's honest "No case studies yet" copy
+renders correctly (apostrophe-escaping lint fix included). Clicked the
+nav's "Sign in" CTA and confirmed it navigates to the real `/login` page
+unchanged. `npm run build` compiled cleanly; grepped the emitted CSS and
+confirmed all 7 `marketing-*` Tailwind utilities were actually generated
+(not silently purged), and `/` builds as a dynamic route (45.8 kB route JS,
+144 kB First Load JS) since it reads the session cookie. Full suite: 353
+tests / 126 files passing (up from the pre-phase baseline of 314/116),
+zero regressions confirmed both via the full run and via isolated reruns
+of every non-marketing `app`/`features` test file. Lint clean.
+
+**What this session could not verify:** a real mobile-width viewport — the
+browser automation's `resize_window` call to 375×812 did not actually
+narrow the rendered viewport in this sandbox (the nav's `md:flex` links
+stayed visible, which would only happen above the 768px breakpoint), so
+the responsive collapse behavior described in the design spec was not
+visually confirmed this session, only exercised by Tailwind's compiled
+output existing. Also unverified: a literal Lighthouse pass, real assistive
+-technology screen-reader behavior (only the automated landmark/heading-
+order tests stand in for this), and cross-browser rendering outside this
+session's Chrome instance.
+
 ## Later
 
-All frontend phases planned through F12 are complete. Any further frontend
+All frontend phases planned through F13 are complete. Any further frontend
 work (e.g. a UI for backend Phase 14 — route optimization, GPS, ETA, smart
 dispatch — once that backend phase exists) gets its own brainstorm → spec →
 plan cycle per this repo's standing workflow, same as every phase above.
