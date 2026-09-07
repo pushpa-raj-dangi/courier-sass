@@ -14,7 +14,7 @@ export function Credibility() {
           Built for how Nepal courier operations actually work
         </h2>
         <p className="max-w-2xl text-marketing-muted-fg">
-          No case studies yet — this is still an early platform. What's already true, today:
+          No case studies yet — this is still an early platform. What&apos;s already true, today:
         </p>
       </div>
       <motion.div
