@@ -15,7 +15,7 @@ export function FinalCta({ isAuthenticated }: { isAuthenticated: boolean }) {
         </p>
         <Link
           href={cta.href}
-          className="rounded-lg bg-marketing-accent px-6 py-3 text-sm font-medium text-marketing-accent-fg transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-marketing-accent focus-visible:ring-offset-2 focus-visible:ring-offset-marketing-bg"
+          className="rounded-lg bg-marketing-accent px-6 py-3 text-sm font-medium text-marketing-accent-fg shadow-[0_0_50px_-10px_hsl(var(--marketing-accent)/0.8)] transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-marketing-accent focus-visible:ring-offset-2 focus-visible:ring-offset-marketing-bg"
         >
           {cta.label}
         </Link>

@@ -12,4 +12,9 @@ describe("FinalCta", () => {
     render(<FinalCta isAuthenticated />);
     expect(screen.getByRole("link", { name: /go to dashboard/i })).toHaveAttribute("href", "/dashboard");
   });
+
+  it("keeps the CTA link functional after the glow styling pass", () => {
+    render(<FinalCta isAuthenticated={false} />);
+    expect(screen.getByRole("link", { name: /sign in/i })).toHaveAttribute("href", "/login");
+  });
 });
