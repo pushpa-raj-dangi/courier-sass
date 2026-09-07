@@ -3,16 +3,26 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
-import { getPrimaryCta, WALKTHROUGH_STOPS } from "../content";
+import { getPrimaryCta, SCREENSHOTS } from "../content";
 import { useRevealVariants } from "../lib/motionVariants";
-import { ProductMockupPanel } from "./ProductMockupPanel";
+import { AppScreenshotFrame } from "./AppScreenshotFrame";
+import { RouteLineGraphic } from "./RouteLineGraphic";
+
+const dashboardScreenshot = SCREENSHOTS.find((s) => s.id === "dashboard")!;
 
 export function Hero({ isAuthenticated }: { isAuthenticated: boolean }) {
   const cta = getPrimaryCta(isAuthenticated);
   const { container, item } = useRevealVariants();
 
   return (
-    <section className="mx-auto grid max-w-6xl gap-12 px-4 pb-24 pt-20 lg:grid-cols-[1.05fr_1fr] lg:items-center lg:gap-16">
+    <section className="relative mx-auto grid max-w-6xl gap-12 overflow-hidden px-4 pb-24 pt-20 lg:grid-cols-[1.05fr_1fr] lg:items-center lg:gap-16">
+      <RouteLineGraphic className="absolute inset-x-0 top-1/2 -z-10 h-40 w-full -translate-y-1/2 opacity-60" />
+      <div
+        aria-hidden="true"
+        data-testid="hero-gradient-orb"
+        className="pointer-events-none absolute -right-24 top-1/2 -z-10 h-[28rem] w-[28rem] -translate-y-1/2 rounded-full opacity-40 blur-3xl"
+        style={{ backgroundColor: "hsl(var(--marketing-accent))" }}
+      />
       <motion.div
         variants={container}
         initial="hidden"
@@ -21,7 +31,7 @@ export function Hero({ isAuthenticated }: { isAuthenticated: boolean }) {
       >
         <motion.h1
           variants={item}
-          className="font-display text-5xl font-semibold tracking-tight text-marketing-fg sm:text-6xl"
+          className="font-display text-6xl font-semibold tracking-tight text-marketing-fg sm:text-7xl"
         >
           Every parcel, accounted for.
         </motion.h1>
@@ -32,7 +42,7 @@ export function Hero({ isAuthenticated }: { isAuthenticated: boolean }) {
         <motion.div variants={item} className="flex flex-wrap items-center justify-center gap-4 lg:justify-start">
           <Link
             href={cta.href}
-            className="group inline-flex items-center gap-2 rounded-lg bg-marketing-accent px-6 py-3 text-sm font-medium text-marketing-accent-fg transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-marketing-accent focus-visible:ring-offset-2 focus-visible:ring-offset-marketing-bg"
+            className="group inline-flex items-center gap-2 rounded-lg bg-marketing-accent px-6 py-3 text-sm font-medium text-marketing-accent-fg shadow-[0_0_40px_-10px_hsl(var(--marketing-accent)/0.7)] transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-marketing-accent focus-visible:ring-offset-2 focus-visible:ring-offset-marketing-bg"
           >
             {cta.label}
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
@@ -45,8 +55,8 @@ export function Hero({ isAuthenticated }: { isAuthenticated: boolean }) {
           </a>
         </motion.div>
       </motion.div>
-      <motion.div variants={item} initial="hidden" animate="visible" data-testid="hero-status-preview" className="w-full">
-        <ProductMockupPanel stops={WALKTHROUGH_STOPS} activeIndex={0} size="full" />
+      <motion.div variants={item} initial="hidden" animate="visible" className="w-full">
+        <AppScreenshotFrame src={dashboardScreenshot.src} alt={dashboardScreenshot.alt} hoverTilt />
       </motion.div>
     </section>
   );

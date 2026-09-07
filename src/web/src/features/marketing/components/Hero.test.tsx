@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { Hero } from "./Hero";
+import { SCREENSHOTS } from "../content";
+
+const dashboardScreenshot = SCREENSHOTS.find((s) => s.id === "dashboard")!;
 
 describe("Hero", () => {
   it("renders the headline as the page's one h1", () => {
@@ -23,8 +26,17 @@ describe("Hero", () => {
     expect(screen.getByRole("link", { name: "See how it works" })).toHaveAttribute("href", "#walkthrough");
   });
 
-  it("shows the hero status preview chip", () => {
+  it("shows the real dashboard screenshot as the hero visual", () => {
     render(<Hero isAuthenticated={false} />);
-    expect(screen.getByTestId("hero-status-preview")).toHaveTextContent("Created");
+    expect(screen.getByRole("img", { name: dashboardScreenshot.alt })).toHaveAttribute(
+      "src",
+      dashboardScreenshot.src
+    );
+  });
+
+  it("renders the decorative gradient orb and route-line graphic", () => {
+    render(<Hero isAuthenticated={false} />);
+    expect(screen.getByTestId("hero-gradient-orb")).toHaveAttribute("aria-hidden", "true");
+    expect(screen.getByTestId("route-line-graphic")).toBeInTheDocument();
   });
 });
