@@ -998,12 +998,29 @@ renders correctly by default (this app's `next-themes` `defaultTheme` is
 `"light"` app-wide; marketing now follows that default rather than always
 opening dark, an accepted consequence of sharing global theme state) and
 forcing `.dark` via `localStorage` confirmed the original dark palette,
-tri-tone rail included, still renders correctly. One unrelated finding: a
-"Hydration failed" console error appeared in this sandbox's browser
-session on both `/` and `/login` (the latter untouched this session) —
-confirmed pre-existing/environmental, not a regression, since the
-original F13 session explicitly verified zero console errors and no
-`/login` code has changed since.
+tri-tone rail included, still renders correctly.
+
+**Root-caused and resolved, not app code:** a "Hydration failed" console
+error initially appeared on both `/` and `/login` in this dev browser
+session, with the theme-toggle/mobile-menu buttons vanishing after
+React's mismatch-recovery re-render. Investigation
+(`navigator.serviceWorker.getRegistrations()` / `caches.keys()`) found a
+service worker registered at root scope (`http://localhost:3100/`,
+script `sw.js`) backed by a cache named `interviewdeck-v1` — leftover
+from an unrelated prior local project that had previously run on the
+same port in this browser profile, still intercepting every request to
+the origin and serving its own stale bundle underneath this app's fresh
+dev-server responses. This repo has no `sw.js` at all (only
+`sw-rider.js`, scoped to `/rider/`, and even that is disabled in
+`next dev` per `next.config.mjs`'s `disable: process.env.NODE_ENV ===
+"development"`), so the registration was fully external contamination,
+not a code defect. Unregistering it and clearing its cache
+(`registrations[0].unregister()` + `caches.delete("interviewdeck-v1")`)
+resolved the hydration error completely — confirmed with zero console
+errors on repeated reloads of both `/` and `/login`, and a working
+end-to-end click of the theme toggle. No code change was needed or made
+for this; noted here so a future session hitting the same symptom in
+this browser profile knows to check for a stale service worker first.
 
 ## Later
 
