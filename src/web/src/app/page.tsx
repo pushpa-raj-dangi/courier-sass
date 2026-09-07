@@ -13,7 +13,7 @@ export default async function RootPage() {
   const isAuthenticated = Boolean(accessToken);
 
   return (
-    <div className="min-h-screen bg-marketing-bg">
+    <div className="min-h-screen bg-marketing-bg selection:bg-marketing-accent/40 selection:text-marketing-fg">
       <MarketingNav isAuthenticated={isAuthenticated} />
       <main>
         <Hero isAuthenticated={isAuthenticated} />

@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { HOW_IT_WORKS_STEPS } from "../content";
 import { useRevealVariants } from "../lib/motionVariants";
+import { TONE_COLOR } from "../lib/toneColor";
 
 export function HowItWorks() {
   const { container, item } = useRevealVariants();
@@ -14,6 +15,25 @@ export function HowItWorks() {
         <p className="max-w-2xl text-marketing-muted-fg">
           Four stages, each backed by a real scan, manifest, or delivery attempt — never an arbitrary status edit.
         </p>
+      </div>
+      <div className="mb-6 hidden items-center px-2 lg:flex" aria-hidden="true">
+        {HOW_IT_WORKS_STEPS.map((step, index) => {
+          const isLast = index === HOW_IT_WORKS_STEPS.length - 1;
+          return (
+            <div key={step.step} className="flex flex-1 items-center last:flex-none">
+              <span
+                className="h-2.5 w-2.5 shrink-0 rounded-full"
+                style={{ backgroundColor: TONE_COLOR[step.tone] }}
+              />
+              {!isLast && (
+                <span
+                  className="mx-2 h-px flex-1"
+                  style={{ backgroundColor: TONE_COLOR[HOW_IT_WORKS_STEPS[index + 1].tone], opacity: 0.4 }}
+                />
+              )}
+            </div>
+          );
+        })}
       </div>
       <motion.ol
         variants={container}

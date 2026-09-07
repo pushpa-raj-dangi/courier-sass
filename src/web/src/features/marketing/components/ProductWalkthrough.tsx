@@ -2,21 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { WALKTHROUGH_STOPS, type WalkthroughTone } from "../content";
+import { WALKTHROUGH_STOPS } from "../content";
 import { useRevealVariants } from "../lib/motionVariants";
-
-// Literal HSL values, not the shared --status-* tokens: these are the app's own
-// dark-mode status variants (globals.css .dark block), reused directly because this
-// section always sits on the fixed --marketing-bg (near-black) regardless of visitor
-// theme — the same reasoning AuthLifecycleGraphic documents for the auth panel.
-// Verified against --marketing-bg (228 20% 6%): created 8.14:1, in-transit/out-for-
-// delivery 9.38:1, delivered 7.53:1 — all clear both the 3:1 non-text and 4.5:1 text
-// floors. See the plan's "Verified Design Tokens" table.
-const TONE_COLOR: Record<WalkthroughTone, string> = {
-  neutral: "hsl(234.3 13.2% 68.8%)",
-  motion: "hsl(38.0 78.9% 57.3%)",
-  success: "hsl(169.7 47.9% 47.5%)",
-};
+import { TONE_COLOR } from "../lib/toneColor";
+import { ProductMockupPanel } from "./ProductMockupPanel";
 
 const CYCLE_MS = 2800;
 
@@ -55,42 +44,20 @@ export function ProductWalkthrough() {
     );
   }
 
-  const activeStop = WALKTHROUGH_STOPS[activeIndex];
-
   return (
     <section id="walkthrough" className="mx-auto max-w-3xl px-4 py-24">
       <h2 className="mb-8 text-center font-display text-3xl font-semibold text-marketing-fg sm:text-4xl">
         One parcel, every step accounted for
       </h2>
-      <div data-testid="walkthrough-frame" className="rounded-xl border border-marketing-border bg-marketing-bg-elevated p-8">
-        <motion.div
-          key={activeStop.label}
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="flex flex-col items-center gap-4 text-center"
-        >
-          <span
-            className="h-3 w-3 rounded-full"
-            style={{ backgroundColor: TONE_COLOR[activeStop.tone] }}
-            aria-hidden="true"
-          />
-          <p className="font-mono text-xs text-marketing-muted-fg">AWB NP2026-000000</p>
-          <p className="font-display text-xl font-semibold text-marketing-fg">{activeStop.label}</p>
-          <p className="text-sm text-marketing-muted-fg">{activeStop.caption}</p>
-        </motion.div>
-        <div className="mt-6 flex items-center justify-center gap-2">
-          {WALKTHROUGH_STOPS.map((stop, index) => (
-            <span
-              key={stop.label}
-              data-testid="walkthrough-dot"
-              className="h-1.5 w-1.5 rounded-full transition-opacity"
-              style={{ backgroundColor: TONE_COLOR[stop.tone], opacity: index === activeIndex ? 1 : 0.3 }}
-              aria-hidden="true"
-            />
-          ))}
-        </div>
-      </div>
+      <motion.div
+        key={WALKTHROUGH_STOPS[activeIndex].label}
+        data-testid="walkthrough-frame"
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+      >
+        <ProductMockupPanel stops={WALKTHROUGH_STOPS} activeIndex={activeIndex} size="full" />
+      </motion.div>
     </section>
   );
 }

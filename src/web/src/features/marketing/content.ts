@@ -64,28 +64,45 @@ export const FEATURES: MarketingFeature[] = [
   },
 ];
 
+export type WalkthroughTone = "neutral" | "motion" | "success";
+
 export interface HowItWorksStep {
   step: string;
   title: string;
   description: string;
+  tone: WalkthroughTone;
 }
 
+// Tones mirror WALKTHROUGH_STOPS 1:1 (Book~Created, Scan & Sort~In Transit, Deliver &
+// Prove~Out for Delivery, Reconcile~Delivered) — the two sections describe the same
+// four-stage lifecycle, per the design spec's "synchronized with the four HowItWorks
+// steps" intent.
 export const HOW_IT_WORKS_STEPS: HowItWorksStep[] = [
-  { step: "01", title: "Book", description: "A shipment is created with an AWB, sender, recipient, and declared value." },
+  {
+    step: "01",
+    title: "Book",
+    description: "A shipment is created with an AWB, sender, recipient, and declared value.",
+    tone: "neutral",
+  },
   {
     step: "02",
     title: "Scan & sort",
     description: "Origin branch receive, manifest, and hub-to-hub transfer — every step scanned.",
+    tone: "motion",
   },
   {
     step: "03",
     title: "Deliver & prove",
     description: "Assigned to a rider, delivery attempted, proof of delivery captured.",
+    tone: "motion",
   },
-  { step: "04", title: "Reconcile", description: "COD collected, deposited, reconciled, and settled to the merchant." },
+  {
+    step: "04",
+    title: "Reconcile",
+    description: "COD collected, deposited, reconciled, and settled to the merchant.",
+    tone: "success",
+  },
 ];
-
-export type WalkthroughTone = "neutral" | "motion" | "success";
 
 export interface WalkthroughStop {
   label: string;

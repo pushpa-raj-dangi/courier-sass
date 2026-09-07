@@ -11,7 +11,7 @@ export function MarketingFooter() {
             <Link
               key={link.href}
               href={link.href}
-              className="text-sm text-marketing-muted-fg transition-colors hover:text-marketing-fg"
+              className="rounded-md text-sm text-marketing-muted-fg transition-colors hover:text-marketing-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-marketing-accent focus-visible:ring-offset-2 focus-visible:ring-offset-marketing-bg"
             >
               {link.label}
             </Link>
