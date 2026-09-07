@@ -1,6 +1,7 @@
 import { getValidAccessToken } from "@/lib/auth/session";
 import { MarketingNav } from "@/features/marketing/components/MarketingNav";
 import { Hero } from "@/features/marketing/components/Hero";
+import { ScreenShowcase } from "@/features/marketing/components/ScreenShowcase";
 import { FeatureGrid } from "@/features/marketing/components/FeatureGrid";
 import { HowItWorks } from "@/features/marketing/components/HowItWorks";
 import { ProductWalkthrough } from "@/features/marketing/components/ProductWalkthrough";
@@ -19,6 +20,7 @@ export default async function RootPage() {
         <MarketingNav isAuthenticated={isAuthenticated} />
         <main>
           <Hero isAuthenticated={isAuthenticated} />
+          <ScreenShowcase />
           <HowItWorks />
           <ProductWalkthrough />
           <FeatureGrid />
