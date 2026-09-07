@@ -143,6 +143,40 @@ export const CREDIBILITY_POINTS: CredibilityPoint[] = [
   },
 ];
 
+export interface MarketingScreenshot {
+  id: "dashboard" | "shipment-detail" | "scan-manifest" | "cod-settlement";
+  src: string;
+  alt: string;
+  caption: string;
+}
+
+export const SCREENSHOTS: MarketingScreenshot[] = [
+  {
+    id: "dashboard",
+    src: "/marketing/screenshots/dashboard.webp",
+    alt: "Org dashboard showing today's shipment counts, COD summary, and branch performance",
+    caption: "Dashboard — today's shipments, COD, and branch performance at a glance",
+  },
+  {
+    id: "shipment-detail",
+    src: "/marketing/screenshots/shipment-detail.webp",
+    alt: "Shipment detail view showing AWB, status timeline, and custody history",
+    caption: "Shipment detail — full status timeline and custody history for one parcel",
+  },
+  {
+    id: "scan-manifest",
+    src: "/marketing/screenshots/scan-manifest.webp",
+    alt: "Manifest screen showing shipments scanned for hub-to-hub transfer",
+    caption: "Manifests — scan-verified shipments moving branch to branch",
+  },
+  {
+    id: "cod-settlement",
+    src: "/marketing/screenshots/cod-settlement.webp",
+    alt: "COD settlement screen showing merchant payable amounts and reconciliation status",
+    caption: "COD settlement — collection through merchant payout, fully reconciled",
+  },
+];
+
 export const FOOTER_LINKS: NavLink[] = [
   { href: "/login", label: "Staff sign in" },
   { href: "/merchant-login", label: "Merchant sign in" },

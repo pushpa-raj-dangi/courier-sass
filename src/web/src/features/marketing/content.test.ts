@@ -7,6 +7,7 @@ import {
   CREDIBILITY_POINTS,
   FOOTER_LINKS,
   NAV_LINKS,
+  SCREENSHOTS,
 } from "./content";
 
 describe("getPrimaryCta", () => {
@@ -55,5 +56,16 @@ describe("marketing content data", () => {
 
   it("nav links include the public tracking route", () => {
     expect(NAV_LINKS.some((l) => l.href === "/track")).toBe(true);
+  });
+
+  it("has exactly 4 screenshots, each with a src under /marketing/screenshots, non-empty alt text, and a caption", () => {
+    expect(SCREENSHOTS).toHaveLength(4);
+    const ids = SCREENSHOTS.map((s) => s.id);
+    expect(ids).toEqual(["dashboard", "shipment-detail", "scan-manifest", "cod-settlement"]);
+    for (const screenshot of SCREENSHOTS) {
+      expect(screenshot.src).toMatch(/^\/marketing\/screenshots\/.+\.webp$/);
+      expect(screenshot.alt.length).toBeGreaterThan(0);
+      expect(screenshot.caption.length).toBeGreaterThan(0);
+    }
   });
 });

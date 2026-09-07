@@ -272,6 +272,19 @@
   --chart-rank-3: 236.0 50.0% 48.0%;
 }
 
+/* Subtle noise texture for the marketing page's bolder visual pass — one
+   value for both themes since opacity (not hue) carries the effect, so it
+   lives outside the :root/.dark split. Fixed + pointer-events:none + a low
+   z-index so it never intercepts clicks or affects layout. */
+.marketing-grain-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+}
+
 body {
   color: hsl(var(--foreground));
   background: hsl(var(--background));

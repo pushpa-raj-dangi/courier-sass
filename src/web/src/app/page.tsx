@@ -14,16 +14,19 @@ export default async function RootPage() {
 
   return (
     <div className="min-h-screen bg-marketing-bg selection:bg-marketing-accent/40 selection:text-marketing-fg">
-      <MarketingNav isAuthenticated={isAuthenticated} />
-      <main>
-        <Hero isAuthenticated={isAuthenticated} />
-        <HowItWorks />
-        <ProductWalkthrough />
-        <FeatureGrid />
-        <Credibility />
-        <FinalCta isAuthenticated={isAuthenticated} />
-      </main>
-      <MarketingFooter />
+      <div aria-hidden="true" className="marketing-grain-overlay" data-testid="marketing-grain-overlay" />
+      <div className="relative z-10">
+        <MarketingNav isAuthenticated={isAuthenticated} />
+        <main>
+          <Hero isAuthenticated={isAuthenticated} />
+          <HowItWorks />
+          <ProductWalkthrough />
+          <FeatureGrid />
+          <Credibility />
+          <FinalCta isAuthenticated={isAuthenticated} />
+        </main>
+        <MarketingFooter />
+      </div>
     </div>
   );
 }
