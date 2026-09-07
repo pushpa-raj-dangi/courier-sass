@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
 
-const { redirectMock } = vi.hoisted(() => ({ redirectMock: vi.fn() }));
-vi.mock("next/navigation", () => ({ redirect: redirectMock }));
 vi.mock("@/lib/auth/session", () => ({
   getValidAccessToken: vi.fn(),
 }));
@@ -10,19 +9,59 @@ import RootPage from "./page";
 import { getValidAccessToken } from "@/lib/auth/session";
 
 describe("RootPage", () => {
-  it("redirects to /dashboard when a session exists", async () => {
+  it("renders the marketing page with a Go to dashboard CTA when a session exists", async () => {
     vi.mocked(getValidAccessToken).mockResolvedValue("token-123");
 
-    await RootPage();
+    const page = await RootPage();
+    render(page);
 
-    expect(redirectMock).toHaveBeenCalledWith("/dashboard");
+    expect(screen.getAllByRole("link", { name: /go to dashboard/i }).length).toBeGreaterThan(0);
+    expect(screen.queryAllByRole("link", { name: /^sign in$/i })).toHaveLength(0);
   });
 
-  it("redirects to /login when there is no session", async () => {
+  it("renders the marketing page with a Sign in CTA when there is no session", async () => {
     vi.mocked(getValidAccessToken).mockResolvedValue(null);
 
-    await RootPage();
+    const page = await RootPage();
+    render(page);
 
-    expect(redirectMock).toHaveBeenCalledWith("/login");
+    expect(screen.getAllByRole("link", { name: /^sign in$/i }).length).toBeGreaterThan(0);
+    expect(screen.queryAllByRole("link", { name: /go to dashboard/i })).toHaveLength(0);
+  });
+
+  it("renders exactly one h1 (the hero headline)", async () => {
+    vi.mocked(getValidAccessToken).mockResolvedValue(null);
+
+    const page = await RootPage();
+    render(page);
+
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+  });
+
+  it("keeps heading levels in order with no skipped levels", async () => {
+    vi.mocked(getValidAccessToken).mockResolvedValue(null);
+
+    const page = await RootPage();
+    render(page);
+
+    const levels = screen.getAllByRole("heading").map((heading) => Number(heading.tagName.substring(1)));
+    let maxSeen = levels[0];
+    for (const level of levels) {
+      if (level > maxSeen) {
+        expect(level - maxSeen).toBeLessThanOrEqual(1);
+      }
+      maxSeen = Math.max(maxSeen, level);
+    }
+  });
+
+  it("exposes header, main, and footer landmarks", async () => {
+    vi.mocked(getValidAccessToken).mockResolvedValue(null);
+
+    const page = await RootPage();
+    render(page);
+
+    expect(screen.getByRole("banner")).toBeInTheDocument();
+    expect(screen.getByRole("main")).toBeInTheDocument();
+    expect(screen.getByRole("contentinfo")).toBeInTheDocument();
   });
 });
