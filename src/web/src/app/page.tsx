@@ -17,9 +17,9 @@ export default async function RootPage() {
       <MarketingNav isAuthenticated={isAuthenticated} />
       <main>
         <Hero isAuthenticated={isAuthenticated} />
-        <FeatureGrid />
         <HowItWorks />
         <ProductWalkthrough />
+        <FeatureGrid />
         <Credibility />
         <FinalCta isAuthenticated={isAuthenticated} />
       </main>

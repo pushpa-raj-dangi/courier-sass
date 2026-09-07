@@ -12,23 +12,24 @@ export function Hero({ isAuthenticated }: { isAuthenticated: boolean }) {
   const { container, item } = useRevealVariants();
 
   return (
-    <section className="relative mx-auto flex max-w-6xl flex-col items-center gap-8 overflow-hidden px-4 pb-24 pt-20 text-center">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute left-1/2 top-0 -z-10 h-[32rem] w-[64rem] -translate-x-1/2 rounded-full bg-marketing-accent/20 blur-[120px]"
-      />
-      <motion.div variants={container} initial="hidden" animate="visible" className="flex flex-col items-center gap-6">
+    <section className="mx-auto grid max-w-6xl gap-12 px-4 pb-24 pt-20 lg:grid-cols-[1.05fr_1fr] lg:items-center lg:gap-16">
+      <motion.div
+        variants={container}
+        initial="hidden"
+        animate="visible"
+        className="flex flex-col items-center gap-6 text-center lg:items-start lg:text-left"
+      >
         <motion.h1
           variants={item}
-          className="font-display text-5xl font-semibold tracking-tight text-marketing-fg sm:text-6xl lg:text-7xl"
+          className="font-display text-5xl font-semibold tracking-tight text-marketing-fg sm:text-6xl"
         >
-          Every parcel, <span className="text-marketing-accent">accounted for.</span>
+          Every parcel, accounted for.
         </motion.h1>
-        <motion.p variants={item} className="max-w-2xl text-lg text-marketing-muted-fg">
+        <motion.p variants={item} className="max-w-xl text-lg text-marketing-muted-fg">
           Scan-driven custody, hub transfers, delivery attempts, and COD settlement — one platform that always
           knows where a parcel is, who has it, and what happens next.
         </motion.p>
-        <motion.div variants={item} className="flex flex-wrap items-center justify-center gap-4">
+        <motion.div variants={item} className="flex flex-wrap items-center justify-center gap-4 lg:justify-start">
           <Link
             href={cta.href}
             className="group inline-flex items-center gap-2 rounded-lg bg-marketing-accent px-6 py-3 text-sm font-medium text-marketing-accent-fg transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-marketing-accent focus-visible:ring-offset-2 focus-visible:ring-offset-marketing-bg"
@@ -43,9 +44,9 @@ export function Hero({ isAuthenticated }: { isAuthenticated: boolean }) {
             See how it works
           </a>
         </motion.div>
-        <motion.div variants={item} data-testid="hero-status-preview" className="mt-6 w-full max-w-md">
-          <ProductMockupPanel stops={WALKTHROUGH_STOPS} activeIndex={0} size="compact" />
-        </motion.div>
+      </motion.div>
+      <motion.div variants={item} initial="hidden" animate="visible" data-testid="hero-status-preview" className="w-full">
+        <ProductMockupPanel stops={WALKTHROUGH_STOPS} activeIndex={0} size="full" />
       </motion.div>
     </section>
   );

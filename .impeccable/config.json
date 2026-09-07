@@ -1,3 +1,21 @@
 {
-  "buildPath": "code"
+  "buildPath": "code",
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "design-system-font-size",
+        "value": "10px",
+        "createdAt": "2026-09-07T08:17:51.787Z",
+        "reason": "pre-existing micro-label size from ProductMockupPanel.tsx (marketing 'Night Dispatch' surface already used text-[10px]/[11px] outside the app DESIGN.md ramp before this session); consolidated into shared LifecycleRail, not a new value"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "11px",
+        "createdAt": "2026-09-07T08:18:12.315Z",
+        "reason": "pre-existing micro-data size in ProductMockupPanel.tsx (AWB mono label, route/service grid) predating this session, untouched by current edits"
+      }
+    ]
+  }
 }

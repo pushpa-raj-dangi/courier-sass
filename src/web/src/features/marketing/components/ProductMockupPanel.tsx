@@ -1,5 +1,6 @@
 import { TONE_COLOR } from "../lib/toneColor";
 import type { WalkthroughStop } from "../content";
+import { LifecycleRail } from "./LifecycleRail";
 
 /**
  * The stylized dashboard/tracking mockup the F13 design spec called for as the
@@ -26,7 +27,7 @@ export function ProductMockupPanel({
       <div className="flex items-center gap-2 border-b border-marketing-border/60 px-4 py-3">
         <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-marketing-accent" aria-hidden="true" />
         <p className="font-mono text-[11px] text-marketing-muted-fg">AWB NP2026-000000</p>
-        <p className="ml-auto text-[10px] uppercase tracking-wide text-marketing-muted-fg">Tracking preview</p>
+        <p className="ml-auto text-[10px] text-marketing-muted-fg">Tracking preview</p>
       </div>
 
       <div className={size === "compact" ? "flex flex-col gap-4 p-5" : "flex flex-col gap-6 p-6 sm:p-8"}>
@@ -44,44 +45,11 @@ export function ProductMockupPanel({
           <p className="text-xs text-marketing-muted-fg">{activeStop.caption}</p>
         </div>
 
-        <div className="flex items-center" aria-hidden="true">
-          {stops.map((stop, index) => {
-            const isLast = index === stops.length - 1;
-            const isComplete = index <= activeIndex;
-            return (
-              <div key={stop.label} className="flex flex-1 items-center last:flex-none">
-                <span
-                  className="h-2 w-2 shrink-0 rounded-full transition-colors"
-                  style={{
-                    backgroundColor: isComplete ? TONE_COLOR[stop.tone] : "hsl(var(--marketing-border))",
-                  }}
-                />
-                {!isLast && (
-                  <span
-                    className="mx-1.5 h-px flex-1 transition-colors"
-                    style={{
-                      backgroundColor: index < activeIndex ? TONE_COLOR[stops[index + 1].tone] : "hsl(var(--marketing-border))",
-                    }}
-                  />
-                )}
-              </div>
-            );
-          })}
-        </div>
-        <div className="flex justify-between">
-          {stops.map((stop, index) => (
-            <span
-              key={stop.label}
-              className={
-                index === activeIndex
-                  ? "text-[10px] font-medium text-marketing-fg"
-                  : "text-[10px] text-marketing-muted-fg"
-              }
-            >
-              {stop.label}
-            </span>
-          ))}
-        </div>
+        <LifecycleRail
+          stops={stops.map((stop) => ({ tone: stop.tone, label: stop.label }))}
+          activeIndex={activeIndex}
+          showLabels
+        />
 
         {size === "full" && (
           <div className="grid grid-cols-2 gap-4 border-t border-marketing-border/60 pt-5 font-mono text-[11px]">

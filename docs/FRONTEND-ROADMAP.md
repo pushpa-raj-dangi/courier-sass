@@ -910,6 +910,59 @@ output existing. Also unverified: a literal Lighthouse pass, real assistive
 order tests stand in for this), and cross-browser rendering outside this
 session's Chrome instance.
 
+### Design Refinement — 2026-09-07 (Impeccable-guided audit)
+
+The shipped F13 page above was refined for design specificity rather than
+left as originally built, following an `/impeccable`-guided critique
+(single-context source review, since the deliverable was a plan for
+approval rather than a persisted critique artifact, plus a clean
+`detect.mjs` deterministic scan). User approved the full plan, chose to
+extend the lifecycle tri-tone structurally, and chose to leave the "Sign
+in" CTA copy as-is (no prospective-customer acquisition path added).
+
+- **Section order:** `HowItWorks` and `ProductWalkthrough` moved adjacent
+  to `Hero` — they describe the same 4-stage lifecycle per `content.ts`'s
+  own tone-mirroring comment, and `FeatureGrid` previously split the pair.
+  New order: Hero → HowItWorks → ProductWalkthrough → FeatureGrid →
+  Credibility → FinalCta.
+- **Hero:** asymmetric two-column layout (copy/CTA left, `ProductMockupPanel`
+  full-size right) replacing the centered stack; removed the decorative
+  `blur-[120px]` radial glow and the single-word (`text-marketing-accent`)
+  headline accent on "accounted for." — both named anti-patterns in the
+  frontend-design skill's generic-AI-design checklist.
+- **New `LifecycleRail.tsx`:** extracted the duplicated dot-and-connecting-
+  line tone rail (previously separate hand-rolled copies in
+  `HowItWorks.tsx` and `ProductMockupPanel.tsx`) into one shared component
+  — progress mode (`activeIndex` set, Hero/Walkthrough) and legend mode
+  (`activeIndex` omitted, HowItWorks). This is how the lifecycle tri-tone
+  (`neutral`/`motion`/`success`, `toneColor.ts`) now extends structurally
+  across three touchpoints instead of two independent, driftable copies.
+- **`ProductMockupPanel`:** the all-caps tracked "TRACKING PREVIEW" label
+  changed to sentence case (another named anti-pattern).
+- **Motion:** the scroll-triggered `whileInView` fade-up-stagger
+  (`motionVariants.ts`) was removed from `FeatureGrid`, `HowItWorks`,
+  `Credibility`, and `FinalCta` — **superseding the "feature grid's and
+  how-it-works' scroll-triggered `whileInView` reveals" claim in the
+  verification note above**, which described the pre-refinement build only.
+  `FeatureGrid`, `Credibility`, and `FinalCta` are now plain server
+  components (no client JS for that motion). The page's two authored
+  motion moments are now Hero's on-load stagger and ProductWalkthrough's
+  existing auto-cycle.
+- **`Credibility`:** redesigned from a third copy of the bordered-card grid
+  (shared with FeatureGrid/HowItWorks) into a quieter single-column ruled
+  list, since it's conceptually a set of promises, not features or steps —
+  `CREDIBILITY_POINTS` copy in `content.ts` unchanged.
+- **`MarketingNav`:** added a mobile drawer (`Sheet`, matching the app's
+  own mobile-nav convention) so Features/How it works/Track a parcel are
+  reachable below the `md` breakpoint — the original F13 build had no
+  mobile nav fallback at all.
+
+*Verified:* all 36 pre-existing marketing tests pass unmodified, lint
+clean, `tsc --noEmit` and `next build` succeed with no new errors, confirmed
+visually in a browser at desktop width. Mobile-viewport confirmation was
+again blocked by the same `resize_window`-doesn't-narrow-the-viewport
+sandbox limitation noted above; not re-investigated this session.
+
 ## Later
 
 All frontend phases planned through F13 are complete. Any further frontend

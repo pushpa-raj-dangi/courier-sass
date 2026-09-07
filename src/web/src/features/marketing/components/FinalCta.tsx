@@ -1,23 +1,12 @@
-"use client";
-
 import Link from "next/link";
-import { motion } from "framer-motion";
 import { getPrimaryCta } from "../content";
-import { useRevealVariants } from "../lib/motionVariants";
 
 export function FinalCta({ isAuthenticated }: { isAuthenticated: boolean }) {
   const cta = getPrimaryCta(isAuthenticated);
-  const { item } = useRevealVariants();
 
   return (
     <section className="mx-auto max-w-3xl px-4 py-24 text-center">
-      <motion.div
-        variants={item}
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, amount: 0.4 }}
-        className="flex flex-col items-center gap-6"
-      >
+      <div className="flex flex-col items-center gap-6">
         <h2 className="font-display text-3xl font-semibold text-marketing-fg sm:text-4xl">
           Run your courier operation on one system
         </h2>
@@ -30,7 +19,7 @@ export function FinalCta({ isAuthenticated }: { isAuthenticated: boolean }) {
         >
           {cta.label}
         </Link>
-      </motion.div>
+      </div>
     </section>
   );
 }
