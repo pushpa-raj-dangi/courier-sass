@@ -6,7 +6,7 @@ namespace Courier.Billing.Application;
 public record CreatePlanRequest(string Name, string Slug, decimal MonthlyPriceNpr, int? MaxBranches, int? MaxStaffUsers, int? MaxMonthlyShipments, bool IsDefault);
 public record PlanResponse(Guid Id, string Name, string Slug, decimal MonthlyPriceNpr, int? MaxBranches, int? MaxStaffUsers, int? MaxMonthlyShipments, bool IsDefault, bool IsActive);
 
-public class PlanService : IBillingLookupService
+public class PlanService
 {
     private readonly DbContext _dbContext;
 
@@ -68,15 +68,6 @@ public class PlanService : IBillingLookupService
         }
         plan.IsActive = false;
         await _dbContext.SaveChangesAsync(cancellationToken);
-    }
-
-    public async Task<int?> GetMaxBranchesAsync(Guid organizationId, CancellationToken cancellationToken = default)
-    {
-        // Task 2 replaces this body with a real Subscription -> Plan join. Until Task 2 lands,
-        // every org is treated as unlimited (never blocks a branch creation on a half-built
-        // feature) — deliberately fail-open, not fail-closed, for a limit that doesn't exist yet.
-        await Task.CompletedTask;
-        return null;
     }
 
     private static PlanResponse ToResponse(Plan p)
