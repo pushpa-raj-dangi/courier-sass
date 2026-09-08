@@ -101,6 +101,7 @@ public class AppDbContext : DbContext, IDataProtectionKeyContext
     public DbSet<WebhookDelivery> WebhookDeliveries => Set<WebhookDelivery>();
     public DbSet<Plan> Plans => Set<Plan>();
     public DbSet<Subscription> Subscriptions => Set<Subscription>();
+    public DbSet<Invoice> Invoices => Set<Invoice>();
 
     // IDataProtectionKeyContext requires a settable property; the setter is never exercised at
     // runtime (PersistKeysToDbContext only ever reads via Set<DataProtectionKey>()) but is kept
@@ -172,6 +173,7 @@ public class AppDbContext : DbContext, IDataProtectionKeyContext
         modelBuilder.ApplyConfiguration(new WebhookDeliveryConfiguration());
         modelBuilder.ApplyConfiguration(new PlanConfiguration());
         modelBuilder.ApplyConfiguration(new Courier.Billing.Infrastructure.SubscriptionConfiguration());
+        modelBuilder.ApplyConfiguration(new Courier.Billing.Infrastructure.InvoiceConfiguration());
 
         // Branch.OrganizationId -> Organizations FK lives here rather than in
         // BranchConfiguration (Branches module) because Branches deliberately has no project
@@ -369,6 +371,7 @@ public class AppDbContext : DbContext, IDataProtectionKeyContext
         modelBuilder.Entity<NotificationLog>().HasQueryFilter(l => _currentTenantProvider.OrganizationId != null && l.OrganizationId == _currentTenantProvider.OrganizationId);
         modelBuilder.Entity<WebhookSubscription>().HasQueryFilter(s => _currentTenantProvider.OrganizationId != null && s.OrganizationId == _currentTenantProvider.OrganizationId);
         modelBuilder.Entity<Courier.Billing.Domain.Subscription>().HasQueryFilter(s => _currentTenantProvider.OrganizationId != null && s.OrganizationId == _currentTenantProvider.OrganizationId);
+        modelBuilder.Entity<Courier.Billing.Domain.Invoice>().HasQueryFilter(i => _currentTenantProvider.OrganizationId != null && i.OrganizationId == _currentTenantProvider.OrganizationId);
         // No tenant filter on WebhookDelivery: no own OrganizationId — tenant isolation flows
         // transitively through WebhookSubscriptionId -> WebhookSubscription.OrganizationId
         // (which does have a filter, above), same pattern as MerchantSettlementItem.
