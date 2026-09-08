@@ -74,6 +74,52 @@ namespace Persistence.Migrations
                     b.ToTable("AuditLogs", (string)null);
                 });
 
+            modelBuilder.Entity("Courier.Billing.Domain.Plan", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("boolean");
+
+                    b.Property<int?>("MaxBranches")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("MaxMonthlyShipments")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("MaxStaffUsers")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("MonthlyPriceNpr")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Slug")
+                        .IsUnique();
+
+                    b.ToTable("Plans", (string)null);
+                });
+
             modelBuilder.Entity("Courier.Branches.Domain.Branch", b =>
                 {
                     b.Property<Guid>("Id")

@@ -1,5 +1,7 @@
 using Courier.Audit.Domain;
 using Courier.Audit.Infrastructure;
+using Courier.Billing.Domain;
+using Courier.Billing.Infrastructure;
 using Courier.Branches.Domain;
 using Courier.Branches.Infrastructure;
 using Courier.Geography.Domain;
@@ -97,6 +99,7 @@ public class AppDbContext : DbContext, IDataProtectionKeyContext
     public DbSet<NotificationLog> NotificationLogs => Set<NotificationLog>();
     public DbSet<WebhookSubscription> WebhookSubscriptions => Set<WebhookSubscription>();
     public DbSet<WebhookDelivery> WebhookDeliveries => Set<WebhookDelivery>();
+    public DbSet<Plan> Plans => Set<Plan>();
 
     // IDataProtectionKeyContext requires a settable property; the setter is never exercised at
     // runtime (PersistKeysToDbContext only ever reads via Set<DataProtectionKey>()) but is kept
@@ -166,6 +169,7 @@ public class AppDbContext : DbContext, IDataProtectionKeyContext
         modelBuilder.ApplyConfiguration(new NotificationLogConfiguration());
         modelBuilder.ApplyConfiguration(new WebhookSubscriptionConfiguration());
         modelBuilder.ApplyConfiguration(new WebhookDeliveryConfiguration());
+        modelBuilder.ApplyConfiguration(new PlanConfiguration());
 
         // Branch.OrganizationId -> Organizations FK lives here rather than in
         // BranchConfiguration (Branches module) because Branches deliberately has no project

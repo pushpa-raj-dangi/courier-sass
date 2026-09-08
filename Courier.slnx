@@ -6,6 +6,7 @@
   </Folder>
   <Folder Name="/src/Modules/">
     <Project Path="src/Modules/Audit/Audit.csproj" />
+    <Project Path="src/Modules/Billing/Billing.csproj" />
     <Project Path="src/Modules/Branches/Branches.csproj" />
     <Project Path="src/Modules/Geography/Geography.csproj" />
     <Project Path="src/Modules/Identity/Identity.csproj" />
@@ -24,6 +25,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/Api.Tests/Api.Tests.csproj" />
     <Project Path="tests/Audit.Tests/Audit.Tests.csproj" />
+    <Project Path="tests/Billing.Tests/Billing.Tests.csproj" />
     <Project Path="tests/Branches.Tests/Branches.Tests.csproj" />
     <Project Path="tests/Cod.Tests/Cod.Tests.csproj" />
     <Project Path="tests/Events.Tests/Events.Tests.csproj" />
