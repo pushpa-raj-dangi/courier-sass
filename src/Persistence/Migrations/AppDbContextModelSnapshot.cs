@@ -126,6 +126,44 @@ namespace Persistence.Migrations
                     b.ToTable("Invoices", (string)null);
                 });
 
+            modelBuilder.Entity("Courier.Billing.Domain.Payment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("AmountNpr")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Gateway")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("GatewayTransactionId")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("InitiatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("InvoiceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("RawVerificationPayload")
+                        .HasColumnType("jsonb");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InvoiceId");
+
+                    b.ToTable("Payments", (string)null);
+                });
+
             modelBuilder.Entity("Courier.Billing.Domain.Plan", b =>
                 {
                     b.Property<Guid>("Id")
