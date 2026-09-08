@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Courier.Billing.Application;
 
 public record SubscriptionResponse(Guid Id, Guid OrganizationId, Guid PlanId, string PlanName, SubscriptionStatus Status, DateTimeOffset CurrentCycleStart, DateTimeOffset CurrentCycleEnd);
+public record InvoiceResponse(Guid Id, string PlanName, decimal AmountNpr, DateTimeOffset CycleStart, DateTimeOffset CycleEnd, InvoiceStatus Status, DateTimeOffset DueAt, DateTimeOffset? PaidAt);
 
 public class SubscriptionService : IBillingLookupService
 {
@@ -75,5 +76,14 @@ public class SubscriptionService : IBillingLookupService
             where s.OrganizationId == organizationId
             select new PlanSummary(p.Name, p.MonthlyPriceNpr, s.Status)
         ).FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<List<InvoiceResponse>> ListInvoicesAsync(Guid organizationId, CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.Set<Invoice>()
+            .Where(i => i.OrganizationId == organizationId)
+            .OrderByDescending(i => i.CycleStart)
+            .Select(i => new InvoiceResponse(i.Id, i.PlanNameSnapshot, i.AmountNprSnapshot, i.CycleStart, i.CycleEnd, i.Status, i.DueAt, i.PaidAt))
+            .ToListAsync(cancellationToken);
     }
 }

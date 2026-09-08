@@ -3,6 +3,9 @@ using System.Text.Json;
 using StackExchange.Redis;
 using Courier.Audit.Application;
 using Courier.Audit.Infrastructure;
+using Courier.Billing.Application;
+using Courier.Billing.Infrastructure;
+using Courier.Billing.Presentation;
 using Courier.Branches.Application;
 using Courier.Branches.Infrastructure;
 using Courier.Branches.Presentation;
@@ -153,6 +156,19 @@ builder.Services.AddScoped<INdrCreationService, NdrCreationService>();
 builder.Services.AddScoped<CodService>();
 builder.Services.AddScoped<ICodCollectionCreationService>(sp => sp.GetRequiredService<CodService>());
 builder.Services.AddScoped<ICodCollectionService>(sp => sp.GetRequiredService<CodService>());
+builder.Services.AddScoped<PlanService>();
+builder.Services.AddScoped<SubscriptionService>();
+builder.Services.AddScoped<IBillingLookupService>(sp => sp.GetRequiredService<SubscriptionService>());
+builder.Services.AddScoped<PaymentService>();
+builder.Services.AddScoped<InvoiceGenerationJob>();
+
+builder.Services.Configure<BillingOptions>(builder.Configuration.GetSection("Billing"));
+builder.Services.Configure<EsewaOptions>(builder.Configuration.GetSection("Esewa"));
+builder.Services.Configure<KhaltiOptions>(builder.Configuration.GetSection("Khalti"));
+builder.Services.AddHttpClient("Esewa", client => client.Timeout = TimeSpan.FromSeconds(15));
+builder.Services.AddHttpClient("Khalti", client => client.Timeout = TimeSpan.FromSeconds(15));
+builder.Services.AddScoped<IPaymentGatewayClient, EsewaGatewayClient>();
+builder.Services.AddScoped<IPaymentGatewayClient, KhaltiGatewayClient>();
 builder.Services.AddScoped<IOutboxWriter, OutboxWriterService>();
 builder.Services.AddScoped<IEventPublisher, RabbitMqEventPublisher>();
 builder.Services.AddScoped<OutboxPublisherJob>();
@@ -311,6 +327,7 @@ app.MapManifestsEndpoints();
 app.MapRidersEndpoints();
 app.MapNdrEndpoints();
 app.MapCodEndpoints();
+app.MapBillingEndpoints();
 app.MapReportsEndpoints();
 app.MapWebhooksEndpoints();
 
@@ -332,6 +349,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 
 RecurringJob.AddOrUpdate<OutboxPublisherJob>("outbox-publisher", job => job.RunAsync(CancellationToken.None), "*/10 * * * * *");
 RecurringJob.AddOrUpdate<WebhookRetryJob>("webhook-retry", job => job.RunAsync(CancellationToken.None), "*/30 * * * * *");
+RecurringJob.AddOrUpdate<InvoiceGenerationJob>("billing-invoice-generation", job => job.RunAsync(CancellationToken.None), "0 1 * * *");
 
 app.Run();
 
