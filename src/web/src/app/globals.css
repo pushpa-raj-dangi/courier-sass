@@ -182,6 +182,12 @@
   --marketing-tone-neutral: 234.3 8.2% 50.0%;
   --marketing-tone-motion: 35.3 71.2% 42.2%;
   --marketing-tone-success: 175.3 77.4% 26.1%;
+  /* Added for Frontend Phase F11's redesigned /track pages (2026-09-08): a fourth tone for
+     DeliveryAttemptUnsuccessful, which the original three (neutral/motion/success) had no
+     mapping for. Same technique as the three above — reuses --status-ndr's own already-verified
+     light-mode value rather than inventing a new hex (dot/icon fills only, never text): 3.02:1
+     vs --marketing-bg, clearing the 3:1 non-text floor. */
+  --marketing-tone-alert: 8.9 63.3% 48.0%;
 }
 
 .dark {
@@ -265,6 +271,9 @@
   --marketing-tone-neutral: 234.3 13.2% 68.8%;
   --marketing-tone-motion: 38.0 78.9% 57.3%;
   --marketing-tone-success: 169.7 47.9% 47.5%;
+  /* --marketing-tone-alert: --status-ndr's dark-mode value, same reuse technique as the
+     :root block above. 9.87:1 vs --marketing-bg. */
+  --marketing-tone-alert: 11.9 63.7% 53.5%;
 
   /* Rank 1 is a brighter cobalt than --primary itself (72% L vs 60%), not the
      literal token: --primary only clears 2.9:1 against --card here, leaving no
