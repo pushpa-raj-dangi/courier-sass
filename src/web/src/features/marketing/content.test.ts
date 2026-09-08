@@ -11,8 +11,8 @@ import {
 } from "./content";
 
 describe("getPrimaryCta", () => {
-  it("returns the sign-in CTA when unauthenticated", () => {
-    expect(getPrimaryCta(false)).toEqual({ href: "/login", label: "Sign in" });
+  it("returns the get-started CTA when unauthenticated", () => {
+    expect(getPrimaryCta(false)).toEqual({ href: "/register", label: "Get started" });
   });
 
   it("returns the dashboard CTA when authenticated", () => {
@@ -51,7 +51,7 @@ describe("marketing content data", () => {
 
   it("footer links point at real existing routes only", () => {
     const hrefs = FOOTER_LINKS.map((l) => l.href);
-    expect(hrefs).toEqual(["/login", "/merchant-login", "/track"]);
+    expect(hrefs).toEqual(["/register", "/login", "/merchant-login", "/track"]);
   });
 
   it("nav links include the public tracking route", () => {

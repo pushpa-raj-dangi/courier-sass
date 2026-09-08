@@ -35,6 +35,14 @@ export function MarketingNav({ isAuthenticated }: { isAuthenticated: boolean }) 
           ))}
         </div>
         <div className="flex items-center gap-2">
+          {!isAuthenticated && (
+            <Link
+              href="/login"
+              className="hidden rounded-md px-3 py-2 text-sm text-marketing-muted-fg transition-colors hover:text-marketing-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-marketing-accent focus-visible:ring-offset-2 focus-visible:ring-offset-marketing-bg sm:inline-flex"
+            >
+              Sign in
+            </Link>
+          )}
           <Link
             href={cta.href}
             className="rounded-lg bg-marketing-accent px-4 py-2 text-sm font-medium text-marketing-accent-fg transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-marketing-accent focus-visible:ring-offset-2 focus-visible:ring-offset-marketing-bg"

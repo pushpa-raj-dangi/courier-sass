@@ -24,7 +24,35 @@ export interface MeResponse {
   branches: MeBranchGrant[];
 }
 
+export interface RegisterOrganizationInput {
+  organizationName: string;
+  organizationSlug: string;
+  ownerFullName: string;
+  ownerEmail: string;
+  ownerPassword: string;
+}
+
 export const authService = {
+  async register(input: RegisterOrganizationInput): Promise<AuthTokens> {
+    const response = await fetch(`${getUpstreamApiUrl()}/api/v1/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => null);
+      throw new Error(body?.error?.message ?? "REGISTRATION_FAILED");
+    }
+    const data = await response.json();
+    return {
+      accessToken: data.accessToken,
+      refreshToken: data.refreshToken,
+      userId: data.userId,
+      organizationId: data.organizationId,
+    };
+  },
+
   async login(email: string, password: string): Promise<AuthTokens> {
     const response = await fetch(`${getUpstreamApiUrl()}/api/v1/auth/login`, {
       method: "POST",

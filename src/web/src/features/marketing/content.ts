@@ -17,7 +17,9 @@ export interface CtaLink {
 }
 
 export function getPrimaryCta(isAuthenticated: boolean): CtaLink {
-  return isAuthenticated ? { href: "/dashboard", label: "Go to dashboard" } : { href: "/login", label: "Sign in" };
+  return isAuthenticated
+    ? { href: "/dashboard", label: "Go to dashboard" }
+    : { href: "/register", label: "Get started" };
 }
 
 export interface MarketingFeature {
@@ -178,6 +180,7 @@ export const SCREENSHOTS: MarketingScreenshot[] = [
 ];
 
 export const FOOTER_LINKS: NavLink[] = [
+  { href: "/register", label: "Create an account" },
   { href: "/login", label: "Staff sign in" },
   { href: "/merchant-login", label: "Merchant sign in" },
   { href: "/track", label: "Track a parcel" },

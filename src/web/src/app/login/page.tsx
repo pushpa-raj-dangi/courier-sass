@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Package } from "lucide-react";
 import { LoginForm } from "@/features/auth/LoginForm";
 import { AuthShowcasePanel } from "@/components/auth/AuthShowcasePanel";
@@ -28,6 +29,12 @@ export default function LoginPage() {
           <span className="font-display text-lg font-semibold tracking-tight">Courier Platform</span>
         </div>
         <LoginForm />
+        <p className="text-sm text-muted-foreground">
+          New here?{" "}
+          <Link href="/register" className="font-medium text-foreground underline-offset-4 hover:underline">
+            Create an organization
+          </Link>
+        </p>
       </div>
     </main>
   );

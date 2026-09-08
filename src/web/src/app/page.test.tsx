@@ -19,12 +19,13 @@ describe("RootPage", () => {
     expect(screen.queryAllByRole("link", { name: /^sign in$/i })).toHaveLength(0);
   });
 
-  it("renders the marketing page with a Sign in CTA when there is no session", async () => {
+  it("renders the marketing page with a Get started CTA and a Sign in link when there is no session", async () => {
     vi.mocked(getValidAccessToken).mockResolvedValue(null);
 
     const page = await RootPage();
     render(page);
 
+    expect(screen.getAllByRole("link", { name: /get started/i }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("link", { name: /^sign in$/i }).length).toBeGreaterThan(0);
     expect(screen.queryAllByRole("link", { name: /go to dashboard/i })).toHaveLength(0);
   });

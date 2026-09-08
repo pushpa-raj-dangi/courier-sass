@@ -11,9 +11,9 @@ describe("Hero", () => {
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Every parcel, accounted for.");
   });
 
-  it("links the primary CTA to /login when unauthenticated", () => {
+  it("links the primary CTA to /register when unauthenticated", () => {
     render(<Hero isAuthenticated={false} />);
-    expect(screen.getByRole("link", { name: /sign in/i })).toHaveAttribute("href", "/login");
+    expect(screen.getByRole("link", { name: /get started/i })).toHaveAttribute("href", "/register");
   });
 
   it("links the primary CTA to /dashboard when authenticated", () => {
