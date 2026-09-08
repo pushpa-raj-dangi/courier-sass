@@ -18,3 +18,8 @@ public class MerchantAuthenticationFailedException : Exception
 {
     public MerchantAuthenticationFailedException(string message) : base(message) { }
 }
+
+public class MerchantOrganizationSuspendedException : Exception
+{
+    public MerchantOrganizationSuspendedException(string message) : base(message) { }
+}

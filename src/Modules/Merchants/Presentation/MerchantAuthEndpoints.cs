@@ -18,6 +18,10 @@ public static class MerchantAuthEndpoints
                 var result = await authService.LoginAsync(request);
                 return Results.Ok(result);
             }
+            catch (MerchantOrganizationSuspendedException ex)
+            {
+                return Results.Json(new { error = new { code = "ORG_SUSPENDED", message = ex.Message } }, statusCode: StatusCodes.Status403Forbidden);
+            }
             catch (MerchantAuthenticationFailedException ex)
             {
                 return Results.Json(new { error = new { code = "LOGIN_FAILED", message = ex.Message } }, statusCode: StatusCodes.Status401Unauthorized);

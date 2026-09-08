@@ -180,6 +180,17 @@ public class AuthService
             throw new AuthenticationFailedException("Platform accounts cannot log in through this endpoint.");
         }
 
+        // IgnoreQueryFilters(): no tenant is known yet at this pre-authentication point (same
+        // reasoning as the User/RefreshToken lookups elsewhere in this class) — AppDbContext's
+        // Organization query filter fails closed without it, which would make every login throw
+        // instead of only a suspended org's login.
+        var organization = await _dbContext.Set<Organization>().IgnoreQueryFilters()
+            .FirstAsync(o => o.Id == user.OrganizationId, cancellationToken);
+        if (!organization.IsActive || organization.DeletedAt is not null)
+        {
+            throw new OrganizationSuspendedException("Your organization has been suspended. Contact support.");
+        }
+
         var refreshToken = await IssueRefreshTokenAsync(user.Id, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -205,6 +216,17 @@ public class AuthService
 
         // Deactivating a user must also end their ability to mint fresh access tokens.
         if (!user.IsActive)
+        {
+            throw new AuthenticationFailedException("Refresh token is invalid or expired.");
+        }
+
+        // Same IgnoreQueryFilters() reasoning as LoginAsync's organization lookup above. Refresh
+        // deliberately throws the generic AuthenticationFailedException, not
+        // OrganizationSuspendedException — refresh is a silent background call from the
+        // frontend's perspective, not the place to surface a specific user-facing message.
+        var organization = await _dbContext.Set<Organization>().IgnoreQueryFilters()
+            .FirstAsync(o => o.Id == user.OrganizationId!.Value, cancellationToken);
+        if (!organization.IsActive || organization.DeletedAt is not null)
         {
             throw new AuthenticationFailedException("Refresh token is invalid or expired.");
         }

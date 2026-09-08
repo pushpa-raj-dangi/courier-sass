@@ -14,14 +14,17 @@ namespace Courier.Merchants.Infrastructure;
 public class ApiKeyAuthenticationHandler : AuthenticationHandler<AuthenticationSchemeOptions>
 {
     private readonly DbContext _dbContext;
+    private readonly Courier.Merchants.Application.IMerchantOrganizationLookupService _organizationLookupService;
 
     public ApiKeyAuthenticationHandler(
         IOptionsMonitor<AuthenticationSchemeOptions> options,
         ILoggerFactory logger,
         UrlEncoder encoder,
-        DbContext dbContext) : base(options, logger, encoder)
+        DbContext dbContext,
+        Courier.Merchants.Application.IMerchantOrganizationLookupService organizationLookupService) : base(options, logger, encoder)
     {
         _dbContext = dbContext;
+        _organizationLookupService = organizationLookupService;
     }
 
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
@@ -55,6 +58,10 @@ public class ApiKeyAuthenticationHandler : AuthenticationHandler<AuthenticationS
         if (!apiKey.IsActive || apiKey.RevokedAt is not null)
         {
             return AuthenticateResult.Fail("API_KEY_REVOKED");
+        }
+        if (!await _organizationLookupService.IsActiveAsync(apiKey.OrganizationId))
+        {
+            return AuthenticateResult.Fail("ORG_SUSPENDED");
         }
 
         var hashedSecret = Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(secret)));

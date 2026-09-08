@@ -13,6 +13,13 @@ file class NoopAuditLogger : IAuditLogger
     public Task LogAsync(AuditEntry entry, CancellationToken cancellationToken = default) => Task.CompletedTask;
 }
 
+file class FixedOrganizationLookup : IMerchantOrganizationLookupService
+{
+    private readonly bool _isActive;
+    public FixedOrganizationLookup(bool isActive = true) => _isActive = isActive;
+    public Task<bool> IsActiveAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult(_isActive);
+}
+
 public class MerchantAuthServiceTests
 {
     private class TestDbContext : DbContext
@@ -30,7 +37,7 @@ public class MerchantAuthServiceTests
         .UseInMemoryDatabase(Guid.NewGuid().ToString())
         .Options);
 
-    private static MerchantAuthService CreateService(TestDbContext dbContext)
+    private static MerchantAuthService CreateService(TestDbContext dbContext, bool organizationActive = true)
     {
         var jwtOptions = Options.Create(new MerchantJwtOptions
         {
@@ -38,7 +45,7 @@ public class MerchantAuthServiceTests
             Issuer = "courier-tests",
             Audience = "courier-tests"
         });
-        return new MerchantAuthService(dbContext, new MerchantPasswordHasherAdapter(), new MerchantJwtTokenService(jwtOptions), new NoopAuditLogger());
+        return new MerchantAuthService(dbContext, new MerchantPasswordHasherAdapter(), new MerchantJwtTokenService(jwtOptions), new NoopAuditLogger(), new FixedOrganizationLookup(organizationActive));
     }
 
     private static async Task<MerchantUser> SeedOwnerAsync(TestDbContext dbContext, string email, string password, bool merchantIsActive = true)
@@ -128,6 +135,17 @@ public class MerchantAuthServiceTests
 
         await Assert.ThrowsAsync<MerchantAuthenticationFailedException>(
             () => service.LoginAsync(new MerchantLoginRequest("inactive-merchant@example.com", "P@ssw0rd123!")));
+    }
+
+    [Fact]
+    public async Task LoginAsync_SuspendedOrganization_ThrowsMerchantOrganizationSuspended()
+    {
+        await using var dbContext = CreateContext();
+        await SeedOwnerAsync(dbContext, "suspended-org@example.com", "P@ssw0rd123!");
+        var service = CreateService(dbContext, organizationActive: false);
+
+        await Assert.ThrowsAsync<MerchantOrganizationSuspendedException>(
+            () => service.LoginAsync(new MerchantLoginRequest("suspended-org@example.com", "P@ssw0rd123!")));
     }
 
     [Fact]

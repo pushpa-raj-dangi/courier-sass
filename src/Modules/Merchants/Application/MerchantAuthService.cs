@@ -14,6 +14,7 @@ public class MerchantAuthService
     private readonly IMerchantPasswordHasher _passwordHasher;
     private readonly IMerchantJwtTokenService _jwtTokenService;
     private readonly IAuditLogger _auditLogger;
+    private readonly IMerchantOrganizationLookupService _organizationLookupService;
 
     // Computed once, same timing-safety reasoning as Identity.Application.AuthService's
     // DummyPasswordHash: keeps the unknown-email and wrong-password paths costing the same
@@ -22,12 +23,13 @@ public class MerchantAuthService
     private static readonly string DummyPasswordHash =
         new Courier.Merchants.Infrastructure.MerchantPasswordHasherAdapter().Hash("dummy-password-for-timing-safety");
 
-    public MerchantAuthService(DbContext dbContext, IMerchantPasswordHasher passwordHasher, IMerchantJwtTokenService jwtTokenService, IAuditLogger auditLogger)
+    public MerchantAuthService(DbContext dbContext, IMerchantPasswordHasher passwordHasher, IMerchantJwtTokenService jwtTokenService, IAuditLogger auditLogger, IMerchantOrganizationLookupService organizationLookupService)
     {
         _dbContext = dbContext;
         _passwordHasher = passwordHasher;
         _jwtTokenService = jwtTokenService;
         _auditLogger = auditLogger;
+        _organizationLookupService = organizationLookupService;
     }
 
     public async Task<MerchantAuthResult> LoginAsync(MerchantLoginRequest request, CancellationToken cancellationToken = default)
@@ -53,6 +55,11 @@ public class MerchantAuthService
         if (merchant is null || !merchant.IsActive)
         {
             throw new MerchantAuthenticationFailedException("Invalid email or password.");
+        }
+
+        if (!await _organizationLookupService.IsActiveAsync(merchantUser.OrganizationId, cancellationToken))
+        {
+            throw new MerchantOrganizationSuspendedException("Your organization has been suspended. Contact support.");
         }
 
         var refreshToken = await IssueRefreshTokenAsync(merchantUser.Id, cancellationToken);

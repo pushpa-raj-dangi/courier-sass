@@ -67,6 +67,8 @@ file class FixedOrganizationLookup : IOrganizationLookupService
     private readonly string? _slug;
     public FixedOrganizationLookup(string? slug) => _slug = slug;
     public Task<string?> GetSlugAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult(_slug);
+    public Task<bool> IsActiveAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult(true);
+    public Task ReactivateIfSystemSuspendedAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.CompletedTask;
 }
 
 // Phase 10 — this file doesn't exercise COD collection creation, just satisfies ShipmentService's

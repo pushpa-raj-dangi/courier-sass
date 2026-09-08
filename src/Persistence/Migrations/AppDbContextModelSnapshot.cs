@@ -49,6 +49,9 @@ namespace Persistence.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<Guid?>("ImpersonatedByUserId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("IpAddress")
                         .HasColumnType("text");
 
@@ -1627,6 +1630,9 @@ namespace Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
@@ -1640,9 +1646,8 @@ namespace Persistence.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
-                    b.Property<string>("SubscriptionPlan")
-                        .IsRequired()
-                        .HasColumnType("text");
+                    b.Property<bool>("SuspendedBySystem")
+                        .HasColumnType("boolean");
 
                     b.HasKey("Id");
 

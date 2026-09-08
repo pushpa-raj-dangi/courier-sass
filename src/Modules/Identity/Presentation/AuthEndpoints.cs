@@ -31,6 +31,10 @@ public static class AuthEndpoints
                 var result = await authService.LoginAsync(request);
                 return Results.Ok(result);
             }
+            catch (OrganizationSuspendedException ex)
+            {
+                return Results.Json(new { error = new { code = "ORG_SUSPENDED", message = ex.Message } }, statusCode: StatusCodes.Status403Forbidden);
+            }
             catch (AuthenticationFailedException ex)
             {
                 return Results.Json(new { error = new { code = "LOGIN_FAILED", message = ex.Message } }, statusCode: StatusCodes.Status401Unauthorized);

@@ -12,3 +12,8 @@ public class AuthenticationFailedException : Exception
 {
     public AuthenticationFailedException(string message) : base(message) { }
 }
+
+public class OrganizationSuspendedException : Exception
+{
+    public OrganizationSuspendedException(string message) : base(message) { }
+}

@@ -14,4 +14,8 @@ public class AuditLog
     public string? UserAgent { get; set; }
     public DateTimeOffset Timestamp { get; set; }
     public bool IsCrossTenantAction { get; set; }
+    // Populated by AuditLogger itself (not by any caller's AuditEntry) whenever the ambient
+    // request's JWT carries an "impersonated_by" claim — see AuditLogger.LogAsync below and
+    // Task 11's impersonation token issuance. Null for every normal (non-impersonated) action.
+    public Guid? ImpersonatedByUserId { get; set; }
 }
