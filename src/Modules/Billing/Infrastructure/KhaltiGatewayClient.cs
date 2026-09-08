@@ -72,10 +72,19 @@ public class KhaltiGatewayClient : IPaymentGatewayClient
             return new GatewayVerificationResult(false, null, body);
         }
 
-        using var document = JsonDocument.Parse(body);
-        var status = document.RootElement.GetProperty("status").GetString();
-        var transactionId = document.RootElement.TryGetProperty("transaction_id", out var txProp) ? txProp.GetString() : null;
+        try
+        {
+            using var document = JsonDocument.Parse(body);
+            var status = document.RootElement.GetProperty("status").GetString();
+            var transactionId = document.RootElement.TryGetProperty("transaction_id", out var txProp) ? txProp.GetString() : null;
 
-        return new GatewayVerificationResult(status == "Completed", transactionId, body);
+            return new GatewayVerificationResult(status == "Completed", transactionId, body);
+        }
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException or KeyNotFoundException)
+        {
+            // Malformed lookup response (missing/non-string "status") must never propagate as
+            // an unhandled exception — treat it as an unverified payment.
+            return new GatewayVerificationResult(false, null, body);
+        }
     }
 }

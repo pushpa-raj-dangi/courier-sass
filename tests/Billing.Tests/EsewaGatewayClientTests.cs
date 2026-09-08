@@ -17,6 +17,14 @@ public class EsewaGatewayClientTests
             => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(_responseBody) });
     }
 
+    // Used to prove the signature-mismatch/malformed-payload paths return before ever reaching
+    // the server-to-server status-check call — invoking this handler fails the test.
+    private sealed class ThrowingHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            => throw new InvalidOperationException("Status-check endpoint should not have been called.");
+    }
+
     private static EsewaOptions Options() => new()
     {
         ProductCode = "EPAYTEST",
@@ -55,6 +63,62 @@ public class EsewaGatewayClientTests
 
         Assert.True(result.Succeeded);
         Assert.Equal("TXN123", result.GatewayTransactionId);
+    }
+
+    [Fact]
+    public async Task VerifyAsync_SignatureMismatch_FailsWithoutCallingStatusCheck()
+    {
+        var paymentId = Guid.NewGuid();
+        var options = Options();
+        var totalAmount = "2000.00";
+        // Deliberately wrong signature — not derived from the HMAC of total_amount/transaction_uuid/product_code.
+        var payload = JsonSerializer.Serialize(new { total_amount = totalAmount, transaction_uuid = paymentId.ToString(), product_code = options.ProductCode, signature = "this-is-not-the-real-signature", transaction_code = "TXN123" });
+        var callbackParameters = new Dictionary<string, string> { ["data"] = Convert.ToBase64String(Encoding.UTF8.GetBytes(payload)) };
+
+        // ThrowingHandler proves VerifyAsync short-circuits on signature mismatch instead of
+        // proceeding to the server-to-server status-check call.
+        var httpClientFactory = new StubHttpClientFactory(new ThrowingHandler());
+        var client = new EsewaGatewayClient(Microsoft.Extensions.Options.Options.Create(options), httpClientFactory);
+
+        var result = await client.VerifyAsync(paymentId, callbackParameters);
+
+        Assert.False(result.Succeeded);
+    }
+
+    [Fact]
+    public async Task VerifyAsync_ValidSignatureButPendingStatus_Fails()
+    {
+        var paymentId = Guid.NewGuid();
+        var options = Options();
+        var totalAmount = "2000.00";
+        var signMessage = $"total_amount={totalAmount},transaction_uuid={paymentId},product_code={options.ProductCode}";
+        var signature = Convert.ToBase64String(new System.Security.Cryptography.HMACSHA256(Encoding.UTF8.GetBytes(options.SecretKey)).ComputeHash(Encoding.UTF8.GetBytes(signMessage)));
+        var payload = JsonSerializer.Serialize(new { total_amount = totalAmount, transaction_uuid = paymentId.ToString(), product_code = options.ProductCode, signature, transaction_code = "TXN123" });
+        var callbackParameters = new Dictionary<string, string> { ["data"] = Convert.ToBase64String(Encoding.UTF8.GetBytes(payload)) };
+
+        // Signature is valid, but the server-to-server status-check reports the transaction is
+        // still pending — VerifyAsync must not treat a valid signature alone as success.
+        var httpClientFactory = new StubHttpClientFactory(new StubHandler("{\"status\":\"PENDING\"}"));
+        var client = new EsewaGatewayClient(Microsoft.Extensions.Options.Options.Create(options), httpClientFactory);
+
+        var result = await client.VerifyAsync(paymentId, callbackParameters);
+
+        Assert.False(result.Succeeded);
+    }
+
+    [Fact]
+    public async Task VerifyAsync_MalformedCallbackData_ReturnsFailureWithoutThrowing()
+    {
+        var paymentId = Guid.NewGuid();
+        var options = Options();
+        var callbackParameters = new Dictionary<string, string> { ["data"] = "not-valid-base64!!!" };
+
+        var httpClientFactory = new StubHttpClientFactory(new ThrowingHandler());
+        var client = new EsewaGatewayClient(Microsoft.Extensions.Options.Options.Create(options), httpClientFactory);
+
+        var result = await client.VerifyAsync(paymentId, callbackParameters);
+
+        Assert.False(result.Succeeded);
     }
 }
 

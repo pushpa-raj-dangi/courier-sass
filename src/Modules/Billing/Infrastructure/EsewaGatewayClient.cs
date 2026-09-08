@@ -57,12 +57,28 @@ public class EsewaGatewayClient : IPaymentGatewayClient
             return new GatewayVerificationResult(false, null, "{}");
         }
 
-        var decoded = Encoding.UTF8.GetString(Convert.FromBase64String(encodedData));
-        using var document = JsonDocument.Parse(decoded);
-        var root = document.RootElement;
-        var totalAmount = root.GetProperty("total_amount").GetString() ?? "";
-        var transactionUuid = root.GetProperty("transaction_uuid").GetString() ?? "";
-        var receivedSignature = root.GetProperty("signature").GetString() ?? "";
+        string decoded;
+        string totalAmount;
+        string transactionUuid;
+        string receivedSignature;
+        string? transactionCode;
+        try
+        {
+            decoded = Encoding.UTF8.GetString(Convert.FromBase64String(encodedData));
+            using var document = JsonDocument.Parse(decoded);
+            var root = document.RootElement;
+            totalAmount = root.GetProperty("total_amount").GetString() ?? "";
+            transactionUuid = root.GetProperty("transaction_uuid").GetString() ?? "";
+            receivedSignature = root.GetProperty("signature").GetString() ?? "";
+            transactionCode = root.TryGetProperty("transaction_code", out var codeProp) ? codeProp.GetString() : null;
+        }
+        catch (Exception ex) when (ex is FormatException or JsonException or InvalidOperationException or KeyNotFoundException)
+        {
+            // Malformed/attacker-crafted callback data (bad base64, invalid JSON, missing
+            // fields) must never propagate as an unhandled exception — treat it as an
+            // unverified payment.
+            return new GatewayVerificationResult(false, null, "invalid payload");
+        }
 
         var expectedSignature = SignFields($"total_amount={totalAmount},transaction_uuid={transactionUuid},product_code={_options.ProductCode}");
         if (receivedSignature != expectedSignature || transactionUuid != paymentId.ToString())
@@ -81,7 +97,6 @@ public class EsewaGatewayClient : IPaymentGatewayClient
 
         using var statusDocument = JsonDocument.Parse(body);
         var status = statusDocument.RootElement.TryGetProperty("status", out var statusProp) ? statusProp.GetString() : null;
-        var transactionCode = root.TryGetProperty("transaction_code", out var codeProp) ? codeProp.GetString() : null;
 
         return new GatewayVerificationResult(status == "COMPLETE", transactionCode, body);
     }
