@@ -1,5 +1,29 @@
 import "@testing-library/jest-dom/vitest";
+import { createElement } from "react";
+import { vi } from "vitest";
 import { Blob as NodeBlob, File as NodeFile } from "node:buffer";
+
+// next/image's default loader/srcset generation needs a real Next.js dev/build server, which
+// this Vitest suite doesn't run — without a mock, every next/image usage (AppScreenshotFrame,
+// Frontend Phase F13) would render whatever next/image does client-side when unbundled by Next,
+// which is not what these unit tests want to assert against. Render a plain passthrough <img>
+// instead, dropping Next-only props (fill/priority/sizes/etc.) that aren't valid <img> attributes.
+vi.mock("next/image", () => ({
+  __esModule: true,
+  default: (props: Record<string, unknown>) => {
+    const { src, alt, priority, fill, sizes, loader, quality, placeholder, blurDataURL, ...rest } = props;
+    // Next-only props with no <img> equivalent — destructured out so they never reach the DOM
+    // and get flagged as unused by strict prop-forwarding, not because anything reads them.
+    void priority;
+    void fill;
+    void sizes;
+    void loader;
+    void quality;
+    void placeholder;
+    void blurDataURL;
+    return createElement("img", { src: typeof src === "string" ? src : (src as { src?: string })?.src, alt, ...rest });
+  },
+}));
 
 // jsdom's Blob/File are distinct classes from Node's built-in ones, and Node's native
 // structuredClone (used internally by fake-indexeddb on every IndexedDB write, per

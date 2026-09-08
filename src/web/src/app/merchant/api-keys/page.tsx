@@ -7,6 +7,7 @@ import { ErrorState } from "@/components/states/ErrorState";
 import { EmptyState } from "@/components/states/EmptyState";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { BorderedTableContainer } from "@/components/data-table/BorderedTableContainer";
 import { useMerchantPermission } from "@/features/merchant-auth/hooks/useMerchantPermission";
 import { useMerchantApiKeys } from "@/features/merchant-api-keys/hooks/useMerchantApiKeys";
 import { useRevokeMerchantApiKey } from "@/features/merchant-api-keys/hooks/useRevokeMerchantApiKey";
@@ -67,7 +68,7 @@ function MerchantApiKeysList() {
       {!keys || keys.length === 0 ? (
         <EmptyState title="No API keys yet" description="Create a key to integrate with the Merchant API." />
       ) : (
-        <div className="overflow-hidden rounded-xl border border-border bg-muted/40">
+        <BorderedTableContainer>
           <Table>
             <TableHeader>
               <TableRow>
@@ -105,7 +106,7 @@ function MerchantApiKeysList() {
               ))}
             </TableBody>
           </Table>
-        </div>
+        </BorderedTableContainer>
       )}
     </div>
   );

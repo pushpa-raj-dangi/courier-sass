@@ -64,7 +64,7 @@ export function Hero({ isAuthenticated }: { isAuthenticated: boolean }) {
           </motion.div>
         </motion.div>
         <motion.div variants={item} initial="hidden" animate="visible" className="w-full">
-          <AppScreenshotFrame src={dashboardScreenshot.src} alt={dashboardScreenshot.alt} hoverTilt />
+          <AppScreenshotFrame src={dashboardScreenshot.src} alt={dashboardScreenshot.alt} hoverTilt priority />
         </motion.div>
       </div>
     </section>

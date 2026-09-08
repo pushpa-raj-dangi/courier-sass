@@ -9,6 +9,11 @@ const currencyFormatter = new Intl.NumberFormat("en-NP", {
   maximumFractionDigits: 1,
 });
 
+const exactCurrencyFormatter = new Intl.NumberFormat("en-NP", {
+  style: "currency",
+  currency: "NPR",
+});
+
 const FIELDS: Array<{ key: keyof CodFinancialSummary; label: string; icon: typeof FileText }> = [
   { key: "expected", label: "Expected", icon: FileText },
   { key: "collected", label: "Collected", icon: Download },
@@ -38,7 +43,10 @@ export function FinancialSummary({ data }: { data: CodFinancialSummary }) {
                   <Icon className="h-4 w-4 text-muted-foreground" strokeWidth={2} />
                 </span>
                 <span className="text-xs text-muted-foreground">{field.label}</span>
-                <span className="font-sans text-lg font-semibold text-foreground">
+                <span
+                  className="font-sans text-lg font-semibold text-foreground"
+                  title={exactCurrencyFormatter.format(data[field.key])}
+                >
                   {currencyFormatter.format(data[field.key])}
                 </span>
               </div>
@@ -51,7 +59,10 @@ export function FinancialSummary({ data }: { data: CodFinancialSummary }) {
           </span>
           <div className="flex flex-col gap-1">
             <span className="text-xs text-accent-foreground/70">Merchant Payable</span>
-            <span className="font-sans text-xl font-semibold text-status-in-transit">
+            <span
+              className="font-sans text-xl font-semibold text-status-in-transit"
+              title={exactCurrencyFormatter.format(data.merchantPayable)}
+            >
               {currencyFormatter.format(data.merchantPayable)}
             </span>
           </div>

@@ -216,7 +216,15 @@
   --status-created: 234.3 13.2% 68.8%;
   --status-created-foreground: 40.0 33.3% 92.9%;
 
-  --status-in-transit: 38.0 78.9% 57.3%;
+  /* Dark-mode in-transit was previously identical to out-for-delivery below
+     (38.0 78.9% 57.3% for both) — a real collision, not the two-lightness-step
+     relationship the :root comment above documents. Fixed by mirroring light
+     mode's own hue/saturation for in-transit (35.3°, 71.2%) and re-tuning only
+     lightness for the dark surface, same technique this file uses everywhere
+     else: 4.02:1 vs --card, 4.53:1 vs --background (both clear the 3:1
+     non-text floor; the near-4.5:1 numbers are a bonus, not a requirement,
+     since StatusBadge never uses this token as text fill). */
+  --status-in-transit: 35.3 71.2% 40.0%;
   --status-in-transit-foreground: 230.0 23.1% 10.2%;
 
   --status-out-for-delivery: 38.0 78.9% 57.3%;

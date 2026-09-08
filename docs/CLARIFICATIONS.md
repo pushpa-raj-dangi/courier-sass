@@ -830,6 +830,13 @@ pair — see `statusConfig.ts`'s own comment). Fixing the root cause requires re
 independently-validated third amber shade for dark mode across the whole app, which is a properly
 scoped design task on its own, not a one-line color tweak bundled into this phase.
 
+**Resolved** (`/impeccable audit` pass): `--status-in-transit` (dark) is now `35.3 71.2% 40.0%` —
+mirroring light mode's own hue/saturation for this token (`35.3°`/`71.2%`) with only lightness
+re-tuned for the dark surface, clearing 4.02:1 against `--card` and 4.53:1 against `--background`
+(both above the 3:1 non-text floor). `--status-out-for-delivery` is unchanged. The `Cod.*` chain's
+deliberate avoidance of `--status-in-transit` (above) is now belt-and-suspenders rather than a
+required workaround, but is left as-is since it's still a valid, independently-verified ordering.
+
 ---
 
 ## 18. Frontend Phase F9: `Identity` had almost no Role/Permission/UserBranch/invite management surface at all

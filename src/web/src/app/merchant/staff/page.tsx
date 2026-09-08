@@ -7,6 +7,7 @@ import { ErrorState } from "@/components/states/ErrorState";
 import { EmptyState } from "@/components/states/EmptyState";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { BorderedTableContainer } from "@/components/data-table/BorderedTableContainer";
 import { useMerchantPermission } from "@/features/merchant-auth/hooks/useMerchantPermission";
 import { useMerchantStaff } from "@/features/merchant-staff/hooks/useMerchantStaff";
 import { useMerchantStaffPanelStore } from "@/features/merchant-staff/store/merchantStaffPanelStore";
@@ -65,7 +66,7 @@ function MerchantStaffList() {
       {!staff || staff.length === 0 ? (
         <EmptyState title="No staff members yet" description="Invite your team to help manage shipments." />
       ) : (
-        <div className="overflow-hidden rounded-xl border border-border bg-muted/40">
+        <BorderedTableContainer>
           <Table>
             <TableHeader>
               <TableRow>
@@ -88,7 +89,7 @@ function MerchantStaffList() {
               ))}
             </TableBody>
           </Table>
-        </div>
+        </BorderedTableContainer>
       )}
     </div>
   );

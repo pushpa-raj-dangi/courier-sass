@@ -109,7 +109,7 @@ export function BarcodeScanner({ onDetect }: { onDetect: (awb: string) => void }
           <video ref={videoRef} className="h-full w-full object-cover" muted playsInline />
         ) : (
           <div className="flex h-full w-full items-center justify-center">
-            <Button type="button" size="lg" onClick={() => setScanning(true)}>Start Scanning</Button>
+            <Button type="button" size="lg" className="h-11" onClick={() => setScanning(true)}>Start Scanning</Button>
           </div>
         )}
         {cameraError && <p className="absolute inset-x-0 bottom-2 text-center text-sm text-white">{cameraError}</p>}
@@ -117,8 +117,8 @@ export function BarcodeScanner({ onDetect }: { onDetect: (awb: string) => void }
       <div className="space-y-2">
         <Label htmlFor="manual-awb">Enter AWB manually</Label>
         <div className="flex gap-2">
-          <Input id="manual-awb" value={manualValue} onChange={(e) => setManualValue(e.target.value)} />
-          <Button type="button" onClick={submitManual}>Use this AWB</Button>
+          <Input id="manual-awb" className="h-11" value={manualValue} onChange={(e) => setManualValue(e.target.value)} />
+          <Button type="button" className="h-11" onClick={submitManual}>Use this AWB</Button>
         </div>
       </div>
     </div>

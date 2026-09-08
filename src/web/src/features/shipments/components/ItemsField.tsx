@@ -29,7 +29,7 @@ export function ItemsField() {
       </div>
       {fields.map((field, index) => (
         <div key={field.id} className="grid grid-cols-[1fr_auto_auto_auto] items-end gap-2">
-          <div className="space-y-1">
+          <div className="min-w-0 space-y-1">
             <Label htmlFor={`items.${index}.description`}>Description</Label>
             <Input id={`items.${index}.description`} {...register(`items.${index}.description`)} />
           </div>

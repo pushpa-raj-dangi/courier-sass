@@ -117,6 +117,7 @@ export function DataTable<T>({
                 <PaginationPrevious
                   href="#"
                   aria-disabled={data.page <= 1}
+                  tabIndex={data.page <= 1 ? -1 : undefined}
                   className={data.page <= 1 ? "pointer-events-none opacity-50" : undefined}
                   onClick={(e) => {
                     e.preventDefault();
@@ -148,6 +149,7 @@ export function DataTable<T>({
                 <PaginationNext
                   href="#"
                   aria-disabled={data.page >= data.totalPages}
+                  tabIndex={data.page >= data.totalPages ? -1 : undefined}
                   className={
                     data.page >= data.totalPages ? "pointer-events-none opacity-50" : undefined
                   }

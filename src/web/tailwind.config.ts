@@ -76,6 +76,14 @@ const config: Config = {
           DEFAULT: "hsl(var(--status-cancelled) / <alpha-value>)",
           foreground: "hsl(var(--status-cancelled-foreground) / <alpha-value>)",
         },
+        "status-sealed": {
+          DEFAULT: "hsl(var(--status-sealed) / <alpha-value>)",
+          foreground: "hsl(var(--status-sealed-foreground) / <alpha-value>)",
+        },
+        "status-received": {
+          DEFAULT: "hsl(var(--status-received) / <alpha-value>)",
+          foreground: "hsl(var(--status-received-foreground) / <alpha-value>)",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",

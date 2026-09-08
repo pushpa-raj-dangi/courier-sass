@@ -7,6 +7,7 @@ import { ErrorState } from "@/components/states/ErrorState";
 import { EmptyState } from "@/components/states/EmptyState";
 import { StatusBadge } from "@/components/status-badge/StatusBadge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { BorderedTableContainer } from "@/components/data-table/BorderedTableContainer";
 import { useMerchantPermission } from "@/features/merchant-auth/hooks/useMerchantPermission";
 import { useMerchantPickups } from "@/features/merchant-pickups/hooks/useMerchantPickups";
 import { useCancelMerchantPickup } from "@/features/merchant-pickups/hooks/useCancelMerchantPickup";
@@ -51,7 +52,7 @@ export default function MerchantPickupsPage() {
       {!pickups || pickups.length === 0 ? (
         <EmptyState title="No pickup requests yet" description="Request a pickup once you have shipments ready." />
       ) : (
-        <div className="overflow-hidden rounded-xl border border-border bg-muted/40">
+        <BorderedTableContainer>
           <Table>
             <TableHeader>
               <TableRow>
@@ -87,7 +88,7 @@ export default function MerchantPickupsPage() {
               ))}
             </TableBody>
           </Table>
-        </div>
+        </BorderedTableContainer>
       )}
     </div>
   );

@@ -116,11 +116,16 @@ silent adjustments (`CLAUDE.md` §39, §22–23).
   strings.
 - No brand name/logo exists yet (see Brand Commitments) — treat the product as
   unnamed/white-label; don't invent a name or identity in design work.
-- No camera-based barcode scanning in the current scope — scan surfaces use
-  manual AWB entry (a documented, deliberate scope cut, not a gap to silently
-  fill in).
+- Camera-based barcode scanning shipped in the rider app's scan surface
+  (`BarcodeScanner`, browser `BarcodeDetector` API with a `@zxing/browser`
+  fallback), with manual AWB entry as the always-available alternative when
+  camera access fails or isn't available — this superseded an earlier,
+  now-stale "manual entry only" scope cut.
 - Rider UI in the current roadmap phase (F5) is a desktop-friendly
-  approximation of field operations, not a mobile-optimized experience.
+  approximation of field operations for most surfaces, though its
+  touch-target sizing on primary mid-task actions (scan, mark-delivered,
+  record-attempt) was hardened to the 44px mobile floor during the
+  2026-09-08 audit pass — not yet a fully mobile-optimized redesign.
 
 ## Brand Commitments
 

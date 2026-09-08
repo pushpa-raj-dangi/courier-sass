@@ -251,7 +251,7 @@ export function MerchantShipmentCreateSheet() {
               </div>
 
               {/* Read-only, server-computed estimate — never editable, per CLAUDE.md §33 */}
-              <div className="rounded-lg border border-border bg-muted/50 p-4">
+              <div className="rounded-lg border border-border bg-muted/50 p-4" aria-live="polite" aria-atomic="true">
                 <p className="mb-2 text-xs text-muted-foreground">Estimated Price (recalculates as you fill in the route and package)</p>
                 {isQuoting && <Spinner className="h-4 w-4" />}
                 {quote && !isQuoting && (

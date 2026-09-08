@@ -5,6 +5,7 @@ import { ErrorState } from "@/components/states/ErrorState";
 import { EmptyState } from "@/components/states/EmptyState";
 import { StatusBadge } from "@/components/status-badge/StatusBadge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { BorderedTableContainer } from "@/components/data-table/BorderedTableContainer";
 import { useMerchantSettlements } from "@/features/merchant-cod/hooks/useMerchantSettlements";
 import { useMerchantSettlementPanelStore } from "@/features/merchant-cod/store/merchantSettlementPanelStore";
 
@@ -38,7 +39,7 @@ export default function MerchantCodPage() {
       {!settlements || settlements.length === 0 ? (
         <EmptyState title="No settlements yet" description="Settlements appear here once your courier issues one for a period." />
       ) : (
-        <div className="overflow-hidden rounded-xl border border-border bg-muted/40">
+        <BorderedTableContainer>
           <Table>
             <TableHeader>
               <TableRow>
@@ -50,9 +51,15 @@ export default function MerchantCodPage() {
             </TableHeader>
             <TableBody>
               {settlements.map((s) => (
-                <TableRow key={s.id} className="cursor-pointer" onClick={() => openDetail(s.id)}>
+                <TableRow key={s.id}>
                   <TableCell>
-                    {new Date(s.periodFrom).toLocaleDateString()} – {new Date(s.periodTo).toLocaleDateString()}
+                    <button
+                      type="button"
+                      onClick={() => openDetail(s.id)}
+                      className="font-medium text-foreground hover:underline"
+                    >
+                      {new Date(s.periodFrom).toLocaleDateString()} – {new Date(s.periodTo).toLocaleDateString()}
+                    </button>
                   </TableCell>
                   <TableCell>{currencyFormatter.format(s.totalPayable)}</TableCell>
                   <TableCell><StatusBadge status={s.status} namespace="MerchantSettlement" /></TableCell>
@@ -61,7 +68,7 @@ export default function MerchantCodPage() {
               ))}
             </TableBody>
           </Table>
-        </div>
+        </BorderedTableContainer>
       )}
     </div>
   );

@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { EmptyState } from "@/components/states/EmptyState";
 import { LoadingState } from "@/components/states/LoadingState";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { BorderedTableContainer } from "@/components/data-table/BorderedTableContainer";
 import { StatusBadge } from "@/components/status-badge/StatusBadge";
 import { useMerchantSettlements } from "@/features/cod/hooks/useMerchantSettlements";
 import { useCodPanelStore } from "@/features/cod/store/codPanelStore";
@@ -45,7 +46,7 @@ export function MerchantSettlementsTab() {
         <EmptyState title="No merchant settlements" description="Create one from finance-verified COD collections for a merchant and period." />
       )}
       {!isLoading && (settlements?.length ?? 0) > 0 && (
-        <div className="overflow-hidden rounded-xl border border-border bg-muted/40">
+        <BorderedTableContainer>
           <Table>
             <TableHeader>
               <TableRow>
@@ -72,7 +73,7 @@ export function MerchantSettlementsTab() {
               ))}
             </TableBody>
           </Table>
-        </div>
+        </BorderedTableContainer>
       )}
     </div>
   );

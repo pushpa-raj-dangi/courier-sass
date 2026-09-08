@@ -1,5 +1,6 @@
 "use client";
 
+import { Phone } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,7 +36,13 @@ export function RiderTaskCard({
       </CardHeader>
       <CardContent className="space-y-1 text-sm">
         <p className="font-medium text-foreground">{task.recipientName}</p>
-        <p className="text-muted-foreground">{task.recipientPhone}</p>
+        <a
+          href={`tel:${task.recipientPhone}`}
+          className="flex items-center gap-1.5 text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+        >
+          <Phone className="h-3.5 w-3.5 shrink-0" />
+          {task.recipientPhone}
+        </a>
         <p className="text-muted-foreground">{task.recipientAddressLine}, Ward {task.recipientWardNumber}</p>
         <div className="pt-2">
           {task.type === "Pickup" && (
@@ -47,7 +54,7 @@ export function RiderTaskCard({
               <Button
                 type="button"
                 size="lg"
-                className="w-full"
+                className="h-11 w-full"
                 disabled={pickupScan.isPending}
                 onClick={() => pickupScan.mutate({ awb: task.awb, shipmentId: task.shipmentId })}
               >
@@ -56,7 +63,7 @@ export function RiderTaskCard({
             )
           )}
           {task.type === "Delivery" && (
-            <Button type="button" size="lg" className="w-full" onClick={() => onRecordAttempt(task)}>
+            <Button type="button" size="lg" className="h-11 w-full" onClick={() => onRecordAttempt(task)}>
               Record Attempt
             </Button>
           )}

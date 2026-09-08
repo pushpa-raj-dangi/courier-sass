@@ -7,6 +7,7 @@ import { ErrorState } from "@/components/states/ErrorState";
 import { EmptyState } from "@/components/states/EmptyState";
 import { StatusBadge } from "@/components/status-badge/StatusBadge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { BorderedTableContainer } from "@/components/data-table/BorderedTableContainer";
 import { useMerchantKycDocuments } from "@/features/merchant-kyc/hooks/useMerchantKycDocuments";
 import { useMerchantKycPanelStore } from "@/features/merchant-kyc/store/merchantKycPanelStore";
 
@@ -52,7 +53,7 @@ export default function MerchantKycPage() {
       {!documents || documents.length === 0 ? (
         <EmptyState title="No documents uploaded" description="Upload your KYC documents to complete verification." />
       ) : (
-        <div className="overflow-hidden rounded-xl border border-border bg-muted/40">
+        <BorderedTableContainer>
           <Table>
             <TableHeader>
               <TableRow>
@@ -69,7 +70,7 @@ export default function MerchantKycPage() {
               ))}
             </TableBody>
           </Table>
-        </div>
+        </BorderedTableContainer>
       )}
     </div>
   );

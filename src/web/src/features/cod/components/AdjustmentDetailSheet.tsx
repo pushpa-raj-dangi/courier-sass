@@ -68,6 +68,7 @@ export function AdjustmentDetailSheet() {
                 <Field label="Entity Type" value={adjustment.entityType} />
                 <Field label="Before Value" value={`Rs. ${adjustment.beforeValue.toFixed(2)}`} />
                 <Field label="After Value" value={`Rs. ${adjustment.afterValue.toFixed(2)}`} />
+                <Field label="Requested By" value={adjustment.requestedByUserId} />
                 <Field label="Requested At" value={new Date(adjustment.requestedAt).toLocaleString()} />
               </div>
               <div className="space-y-1">
