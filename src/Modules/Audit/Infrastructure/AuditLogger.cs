@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Courier.Audit.Infrastructure;
 
-public class AuditLogger : IAuditLogger
+public class AuditLogger : IAuditLogger, IAuditLogReader
 {
     private readonly DbContext _dbContext;
     private readonly IHttpContextAccessor _httpContextAccessor;
@@ -42,5 +42,19 @@ public class AuditLogger : IAuditLogger
         });
 
         await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    // IgnoreQueryFilters() here is deliberate and safe for the same reason as every other
+    // Platform-facing cross-org read in this plan — Platform's ambient tenant is always null, and
+    // the explicit organizationId Where clause is the real, correct scope, not the bypassed
+    // ambient filter.
+    public async Task<List<AuditLogRecord>> ListForOrganizationAsync(Guid organizationId, int limit, CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.Set<AuditLog>().IgnoreQueryFilters()
+            .Where(a => a.OrganizationId == organizationId)
+            .OrderByDescending(a => a.Timestamp)
+            .Take(limit)
+            .Select(a => new AuditLogRecord(a.Id, a.Action, a.EntityType, a.EntityId, a.UserId, a.ImpersonatedByUserId, a.IsCrossTenantAction, a.Timestamp))
+            .ToListAsync(cancellationToken);
     }
 }

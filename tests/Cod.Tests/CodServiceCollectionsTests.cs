@@ -43,6 +43,7 @@ file class AllBranchesAuthorizationChecker : IBranchAuthorizationChecker
 
 file class AlwaysTrueBranchLookup : IBranchLookupService
 {
+    public Task<List<BranchAdminRecord>> ListForOrganizationAsync(Guid organizationId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     public Task<BranchZoneInfo?> GetZoneInfoAsync(Guid branchId, CancellationToken cancellationToken = default) =>
         Task.FromResult<BranchZoneInfo?>(new BranchZoneInfo(branchId, null));
     public Task<IReadOnlyDictionary<Guid, string>> GetNamesByIdsAsync(IReadOnlySet<Guid> branchIds, CancellationToken cancellationToken = default) =>

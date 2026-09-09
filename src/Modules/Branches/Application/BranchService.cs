@@ -167,6 +167,12 @@ public class BranchService : IBranchLookupService
         => await _dbContext.Set<Branch>().IgnoreQueryFilters()
             .CountAsync(b => b.OrganizationId == organizationId && b.IsActive, cancellationToken);
 
+    public async Task<List<BranchAdminRecord>> ListForOrganizationAsync(Guid organizationId, CancellationToken cancellationToken = default)
+        => await _dbContext.Set<Branch>().IgnoreQueryFilters()
+            .Where(b => b.OrganizationId == organizationId)
+            .Select(b => new BranchAdminRecord(b.Id, b.Code, b.Name, b.IsActive))
+            .ToListAsync(cancellationToken);
+
     public async Task<BranchResponse?> AssignDeliveryZoneAsync(Guid branchId, AssignDeliveryZoneRequest request, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
         var organizationId = _currentTenantProvider.OrganizationId

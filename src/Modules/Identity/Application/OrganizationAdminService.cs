@@ -101,6 +101,18 @@ public class OrganizationAdminService : IOrganizationLookupService
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task<OrganizationRecord?> GetAsync(Guid organizationId, CancellationToken cancellationToken = default)
+        => await _dbContext.Set<Organization>()
+            .Where(o => o.Id == organizationId)
+            .Select(o => new OrganizationRecord(o.Id, o.Name, o.Slug, o.IsActive, o.SuspendedBySystem, o.DeletedAt, o.CreatedAt))
+            .FirstOrDefaultAsync(cancellationToken);
+
+    public async Task<List<OrganizationUserRecord>> ListUsersAsync(Guid organizationId, CancellationToken cancellationToken = default)
+        => await _dbContext.Set<User>().IgnoreQueryFilters()
+            .Where(u => u.OrganizationId == organizationId)
+            .Select(u => new OrganizationUserRecord(u.Id, u.Email, u.FullName, u.IsActive))
+            .ToListAsync(cancellationToken);
+
     // IgnoreQueryFilters(): shared helper for the four lifecycle mutations above, all called only
     // from Platform's OrganizationLifecycleService (SuperAdmin, cross-tenant,
     // ICurrentTenantProvider.OrganizationId == null) — without this the ambient Organizations

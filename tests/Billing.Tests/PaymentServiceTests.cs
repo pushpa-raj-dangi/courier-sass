@@ -32,6 +32,8 @@ public class PaymentServiceTests
 
     private sealed class FakeOrganizationLookupService : IOrganizationLookupService
     {
+        public Task<OrganizationRecord?> GetAsync(Guid organizationId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<List<OrganizationUserRecord>> ListUsersAsync(Guid organizationId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Guid? ReactivatedOrganizationId { get; private set; }
         public Task<string?> GetSlugAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult<string?>(null);
         public Task<bool> IsActiveAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult(true);

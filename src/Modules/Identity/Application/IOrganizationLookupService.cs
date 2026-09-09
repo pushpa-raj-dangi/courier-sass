@@ -1,6 +1,7 @@
 namespace Courier.Identity.Application;
 
 public record OrganizationRecord(Guid Id, string Name, string Slug, bool IsActive, bool SuspendedBySystem, DateTimeOffset? DeletedAt, DateTimeOffset CreatedAt);
+public record OrganizationUserRecord(Guid Id, string Email, string FullName, bool IsActive);
 
 public interface IOrganizationLookupService
 {
@@ -42,4 +43,13 @@ public interface IOrganizationLookupService
     Task RestoreAsync(Guid organizationId, CancellationToken cancellationToken = default);
 
     Task RevokeStaffRefreshTokensAsync(Guid organizationId, CancellationToken cancellationToken = default);
+
+    // Cross-tenant read for Platform's PlatformDashboardService (SuperAdmin org detail
+    // drill-down) — always called with ICurrentTenantProvider.OrganizationId == null.
+    Task<OrganizationRecord?> GetAsync(Guid organizationId, CancellationToken cancellationToken = default);
+
+    // Cross-tenant read for Platform's PlatformDashboardService — same caller/context as GetAsync
+    // above. IgnoreQueryFilters() is required since Users also carries a tenant query filter that
+    // otherwise fails closed against Platform's always-null ambient tenant.
+    Task<List<OrganizationUserRecord>> ListUsersAsync(Guid organizationId, CancellationToken cancellationToken = default);
 }

@@ -30,6 +30,7 @@ file class NoopAuditLogger : IAuditLogger
 
 file class FakeBranchLookup : IBranchLookupService
 {
+    public Task<List<BranchAdminRecord>> ListForOrganizationAsync(Guid organizationId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     private readonly HashSet<Guid> _knownBranchIds;
     public FakeBranchLookup(params Guid[] knownBranchIds) => _knownBranchIds = knownBranchIds.ToHashSet();
     public Task<BranchZoneInfo?> GetZoneInfoAsync(Guid branchId, CancellationToken cancellationToken = default) =>

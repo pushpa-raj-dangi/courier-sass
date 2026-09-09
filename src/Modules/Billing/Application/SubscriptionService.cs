@@ -86,4 +86,24 @@ public class SubscriptionService : IBillingLookupService
             .Select(i => new InvoiceResponse(i.Id, i.PlanNameSnapshot, i.AmountNprSnapshot, i.CycleStart, i.CycleEnd, i.Status, i.DueAt, i.PaidAt))
             .ToListAsync(cancellationToken);
     }
+
+    // Cross-org by design (a platform-wide metric) — IgnoreQueryFilters() is required since
+    // the caller (Platform) always runs with a null ambient tenant.
+    public async Task<PlatformBillingMetrics> GetPlatformMetricsAsync(CancellationToken cancellationToken = default)
+    {
+        var mrr = await (
+            from s in _dbContext.Set<Subscription>().IgnoreQueryFilters()
+            join p in _dbContext.Set<Plan>().IgnoreQueryFilters() on s.PlanId equals p.Id
+            where s.Status == SubscriptionStatus.Active
+            select p.MonthlyPriceNpr
+        ).SumAsync(cancellationToken);
+
+        var overdueCount = await _dbContext.Set<Invoice>().IgnoreQueryFilters()
+            .CountAsync(i => i.Status == InvoiceStatus.Overdue, cancellationToken);
+
+        return new PlatformBillingMetrics(mrr, overdueCount);
+    }
+
+    public Task<List<InvoiceResponse>> ListInvoicesForOrganizationAsync(Guid organizationId, CancellationToken cancellationToken = default)
+        => ListInvoicesAsync(organizationId, cancellationToken);
 }

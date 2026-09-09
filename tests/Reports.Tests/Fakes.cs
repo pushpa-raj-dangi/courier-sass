@@ -12,6 +12,7 @@ namespace Courier.Reports.Tests;
 
 internal sealed class FakeBranchLookupService : IBranchLookupService
 {
+    public Task<List<BranchAdminRecord>> ListForOrganizationAsync(Guid organizationId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     public BranchZoneInfo? ZoneInfo { get; set; }
     public IReadOnlyDictionary<Guid, string> Names { get; set; } = new Dictionary<Guid, string>();
 

@@ -1,6 +1,7 @@
 namespace Courier.Branches.Application;
 
 public record BranchZoneInfo(Guid BranchId, Guid? DeliveryZoneId);
+public record BranchAdminRecord(Guid Id, string Code, string Name, bool IsActive);
 
 public interface IBranchLookupService
 {
@@ -16,4 +17,10 @@ public interface IBranchLookupService
     // IgnoreQueryFilters(); the explicit organizationId parameter in the Where clause is the real
     // scope, not the ambient tenant filter.
     Task<int> CountActiveBranchesAsync(Guid organizationId, CancellationToken cancellationToken = default);
+
+    // Cross-tenant read for Platform's PlatformDashboardService (SuperAdmin org detail
+    // drill-down) — always called with ICurrentTenantProvider.OrganizationId == null, so the
+    // implementation must IgnoreQueryFilters(); the explicit organizationId parameter in the
+    // Where clause is the real, correct scope, not the ambient tenant filter.
+    Task<List<BranchAdminRecord>> ListForOrganizationAsync(Guid organizationId, CancellationToken cancellationToken = default);
 }

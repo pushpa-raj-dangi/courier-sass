@@ -134,6 +134,8 @@ builder.Services.AddScoped<DbContext>(sp => sp.GetRequiredService<AppDbContext>(
 builder.Services.AddScoped<IPasswordHasher, PasswordHasherAdapter>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IAuditLogger, AuditLogger>();
+builder.Services.AddScoped<Courier.Audit.Infrastructure.AuditLogger>();
+builder.Services.AddScoped<IAuditLogReader>(sp => sp.GetRequiredService<Courier.Audit.Infrastructure.AuditLogger>());
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<IUserProvisioningService, UserProvisioningService>();
 builder.Services.AddScoped<RoleService>();
@@ -168,6 +170,7 @@ builder.Services.AddScoped<IPlatformJwtTokenService, PlatformJwtTokenService>();
 builder.Services.AddScoped<PlatformAuthService>();
 builder.Services.AddScoped<IMerchantSessionRevoker, MerchantSessionRevocationService>();
 builder.Services.AddScoped<OrganizationLifecycleService>();
+builder.Services.AddScoped<PlatformDashboardService>();
 
 builder.Services.Configure<BillingOptions>(builder.Configuration.GetSection("Billing"));
 builder.Services.Configure<EsewaOptions>(builder.Configuration.GetSection("Esewa"));
@@ -383,6 +386,7 @@ app.MapReportsEndpoints();
 app.MapWebhooksEndpoints();
 app.MapPlatformAuthEndpoints();
 app.MapPlatformOrganizationsEndpoints();
+app.MapPlatformDashboardEndpoints();
 
 app.MapGet("/health/ping", () => Results.Ok(new { status = "ok" })).WithTags("Health check");
 

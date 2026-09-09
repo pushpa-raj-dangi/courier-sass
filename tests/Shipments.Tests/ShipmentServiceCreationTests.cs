@@ -33,6 +33,7 @@ file class NoopAuditLogger : IAuditLogger
 
 file class FakeBranchLookup : IBranchLookupService
 {
+    public Task<List<BranchAdminRecord>> ListForOrganizationAsync(Guid organizationId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     private readonly Dictionary<Guid, Guid?> _zonesByBranch;
     public FakeBranchLookup(Dictionary<Guid, Guid?> zonesByBranch) => _zonesByBranch = zonesByBranch;
     public Task<BranchZoneInfo?> GetZoneInfoAsync(Guid branchId, CancellationToken cancellationToken = default) =>
@@ -69,6 +70,8 @@ file class AllBranchesAuthorizationChecker : IBranchAuthorizationChecker
 // wiring.
 file class FixedOrganizationLookup : IOrganizationLookupService
 {
+    public Task<OrganizationRecord?> GetAsync(Guid organizationId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    public Task<List<OrganizationUserRecord>> ListUsersAsync(Guid organizationId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     private readonly string? _slug;
     public FixedOrganizationLookup(string? slug) => _slug = slug;
     public Task<string?> GetSlugAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult(_slug);

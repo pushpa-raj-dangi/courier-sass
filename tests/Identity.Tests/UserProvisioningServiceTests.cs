@@ -18,6 +18,7 @@ file class NullTenantProvider : ICurrentTenantProvider
 
 file class NullBranchLookupService : IBranchLookupService
 {
+    public Task<List<BranchAdminRecord>> ListForOrganizationAsync(Guid organizationId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     public Task<BranchZoneInfo?> GetZoneInfoAsync(Guid branchId, CancellationToken cancellationToken = default)
         => Task.FromResult<BranchZoneInfo?>(null);
 
