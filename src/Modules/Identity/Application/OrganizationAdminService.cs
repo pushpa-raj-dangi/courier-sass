@@ -101,8 +101,11 @@ public class OrganizationAdminService : IOrganizationLookupService
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    // IgnoreQueryFilters(): called only from Platform's PlatformDashboardService.GetOrganizationDetailAsync
+    // (SuperAdmin, cross-tenant, ICurrentTenantProvider.OrganizationId == null) — without this the
+    // ambient Organizations query filter fails closed and this would always return null.
     public async Task<OrganizationRecord?> GetAsync(Guid organizationId, CancellationToken cancellationToken = default)
-        => await _dbContext.Set<Organization>()
+        => await _dbContext.Set<Organization>().IgnoreQueryFilters()
             .Where(o => o.Id == organizationId)
             .Select(o => new OrganizationRecord(o.Id, o.Name, o.Slug, o.IsActive, o.SuspendedBySystem, o.DeletedAt, o.CreatedAt))
             .FirstOrDefaultAsync(cancellationToken);

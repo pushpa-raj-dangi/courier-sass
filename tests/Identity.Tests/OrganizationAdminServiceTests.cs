@@ -76,4 +76,26 @@ public class OrganizationAdminServiceTests
 
         Assert.False(await service.IsActiveAsync(organization.Id));
     }
+
+    [Fact]
+    public async Task GetAsync_WithNullAmbientTenant_ReturnsOrganization()
+    {
+        // Regression guard: GetAsync is called exclusively from Platform's
+        // PlatformDashboardService.GetOrganizationDetailAsync, which always runs on a
+        // SuperAdmin/Platform JWT whose ambient tenant is null. AppDbContext's Organization
+        // query filter fails closed (matches nothing) whenever ICurrentTenantProvider.OrganizationId
+        // is null, so without IgnoreQueryFilters() this would always return null.
+        using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
+        var organization = new Organization { Id = Guid.NewGuid(), Name = "Test Org", Slug = $"org-{Guid.NewGuid():N}", IsActive = true };
+        dbContext.Set<Organization>().Add(organization);
+        await dbContext.SaveChangesAsync();
+        var service = new OrganizationAdminService(dbContext);
+
+        var result = await service.GetAsync(organization.Id);
+
+        Assert.NotNull(result);
+        Assert.Equal(organization.Id, result!.Id);
+        Assert.Equal(organization.Name, result.Name);
+        Assert.Equal(organization.Slug, result.Slug);
+    }
 }
