@@ -42,3 +42,8 @@ public class BranchValidationException : Exception
 {
     public BranchValidationException(string message) : base(message) { }
 }
+
+public class BranchLimitExceededException : BranchValidationException
+{
+    public BranchLimitExceededException(string message) : base(message) { }
+}

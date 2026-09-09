@@ -29,6 +29,12 @@ file class AllBranchesAuthorizationChecker : IBranchAuthorizationChecker
         Task.FromResult(true);
 }
 
+file class FakeBranchPlanLimitProvider : IBranchPlanLimitProvider
+{
+    public int? MaxBranches { get; set; }
+    public Task<int?> GetMaxBranchesAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult(MaxBranches);
+}
+
 public class BranchServiceReportingTests
 {
     private class TestDbContext : DbContext
@@ -72,7 +78,7 @@ public class BranchServiceReportingTests
         dbContext.Set<Branch>().Add(branch2);
         await dbContext.SaveChangesAsync();
 
-        var service = new BranchService(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), new AllBranchesAuthorizationChecker(), new GeographyQueryService(dbContext));
+        var service = new BranchService(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), new AllBranchesAuthorizationChecker(), new GeographyQueryService(dbContext), new FakeBranchPlanLimitProvider { MaxBranches = null });
 
         // Act: call service.GetNamesByIdsAsync(new HashSet<Guid> { branch1.Id, branch2.Id });
         var result = await service.GetNamesByIdsAsync(new HashSet<Guid> { branch1.Id, branch2.Id });
@@ -89,7 +95,7 @@ public class BranchServiceReportingTests
     {
         // Arrange
         await using var dbContext = CreateSeededContext();
-        var service = new BranchService(dbContext, new FixedTenantProvider(Guid.NewGuid()), new NoopAuditLogger(), new AllBranchesAuthorizationChecker(), new GeographyQueryService(dbContext));
+        var service = new BranchService(dbContext, new FixedTenantProvider(Guid.NewGuid()), new NoopAuditLogger(), new AllBranchesAuthorizationChecker(), new GeographyQueryService(dbContext), new FakeBranchPlanLimitProvider { MaxBranches = null });
 
         // Act: call with an empty HashSet<Guid>.
         var result = await service.GetNamesByIdsAsync(new HashSet<Guid>());

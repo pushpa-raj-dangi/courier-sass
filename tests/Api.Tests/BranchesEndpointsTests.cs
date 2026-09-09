@@ -1,12 +1,15 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
+using Courier.Billing.Application;
 using Courier.Branches.Application;
 using Courier.Branches.Domain;
 using Courier.Geography.Application;
 using Courier.Geography.Infrastructure;
 using Courier.Identity.Application;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace Courier.Api.Tests;
@@ -115,6 +118,35 @@ public class BranchesEndpointsTests : IClassFixture<WebApplicationFactory<Progra
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var body = await response.Content.ReadAsStringAsync();
         Assert.Contains("valid geography chain", body);
+    }
+
+    [Fact]
+    public async Task CreateBranch_AtPlanLimit_ReturnsBranchLimitReached()
+    {
+        var client = _factory.CreateClient();
+        var auth = await RegisterOrgAsync(client);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth.AccessToken);
+
+        // Org gets a default (unlimited) plan at self-registration (Task 7) — the first branch
+        // succeeds regardless of any limit.
+        var firstResponse = await client.PostAsJsonAsync("/api/v1/branches", ValidBranchRequest("LIMIT-01"));
+        Assert.Equal(HttpStatusCode.Created, firstResponse.StatusCode);
+
+        // Move the org onto a plan capped at 1 branch (same direct-service pattern
+        // BillingEndpointsTests.cs uses to seed/assign a plan without a SuperAdmin HTTP flow).
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var subscriptionService = scope.ServiceProvider.GetRequiredService<SubscriptionService>();
+            var planService = scope.ServiceProvider.GetRequiredService<PlanService>();
+            var plan = await planService.CreatePlanAsync(new CreatePlanRequest("OneBranchPlan", $"one-branch-{Guid.NewGuid():N}", 0m, 1, null, null, false));
+            await subscriptionService.AssignPlanAsync(auth.OrganizationId, plan.Id);
+        }
+
+        var response = await client.PostAsJsonAsync("/api/v1/branches", ValidBranchRequest("LIMIT-02"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("BRANCH_LIMIT_REACHED", body.GetProperty("error").GetProperty("code").GetString());
     }
 
     [Fact]

@@ -29,6 +29,23 @@ file class AllBranchesAuthorizationChecker : IBranchAuthorizationChecker
         Task.FromResult(true);
 }
 
+// Always-valid geography stub — used for tests that exercise CreateBranchAsync and need to get
+// past geography validation without registering Geography's entity types (Ward/LocalLevel/etc.)
+// into the minimal TestDbContext model below, which only configures Branch.
+file class AllowAllGeographyLookupService : IGeographyLookupService
+{
+    public Task<bool> IsValidHierarchyAsync(Guid provinceId, Guid districtId, Guid localLevelId, int wardNumber, CancellationToken cancellationToken = default) =>
+        Task.FromResult(true);
+    public Task<bool> DeliveryZoneExistsAsync(Guid zoneId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(true);
+}
+
+file class FakeBranchPlanLimitProvider : IBranchPlanLimitProvider
+{
+    public int? MaxBranches { get; set; }
+    public Task<int?> GetMaxBranchesAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult(MaxBranches);
+}
+
 public class BranchServiceTests
 {
     private class TestDbContext : DbContext
@@ -63,7 +80,7 @@ public class BranchServiceTests
         dbContext.Set<Branch>().Add(branch);
         await dbContext.SaveChangesAsync();
 
-        var service = new BranchService(dbContext, new FixedTenantProvider(branch.OrganizationId), new NoopAuditLogger(), new AllBranchesAuthorizationChecker(), new GeographyQueryService(dbContext));
+        var service = new BranchService(dbContext, new FixedTenantProvider(branch.OrganizationId), new NoopAuditLogger(), new AllBranchesAuthorizationChecker(), new GeographyQueryService(dbContext), new FakeBranchPlanLimitProvider { MaxBranches = null });
 
         var result = await service.GetZoneInfoAsync(branch.Id);
 
@@ -75,7 +92,7 @@ public class BranchServiceTests
     public async Task GetZoneInfoAsync_UnknownBranch_ReturnsNull()
     {
         await using var dbContext = CreateSeededContext();
-        var service = new BranchService(dbContext, new FixedTenantProvider(Guid.NewGuid()), new NoopAuditLogger(), new AllBranchesAuthorizationChecker(), new GeographyQueryService(dbContext));
+        var service = new BranchService(dbContext, new FixedTenantProvider(Guid.NewGuid()), new NoopAuditLogger(), new AllBranchesAuthorizationChecker(), new GeographyQueryService(dbContext), new FakeBranchPlanLimitProvider { MaxBranches = null });
 
         Assert.Null(await service.GetZoneInfoAsync(Guid.NewGuid()));
     }
@@ -99,11 +116,58 @@ public class BranchServiceTests
         };
         dbContext.Set<Branch>().AddRange(active, inactive);
         await dbContext.SaveChangesAsync();
-        var service = new BranchService(dbContext, new FixedTenantProvider(orgId), new NoopAuditLogger(), new AllBranchesAuthorizationChecker(), new GeographyQueryService(dbContext));
+        var service = new BranchService(dbContext, new FixedTenantProvider(orgId), new NoopAuditLogger(), new AllBranchesAuthorizationChecker(), new GeographyQueryService(dbContext), new FakeBranchPlanLimitProvider { MaxBranches = null });
 
         var result = await service.ListBranchesForMerchantAsync();
 
         var single = Assert.Single(result);
         Assert.Equal(active.Id, single.Id);
+    }
+
+    private static CreateBranchRequest ValidCreateRequest(string code) => new(
+        code, $"Branch {code}", BranchType.Branch,
+        Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 1,
+        "Somewhere", null, null, null, null, null);
+
+    [Fact]
+    public async Task CreateBranchAsync_AtPlanLimit_ThrowsBranchLimitExceeded()
+    {
+        await using var dbContext = CreateSeededContext();
+        var organizationId = Guid.NewGuid();
+        var existing = new Branch
+        {
+            Id = Guid.NewGuid(), OrganizationId = organizationId, Code = "EXIST-01", Name = "Existing Branch",
+            Type = BranchType.Branch, ProvinceId = Guid.NewGuid(), DistrictId = Guid.NewGuid(),
+            LocalLevelId = Guid.NewGuid(), WardNumber = 1, AddressLine = "Somewhere", IsActive = true
+        };
+        dbContext.Set<Branch>().Add(existing);
+        await dbContext.SaveChangesAsync();
+
+        var service = new BranchService(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), new AllBranchesAuthorizationChecker(), new AllowAllGeographyLookupService(), new FakeBranchPlanLimitProvider { MaxBranches = 1 });
+
+        await Assert.ThrowsAsync<BranchLimitExceededException>(() =>
+            service.CreateBranchAsync(ValidCreateRequest("NEW-01"), new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim("sub", Guid.NewGuid().ToString()) }, "TestAuth"))));
+    }
+
+    [Fact]
+    public async Task CreateBranchAsync_UnlimitedPlan_Succeeds()
+    {
+        await using var dbContext = CreateSeededContext();
+        var organizationId = Guid.NewGuid();
+        var existing = new Branch
+        {
+            Id = Guid.NewGuid(), OrganizationId = organizationId, Code = "EXIST-01", Name = "Existing Branch",
+            Type = BranchType.Branch, ProvinceId = Guid.NewGuid(), DistrictId = Guid.NewGuid(),
+            LocalLevelId = Guid.NewGuid(), WardNumber = 1, AddressLine = "Somewhere", IsActive = true
+        };
+        dbContext.Set<Branch>().Add(existing);
+        await dbContext.SaveChangesAsync();
+
+        var service = new BranchService(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), new AllBranchesAuthorizationChecker(), new AllowAllGeographyLookupService(), new FakeBranchPlanLimitProvider { MaxBranches = null });
+
+        var result = await service.CreateBranchAsync(ValidCreateRequest("NEW-02"), new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim("sub", Guid.NewGuid().ToString()) }, "TestAuth")));
+
+        Assert.NotNull(result);
+        Assert.Equal("NEW-02", result.Code);
     }
 }

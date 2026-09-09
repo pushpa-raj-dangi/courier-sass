@@ -24,6 +24,10 @@ public static class BranchesEndpoints
                 var result = await branchService.CreateBranchAsync(request, httpContext.User, httpContext.RequestAborted);
                 return Results.Created($"/api/v1/branches/{result.Id}", result);
             }
+            catch (BranchLimitExceededException ex)
+            {
+                return Results.BadRequest(new { error = new { code = "BRANCH_LIMIT_REACHED", message = ex.Message } });
+            }
             catch (BranchValidationException ex)
             {
                 return Results.BadRequest(new { error = new { code = "BRANCH_VALIDATION_FAILED", message = ex.Message } });

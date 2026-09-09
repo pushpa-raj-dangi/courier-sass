@@ -14,19 +14,22 @@ public class BranchService : IBranchLookupService
     private readonly IAuditLogger _auditLogger;
     private readonly IBranchAuthorizationChecker _branchAuthorizationChecker;
     private readonly IGeographyLookupService _geographyLookupService;
+    private readonly IBranchPlanLimitProvider _branchPlanLimitProvider;
 
     public BranchService(
         DbContext dbContext,
         ICurrentTenantProvider currentTenantProvider,
         IAuditLogger auditLogger,
         IBranchAuthorizationChecker branchAuthorizationChecker,
-        IGeographyLookupService geographyLookupService)
+        IGeographyLookupService geographyLookupService,
+        IBranchPlanLimitProvider branchPlanLimitProvider)
     {
         _dbContext = dbContext;
         _currentTenantProvider = currentTenantProvider;
         _auditLogger = auditLogger;
         _branchAuthorizationChecker = branchAuthorizationChecker;
         _geographyLookupService = geographyLookupService;
+        _branchPlanLimitProvider = branchPlanLimitProvider;
     }
 
     public async Task<BranchResponse> CreateBranchAsync(CreateBranchRequest request, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
@@ -41,6 +44,20 @@ public class BranchService : IBranchLookupService
         if (codeTaken)
         {
             throw new BranchValidationException($"Branch code '{request.Code}' is already in use.");
+        }
+
+        // _dbContext.Set<Branch>().CountAsync(...) here is already tenant-scoped by the ambient
+        // query filter — CreateBranchAsync only ever runs under a real staff JWT with an org_id
+        // claim (never a SuperAdmin/platform/background context), so no .IgnoreQueryFilters() is
+        // needed (unlike GetMaxBranchesAsync's own implementation, which serves both contexts).
+        var maxBranches = await _branchPlanLimitProvider.GetMaxBranchesAsync(organizationId, cancellationToken);
+        if (maxBranches is int limit)
+        {
+            var currentCount = await _dbContext.Set<Branch>().CountAsync(cancellationToken);
+            if (currentCount >= limit)
+            {
+                throw new BranchLimitExceededException($"Your plan allows a maximum of {limit} branches. Upgrade your plan to add more.");
+            }
         }
 
         var validGeography = await _geographyLookupService.IsValidHierarchyAsync(
