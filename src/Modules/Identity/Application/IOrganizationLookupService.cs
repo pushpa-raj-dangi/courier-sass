@@ -59,4 +59,11 @@ public interface IOrganizationLookupService
     // null). Returns null if the user does not exist OR does not belong to this organization —
     // callers must not distinguish those two cases in any user-facing error.
     Task<OrganizationUserRecord?> GetUserAsync(Guid organizationId, Guid userId, CancellationToken cancellationToken = default);
+
+    // Called only by Billing.Application.OverdueInvoiceJob (Task 13), a Hangfire recurring job
+    // with no ambient tenant context. Distinct from SuspendAsync (a human SuperAdmin's manual
+    // action) — this is the system's own action, audited with a null actor UserId to make "the
+    // system, not a person, did this" legible in the audit trail per CLAUDE.md §39. Idempotent:
+    // a no-op if the org is already inactive (suspended by this job on a prior run, or manually).
+    Task SuspendForNonPaymentAsync(Guid organizationId, CancellationToken cancellationToken = default);
 }

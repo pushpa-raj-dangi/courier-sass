@@ -1,3 +1,4 @@
+using Courier.Audit.Application;
 using Courier.Identity.Domain;
 using Microsoft.EntityFrameworkCore;
 
@@ -6,10 +7,12 @@ namespace Courier.Identity.Application;
 public class OrganizationAdminService : IOrganizationLookupService
 {
     private readonly DbContext _dbContext;
+    private readonly IAuditLogger _auditLogger;
 
-    public OrganizationAdminService(DbContext dbContext)
+    public OrganizationAdminService(DbContext dbContext, IAuditLogger auditLogger)
     {
         _dbContext = dbContext;
+        _auditLogger = auditLogger;
     }
 
     public async Task<string?> GetSlugAsync(Guid organizationId, CancellationToken cancellationToken = default) =>
@@ -57,6 +60,25 @@ public class OrganizationAdminService : IOrganizationLookupService
         organization.IsActive = false;
         organization.SuspendedBySystem = false;
         await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    // Distinct from SuspendAsync (Task 9, a SuperAdmin's manual action, audited with the acting
+    // user's UserId) — this is the system's own action, audited with a null UserId to make "the
+    // system, not a person, did this" legible in the audit trail per CLAUDE.md §39.
+    public async Task SuspendForNonPaymentAsync(Guid organizationId, CancellationToken cancellationToken = default)
+    {
+        var organization = await GetOrThrowAsync(organizationId, cancellationToken);
+        if (!organization.IsActive)
+        {
+            // Already suspended (by this same job on a prior run, or manually) — avoid
+            // re-writing an identical audit row every time the job re-scans an already-overdue
+            // invoice it can't yet mark Paid.
+            return;
+        }
+        organization.IsActive = false;
+        organization.SuspendedBySystem = true;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _auditLogger.LogAsync(new AuditEntry(organizationId, null, "organization.suspended_for_nonpayment", "Organization", organizationId.ToString(), IsCrossTenantAction: true), cancellationToken);
     }
 
     public async Task ReactivateAsync(Guid organizationId, CancellationToken cancellationToken = default)

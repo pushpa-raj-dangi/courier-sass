@@ -1,3 +1,4 @@
+using Courier.Audit.Application;
 using Courier.Identity.Application;
 using Courier.Identity.Domain;
 using Courier.SharedKernel;
@@ -10,6 +11,11 @@ public class OrganizationAdminServiceTests
 {
     private sealed class NullTenantProvider : ICurrentTenantProvider { public Guid? OrganizationId => null; }
 
+    private sealed class FakeAuditLogger : IAuditLogger
+    {
+        public Task LogAsync(AuditEntry entry, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
+
     [Fact]
     public async Task ReactivateIfSystemSuspendedAsync_SystemSuspended_Reactivates()
     {
@@ -17,7 +23,7 @@ public class OrganizationAdminServiceTests
         var organization = new Organization { Id = Guid.NewGuid(), Name = "Test Org", Slug = $"org-{Guid.NewGuid():N}", IsActive = false, SuspendedBySystem = true };
         dbContext.Set<Organization>().Add(organization);
         await dbContext.SaveChangesAsync();
-        var service = new OrganizationAdminService(dbContext);
+        var service = new OrganizationAdminService(dbContext, new FakeAuditLogger());
 
         await service.ReactivateIfSystemSuspendedAsync(organization.Id);
 
@@ -33,7 +39,7 @@ public class OrganizationAdminServiceTests
         var organization = new Organization { Id = Guid.NewGuid(), Name = "Test Org", Slug = $"org-{Guid.NewGuid():N}", IsActive = false, SuspendedBySystem = false };
         dbContext.Set<Organization>().Add(organization);
         await dbContext.SaveChangesAsync();
-        var service = new OrganizationAdminService(dbContext);
+        var service = new OrganizationAdminService(dbContext, new FakeAuditLogger());
 
         await service.ReactivateIfSystemSuspendedAsync(organization.Id);
 
@@ -48,7 +54,7 @@ public class OrganizationAdminServiceTests
         var organization = new Organization { Id = Guid.NewGuid(), Name = "Test Org", Slug = $"org-{Guid.NewGuid():N}", IsActive = true };
         dbContext.Set<Organization>().Add(organization);
         await dbContext.SaveChangesAsync();
-        var service = new OrganizationAdminService(dbContext);
+        var service = new OrganizationAdminService(dbContext, new FakeAuditLogger());
 
         Assert.True(await service.IsActiveAsync(organization.Id));
     }
@@ -60,7 +66,7 @@ public class OrganizationAdminServiceTests
         var organization = new Organization { Id = Guid.NewGuid(), Name = "Test Org", Slug = $"org-{Guid.NewGuid():N}", IsActive = false };
         dbContext.Set<Organization>().Add(organization);
         await dbContext.SaveChangesAsync();
-        var service = new OrganizationAdminService(dbContext);
+        var service = new OrganizationAdminService(dbContext, new FakeAuditLogger());
 
         Assert.False(await service.IsActiveAsync(organization.Id));
     }
@@ -72,7 +78,7 @@ public class OrganizationAdminServiceTests
         var organization = new Organization { Id = Guid.NewGuid(), Name = "Test Org", Slug = $"org-{Guid.NewGuid():N}", IsActive = true, DeletedAt = DateTimeOffset.UtcNow };
         dbContext.Set<Organization>().Add(organization);
         await dbContext.SaveChangesAsync();
-        var service = new OrganizationAdminService(dbContext);
+        var service = new OrganizationAdminService(dbContext, new FakeAuditLogger());
 
         Assert.False(await service.IsActiveAsync(organization.Id));
     }
@@ -89,7 +95,7 @@ public class OrganizationAdminServiceTests
         var organization = new Organization { Id = Guid.NewGuid(), Name = "Test Org", Slug = $"org-{Guid.NewGuid():N}", IsActive = true };
         dbContext.Set<Organization>().Add(organization);
         await dbContext.SaveChangesAsync();
-        var service = new OrganizationAdminService(dbContext);
+        var service = new OrganizationAdminService(dbContext, new FakeAuditLogger());
 
         var result = await service.GetAsync(organization.Id);
 

@@ -167,6 +167,7 @@ builder.Services.AddScoped<SubscriptionService>();
 builder.Services.AddScoped<IBillingLookupService>(sp => sp.GetRequiredService<SubscriptionService>());
 builder.Services.AddScoped<PaymentService>();
 builder.Services.AddScoped<InvoiceGenerationJob>();
+builder.Services.AddScoped<OverdueInvoiceJob>();
 builder.Services.AddScoped<IPlatformJwtTokenService, PlatformJwtTokenService>();
 builder.Services.AddScoped<PlatformAuthService>();
 builder.Services.AddScoped<IMerchantSessionRevoker, MerchantSessionRevocationService>();
@@ -411,6 +412,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 RecurringJob.AddOrUpdate<OutboxPublisherJob>("outbox-publisher", job => job.RunAsync(CancellationToken.None), "*/10 * * * * *");
 RecurringJob.AddOrUpdate<WebhookRetryJob>("webhook-retry", job => job.RunAsync(CancellationToken.None), "*/30 * * * * *");
 RecurringJob.AddOrUpdate<InvoiceGenerationJob>("billing-invoice-generation", job => job.RunAsync(CancellationToken.None), "0 1 * * *");
+RecurringJob.AddOrUpdate<OverdueInvoiceJob>("billing-overdue-invoice-suspension", job => job.RunAsync(CancellationToken.None), "0 2 * * *");
 
 app.Run();
 
