@@ -9,4 +9,7 @@ public static class ClaimsPrincipalExtensions
 
     public static Guid? GetMerchantId(this ClaimsPrincipal principal)
         => Guid.TryParse(principal.FindFirst("merchant_id")?.Value, out var id) ? id : null;
+
+    public static bool IsSuperAdmin(this ClaimsPrincipal principal)
+        => principal.FindFirst("is_super_admin")?.Value == "true";
 }

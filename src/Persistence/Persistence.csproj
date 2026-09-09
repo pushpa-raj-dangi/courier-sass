@@ -17,6 +17,7 @@
     <ProjectReference Include="..\Modules\Notifications\Notifications.csproj" />
     <ProjectReference Include="..\Modules\Webhooks\Webhooks.csproj" />
     <ProjectReference Include="..\Modules\Billing\Billing.csproj" />
+    <ProjectReference Include="..\Modules\Platform\Platform.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -33,6 +33,9 @@ using Courier.Merchants.Application;
 using Courier.Merchants.Infrastructure;
 using Courier.Merchants.Presentation;
 using Courier.Persistence;
+using Courier.Platform.Application;
+using Courier.Platform.Infrastructure;
+using Courier.Platform.Presentation;
 using Courier.Pricing.Application;
 using Courier.Pricing.Presentation;
 using Courier.Reports.Application;
@@ -161,6 +164,8 @@ builder.Services.AddScoped<SubscriptionService>();
 builder.Services.AddScoped<IBillingLookupService>(sp => sp.GetRequiredService<SubscriptionService>());
 builder.Services.AddScoped<PaymentService>();
 builder.Services.AddScoped<InvoiceGenerationJob>();
+builder.Services.AddScoped<IPlatformJwtTokenService, PlatformJwtTokenService>();
+builder.Services.AddScoped<PlatformAuthService>();
 
 builder.Services.Configure<BillingOptions>(builder.Configuration.GetSection("Billing"));
 builder.Services.Configure<EsewaOptions>(builder.Configuration.GetSection("Esewa"));
@@ -269,6 +274,50 @@ if (app.Environment.IsDevelopment())
     app.UseHangfireDashboard("/hangfire");
 }
 
+// Ensures the very first SuperAdmin (a User with OrganizationId == null, per Task 5's
+// convention — not a new entity, not a new role) exists before the app starts serving traffic.
+// Unconditional (unlike the migration block above): production needs its first SuperAdmin
+// bootstrapped too, not just Development. Once any SuperAdmin exists, this is a no-op forever.
+//
+// Reuses Program.MigrationLock (not because this is a migration — because integration tests spin
+// up many WebApplicationFactory<Program> instances concurrently against the same shared Postgres,
+// exactly as the comment on the migration block above describes, and this block has the same
+// "first one wins" race: Users.Email has a unique index, so two hosts racing to insert the same
+// SuperAdmin email would otherwise have one of them fail SaveChanges with a unique-violation and
+// crash that host's startup).
+lock (Program.MigrationLock)
+{
+    using var bootstrapScope = app.Services.CreateScope();
+    var dbContext = bootstrapScope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var passwordHasher = bootstrapScope.ServiceProvider.GetRequiredService<Courier.Identity.Application.IPasswordHasher>();
+    var hasSuperAdmin = dbContext.Set<Courier.Identity.Domain.User>().IgnoreQueryFilters().Any(u => u.OrganizationId == null);
+    if (!hasSuperAdmin)
+    {
+        var superAdminEmail = app.Configuration["SuperAdmin:Email"];
+        var superAdminPassword = app.Configuration["SuperAdmin:Password"];
+        if (string.IsNullOrEmpty(superAdminEmail) || string.IsNullOrEmpty(superAdminPassword))
+        {
+            if (!app.Environment.IsDevelopment())
+            {
+                throw new InvalidOperationException("No SuperAdmin account exists and SuperAdmin:Email/SuperAdmin:Password are not configured. Set both before starting in a non-Development environment.");
+            }
+        }
+        else
+        {
+            dbContext.Set<Courier.Identity.Domain.User>().Add(new Courier.Identity.Domain.User
+            {
+                Id = Guid.NewGuid(),
+                OrganizationId = null,
+                Email = superAdminEmail.ToLowerInvariant(),
+                PasswordHash = passwordHasher.Hash(superAdminPassword),
+                FullName = "Platform Administrator",
+                IsActive = true
+            });
+            dbContext.SaveChanges();
+        }
+    }
+}
+
 // Forces the Data Protection key ring to materialize now (reading/creating its key row in
 // Postgres via PersistKeysToDbContext) rather than lazily on the first real Protect/Unprotect
 // call. Without this, that first call pays a one-time DB round trip inline wherever it happens
@@ -330,6 +379,7 @@ app.MapCodEndpoints();
 app.MapBillingEndpoints();
 app.MapReportsEndpoints();
 app.MapWebhooksEndpoints();
+app.MapPlatformAuthEndpoints();
 
 app.MapGet("/health/ping", () => Results.Ok(new { status = "ok" })).WithTags("Health check");
 
