@@ -390,6 +390,7 @@ app.MapReportsEndpoints();
 app.MapWebhooksEndpoints();
 app.MapPlatformAuthEndpoints();
 app.MapPlatformOrganizationsEndpoints();
+app.MapPlatformPlansEndpoints();
 app.MapPlatformDashboardEndpoints();
 app.MapPlatformImpersonationEndpoints();
 
