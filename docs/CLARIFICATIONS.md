@@ -991,6 +991,61 @@ correctness was verified end-to-end against a real seeded shipment instead (see
 `docs/FRONTEND-ROADMAP.md`'s F11 section). Worth a quick visual pass in a normal-network
 environment before or shortly after this ships.
 
+## 21. Platform Super Admin: three refinements found during planning, not the original design spec's exact text
+
+**Where:** `docs/superpowers/specs/2026-09-08-platform-super-admin-design.md`
+
+**Context:** Three points where implementing this spec literally would have meant either
+redundant work or a needless schema/architecture change, discovered while researching
+the plan (`docs/superpowers/plans/2026-09-08-platform-super-admin.md`) against the real
+codebase rather than the spec's own prose.
+
+**Resolution:**
+
+1. `AuditLog.IsCrossTenantAction` already existed before this phase (added when this
+   document's own entry #5 was first written) — the spec's §4 describing it as new was
+   inaccurate. Only `AuditLog.ImpersonatedByUserId` is a genuinely new column.
+2. This codebase's JWTs carry no embedded permissions — `IPermissionChecker`/
+   `HttpContextCurrentTenantProvider` re-resolve everything from `sub`/`org_id` claims
+   against the database on every request (confirmed by reading `PermissionChecker.cs`
+   directly). Impersonation therefore never needed to "resolve real permissions into the
+   token" as the spec's §10 described — issuing a normal-shaped token for the target user
+   plus an `impersonated_by` claim is sufficient, and every existing permission/
+   branch-scope/tenant-isolation check keeps working completely unchanged.
+3. No new `User.IsSuperAdmin` column was added. `User.OrganizationId == null` already
+   carries exactly this meaning in `AuthService.LoginAsync`, which pre-dates this phase
+   and already throws "Platform accounts cannot log in through this endpoint." for
+   exactly this case — the JWT's `is_super_admin` claim is issued by construction (only a
+   null-org `User` can reach `PlatformAuthService.LoginAsync`), not backed by an extra
+   column.
+
+**Also recorded (a real cross-tenant gap caught during planning, not implementation):**
+`Payment` carries no `OrganizationId` of its own (isolates transitively through
+`InvoiceId -> Invoice.OrganizationId`, same pattern as `ShipmentItem`/`ManifestShipment`
+elsewhere in this codebase) — a naive `PaymentService.CompletePaymentAsync` reading
+`Set<Payment>().FirstOrDefaultAsync(p => p.Id == paymentId)` directly would not be
+tenant-scoped at all, since `Payment` has no query filter to bypass or rely on. The plan's
+Task 6/7 instead joins through `Invoice`'s own (filtered) `DbSet`, so a cross-tenant
+`paymentId` guess resolves to "not found" exactly like a real 404 — the same
+"child table, no own `OrganizationId`, isolation must flow through the parent" bug shape
+this codebase's own history (`docs/CLARIFICATIONS.md` #11's `RiderCashSettlement`-adjacent
+gaps, and every Phase 4/5/10/12 incident this document already records) keeps
+reproducing whenever a new accessor is added — worth grep-checking again in any future
+phase that adds a table isolating only through a parent FK.
+
+**Spot-checked against the merged code while writing `docs/PLATFORM-ROADMAP.md` (Task
+20):** all three refinements above still hold as implemented — `AuditLog.
+ImpersonatedByUserId` exists exactly as described
+(`src/Modules/Audit/Domain/AuditLog.cs`), `PermissionChecker.cs` still re-resolves
+permissions from `ClaimsPrincipal` claims on every call rather than trusting an embedded
+token grant, and `AuthService.cs` still carries the pre-existing "Platform accounts cannot
+log in through this endpoint." guard. One additional gap surfaced only during Task 19's
+live verification, after this entry's original three points were written — see
+`docs/PLATFORM-ROADMAP.md`'s "Known Limitations": no organization ever actually gets a
+`Plan` assigned to its `Subscription` anywhere in this plan, even though
+`SubscriptionService.AssignPlanAsync` exists and is unit-tested — it is simply never
+called from any Presentation endpoint or frontend action.
+
 ---
 
 ## Summary of schema additions implied by this document
