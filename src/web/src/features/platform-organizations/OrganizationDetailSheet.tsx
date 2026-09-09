@@ -1,0 +1,142 @@
+"use client";
+
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
+import { ErrorState } from "@/components/states/ErrorState";
+import { useOrganizationPanelStore } from "@/features/platform-organizations/store/organizationPanelStore";
+import { usePlatformOrganization } from "@/features/platform-organizations/hooks/usePlatformOrganization";
+import {
+  useSuspendOrganization,
+  useReactivateOrganization,
+  useDeleteOrganization,
+  useRestoreOrganization,
+} from "@/features/platform-organizations/hooks/useOrganizationLifecycleActions";
+
+export function OrganizationDetailSheet() {
+  const panel = useOrganizationPanelStore((s) => s.panel);
+  const close = useOrganizationPanelStore((s) => s.close);
+  const organizationId = panel.mode === "detail" ? panel.organizationId : null;
+  const { data, isLoading, isError, refetch } = usePlatformOrganization(organizationId);
+  const suspend = useSuspendOrganization();
+  const reactivate = useReactivateOrganization();
+  const softDelete = useDeleteOrganization();
+  const restore = useRestoreOrganization();
+
+  return (
+    <Sheet open={panel.mode === "detail"} onOpenChange={(open) => !open && close()}>
+      <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
+        <SheetHeader>
+          <SheetTitle>{data?.organization.name ?? "Organization"}</SheetTitle>
+        </SheetHeader>
+        {isLoading && (
+          <div className="flex items-center justify-center p-12">
+            <Spinner className="h-6 w-6" />
+          </div>
+        )}
+        {isError && (
+          <ErrorState
+            title="Couldn't load this organization"
+            description="It may not exist, or something went wrong fetching its details."
+            onRetry={() => refetch()}
+          />
+        )}
+        {data && (
+          <div className="space-y-6 p-4">
+            <div className="flex items-center gap-2">
+              <Badge
+                variant={data.organization.deletedAt ? "destructive" : data.organization.isActive ? "default" : "secondary"}
+              >
+                {data.organization.deletedAt ? "Deleted" : data.organization.isActive ? "Active" : "Suspended"}
+              </Badge>
+              <span className="text-sm text-muted-foreground">{data.planName ?? "No plan assigned"}</span>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {data.organization.isActive && !data.organization.deletedAt && (
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  disabled={suspend.isPending}
+                  onClick={() => organizationId && suspend.mutate(organizationId)}
+                >
+                  Suspend
+                </Button>
+              )}
+              {!data.organization.isActive && !data.organization.deletedAt && (
+                <Button
+                  size="sm"
+                  disabled={reactivate.isPending}
+                  onClick={() => organizationId && reactivate.mutate(organizationId)}
+                >
+                  Reactivate
+                </Button>
+              )}
+              {!data.organization.deletedAt && (
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  disabled={softDelete.isPending}
+                  onClick={() => organizationId && softDelete.mutate(organizationId)}
+                >
+                  Delete
+                </Button>
+              )}
+              {data.organization.deletedAt && (
+                <Button size="sm" disabled={restore.isPending} onClick={() => organizationId && restore.mutate(organizationId)}>
+                  Restore
+                </Button>
+              )}
+            </div>
+
+            <section>
+              <h3 className="mb-2 text-sm font-semibold">Users ({data.users.length})</h3>
+              <ul className="space-y-1 text-sm">
+                {data.users.map((u) => (
+                  <li key={u.id}>
+                    {u.fullName} — {u.email} {!u.isActive && <Badge variant="secondary">Inactive</Badge>}
+                  </li>
+                ))}
+              </ul>
+            </section>
+
+            <section>
+              <h3 className="mb-2 text-sm font-semibold">Branches ({data.branches.length})</h3>
+              <ul className="space-y-1 text-sm">
+                {data.branches.map((b) => (
+                  <li key={b.id}>
+                    {b.code} — {b.name}
+                  </li>
+                ))}
+              </ul>
+            </section>
+
+            <section>
+              <h3 className="mb-2 text-sm font-semibold">Invoices</h3>
+              <ul className="space-y-1 text-sm">
+                {data.invoices.map((i) => (
+                  <li key={i.id}>
+                    {i.planName} — NPR {i.amountNpr} — {i.status}
+                  </li>
+                ))}
+              </ul>
+            </section>
+
+            <section>
+              <h3 className="mb-2 text-sm font-semibold">Recent Activity</h3>
+              <ul className="space-y-1 text-sm">
+                {data.recentAuditEntries.map((entry) => (
+                  <li key={entry.id}>
+                    {entry.action} — {new Date(entry.timestamp).toLocaleString()}
+                    {entry.impersonatedByUserId && " (via impersonation)"}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          </div>
+        )}
+      </SheetContent>
+    </Sheet>
+  );
+}
