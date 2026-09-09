@@ -1,5 +1,7 @@
 namespace Courier.Identity.Application;
 
+public record OrganizationRecord(Guid Id, string Name, string Slug, bool IsActive, bool SuspendedBySystem, DateTimeOffset? DeletedAt, DateTimeOffset CreatedAt);
+
 public interface IOrganizationLookupService
 {
     // Null iff no Organization with this id exists. Lets other modules (e.g. Shipments'
@@ -21,4 +23,23 @@ public interface IOrganizationLookupService
     // by a SuperAdmin (SuspendedBySystem == false) — paying an overdue invoice must never
     // silently un-suspend an org a human operator suspended for an unrelated cause.
     Task ReactivateIfSystemSuspendedAsync(Guid organizationId, CancellationToken cancellationToken = default);
+
+    // Cross-tenant read for Platform's OrganizationLifecycleService (SuperAdmin org list) — always
+    // called with ICurrentTenantProvider.OrganizationId == null, so the implementation must
+    // IgnoreQueryFilters() (Organizations carries a tenant query filter that otherwise fails
+    // closed and would return nothing here).
+    Task<List<OrganizationRecord>> ListAsync(CancellationToken cancellationToken = default);
+
+    // The four lifecycle mutations below are all called only by Platform's
+    // OrganizationLifecycleService (SuperAdmin-only, cross-tenant) — same IgnoreQueryFilters()
+    // requirement as ListAsync above applies to their shared lookup helper.
+    Task SuspendAsync(Guid organizationId, CancellationToken cancellationToken = default);
+    Task ReactivateAsync(Guid organizationId, CancellationToken cancellationToken = default);
+    Task SoftDeleteAsync(Guid organizationId, CancellationToken cancellationToken = default);
+
+    // Deliberately does NOT set IsActive = true — restoring a soft-deleted org leaves it
+    // inactive; a separate explicit ReactivateAsync call is required to bring it back online.
+    Task RestoreAsync(Guid organizationId, CancellationToken cancellationToken = default);
+
+    Task RevokeStaffRefreshTokensAsync(Guid organizationId, CancellationToken cancellationToken = default);
 }

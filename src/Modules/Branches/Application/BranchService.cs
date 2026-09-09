@@ -158,6 +158,15 @@ public class BranchService : IBranchLookupService
         return rows.ToDictionary(r => r.Id, r => r.Name);
     }
 
+    // IgnoreQueryFilters() here is deliberate and safe — the caller (Platform's
+    // OrganizationLifecycleService) always runs with ICurrentTenantProvider.OrganizationId ==
+    // null, so the ambient filter would otherwise silently return 0 for every org, not the real
+    // count. The explicit organizationId parameter in the Where clause is the actual, correct
+    // scope.
+    public async Task<int> CountActiveBranchesAsync(Guid organizationId, CancellationToken cancellationToken = default)
+        => await _dbContext.Set<Branch>().IgnoreQueryFilters()
+            .CountAsync(b => b.OrganizationId == organizationId && b.IsActive, cancellationToken);
+
     public async Task<BranchResponse?> AssignDeliveryZoneAsync(Guid branchId, AssignDeliveryZoneRequest request, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
         var organizationId = _currentTenantProvider.OrganizationId

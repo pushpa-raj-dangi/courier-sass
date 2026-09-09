@@ -27,6 +27,7 @@ file class NullBranchLookupService : IBranchLookupService
         Task.FromResult<BranchZoneInfo?>(null);
     public Task<IReadOnlyDictionary<Guid, string>> GetNamesByIdsAsync(IReadOnlySet<Guid> branchIds, CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyDictionary<Guid, string>>(new Dictionary<Guid, string>());
+    public Task<int> CountActiveBranchesAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult(0);
 }
 
 public class AuthServiceAcceptInviteTests

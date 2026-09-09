@@ -28,6 +28,7 @@ file class StubBranchLookupService : IBranchLookupService
         Task.FromResult<BranchZoneInfo?>(new BranchZoneInfo(branchId, null));
     public Task<IReadOnlyDictionary<Guid, string>> GetNamesByIdsAsync(IReadOnlySet<Guid> branchIds, CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyDictionary<Guid, string>>(branchIds.ToDictionary(id => id, id => $"Branch {id:N}"[..16]));
+    public Task<int> CountActiveBranchesAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult(0);
 }
 
 // Only recognizes an explicit allowlist — mirrors IBranchLookupService's real contract of
@@ -41,6 +42,7 @@ file class SelectiveBranchLookupService : IBranchLookupService
         Task.FromResult(_knownBranchIds.Contains(branchId) ? new BranchZoneInfo(branchId, null) : null);
     public Task<IReadOnlyDictionary<Guid, string>> GetNamesByIdsAsync(IReadOnlySet<Guid> branchIds, CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyDictionary<Guid, string>>(branchIds.ToDictionary(id => id, id => $"Branch {id:N}"[..16]));
+    public Task<int> CountActiveBranchesAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult(0);
 }
 
 public class UserManagementServiceBranchGrantsTests

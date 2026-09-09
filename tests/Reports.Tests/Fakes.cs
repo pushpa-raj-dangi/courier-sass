@@ -17,6 +17,7 @@ internal sealed class FakeBranchLookupService : IBranchLookupService
 
     public Task<BranchZoneInfo?> GetZoneInfoAsync(Guid branchId, CancellationToken cancellationToken = default) => Task.FromResult(ZoneInfo);
     public Task<IReadOnlyDictionary<Guid, string>> GetNamesByIdsAsync(IReadOnlySet<Guid> branchIds, CancellationToken cancellationToken = default) => Task.FromResult(Names);
+    public Task<int> CountActiveBranchesAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult(0);
 }
 
 internal sealed class FakeBranchAuthorizationChecker : IBranchAuthorizationChecker

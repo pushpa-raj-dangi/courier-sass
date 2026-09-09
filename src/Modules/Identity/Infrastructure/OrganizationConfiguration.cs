@@ -13,5 +13,6 @@ public class OrganizationConfiguration : IEntityTypeConfiguration<Organization>
         builder.Property(o => o.Name).HasMaxLength(200).IsRequired();
         builder.Property(o => o.Slug).HasMaxLength(100).IsRequired();
         builder.HasIndex(o => o.Slug).IsUnique();
+        builder.Property(o => o.CreatedAt).HasDefaultValueSql("now()");
     }
 }

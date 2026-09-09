@@ -40,6 +40,12 @@ public class PaymentServiceTests
             ReactivatedOrganizationId = organizationId;
             return Task.CompletedTask;
         }
+        public Task<List<OrganizationRecord>> ListAsync(CancellationToken cancellationToken = default) => Task.FromResult(new List<OrganizationRecord>());
+        public Task SuspendAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task ReactivateAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task SoftDeleteAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task RestoreAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task RevokeStaffRefreshTokensAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
     private static async Task<(Plan Plan, Subscription Subscription, Invoice Invoice)> SeedInvoiceAsync(Courier.Persistence.AppDbContext dbContext, Guid organizationId, SubscriptionStatus subscriptionStatus = SubscriptionStatus.PastDue)

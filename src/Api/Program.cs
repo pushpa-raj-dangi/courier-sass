@@ -166,6 +166,8 @@ builder.Services.AddScoped<PaymentService>();
 builder.Services.AddScoped<InvoiceGenerationJob>();
 builder.Services.AddScoped<IPlatformJwtTokenService, PlatformJwtTokenService>();
 builder.Services.AddScoped<PlatformAuthService>();
+builder.Services.AddScoped<IMerchantSessionRevoker, MerchantSessionRevocationService>();
+builder.Services.AddScoped<OrganizationLifecycleService>();
 
 builder.Services.Configure<BillingOptions>(builder.Configuration.GetSection("Billing"));
 builder.Services.Configure<EsewaOptions>(builder.Configuration.GetSection("Esewa"));
@@ -380,6 +382,7 @@ app.MapBillingEndpoints();
 app.MapReportsEndpoints();
 app.MapWebhooksEndpoints();
 app.MapPlatformAuthEndpoints();
+app.MapPlatformOrganizationsEndpoints();
 
 app.MapGet("/health/ping", () => Results.Ok(new { status = "ok" })).WithTags("Health check");
 

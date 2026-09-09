@@ -12,4 +12,5 @@ public class Organization
     // reactivate always leaves or resets this to false (Task 9).
     public bool SuspendedBySystem { get; set; }
     public DateTimeOffset? DeletedAt { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
 }
