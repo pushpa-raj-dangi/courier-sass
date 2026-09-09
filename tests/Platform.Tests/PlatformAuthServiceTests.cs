@@ -17,6 +17,24 @@ public class PlatformAuthServiceTests
         public string IssueAccessToken(Guid userId, string email) => $"fake-token-{userId}";
     }
 
+    // Spy, not a stub: records whether Verify(...) was actually invoked, so a test can prove
+    // LoginAsync ran the timing-safe comparison rather than short-circuiting before it. A
+    // regression to `if (user is null) throw ...;` placed BEFORE the Verify call would still
+    // throw the same exception (an assertion on the exception type alone can't catch it) but
+    // would leave VerifyWasCalled false.
+    private sealed class SpyPasswordHasher : IPasswordHasher
+    {
+        public bool VerifyWasCalled { get; private set; }
+
+        public string Hash(string password) => new PasswordHasherAdapter().Hash(password);
+
+        public bool Verify(string password, string hash)
+        {
+            VerifyWasCalled = true;
+            return new PasswordHasherAdapter().Verify(password, hash);
+        }
+    }
+
     [Fact]
     public async Task LoginAsync_ValidSuperAdminCredentials_Succeeds()
     {
@@ -102,19 +120,21 @@ public class PlatformAuthServiceTests
     }
 
     [Fact]
-    public async Task LoginAsync_NonexistentEmail_RejectedWithoutThrowingBeforeVerify()
+    public async Task LoginAsync_NonexistentEmail_StillCallsVerifyBeforeRejecting()
     {
         // Timing-safety regression guard: LoginAsync must run _passwordHasher.Verify(...) against
         // DummyPasswordHash even when no user row exists, rather than returning early the moment
-        // user is null. This test only proves the non-existent-email path completes and rejects
-        // cleanly (no NullReferenceException from an accidental early dereference of user.*) —
-        // actual timing-channel equivalence is a property of the LoginAsync source itself (see
-        // the code review checklist), not something a unit test can assert numerically.
+        // user is null (an early `if (user is null) throw ...;` before Verify would reintroduce
+        // an email-enumeration timing side-channel). Asserting only the thrown exception type
+        // cannot catch that regression, since both implementations throw the same exception here
+        // — the SpyPasswordHasher's VerifyWasCalled flag is what actually distinguishes them.
         using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
-        var hasher = new PasswordHasherAdapter();
+        var hasher = new SpyPasswordHasher();
         var service = new PlatformAuthService(dbContext, hasher, new FakeJwtTokenService());
 
         await Assert.ThrowsAsync<PlatformAuthenticationFailedException>(
             () => service.LoginAsync(new PlatformLoginRequest($"nobody-{Guid.NewGuid():N}@example.test", "whatever")));
+
+        Assert.True(hasher.VerifyWasCalled);
     }
 }
