@@ -34,6 +34,8 @@ public class PlatformDashboardServiceTests
         public Task<PlanSummary?> GetPlanSummaryAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult<PlanSummary?>(null);
         public Task<PlatformBillingMetrics> GetPlatformMetricsAsync(CancellationToken cancellationToken = default) => Task.FromResult(Metrics);
         public Task<List<InvoiceResponse>> ListInvoicesForOrganizationAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult(new List<InvoiceResponse>());
+        public List<InvoiceAdminRecord> Invoices { get; set; } = new();
+        public Task<List<InvoiceAdminRecord>> ListAllInvoicesAsync(Courier.Billing.Domain.InvoiceStatus? status, CancellationToken cancellationToken = default) => Task.FromResult(Invoices);
     }
 
     private sealed class FakeBranchLookupService : IBranchLookupService
@@ -82,5 +84,34 @@ public class PlatformDashboardServiceTests
         var detail = await service.GetOrganizationDetailAsync(Guid.NewGuid());
 
         Assert.Null(detail);
+    }
+
+    [Fact]
+    public async Task ListAllInvoicesAsync_JoinsOrganizationNameInMemory_AndFallsBackToUnknown()
+    {
+        var knownOrgId = Guid.NewGuid();
+        var unknownOrgId = Guid.NewGuid();
+        var organizationLookup = new FakeOrganizationLookupService
+        {
+            Organizations = new List<OrganizationRecord>
+            {
+                new(knownOrgId, "Kathmandu Couriers", "kathmandu-couriers", true, false, null, DateTimeOffset.UtcNow)
+            }
+        };
+        var billingLookup = new FakeBillingLookupService
+        {
+            Invoices = new List<InvoiceAdminRecord>
+            {
+                new(Guid.NewGuid(), knownOrgId, "Growth", 2500m, Courier.Billing.Domain.InvoiceStatus.Paid, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow),
+                new(Guid.NewGuid(), unknownOrgId, "Starter", 1000m, Courier.Billing.Domain.InvoiceStatus.Overdue, DateTimeOffset.UtcNow, null)
+            }
+        };
+        var service = new PlatformDashboardService(organizationLookup, billingLookup, new FakeBranchLookupService(), new FakeAuditLogReader());
+
+        var invoices = await service.ListAllInvoicesAsync(null);
+
+        Assert.Equal(2, invoices.Count);
+        Assert.Equal("Kathmandu Couriers", invoices.Single(i => i.OrganizationId == knownOrgId).OrganizationName);
+        Assert.Equal("Unknown", invoices.Single(i => i.OrganizationId == unknownOrgId).OrganizationName);
     }
 }

@@ -7,6 +7,7 @@ namespace Courier.Platform.Application;
 
 public record PlatformMetrics(int TotalOrganizations, int ActiveOrganizations, int SuspendedOrganizations, int DeletedOrganizations, decimal MonthlyRecurringRevenueNpr, int OverdueInvoiceCount);
 public record OrganizationDetail(OrganizationRecord Organization, string? PlanName, List<OrganizationUserRecord> Users, List<BranchAdminRecord> Branches, List<InvoiceResponse> Invoices, List<AuditLogRecord> RecentAuditEntries);
+public record InvoiceAdminRecordWithOrgName(Guid Id, Guid OrganizationId, string OrganizationName, string PlanName, decimal AmountNpr, Courier.Billing.Domain.InvoiceStatus Status, DateTimeOffset DueAt, DateTimeOffset? PaidAt);
 
 public class PlatformDashboardService
 {
@@ -56,5 +57,18 @@ public class PlatformDashboardService
         var auditEntries = await _auditLogReader.ListForOrganizationAsync(organizationId, 50, cancellationToken);
 
         return new OrganizationDetail(organization, planSummary?.PlanName, users, branches, invoices, auditEntries);
+    }
+
+    // Joins invoices against organizations in-memory (one ListAsync call, then a dictionary
+    // lookup per invoice) rather than an N+1 per-invoice organization lookup.
+    public async Task<List<InvoiceAdminRecordWithOrgName>> ListAllInvoicesAsync(Courier.Billing.Domain.InvoiceStatus? status, CancellationToken cancellationToken = default)
+    {
+        var invoices = await _billingLookupService.ListAllInvoicesAsync(status, cancellationToken);
+        var organizations = await _organizationLookupService.ListAsync(cancellationToken);
+        var namesByid = organizations.ToDictionary(o => o.Id, o => o.Name);
+
+        return invoices
+            .Select(i => new InvoiceAdminRecordWithOrgName(i.Id, i.OrganizationId, namesByid.GetValueOrDefault(i.OrganizationId, "Unknown"), i.PlanName, i.AmountNpr, i.Status, i.DueAt, i.PaidAt))
+            .ToList();
     }
 }

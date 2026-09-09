@@ -2,6 +2,7 @@ namespace Courier.Billing.Application;
 
 public record PlanSummary(string PlanName, decimal MonthlyPriceNpr, Courier.Billing.Domain.SubscriptionStatus Status);
 public record PlatformBillingMetrics(decimal MonthlyRecurringRevenueNpr, int OverdueInvoiceCount);
+public record InvoiceAdminRecord(Guid Id, Guid OrganizationId, string PlanName, decimal AmountNpr, Courier.Billing.Domain.InvoiceStatus Status, DateTimeOffset DueAt, DateTimeOffset? PaidAt);
 
 public interface IBillingLookupService
 {
@@ -19,4 +20,9 @@ public interface IBillingLookupService
     // never needs to inject SubscriptionService directly (mirrors the rest of this interface's
     // narrow-lookup shape).
     Task<List<InvoiceResponse>> ListInvoicesForOrganizationAsync(Guid organizationId, CancellationToken cancellationToken = default);
+
+    // Cross-org read for Platform's PlatformDashboardService (SuperAdmin invoices list) — like
+    // GetPlatformMetricsAsync above, always called with a null ambient tenant, so the
+    // implementation must IgnoreQueryFilters().
+    Task<List<InvoiceAdminRecord>> ListAllInvoicesAsync(Courier.Billing.Domain.InvoiceStatus? status, CancellationToken cancellationToken = default);
 }

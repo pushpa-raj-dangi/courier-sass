@@ -106,4 +106,20 @@ public class SubscriptionService : IBillingLookupService
 
     public Task<List<InvoiceResponse>> ListInvoicesForOrganizationAsync(Guid organizationId, CancellationToken cancellationToken = default)
         => ListInvoicesAsync(organizationId, cancellationToken);
+
+    // Cross-org by design (Platform's SuperAdmin invoices list) — IgnoreQueryFilters() is
+    // required since the caller always runs with a null ambient tenant, same as
+    // GetPlatformMetricsAsync above.
+    public async Task<List<InvoiceAdminRecord>> ListAllInvoicesAsync(InvoiceStatus? status, CancellationToken cancellationToken = default)
+    {
+        var query = _dbContext.Set<Invoice>().IgnoreQueryFilters().AsQueryable();
+        if (status is InvoiceStatus s)
+        {
+            query = query.Where(i => i.Status == s);
+        }
+        return await query
+            .OrderByDescending(i => i.CreatedAt)
+            .Select(i => new InvoiceAdminRecord(i.Id, i.OrganizationId, i.PlanNameSnapshot, i.AmountNprSnapshot, i.Status, i.DueAt, i.PaidAt))
+            .ToListAsync(cancellationToken);
+    }
 }

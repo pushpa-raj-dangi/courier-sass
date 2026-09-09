@@ -392,6 +392,7 @@ app.MapPlatformAuthEndpoints();
 app.MapPlatformOrganizationsEndpoints();
 app.MapPlatformPlansEndpoints();
 app.MapPlatformDashboardEndpoints();
+app.MapPlatformInvoicesEndpoints();
 app.MapPlatformImpersonationEndpoints();
 
 app.MapGet("/health/ping", () => Results.Ok(new { status = "ok" })).WithTags("Health check");
