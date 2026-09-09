@@ -26,7 +26,7 @@ public class ImpersonationTokenService : IImpersonationTokenService
         _options = options.Value;
     }
 
-    public string IssueImpersonationAccessToken(Guid targetUserId, Guid organizationId, string email, Guid impersonatingSuperAdminId)
+    public ImpersonationTokenIssued IssueImpersonationAccessToken(Guid targetUserId, Guid organizationId, string email, Guid impersonatingSuperAdminId)
     {
         var claims = new[]
         {
@@ -37,15 +37,17 @@ public class ImpersonationTokenService : IImpersonationTokenService
             new Claim("is_impersonation", "true")
         };
 
+        var expiresAt = DateTimeOffset.UtcNow.Add(ImpersonationLifetime);
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.SigningKey));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
         var token = new JwtSecurityToken(
             issuer: _options.Issuer,
             audience: _options.Audience,
             claims: claims,
-            expires: DateTime.UtcNow.Add(ImpersonationLifetime),
+            expires: expiresAt.UtcDateTime,
             signingCredentials: credentials);
 
-        return new JwtSecurityTokenHandler().WriteToken(token);
+        var accessToken = new JwtSecurityTokenHandler().WriteToken(token);
+        return new ImpersonationTokenIssued(accessToken, expiresAt);
     }
 }

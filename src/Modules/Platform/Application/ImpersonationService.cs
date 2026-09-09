@@ -31,8 +31,7 @@ public class ImpersonationService
             throw new PlatformValidationException("Organization or user was not found.");
         }
 
-        var accessToken = _tokenService.IssueImpersonationAccessToken(user.Id, organizationId, user.Email, actingSuperAdminId);
-        var expiresAt = DateTimeOffset.UtcNow.AddMinutes(30);
+        var issuedToken = _tokenService.IssueImpersonationAccessToken(user.Id, organizationId, user.Email, actingSuperAdminId);
 
         // This audits the GRANT itself (a cross-tenant SuperAdmin action). Every action the
         // SuperAdmin subsequently takes WITH the issued token is separately audited as a normal
@@ -41,6 +40,6 @@ public class ImpersonationService
         // outside this one grant needs to know impersonation is happening.
         await _auditLogger.LogAsync(new AuditEntry(organizationId, actingSuperAdminId, "platform.impersonation_started", "User", targetUserId.ToString(), IsCrossTenantAction: true), cancellationToken);
 
-        return new ImpersonationResult(accessToken, expiresAt, user.FullName, organization.Name);
+        return new ImpersonationResult(issuedToken.AccessToken, issuedToken.ExpiresAt, user.FullName, organization.Name);
     }
 }

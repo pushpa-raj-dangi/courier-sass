@@ -27,7 +27,10 @@ public class ImpersonationServiceTests
 
     private sealed class FakeImpersonationTokenService : IImpersonationTokenService
     {
-        public string IssueImpersonationAccessToken(Guid targetUserId, Guid organizationId, string email, Guid impersonatingSuperAdminId) => "fake-impersonation-token";
+        public static readonly DateTimeOffset FixedExpiresAt = new(2026, 1, 1, 0, 30, 0, TimeSpan.Zero);
+
+        public ImpersonationTokenIssued IssueImpersonationAccessToken(Guid targetUserId, Guid organizationId, string email, Guid impersonatingSuperAdminId)
+            => new("fake-impersonation-token", FixedExpiresAt);
     }
 
     private sealed class FakeAuditLogger : IAuditLogger
@@ -54,6 +57,27 @@ public class ImpersonationServiceTests
         Assert.Equal("fake-impersonation-token", result.AccessToken);
         Assert.Equal("Test User", result.ImpersonatedUserName);
         Assert.True(auditLogger.LastEntry!.IsCrossTenantAction);
+    }
+
+    // Regression guard for the bug where ImpersonationService independently computed
+    // DateTimeOffset.UtcNow.AddMinutes(30) instead of using the expiry the token service
+    // actually encoded into the JWT's exp claim. ExpiresAt must be exactly what the token
+    // service reports, not a value ImpersonationService derives on its own.
+    [Fact]
+    public async Task IssueAsync_ReturnsExpiresAt_ExactlyAsReportedByTokenService()
+    {
+        var organizationId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var organizationLookup = new FakeOrganizationLookupService
+        {
+            Organization = new OrganizationRecord(organizationId, "Test Org", "test-org", true, false, null, DateTimeOffset.UtcNow),
+            User = new OrganizationUserRecord(userId, "user@example.test", "Test User", true)
+        };
+        var service = new ImpersonationService(organizationLookup, new FakeImpersonationTokenService(), new FakeAuditLogger());
+
+        var result = await service.IssueAsync(organizationId, userId, Guid.NewGuid());
+
+        Assert.Equal(FakeImpersonationTokenService.FixedExpiresAt, result.ExpiresAt);
     }
 
     [Fact]
