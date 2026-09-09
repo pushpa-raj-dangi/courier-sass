@@ -52,4 +52,11 @@ public interface IOrganizationLookupService
     // above. IgnoreQueryFilters() is required since Users also carries a tenant query filter that
     // otherwise fails closed against Platform's always-null ambient tenant.
     Task<List<OrganizationUserRecord>> ListUsersAsync(Guid organizationId, CancellationToken cancellationToken = default);
+
+    // Cross-tenant read for Platform's ImpersonationService (SuperAdmin issuing a time-boxed
+    // impersonation token for a specific user) — same IgnoreQueryFilters()/explicit organizationId
+    // equality requirement as GetAsync/ListUsersAsync above (Platform's ambient tenant is always
+    // null). Returns null if the user does not exist OR does not belong to this organization —
+    // callers must not distinguish those two cases in any user-facing error.
+    Task<OrganizationUserRecord?> GetUserAsync(Guid organizationId, Guid userId, CancellationToken cancellationToken = default);
 }

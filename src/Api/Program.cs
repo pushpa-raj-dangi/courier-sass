@@ -171,6 +171,8 @@ builder.Services.AddScoped<PlatformAuthService>();
 builder.Services.AddScoped<IMerchantSessionRevoker, MerchantSessionRevocationService>();
 builder.Services.AddScoped<OrganizationLifecycleService>();
 builder.Services.AddScoped<PlatformDashboardService>();
+builder.Services.AddScoped<IImpersonationTokenService, ImpersonationTokenService>();
+builder.Services.AddScoped<ImpersonationService>();
 
 builder.Services.Configure<BillingOptions>(builder.Configuration.GetSection("Billing"));
 builder.Services.Configure<EsewaOptions>(builder.Configuration.GetSection("Esewa"));
@@ -387,6 +389,7 @@ app.MapWebhooksEndpoints();
 app.MapPlatformAuthEndpoints();
 app.MapPlatformOrganizationsEndpoints();
 app.MapPlatformDashboardEndpoints();
+app.MapPlatformImpersonationEndpoints();
 
 app.MapGet("/health/ping", () => Results.Ok(new { status = "ok" })).WithTags("Health check");
 

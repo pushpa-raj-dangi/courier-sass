@@ -116,6 +116,17 @@ public class OrganizationAdminService : IOrganizationLookupService
             .Select(u => new OrganizationUserRecord(u.Id, u.Email, u.FullName, u.IsActive))
             .ToListAsync(cancellationToken);
 
+    // IgnoreQueryFilters(): called only from Platform's ImpersonationService (SuperAdmin,
+    // cross-tenant, ICurrentTenantProvider.OrganizationId == null) — same reasoning as
+    // GetAsync/ListUsersAsync above. The explicit organizationId equality check (rather than just
+    // looking up by userId) is what stops a SuperAdmin from impersonating a user under the wrong
+    // organizationId path parameter.
+    public async Task<OrganizationUserRecord?> GetUserAsync(Guid organizationId, Guid userId, CancellationToken cancellationToken = default)
+        => await _dbContext.Set<User>().IgnoreQueryFilters()
+            .Where(u => u.Id == userId && u.OrganizationId == organizationId)
+            .Select(u => new OrganizationUserRecord(u.Id, u.Email, u.FullName, u.IsActive))
+            .FirstOrDefaultAsync(cancellationToken);
+
     // IgnoreQueryFilters(): shared helper for the four lifecycle mutations above, all called only
     // from Platform's OrganizationLifecycleService (SuperAdmin, cross-tenant,
     // ICurrentTenantProvider.OrganizationId == null) — without this the ambient Organizations

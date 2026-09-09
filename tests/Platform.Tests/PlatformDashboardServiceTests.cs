@@ -23,6 +23,7 @@ public class PlatformDashboardServiceTests
         public Task RevokeStaffRefreshTokensAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<OrganizationRecord?> GetAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult(Organizations.FirstOrDefault(o => o.Id == organizationId));
         public Task<List<OrganizationUserRecord>> ListUsersAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult(new List<OrganizationUserRecord>());
+        public Task<OrganizationUserRecord?> GetUserAsync(Guid organizationId, Guid userId, CancellationToken cancellationToken = default) => Task.FromResult<OrganizationUserRecord?>(null);
     }
 
     private sealed class FakeBillingLookupService : IBillingLookupService

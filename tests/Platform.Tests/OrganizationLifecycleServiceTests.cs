@@ -26,6 +26,7 @@ public class OrganizationLifecycleServiceTests
         public Task RevokeStaffRefreshTokensAsync(Guid organizationId, CancellationToken cancellationToken = default) { RevokedStaffTokens = true; return Task.CompletedTask; }
         public Task<OrganizationRecord?> GetAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult<OrganizationRecord?>(null);
         public Task<List<OrganizationUserRecord>> ListUsersAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult(new List<OrganizationUserRecord>());
+        public Task<OrganizationUserRecord?> GetUserAsync(Guid organizationId, Guid userId, CancellationToken cancellationToken = default) => Task.FromResult<OrganizationUserRecord?>(null);
     }
 
     private sealed class FakeMerchantSessionRevoker : IMerchantSessionRevoker
