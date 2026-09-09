@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,6 +8,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { ErrorState } from "@/components/states/ErrorState";
 import { useOrganizationPanelStore } from "@/features/platform-organizations/store/organizationPanelStore";
 import { usePlatformOrganization } from "@/features/platform-organizations/hooks/usePlatformOrganization";
+import { useImpersonate } from "@/features/platform-organizations/hooks/useImpersonate";
 import {
   useSuspendOrganization,
   useReactivateOrganization,
@@ -15,6 +17,7 @@ import {
 } from "@/features/platform-organizations/hooks/useOrganizationLifecycleActions";
 
 export function OrganizationDetailSheet() {
+  const router = useRouter();
   const panel = useOrganizationPanelStore((s) => s.panel);
   const close = useOrganizationPanelStore((s) => s.close);
   const organizationId = panel.mode === "detail" ? panel.organizationId : null;
@@ -23,6 +26,7 @@ export function OrganizationDetailSheet() {
   const reactivate = useReactivateOrganization();
   const softDelete = useDeleteOrganization();
   const restore = useRestoreOrganization();
+  const impersonate = useImpersonate();
 
   return (
     <Sheet open={panel.mode === "detail"} onOpenChange={(open) => !open && close()}>
@@ -94,8 +98,28 @@ export function OrganizationDetailSheet() {
               <h3 className="mb-2 text-sm font-semibold">Users ({data.users.length})</h3>
               <ul className="space-y-1 text-sm">
                 {data.users.map((u) => (
-                  <li key={u.id}>
-                    {u.fullName} — {u.email} {!u.isActive && <Badge variant="secondary">Inactive</Badge>}
+                  <li key={u.id} className="flex items-center justify-between gap-2">
+                    <span>
+                      {u.fullName} — {u.email} {!u.isActive && <Badge variant="secondary">Inactive</Badge>}
+                    </span>
+                    {u.isActive && (
+                      // Impersonation is only ever offered for active users — an inactive/disabled
+                      // user should never be usable as an impersonation identity.
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={impersonate.isPending}
+                        onClick={() =>
+                          organizationId &&
+                          impersonate.mutate(
+                            { organizationId, userId: u.id },
+                            { onSuccess: () => router.push("/dashboard") }
+                          )
+                        }
+                      >
+                        Impersonate
+                      </Button>
+                    )}
                   </li>
                 ))}
               </ul>

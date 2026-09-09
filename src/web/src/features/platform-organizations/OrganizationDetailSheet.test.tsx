@@ -58,6 +58,16 @@ vi.mock("@/features/platform-organizations/hooks/useOrganizationLifecycleActions
   useRestoreOrganization: () => ({ mutate: restoreMutate, isPending: false }),
 }));
 
+const impersonateMutate = vi.fn();
+vi.mock("@/features/platform-organizations/hooks/useImpersonate", () => ({
+  useImpersonate: () => ({ mutate: impersonateMutate, isPending: false }),
+}));
+
+const push = vi.fn();
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push }),
+}));
+
 vi.mock("@/features/platform-organizations/store/organizationPanelStore", () => ({
   useOrganizationPanelStore: (selector: (s: unknown) => unknown) =>
     selector({ panel: { mode: "detail", organizationId: "org-1" }, close: vi.fn() }),
@@ -71,6 +81,8 @@ describe("OrganizationDetailSheet", () => {
     reactivateMutate.mockClear();
     deleteMutate.mockClear();
     restoreMutate.mockClear();
+    impersonateMutate.mockClear();
+    push.mockClear();
   });
 
   it("shows org details and calls suspend / delete for an active organization", async () => {
@@ -88,6 +100,28 @@ describe("OrganizationDetailSheet", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /delete/i }));
     await waitFor(() => expect(deleteMutate).toHaveBeenCalledWith("org-1"));
+  });
+
+  it("offers Impersonate only for active users, and navigates to /dashboard on success", async () => {
+    const detail = makeDetail();
+    detail.users.push({ id: "u2", email: "gone@kathmandu.example", fullName: "Former Staffer", isActive: false });
+    usePlatformOrganization.mockReturnValue({ data: detail, isLoading: false, isError: false, refetch: vi.fn() });
+    render(<OrganizationDetailSheet />);
+
+    const impersonateButtons = screen.getAllByRole("button", { name: /impersonate/i });
+    expect(impersonateButtons).toHaveLength(1);
+
+    fireEvent.click(impersonateButtons[0]);
+    await waitFor(() =>
+      expect(impersonateMutate).toHaveBeenCalledWith(
+        { organizationId: "org-1", userId: "u1" },
+        expect.objectContaining({ onSuccess: expect.any(Function) })
+      )
+    );
+
+    const onSuccess = impersonateMutate.mock.calls[0][1].onSuccess;
+    onSuccess();
+    expect(push).toHaveBeenCalledWith("/dashboard");
   });
 
   it("shows Reactivate instead of Suspend for a suspended organization, and calls it", async () => {
