@@ -364,6 +364,7 @@ app.UseMiddleware<Courier.Api.Middleware.ExceptionHandlingMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseMiddleware<Courier.Api.Middleware.ApiKeyRequestLoggingMiddleware>();
+app.UseMiddleware<Courier.Api.Middleware.TrialEnforcementMiddleware>();
 app.UseMiddleware<Courier.Api.Middleware.IdempotencyMiddleware>();
 
 app.MapAuthEndpoints();
