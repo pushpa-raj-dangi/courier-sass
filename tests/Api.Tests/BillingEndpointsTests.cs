@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Courier.Billing.Application;
+using Courier.Billing.Presentation;
 using Courier.Events.Domain;
 using Courier.Identity.Application;
 using Courier.Identity.Presentation;
@@ -111,6 +112,65 @@ public class BillingEndpointsTests : IClassFixture<WebApplicationFactory<Program
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal("Free", body.GetProperty("planName").GetString());
+    }
+
+    [Fact]
+    public async Task GetSubscription_DuringTrial_ReturnsTrialStatusWithNoPlan()
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "trialstatus");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+
+        var response = await client.GetAsync("/api/v1/billing/subscription");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Trial", body.GetProperty("status").GetString());
+        Assert.True(body.GetProperty("trialEndsAt").ValueKind != JsonValueKind.Null);
+        Assert.Equal(JsonValueKind.Null, body.GetProperty("planName").ValueKind);
+    }
+
+    [Fact]
+    public async Task ListPlans_ReturnsOnlyActivePlans()
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "listplans");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var planService = scope.ServiceProvider.GetRequiredService<PlanService>();
+            var retired = await planService.CreatePlanAsync(new CreatePlanRequest("ToRetire", $"to-retire-{Guid.NewGuid():N}", 100m, null, null, null, false), Guid.NewGuid());
+            await planService.RetirePlanAsync(retired.Id, Guid.NewGuid());
+        }
+
+        var response = await client.GetAsync("/api/v1/billing/plans");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var plans = await response.Content.ReadFromJsonAsync<List<PlanResponse>>();
+        Assert.DoesNotContain(plans!, p => !p.IsActive);
+    }
+
+    [Fact]
+    public async Task AssignPlan_SelfServe_MovesOrgOffTrial()
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "selfserveplan");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        Guid planId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var planService = scope.ServiceProvider.GetRequiredService<PlanService>();
+            var plan = await planService.CreatePlanAsync(new CreatePlanRequest("SelfServe", $"self-serve-{Guid.NewGuid():N}", 500m, null, null, null, false), Guid.NewGuid());
+            planId = plan.Id;
+        }
+
+        var response = await client.PostAsJsonAsync("/api/v1/billing/plan", new AssignPlanRequest(planId));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var subscriptionResponse = await client.GetAsync("/api/v1/billing/subscription");
+        var body = await subscriptionResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Active", body.GetProperty("status").GetString());
+        Assert.Equal("SelfServe", body.GetProperty("planName").GetString());
     }
 
 }

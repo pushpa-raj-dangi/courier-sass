@@ -63,6 +63,11 @@ public class PlanService
     public async Task<List<PlanResponse>> ListPlansAsync(CancellationToken cancellationToken = default)
         => await _dbContext.Set<Plan>().OrderBy(p => p.MonthlyPriceNpr).Select(p => ToResponse(p)).ToListAsync(cancellationToken);
 
+    // Staff-facing subset of ListPlansAsync (which is SuperAdmin-only and includes retired
+    // plans) — an OrganizationOwner choosing a plan must never be offered a retired one.
+    public async Task<List<PlanResponse>> ListActivePlansAsync(CancellationToken cancellationToken = default)
+        => await _dbContext.Set<Plan>().Where(p => p.IsActive).OrderBy(p => p.MonthlyPriceNpr).Select(p => ToResponse(p)).ToListAsync(cancellationToken);
+
     public async Task RetirePlanAsync(Guid planId, Guid actingSuperAdminId, CancellationToken cancellationToken = default)
     {
         var plan = await _dbContext.Set<Plan>().FirstOrDefaultAsync(p => p.Id == planId, cancellationToken)

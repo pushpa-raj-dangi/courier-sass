@@ -98,4 +98,21 @@ public class PlanServiceTests
         Assert.Null(entry.OrganizationId);
         Assert.True(entry.IsCrossTenantAction);
     }
+
+    [Fact]
+    public async Task ListActivePlansAsync_ExcludesRetiredPlans()
+    {
+        using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
+        var service = new PlanService(dbContext, new FakeAuditLogger());
+        var activeSlug = $"active-{Guid.NewGuid():N}";
+        var retiredSlug = $"retired-{Guid.NewGuid():N}";
+        var active = await service.CreatePlanAsync(new CreatePlanRequest("Active Plan", activeSlug, 500m, null, null, null, false), Guid.NewGuid());
+        var retired = await service.CreatePlanAsync(new CreatePlanRequest("Retired Plan", retiredSlug, 900m, null, null, null, false), Guid.NewGuid());
+        await service.RetirePlanAsync(retired.Id, Guid.NewGuid());
+
+        var result = await service.ListActivePlansAsync();
+
+        Assert.Contains(result, p => p.Id == active.Id);
+        Assert.DoesNotContain(result, p => p.Id == retired.Id);
+    }
 }

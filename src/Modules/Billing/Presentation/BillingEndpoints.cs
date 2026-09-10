@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Routing;
 namespace Courier.Billing.Presentation;
 
 public record PayInvoiceRequest(PaymentGateway Gateway, string ReturnBaseUrl);
+public record AssignPlanRequest(Guid PlanId);
 
 public static class BillingEndpoints
 {
@@ -19,6 +20,37 @@ public static class BillingEndpoints
         {
             var plan = await service.GetPlanSummaryAsync(tenantProvider.OrganizationId!.Value, cancellationToken);
             return plan is null ? Results.NotFound() : Results.Ok(plan);
+        }).RequirePermission("org.billing.manage");
+
+        // Unlike GET /plan above (404s whenever no Plan is chosen — e.g. during a trial), this
+        // always reflects the Subscription's real state, so the staff Billing page can render a
+        // trial countdown or a "trial expired" prompt instead of treating a 404 as an error.
+        group.MapGet("/subscription", async (SubscriptionService service, ICurrentTenantProvider tenantProvider, CancellationToken cancellationToken) =>
+        {
+            var status = await service.GetSubscriptionStatusAsync(tenantProvider.OrganizationId!.Value, cancellationToken);
+            return status is null ? Results.NotFound() : Results.Ok(status);
+        }).RequirePermission("org.billing.manage");
+
+        group.MapGet("/plans", async (PlanService service, CancellationToken cancellationToken) =>
+            Results.Ok(await service.ListActivePlansAsync(cancellationToken)))
+            .RequirePermission("org.billing.manage");
+
+        // The one call this entire feature is about — finally reachable from a real request.
+        // Reuses AssignPlanAsync unmodified: it creates-or-updates the org's Subscription, sets
+        // Status = Active, and (since a Trial subscription row already exists from
+        // registration) takes the "existing is not null" branch, leaving CurrentCycleStart/End
+        // as originally set at trial start rather than resetting the billing cycle clock.
+        group.MapPost("/plan", async (AssignPlanRequest request, SubscriptionService service, ICurrentTenantProvider tenantProvider, HttpContext httpContext, CancellationToken cancellationToken) =>
+        {
+            try
+            {
+                var result = await service.AssignPlanAsync(tenantProvider.OrganizationId!.Value, request.PlanId, httpContext.User.GetUserId()!.Value, cancellationToken);
+                return Results.Ok(result);
+            }
+            catch (BillingValidationException ex)
+            {
+                return Results.BadRequest(new { error = new { code = "BILLING_VALIDATION_FAILED", message = ex.Message } });
+            }
         }).RequirePermission("org.billing.manage");
 
         group.MapGet("/invoices", async (SubscriptionService service, ICurrentTenantProvider tenantProvider, CancellationToken cancellationToken) =>
