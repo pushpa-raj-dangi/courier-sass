@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { clientFetch, SessionExpiredError } from "./clientFetch";
+import { clientFetch, SessionExpiredError, TrialExpiredError } from "./clientFetch";
 
 describe("clientFetch", () => {
   beforeEach(() => {
@@ -27,6 +27,16 @@ describe("clientFetch", () => {
     });
 
     await expect(clientFetch("/api/example")).rejects.toBeInstanceOf(SessionExpiredError);
+  });
+
+  it("throws TrialExpiredError on a 402", async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: false,
+      status: 402,
+      json: async () => null,
+    });
+
+    await expect(clientFetch("/api/example")).rejects.toBeInstanceOf(TrialExpiredError);
   });
 
   it("throws a plain Error on any other non-OK status when there is no JSON body", async () => {

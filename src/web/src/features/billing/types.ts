@@ -1,7 +1,26 @@
 export interface PlanSummary {
   planName: string;
   monthlyPriceNpr: number;
-  status: "Active" | "PastDue" | "Cancelled";
+  status: "Active" | "PastDue" | "Cancelled" | "Trial" | "TrialExpired";
+}
+
+export interface SubscriptionStatusInfo {
+  status: "Active" | "PastDue" | "Cancelled" | "Trial" | "TrialExpired";
+  trialEndsAt: string | null;
+  planName: string | null;
+  monthlyPriceNpr: number | null;
+}
+
+export interface AvailablePlan {
+  id: string;
+  name: string;
+  slug: string;
+  monthlyPriceNpr: number;
+  maxBranches: number | null;
+  maxStaffUsers: number | null;
+  maxMonthlyShipments: number | null;
+  isDefault: boolean;
+  isActive: boolean;
 }
 
 export interface Invoice {

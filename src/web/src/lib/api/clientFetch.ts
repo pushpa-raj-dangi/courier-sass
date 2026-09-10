@@ -5,10 +5,20 @@ export class SessionExpiredError extends Error {
   }
 }
 
+export class TrialExpiredError extends Error {
+  constructor() {
+    super("Trial expired");
+    this.name = "TrialExpiredError";
+  }
+}
+
 export async function clientFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, init);
   if (response.status === 401) {
     throw new SessionExpiredError();
+  }
+  if (response.status === 402) {
+    throw new TrialExpiredError();
   }
   if (!response.ok) {
     let bodyText: string | null = null;

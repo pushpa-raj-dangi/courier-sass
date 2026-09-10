@@ -1,6 +1,12 @@
-import { QueryCache, QueryClient } from "@tanstack/react-query";
-import { SessionExpiredError } from "@/lib/api/clientFetch";
+import { QueryCache, MutationCache, QueryClient } from "@tanstack/react-query";
+import { SessionExpiredError, TrialExpiredError } from "@/lib/api/clientFetch";
 import { useAuthStore } from "@/lib/store/authStore";
+
+function redirectToBillingOnTrialExpired(error: unknown) {
+  if (error instanceof TrialExpiredError && typeof window !== "undefined" && window.location.pathname !== "/billing") {
+    window.location.href = "/billing";
+  }
+}
 
 // Module-level singleton, shared by <Providers> (see src/app/providers.tsx) and by code that
 // lives outside the React tree — most notably the rider outbox's syncManager.ts, which drains
@@ -14,6 +20,10 @@ export const queryClient = new QueryClient({
       if (error instanceof SessionExpiredError) {
         useAuthStore.getState().showReauthDialog();
       }
+      redirectToBillingOnTrialExpired(error);
     },
+  }),
+  mutationCache: new MutationCache({
+    onError: redirectToBillingOnTrialExpired,
   }),
 });
