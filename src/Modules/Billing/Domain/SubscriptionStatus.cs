@@ -9,5 +9,9 @@ public enum SubscriptionStatus
 {
     Active = 0,
     PastDue = 1,
-    Cancelled = 2
+    Cancelled = 2,
+    // Appended, never inserted mid-list — this codebase has shipped a real bug from
+    // reordering an integer-persisted enum before (docs/CLARIFICATIONS.md).
+    Trial = 3,
+    TrialExpired = 4
 }

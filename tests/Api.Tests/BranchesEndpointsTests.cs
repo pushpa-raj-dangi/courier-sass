@@ -127,8 +127,9 @@ public class BranchesEndpointsTests : IClassFixture<WebApplicationFactory<Progra
         var auth = await RegisterOrgAsync(client);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth.AccessToken);
 
-        // Org gets a default (unlimited) plan at self-registration (Task 7) — the first branch
-        // succeeds regardless of any limit.
+        // Org gets a Trial subscription with no Plan at self-registration (Task 2 of the
+        // trial-plan-assignment plan) — the first branch succeeds regardless of any limit,
+        // since GetMaxBranchesAsync treats "no Plan chosen" the same as "unlimited."
         var firstResponse = await client.PostAsJsonAsync("/api/v1/branches", ValidBranchRequest("LIMIT-01"));
         Assert.Equal(HttpStatusCode.Created, firstResponse.StatusCode);
 
@@ -139,7 +140,7 @@ public class BranchesEndpointsTests : IClassFixture<WebApplicationFactory<Progra
             var subscriptionService = scope.ServiceProvider.GetRequiredService<SubscriptionService>();
             var planService = scope.ServiceProvider.GetRequiredService<PlanService>();
             var plan = await planService.CreatePlanAsync(new CreatePlanRequest("OneBranchPlan", $"one-branch-{Guid.NewGuid():N}", 0m, 1, null, null, false), Guid.NewGuid());
-            await subscriptionService.AssignPlanAsync(auth.OrganizationId, plan.Id);
+            await subscriptionService.AssignPlanAsync(auth.OrganizationId, plan.Id, auth.UserId);
         }
 
         var response = await client.PostAsJsonAsync("/api/v1/branches", ValidBranchRequest("LIMIT-02"));

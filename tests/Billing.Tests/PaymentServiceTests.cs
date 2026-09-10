@@ -167,7 +167,7 @@ public class PaymentServiceTests
             Id = Guid.NewGuid(),
             OrganizationId = organizationId,
             SubscriptionId = subscription.Id,
-            PlanId = subscription.PlanId,
+            PlanId = subscription.PlanId!.Value,
             PlanNameSnapshot = "Pro",
             AmountNprSnapshot = 50000m,
             CycleStart = DateTimeOffset.UtcNow.AddMonths(-1),

@@ -31,14 +31,18 @@ public class InvoiceGenerationJob
             return;
         }
 
-        var planIds = dueSubscriptions.Select(s => s.PlanId).ToHashSet();
+        // PlanId is nullable on Subscription (Trial/TrialExpired carry no Plan), but this job only
+        // ever looks at Status == Active subscriptions, and AssignPlanAsync is the only path that
+        // sets Status to Active — it always sets PlanId in the same write, so PlanId is guaranteed
+        // non-null for every subscription reached here.
+        var planIds = dueSubscriptions.Select(s => s.PlanId!.Value).ToHashSet();
         var plans = await _dbContext.Set<Plan>().IgnoreQueryFilters()
             .Where(p => planIds.Contains(p.Id))
             .ToDictionaryAsync(p => p.Id, cancellationToken);
 
         foreach (var subscription in dueSubscriptions)
         {
-            var plan = plans[subscription.PlanId];
+            var plan = plans[subscription.PlanId!.Value];
             var cycleStart = subscription.CurrentCycleStart;
             var cycleEnd = subscription.CurrentCycleEnd;
 
