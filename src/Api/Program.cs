@@ -169,6 +169,7 @@ builder.Services.AddScoped<IBillingLookupService>(sp => sp.GetRequiredService<Su
 builder.Services.AddScoped<PaymentService>();
 builder.Services.AddScoped<InvoiceGenerationJob>();
 builder.Services.AddScoped<OverdueInvoiceJob>();
+builder.Services.AddScoped<TrialExpiryJob>();
 builder.Services.AddScoped<IPlatformJwtTokenService, PlatformJwtTokenService>();
 builder.Services.AddScoped<PlatformAuthService>();
 builder.Services.AddScoped<IMerchantSessionRevoker, MerchantSessionRevocationService>();
@@ -416,6 +417,7 @@ RecurringJob.AddOrUpdate<OutboxPublisherJob>("outbox-publisher", job => job.RunA
 RecurringJob.AddOrUpdate<WebhookRetryJob>("webhook-retry", job => job.RunAsync(CancellationToken.None), "*/30 * * * * *");
 RecurringJob.AddOrUpdate<InvoiceGenerationJob>("billing-invoice-generation", job => job.RunAsync(CancellationToken.None), "0 1 * * *");
 RecurringJob.AddOrUpdate<OverdueInvoiceJob>("billing-overdue-invoice-suspension", job => job.RunAsync(CancellationToken.None), "0 2 * * *");
+RecurringJob.AddOrUpdate<TrialExpiryJob>("billing-trial-expiry", job => job.RunAsync(CancellationToken.None), "0 3 * * *");
 
 app.Run();
 
