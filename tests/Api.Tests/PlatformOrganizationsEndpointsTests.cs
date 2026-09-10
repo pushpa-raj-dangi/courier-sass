@@ -1,8 +1,12 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Courier.Billing.Application;
 using Courier.Identity.Application;
+using Courier.Platform.Presentation;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace Courier.Api.Tests;
@@ -70,5 +74,53 @@ public class PlatformOrganizationsEndpointsTests : IClassFixture<WebApplicationF
         var loginResponse = await client.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest(ownerEmail, "P@ssw0rd123!"));
 
         Assert.Equal(HttpStatusCode.Forbidden, loginResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task AssignPlan_AsSuperAdmin_UpdatesOrganizationSubscription()
+    {
+        var client = _factory.CreateClient();
+        var suffix = $"platform-assign-{Guid.NewGuid():N}"[..24];
+        var registerRequest = new RegisterOrganizationRequest(
+            $"Platform Assign Org {suffix}", $"pa-{suffix}", $"owner-{suffix}@example.test", "P@ssw0rd123!", "Owner");
+        var registerResponse = await client.PostAsJsonAsync("/api/v1/auth/register", registerRequest);
+        registerResponse.EnsureSuccessStatusCode();
+        var org = (await registerResponse.Content.ReadFromJsonAsync<AuthResult>())!;
+
+        Guid planId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var planService = scope.ServiceProvider.GetRequiredService<PlanService>();
+            var plan = await planService.CreatePlanAsync(new CreatePlanRequest("PlatformAssigned", $"platform-assigned-{Guid.NewGuid():N}", 750m, null, null, null, false), Guid.NewGuid());
+            planId = plan.Id;
+        }
+
+        var superAdminToken = await LoginAsSuperAdminAsync(client);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", superAdminToken);
+
+        var response = await client.PostAsJsonAsync($"/api/v1/platform/organizations/{org.OrganizationId}/plan", new AssignOrganizationPlanRequest(planId));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AssignPlan_AsRegularStaff_Returns403()
+    {
+        var client = _factory.CreateClient();
+        // The literal prefix below is 26 chars, longer than the [..24] slice other tests in this
+        // file use for their suffix — that slice would drop the GUID entirely and leave a fixed,
+        // non-unique string, causing a duplicate-slug 400 on register after the first run against
+        // the shared Postgres. Widen the slice enough to retain real uniqueness from the GUID.
+        var suffix = $"platform-assign-forbidden-{Guid.NewGuid():N}"[..34];
+        var registerRequest = new RegisterOrganizationRequest(
+            $"Platform Assign Forbidden Org {suffix}", $"paf-{suffix}", $"owner-{suffix}@example.test", "P@ssw0rd123!", "Owner");
+        var registerResponse = await client.PostAsJsonAsync("/api/v1/auth/register", registerRequest);
+        registerResponse.EnsureSuccessStatusCode();
+        var org = (await registerResponse.Content.ReadFromJsonAsync<AuthResult>())!;
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+
+        var response = await client.PostAsJsonAsync($"/api/v1/platform/organizations/{org.OrganizationId}/plan", new AssignOrganizationPlanRequest(Guid.NewGuid()));
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 }

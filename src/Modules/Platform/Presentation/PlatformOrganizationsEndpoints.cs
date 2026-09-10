@@ -1,3 +1,4 @@
+using Courier.Billing.Application;
 using Courier.Platform.Application;
 using Courier.SharedKernel;
 using Microsoft.AspNetCore.Builder;
@@ -5,6 +6,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 
 namespace Courier.Platform.Presentation;
+
+public record AssignOrganizationPlanRequest(Guid PlanId);
 
 public static class PlatformOrganizationsEndpoints
 {
@@ -38,6 +41,23 @@ public static class PlatformOrganizationsEndpoints
         {
             await service.RestoreAsync(id, httpContext.User.GetUserId()!.Value, cancellationToken);
             return Results.NoContent();
+        }).RequireSuperAdmin();
+
+        // Platform already fully references Billing directly (see PlatformPlansEndpoints's own
+        // comment) — no adapter/interface needed here, unlike Identity's registration-time wiring.
+        // This is what fixes an already-registered organization sitting with no Subscription at
+        // all (pre-dating this feature) or one whose trial expired without converting.
+        group.MapPost("/{id:guid}/plan", async (Guid id, AssignOrganizationPlanRequest request, SubscriptionService service, HttpContext httpContext, CancellationToken cancellationToken) =>
+        {
+            try
+            {
+                var result = await service.AssignPlanAsync(id, request.PlanId, httpContext.User.GetUserId()!.Value, cancellationToken);
+                return Results.Ok(result);
+            }
+            catch (BillingValidationException ex)
+            {
+                return Results.BadRequest(new { error = new { code = "BILLING_VALIDATION_FAILED", message = ex.Message } });
+            }
         }).RequireSuperAdmin();
     }
 }

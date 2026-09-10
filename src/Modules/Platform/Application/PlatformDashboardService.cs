@@ -6,7 +6,7 @@ using Courier.Identity.Application;
 namespace Courier.Platform.Application;
 
 public record PlatformMetrics(int TotalOrganizations, int ActiveOrganizations, int SuspendedOrganizations, int DeletedOrganizations, decimal MonthlyRecurringRevenueNpr, int OverdueInvoiceCount);
-public record OrganizationDetail(OrganizationRecord Organization, string? PlanName, List<OrganizationUserRecord> Users, List<BranchAdminRecord> Branches, List<InvoiceResponse> Invoices, List<AuditLogRecord> RecentAuditEntries);
+public record OrganizationDetail(OrganizationRecord Organization, string? PlanName, Courier.Billing.Domain.SubscriptionStatus? SubscriptionStatus, DateTimeOffset? TrialEndsAt, List<OrganizationUserRecord> Users, List<BranchAdminRecord> Branches, List<InvoiceResponse> Invoices, List<AuditLogRecord> RecentAuditEntries);
 public record InvoiceAdminRecordWithOrgName(Guid Id, Guid OrganizationId, string OrganizationName, string PlanName, decimal AmountNpr, Courier.Billing.Domain.InvoiceStatus Status, DateTimeOffset DueAt, DateTimeOffset? PaidAt);
 
 public class PlatformDashboardService
@@ -50,13 +50,13 @@ public class PlatformDashboardService
             return null;
         }
 
-        var planSummary = await _billingLookupService.GetPlanSummaryAsync(organizationId, cancellationToken);
+        var subscriptionStatus = await _billingLookupService.GetSubscriptionStatusAsync(organizationId, cancellationToken);
         var users = await _organizationLookupService.ListUsersAsync(organizationId, cancellationToken);
         var branches = await _branchLookupService.ListForOrganizationAsync(organizationId, cancellationToken);
         var invoices = await _billingLookupService.ListInvoicesForOrganizationAsync(organizationId, cancellationToken);
         var auditEntries = await _auditLogReader.ListForOrganizationAsync(organizationId, 50, cancellationToken);
 
-        return new OrganizationDetail(organization, planSummary?.PlanName, users, branches, invoices, auditEntries);
+        return new OrganizationDetail(organization, subscriptionStatus?.PlanName, subscriptionStatus?.Status, subscriptionStatus?.TrialEndsAt, users, branches, invoices, auditEntries);
     }
 
     // Joins invoices against organizations in-memory (one ListAsync call, then a dictionary
