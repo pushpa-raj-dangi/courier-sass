@@ -39,7 +39,9 @@ public class TrialEnforcementMiddleware
         }
 
         var path = context.Request.Path.Value ?? string.Empty;
-        if (ExemptPathPrefixes.Any(prefix => path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
+        if (ExemptPathPrefixes.Any(prefix =>
+                path.Equals(prefix, StringComparison.OrdinalIgnoreCase) ||
+                path.StartsWith(prefix + "/", StringComparison.OrdinalIgnoreCase)))
         {
             await _next(context);
             return;
