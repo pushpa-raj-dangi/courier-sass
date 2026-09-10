@@ -146,6 +146,7 @@ builder.Services.AddScoped<Courier.Merchants.Application.IMerchantOrganizationLo
 builder.Services.AddScoped<IBranchHierarchyService, BranchHierarchyService>();
 builder.Services.AddScoped<IBranchAuthorizationChecker, Courier.Identity.Infrastructure.BranchAuthorizationChecker>();
 builder.Services.AddScoped<IBranchPlanLimitProvider, Courier.Api.BranchPlanLimitAdapter>();
+builder.Services.AddScoped<Courier.Identity.Application.IOrganizationSubscriptionStarter, Courier.Api.OrganizationSubscriptionStarterAdapter>();
 builder.Services.AddScoped<BranchService>();
 builder.Services.AddScoped<IBranchLookupService>(sp => sp.GetRequiredService<BranchService>());
 builder.Services.AddScoped<RateCardService>();

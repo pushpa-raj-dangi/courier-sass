@@ -31,6 +31,11 @@ file class NullBranchLookupService : IBranchLookupService
     public Task<int> CountActiveBranchesAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult(0);
 }
 
+file class NoopOrganizationSubscriptionStarter : IOrganizationSubscriptionStarter
+{
+    public Task StartTrialAsync(Guid organizationId, Guid actingUserId, CancellationToken cancellationToken = default) => Task.CompletedTask;
+}
+
 public class AuthServiceAcceptInviteTests
 {
     private static AppDbContext CreateContext() => TestDbContextFactory.Create(new NullTenantProvider());
@@ -43,7 +48,7 @@ public class AuthServiceAcceptInviteTests
             Issuer = "courier-tests",
             Audience = "courier-tests"
         });
-        return new AuthService(dbContext, new PasswordHasherAdapter(), new JwtTokenService(jwtOptions), new NoopAuditLogger(), new NullBranchLookupService());
+        return new AuthService(dbContext, new PasswordHasherAdapter(), new JwtTokenService(jwtOptions), new NoopAuditLogger(), new NullBranchLookupService(), new NoopOrganizationSubscriptionStarter());
     }
 
     private static async Task<(Guid OrganizationId, Guid UserId, string PlainTextToken)> SeedInvitedUserAsync(AppDbContext dbContext, DateTimeOffset? expiresAt = null, DateTimeOffset? acceptedAt = null)

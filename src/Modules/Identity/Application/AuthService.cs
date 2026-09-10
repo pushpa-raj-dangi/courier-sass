@@ -15,6 +15,7 @@ public class AuthService
     private readonly IJwtTokenService _jwtTokenService;
     private readonly IAuditLogger _auditLogger;
     private readonly IBranchLookupService _branchLookupService;
+    private readonly IOrganizationSubscriptionStarter _organizationSubscriptionStarter;
 
     // Computed exactly once for the lifetime of the process. AuthService is registered as
     // Scoped (one instance per HTTP request), so an instance-level cache would be recomputed
@@ -25,13 +26,14 @@ public class AuthService
     private static readonly string DummyPasswordHash =
         new Courier.Identity.Infrastructure.PasswordHasherAdapter().Hash("dummy-password-for-timing-safety");
 
-    public AuthService(DbContext dbContext, IPasswordHasher passwordHasher, IJwtTokenService jwtTokenService, IAuditLogger auditLogger, IBranchLookupService branchLookupService)
+    public AuthService(DbContext dbContext, IPasswordHasher passwordHasher, IJwtTokenService jwtTokenService, IAuditLogger auditLogger, IBranchLookupService branchLookupService, IOrganizationSubscriptionStarter organizationSubscriptionStarter)
     {
         _dbContext = dbContext;
         _passwordHasher = passwordHasher;
         _jwtTokenService = jwtTokenService;
         _auditLogger = auditLogger;
         _branchLookupService = branchLookupService;
+        _organizationSubscriptionStarter = organizationSubscriptionStarter;
     }
 
     public async Task<AuthResult> RegisterOrganizationAsync(RegisterOrganizationRequest request, CancellationToken cancellationToken = default)
@@ -152,6 +154,14 @@ public class AuthService
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         await _auditLogger.LogAsync(new AuditEntry(organization.Id, owner.Id, "organization.registered", "Organization", organization.Id.ToString()), cancellationToken);
+
+        // Every self-registered organization starts on a 7-day trial with no committed Plan —
+        // TrialEnforcementMiddleware only blocks writes once TrialExpiryJob flips this to
+        // TrialExpired with no real Plan chosen. Called after the main SaveChangesAsync above
+        // (not before) so this follows the same "save the primary entities, then record the
+        // event" sequencing this method already uses for the "organization.registered" audit
+        // entry directly above.
+        await _organizationSubscriptionStarter.StartTrialAsync(organization.Id, owner.Id, cancellationToken);
 
         var accessToken = _jwtTokenService.IssueAccessToken(owner.Id, organization.Id, owner.Email);
         return new AuthResult(accessToken, refreshToken.PlainText, owner.Id, organization.Id);

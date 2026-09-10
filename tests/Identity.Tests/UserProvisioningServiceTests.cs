@@ -27,6 +27,11 @@ file class NullBranchLookupService : IBranchLookupService
     public Task<int> CountActiveBranchesAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult(0);
 }
 
+file class NoopOrganizationSubscriptionStarter : IOrganizationSubscriptionStarter
+{
+    public Task StartTrialAsync(Guid organizationId, Guid actingUserId, CancellationToken cancellationToken = default) => Task.CompletedTask;
+}
+
 public class UserProvisioningServiceTests
 {
     private static AppDbContext CreateContext() => TestDbContextFactory.Create(new NullTenantProvider());
@@ -39,7 +44,7 @@ public class UserProvisioningServiceTests
             Issuer = "courier-tests",
             Audience = "courier-tests"
         });
-        return new AuthService(dbContext, new PasswordHasherAdapter(), new JwtTokenService(jwtOptions), new NoopAuditLogger(), new NullBranchLookupService());
+        return new AuthService(dbContext, new PasswordHasherAdapter(), new JwtTokenService(jwtOptions), new NoopAuditLogger(), new NullBranchLookupService(), new NoopOrganizationSubscriptionStarter());
     }
 
     private class NoopAuditLogger : Courier.Audit.Application.IAuditLogger

@@ -32,6 +32,21 @@ file class NullBranchLookupService : IBranchLookupService
     public Task<int> CountActiveBranchesAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult(0);
 }
 
+file class NoopOrganizationSubscriptionStarter : IOrganizationSubscriptionStarter
+{
+    public Task StartTrialAsync(Guid organizationId, Guid actingUserId, CancellationToken cancellationToken = default) => Task.CompletedTask;
+}
+
+file class RecordingOrganizationSubscriptionStarter : IOrganizationSubscriptionStarter
+{
+    public List<(Guid OrganizationId, Guid ActingUserId)> Calls { get; } = new();
+    public Task StartTrialAsync(Guid organizationId, Guid actingUserId, CancellationToken cancellationToken = default)
+    {
+        Calls.Add((organizationId, actingUserId));
+        return Task.CompletedTask;
+    }
+}
+
 public class AuthServiceTests
 {
     private static AppDbContext CreateContext() => TestDbContextFactory.Create(new NullTenantProvider());
@@ -44,7 +59,7 @@ public class AuthServiceTests
             Issuer = "courier-tests",
             Audience = "courier-tests"
         });
-        return new AuthService(dbContext, new PasswordHasherAdapter(), new JwtTokenService(jwtOptions), new NoopAuditLogger(), new NullBranchLookupService());
+        return new AuthService(dbContext, new PasswordHasherAdapter(), new JwtTokenService(jwtOptions), new NoopAuditLogger(), new NullBranchLookupService(), new NoopOrganizationSubscriptionStarter());
     }
 
     [Fact]
@@ -135,5 +150,27 @@ public class AuthServiceTests
 
         await Assert.ThrowsAsync<AuthenticationFailedException>(
             () => service.RefreshTokenAsync(new RefreshRequest(registerResult.RefreshToken)));
+    }
+
+    [Fact]
+    public async Task RegisterOrganizationAsync_StartsTrialSubscriptionForNewOrganization()
+    {
+        await using var dbContext = CreateContext();
+        var jwtOptions = Options.Create(new JwtOptions
+        {
+            SigningKey = "identity-tests-signing-key-at-least-32-bytes!",
+            Issuer = "courier-tests",
+            Audience = "courier-tests"
+        });
+        var subscriptionStarter = new RecordingOrganizationSubscriptionStarter();
+        var service = new AuthService(dbContext, new PasswordHasherAdapter(), new JwtTokenService(jwtOptions), new NoopAuditLogger(), new NullBranchLookupService(), subscriptionStarter);
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+
+        var result = await service.RegisterOrganizationAsync(new RegisterOrganizationRequest(
+            $"Trial Org {suffix}", $"trial-org-{suffix}", $"owner-{suffix}@example.com", "P@ssw0rd123!", "Owner Person"));
+
+        var call = Assert.Single(subscriptionStarter.Calls);
+        Assert.Equal(result.OrganizationId, call.OrganizationId);
+        Assert.Equal(result.UserId, call.ActingUserId);
     }
 }
