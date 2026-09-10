@@ -11,9 +11,13 @@ const cookieOptions = {
   path: "/",
 };
 
-export function setSessionCookies(accessToken: string, refreshToken: string) {
+// accessTokenMaxAgeSeconds defaults to 15 minutes, correct for an ordinary staff login (whose
+// access token silently refreshes via getValidAccessToken below). The impersonation route passes
+// its token's REAL remaining lifetime (a 30-minute JWT with no refresh capability) so the cookie
+// doesn't expire while the impersonation banner still shows time remaining.
+export function setSessionCookies(accessToken: string, refreshToken: string, accessTokenMaxAgeSeconds: number = 60 * 15) {
   const store = cookies();
-  store.set(ACCESS_COOKIE, accessToken, { ...cookieOptions, maxAge: 60 * 15 });
+  store.set(ACCESS_COOKIE, accessToken, { ...cookieOptions, maxAge: accessTokenMaxAgeSeconds });
   store.set(REFRESH_COOKIE, refreshToken, { ...cookieOptions, maxAge: 60 * 60 * 24 * 7 });
 }
 

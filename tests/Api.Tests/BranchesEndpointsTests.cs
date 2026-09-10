@@ -138,7 +138,7 @@ public class BranchesEndpointsTests : IClassFixture<WebApplicationFactory<Progra
         {
             var subscriptionService = scope.ServiceProvider.GetRequiredService<SubscriptionService>();
             var planService = scope.ServiceProvider.GetRequiredService<PlanService>();
-            var plan = await planService.CreatePlanAsync(new CreatePlanRequest("OneBranchPlan", $"one-branch-{Guid.NewGuid():N}", 0m, 1, null, null, false));
+            var plan = await planService.CreatePlanAsync(new CreatePlanRequest("OneBranchPlan", $"one-branch-{Guid.NewGuid():N}", 0m, 1, null, null, false), Guid.NewGuid());
             await subscriptionService.AssignPlanAsync(auth.OrganizationId, plan.Id);
         }
 

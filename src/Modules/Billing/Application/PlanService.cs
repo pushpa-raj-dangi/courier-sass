@@ -1,3 +1,4 @@
+using Courier.Audit.Application;
 using Courier.Billing.Domain;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,13 +10,15 @@ public record PlanResponse(Guid Id, string Name, string Slug, decimal MonthlyPri
 public class PlanService
 {
     private readonly DbContext _dbContext;
+    private readonly IAuditLogger _auditLogger;
 
-    public PlanService(DbContext dbContext)
+    public PlanService(DbContext dbContext, IAuditLogger auditLogger)
     {
         _dbContext = dbContext;
+        _auditLogger = auditLogger;
     }
 
-    public async Task<PlanResponse> CreatePlanAsync(CreatePlanRequest request, CancellationToken cancellationToken = default)
+    public async Task<PlanResponse> CreatePlanAsync(CreatePlanRequest request, Guid actingSuperAdminId, CancellationToken cancellationToken = default)
     {
         var slugTaken = await _dbContext.Set<Plan>().AnyAsync(p => p.Slug == request.Slug, cancellationToken);
         if (slugTaken)
@@ -52,13 +55,15 @@ public class PlanService
         _dbContext.Set<Plan>().Add(plan);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
+        await _auditLogger.LogAsync(new AuditEntry(null, actingSuperAdminId, "plan.created", "Plan", plan.Id.ToString(), IsCrossTenantAction: true), cancellationToken);
+
         return ToResponse(plan);
     }
 
     public async Task<List<PlanResponse>> ListPlansAsync(CancellationToken cancellationToken = default)
         => await _dbContext.Set<Plan>().OrderBy(p => p.MonthlyPriceNpr).Select(p => ToResponse(p)).ToListAsync(cancellationToken);
 
-    public async Task RetirePlanAsync(Guid planId, CancellationToken cancellationToken = default)
+    public async Task RetirePlanAsync(Guid planId, Guid actingSuperAdminId, CancellationToken cancellationToken = default)
     {
         var plan = await _dbContext.Set<Plan>().FirstOrDefaultAsync(p => p.Id == planId, cancellationToken)
             ?? throw new BillingValidationException("Plan was not found.");
@@ -68,6 +73,8 @@ public class PlanService
         }
         plan.IsActive = false;
         await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await _auditLogger.LogAsync(new AuditEntry(null, actingSuperAdminId, "plan.retired", "Plan", planId.ToString(), IsCrossTenantAction: true), cancellationToken);
     }
 
     private static PlanResponse ToResponse(Plan p)

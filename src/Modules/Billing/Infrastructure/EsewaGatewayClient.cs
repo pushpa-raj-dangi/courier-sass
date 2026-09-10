@@ -25,7 +25,7 @@ public class EsewaGatewayClient : IPaymentGatewayClient
         _httpClient = httpClientFactory.CreateClient("Esewa");
     }
 
-    public Task<GatewayCheckoutInfo> InitiateAsync(Guid paymentId, decimal amountNpr, string returnUrl, CancellationToken cancellationToken = default)
+    public Task<GatewayInitiationResult> InitiateAsync(Guid paymentId, decimal amountNpr, string returnUrl, CancellationToken cancellationToken = default)
     {
         var totalAmount = amountNpr.ToString("F2");
         var transactionUuid = paymentId.ToString();
@@ -47,10 +47,13 @@ public class EsewaGatewayClient : IPaymentGatewayClient
             ["signature"] = signature
         };
 
-        return Task.FromResult(new GatewayCheckoutInfo(_options.FormUrl, fields));
+        // eSewa's own transaction_uuid is always paymentId.ToString() — that's exactly what we
+        // persist as GatewayReference so VerifyAsync's binding check below has a persisted value
+        // to compare against, same as Khalti's opaque pidx.
+        return Task.FromResult(new GatewayInitiationResult(new GatewayCheckoutInfo(_options.FormUrl, fields), transactionUuid));
     }
 
-    public async Task<GatewayVerificationResult> VerifyAsync(Guid paymentId, IReadOnlyDictionary<string, string> callbackParameters, CancellationToken cancellationToken = default)
+    public async Task<GatewayVerificationResult> VerifyAsync(Guid paymentId, decimal expectedAmountNpr, string? expectedGatewayReference, IReadOnlyDictionary<string, string> callbackParameters, CancellationToken cancellationToken = default)
     {
         if (!callbackParameters.TryGetValue("data", out var encodedData))
         {
@@ -82,6 +85,19 @@ public class EsewaGatewayClient : IPaymentGatewayClient
 
         var expectedSignature = SignFields($"total_amount={totalAmount},transaction_uuid={transactionUuid},product_code={_options.ProductCode}");
         if (receivedSignature != expectedSignature || transactionUuid != paymentId.ToString())
+        {
+            return new GatewayVerificationResult(false, null, decoded);
+        }
+        // Belt-and-suspenders binding check: for eSewa, transactionUuid == paymentId.ToString()
+        // is already enforced above, and expectedGatewayReference is always set to that same
+        // value at initiate time, so this can only fire if the persisted GatewayReference was
+        // somehow tampered with or never set — never remove the paymentId.ToString() check above
+        // in favor of this one.
+        if (expectedGatewayReference is not null && transactionUuid != expectedGatewayReference)
+        {
+            return new GatewayVerificationResult(false, null, decoded);
+        }
+        if (totalAmount != expectedAmountNpr.ToString("F2"))
         {
             return new GatewayVerificationResult(false, null, decoded);
         }

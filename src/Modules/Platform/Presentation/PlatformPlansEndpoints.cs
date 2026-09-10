@@ -20,11 +20,11 @@ public static class PlatformPlansEndpoints
             Results.Ok(await service.ListPlansAsync(cancellationToken)))
             .RequireSuperAdmin();
 
-        group.MapPost("/", async (CreatePlanRequest request, PlanService service, CancellationToken cancellationToken) =>
+        group.MapPost("/", async (CreatePlanRequest request, PlanService service, HttpContext httpContext, CancellationToken cancellationToken) =>
         {
             try
             {
-                var result = await service.CreatePlanAsync(request, cancellationToken);
+                var result = await service.CreatePlanAsync(request, httpContext.User.GetUserId()!.Value, cancellationToken);
                 return Results.Created($"/api/v1/platform/plans/{result.Id}", result);
             }
             catch (BillingValidationException ex)
@@ -33,11 +33,11 @@ public static class PlatformPlansEndpoints
             }
         }).RequireSuperAdmin();
 
-        group.MapPost("/{id:guid}/retire", async (Guid id, PlanService service, CancellationToken cancellationToken) =>
+        group.MapPost("/{id:guid}/retire", async (Guid id, PlanService service, HttpContext httpContext, CancellationToken cancellationToken) =>
         {
             try
             {
-                await service.RetirePlanAsync(id, cancellationToken);
+                await service.RetirePlanAsync(id, httpContext.User.GetUserId()!.Value, cancellationToken);
                 return Results.NoContent();
             }
             catch (BillingValidationException ex)

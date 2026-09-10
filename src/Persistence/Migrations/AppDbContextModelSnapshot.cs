@@ -145,6 +145,9 @@ namespace Persistence.Migrations
                     b.Property<int>("Gateway")
                         .HasColumnType("integer");
 
+                    b.Property<string>("GatewayReference")
+                        .HasColumnType("text");
+
                     b.Property<string>("GatewayTransactionId")
                         .HasColumnType("text");
 

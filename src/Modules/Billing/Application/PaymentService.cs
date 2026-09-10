@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Courier.Billing.Domain;
 using Courier.Identity.Application;
 using Microsoft.EntityFrameworkCore;
@@ -50,7 +51,16 @@ public class PaymentService
 
         var separator = returnBaseUrl.Contains('?') ? "&" : "?";
         var returnUrl = $"{returnBaseUrl}{separator}paymentId={payment.Id}";
-        return await client.InitiateAsync(payment.Id, invoice.AmountNprSnapshot, returnUrl, cancellationToken);
+        var result = await client.InitiateAsync(payment.Id, invoice.AmountNprSnapshot, returnUrl, cancellationToken);
+
+        // Second save after the external gateway call, same established pattern as
+        // CompletePaymentAsync's own post-verification save and OverdueInvoiceJob's per-invoice
+        // saves — persists the gateway reference BEFORE any callback for this payment can
+        // possibly arrive, so CompletePaymentAsync always has something real to bind against.
+        payment.GatewayReference = result.GatewayReference;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return result.CheckoutInfo;
     }
 
     public async Task<PaymentCompletionResult> CompletePaymentAsync(Guid paymentId, IReadOnlyDictionary<string, string> callbackParameters, CancellationToken cancellationToken = default)
@@ -79,8 +89,8 @@ public class PaymentService
         var client = _gatewayClients.FirstOrDefault(c => c.Gateway == payment.Gateway)
             ?? throw new BillingValidationException($"Gateway '{payment.Gateway}' is not configured.");
 
-        var verification = await client.VerifyAsync(payment.Id, callbackParameters, cancellationToken);
-        payment.RawVerificationPayload = verification.RawPayload;
+        var verification = await client.VerifyAsync(payment.Id, payment.AmountNpr, payment.GatewayReference, callbackParameters, cancellationToken);
+        payment.RawVerificationPayload = ToJsonOrWrap(verification.RawPayload);
 
         if (!verification.Succeeded)
         {
@@ -116,5 +126,24 @@ public class PaymentService
         await _organizationLookupService.ReactivateIfSystemSuspendedAsync(invoice.OrganizationId, cancellationToken);
 
         return new PaymentCompletionResult(true, "Payment confirmed.");
+    }
+
+    // Payment.RawVerificationPayload is a jsonb column, but several gateway-client failure paths
+    // return plain, non-JSON strings as RawPayload (e.g. eSewa's literal "invalid payload" on a
+    // malformed callback, or either gateway's raw non-2xx HTTP response body, which could be an
+    // HTML error page or empty string). Postgres rejects non-JSON input for a jsonb column at
+    // SaveChangesAsync time with a 22P02 error — wrap any non-JSON value so the column write
+    // always succeeds and the payment can still be marked Failed in a controlled way.
+    private static string ToJsonOrWrap(string rawPayload)
+    {
+        try
+        {
+            using var _ = JsonDocument.Parse(rawPayload);
+            return rawPayload;
+        }
+        catch (JsonException)
+        {
+            return JsonSerializer.Serialize(new { raw = rawPayload });
+        }
     }
 }

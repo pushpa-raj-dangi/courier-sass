@@ -68,19 +68,29 @@ public class SubscriptionService : IBillingLookupService
         // treated as "unlimited," matching Task 1's fail-open default.
     }
 
+    // Dual-use: called under a REAL ambient tenant from BillingEndpoints (staff billing tab), and
+    // under a NULL ambient tenant from Platform's OrganizationLifecycleService/PlatformDashboardService
+    // (Platform always runs with no tenant context). IgnoreQueryFilters() is required so the
+    // null-tenant caller isn't zeroed out by the fail-closed ambient filter — safe for the
+    // real-tenant caller too, since the explicit `s.OrganizationId == organizationId` predicate
+    // below already does the real scoping (same pattern as GetPlatformMetricsAsync below and
+    // OrganizationAdminService.GetAsync's own null-ambient-tenant fix).
     public async Task<PlanSummary?> GetPlanSummaryAsync(Guid organizationId, CancellationToken cancellationToken = default)
     {
         return await (
-            from s in _dbContext.Set<Subscription>()
-            join p in _dbContext.Set<Plan>() on s.PlanId equals p.Id
+            from s in _dbContext.Set<Subscription>().IgnoreQueryFilters()
+            join p in _dbContext.Set<Plan>().IgnoreQueryFilters() on s.PlanId equals p.Id
             where s.OrganizationId == organizationId
             select new PlanSummary(p.Name, p.MonthlyPriceNpr, s.Status)
         ).FirstOrDefaultAsync(cancellationToken);
     }
 
+    // Dual-use, same reasoning as GetPlanSummaryAsync above — called under a real ambient tenant
+    // (staff billing tab) and under a null ambient tenant (Platform org-detail Sheet's Invoices
+    // section via ListInvoicesForOrganizationAsync below).
     public async Task<List<InvoiceResponse>> ListInvoicesAsync(Guid organizationId, CancellationToken cancellationToken = default)
     {
-        return await _dbContext.Set<Invoice>()
+        return await _dbContext.Set<Invoice>().IgnoreQueryFilters()
             .Where(i => i.OrganizationId == organizationId)
             .OrderByDescending(i => i.CycleStart)
             .Select(i => new InvoiceResponse(i.Id, i.PlanNameSnapshot, i.AmountNprSnapshot, i.CycleStart, i.CycleEnd, i.Status, i.DueAt, i.PaidAt))

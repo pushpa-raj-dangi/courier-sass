@@ -39,10 +39,12 @@ public class EsewaGatewayClientTests
         var httpClientFactory = new StubHttpClientFactory(new StubHandler("{}"));
         var client = new EsewaGatewayClient(Microsoft.Extensions.Options.Options.Create(Options()), httpClientFactory);
 
-        var checkoutInfo = await client.InitiateAsync(Guid.NewGuid(), 2000m, "https://example.test/return");
+        var paymentId = Guid.NewGuid();
+        var result = await client.InitiateAsync(paymentId, 2000m, "https://example.test/return");
 
-        Assert.Equal("EPAYTEST", checkoutInfo.FormFields["product_code"]);
-        Assert.False(string.IsNullOrEmpty(checkoutInfo.FormFields["signature"]));
+        Assert.Equal("EPAYTEST", result.CheckoutInfo.FormFields["product_code"]);
+        Assert.False(string.IsNullOrEmpty(result.CheckoutInfo.FormFields["signature"]));
+        Assert.Equal(paymentId.ToString(), result.GatewayReference);
     }
 
     [Fact]
@@ -59,7 +61,7 @@ public class EsewaGatewayClientTests
         var httpClientFactory = new StubHttpClientFactory(new StubHandler("{\"status\":\"COMPLETE\"}"));
         var client = new EsewaGatewayClient(Microsoft.Extensions.Options.Options.Create(options), httpClientFactory);
 
-        var result = await client.VerifyAsync(paymentId, callbackParameters);
+        var result = await client.VerifyAsync(paymentId, 2000m, paymentId.ToString(), callbackParameters);
 
         Assert.True(result.Succeeded);
         Assert.Equal("TXN123", result.GatewayTransactionId);
@@ -80,7 +82,7 @@ public class EsewaGatewayClientTests
         var httpClientFactory = new StubHttpClientFactory(new ThrowingHandler());
         var client = new EsewaGatewayClient(Microsoft.Extensions.Options.Options.Create(options), httpClientFactory);
 
-        var result = await client.VerifyAsync(paymentId, callbackParameters);
+        var result = await client.VerifyAsync(paymentId, 2000m, paymentId.ToString(), callbackParameters);
 
         Assert.False(result.Succeeded);
     }
@@ -101,7 +103,29 @@ public class EsewaGatewayClientTests
         var httpClientFactory = new StubHttpClientFactory(new StubHandler("{\"status\":\"PENDING\"}"));
         var client = new EsewaGatewayClient(Microsoft.Extensions.Options.Options.Create(options), httpClientFactory);
 
-        var result = await client.VerifyAsync(paymentId, callbackParameters);
+        var result = await client.VerifyAsync(paymentId, 2000m, paymentId.ToString(), callbackParameters);
+
+        Assert.False(result.Succeeded);
+    }
+
+    [Fact]
+    public async Task VerifyAsync_ValidSignatureButMismatchedExpectedAmount_FailsWithoutCallingStatusCheck()
+    {
+        var paymentId = Guid.NewGuid();
+        var options = Options();
+        var totalAmount = "2000.00";
+        var signMessage = $"total_amount={totalAmount},transaction_uuid={paymentId},product_code={options.ProductCode}";
+        var signature = Convert.ToBase64String(new System.Security.Cryptography.HMACSHA256(Encoding.UTF8.GetBytes(options.SecretKey)).ComputeHash(Encoding.UTF8.GetBytes(signMessage)));
+        var payload = JsonSerializer.Serialize(new { total_amount = totalAmount, transaction_uuid = paymentId.ToString(), product_code = options.ProductCode, signature, transaction_code = "TXN123" });
+        var callbackParameters = new Dictionary<string, string> { ["data"] = Convert.ToBase64String(Encoding.UTF8.GetBytes(payload)) };
+
+        // The callback's own total_amount (2000.00) is validly signed, but the payment being
+        // confirmed is expected to cost NPR 50000.00 — must fail before ever hitting the
+        // server-to-server status-check call.
+        var httpClientFactory = new StubHttpClientFactory(new ThrowingHandler());
+        var client = new EsewaGatewayClient(Microsoft.Extensions.Options.Options.Create(options), httpClientFactory);
+
+        var result = await client.VerifyAsync(paymentId, 50000m, paymentId.ToString(), callbackParameters);
 
         Assert.False(result.Succeeded);
     }
@@ -116,7 +140,7 @@ public class EsewaGatewayClientTests
         var httpClientFactory = new StubHttpClientFactory(new ThrowingHandler());
         var client = new EsewaGatewayClient(Microsoft.Extensions.Options.Options.Create(options), httpClientFactory);
 
-        var result = await client.VerifyAsync(paymentId, callbackParameters);
+        var result = await client.VerifyAsync(paymentId, 2000m, paymentId.ToString(), callbackParameters);
 
         Assert.False(result.Succeeded);
     }

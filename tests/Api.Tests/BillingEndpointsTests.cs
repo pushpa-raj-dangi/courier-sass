@@ -103,7 +103,7 @@ public class BillingEndpointsTests : IClassFixture<WebApplicationFactory<Program
         using var scope = _factory.Services.CreateScope();
         var subscriptionService = scope.ServiceProvider.GetRequiredService<SubscriptionService>();
         var planService = scope.ServiceProvider.GetRequiredService<PlanService>();
-        var plan = await planService.CreatePlanAsync(new CreatePlanRequest("Free", $"free-{Guid.NewGuid():N}", 0m, null, null, null, true));
+        var plan = await planService.CreatePlanAsync(new CreatePlanRequest("Free", $"free-{Guid.NewGuid():N}", 0m, null, null, null, true), Guid.NewGuid());
         await subscriptionService.AssignPlanAsync(org.OrganizationId, plan.Id);
 
         var response = await client.GetAsync("/api/v1/billing/plan");

@@ -24,7 +24,7 @@ public class KhaltiGatewayClient : IPaymentGatewayClient
         _httpClient = httpClientFactory.CreateClient("Khalti");
     }
 
-    public async Task<GatewayCheckoutInfo> InitiateAsync(Guid paymentId, decimal amountNpr, string returnUrl, CancellationToken cancellationToken = default)
+    public async Task<GatewayInitiationResult> InitiateAsync(Guid paymentId, decimal amountNpr, string returnUrl, CancellationToken cancellationToken = default)
     {
         var amountPaisa = (long)(amountNpr * 100);
         var requestBody = new
@@ -48,13 +48,25 @@ public class KhaltiGatewayClient : IPaymentGatewayClient
 
         using var document = JsonDocument.Parse(body);
         var paymentUrl = document.RootElement.GetProperty("payment_url").GetString()!;
+        var pidx = document.RootElement.GetProperty("pidx").GetString();
 
-        return new GatewayCheckoutInfo(paymentUrl, new Dictionary<string, string>());
+        // pidx is persisted as Payment.GatewayReference so VerifyAsync can bind a later callback
+        // back to THIS payment — a callback carrying a different (even genuinely "Completed")
+        // pidx must never be accepted for this payment.
+        return new GatewayInitiationResult(new GatewayCheckoutInfo(paymentUrl, new Dictionary<string, string>()), pidx);
     }
 
-    public async Task<GatewayVerificationResult> VerifyAsync(Guid paymentId, IReadOnlyDictionary<string, string> callbackParameters, CancellationToken cancellationToken = default)
+    public async Task<GatewayVerificationResult> VerifyAsync(Guid paymentId, decimal expectedAmountNpr, string? expectedGatewayReference, IReadOnlyDictionary<string, string> callbackParameters, CancellationToken cancellationToken = default)
     {
         if (!callbackParameters.TryGetValue("pidx", out var pidx))
+        {
+            return new GatewayVerificationResult(false, null, "{}");
+        }
+
+        // Reject fast, before ever calling Khalti's lookup API, if the callback's pidx doesn't
+        // belong to this payment — closes the cross-payment confirmation vulnerability where a
+        // caller supplies a DIFFERENT (genuinely completed) payment's pidx to confirm this one.
+        if (expectedGatewayReference is not null && pidx != expectedGatewayReference)
         {
             return new GatewayVerificationResult(false, null, "{}");
         }
@@ -77,8 +89,11 @@ public class KhaltiGatewayClient : IPaymentGatewayClient
             using var document = JsonDocument.Parse(body);
             var status = document.RootElement.GetProperty("status").GetString();
             var transactionId = document.RootElement.TryGetProperty("transaction_id", out var txProp) ? txProp.GetString() : null;
+            var totalAmountPaisa = document.RootElement.TryGetProperty("total_amount", out var amountProp) ? amountProp.GetInt64() : (long?)null;
+            var expectedAmountPaisa = (long)(expectedAmountNpr * 100);
 
-            return new GatewayVerificationResult(status == "Completed", transactionId, body);
+            var succeeded = status == "Completed" && totalAmountPaisa == expectedAmountPaisa;
+            return new GatewayVerificationResult(succeeded, transactionId, body);
         }
         catch (Exception ex) when (ex is JsonException or InvalidOperationException or KeyNotFoundException)
         {
