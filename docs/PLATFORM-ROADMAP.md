@@ -33,14 +33,96 @@ attributed to both identities.
 
 *Status: COMPLETE.* Implemented, reviewed, and merged across Tasks 1-19 of the plan
 above; this document (Task 20) closes the phase, finishing 2026-09-09. All 20 tasks
-landed on this branch; no task was skipped or descoped mid-plan.
+landed on this branch; no task was skipped or descoped mid-plan. A final whole-branch
+review after Task 20 (commits `a069dc4`, `fbeae75`) additionally found and fixed 2
+Critical issues before merge — see "Findings from the final whole-branch review" below.
+
+## Findings from the final whole-branch review
+
+Once all 20 tasks were individually reviewed and merged onto this branch, a separate
+final review looked at the branch as a whole (something no single task's review could
+do) and found 2 Critical issues, both fixed before merge, plus a further set of
+Important/Minor issues deliberately parked for the next phase rather than expanding
+this one. Recording all of them here so they aren't lost now that the review session's
+own working notes are gone.
+
+**Fixed before merge (commits `a069dc4`, `fbeae75`):**
+
+- Khalti payment verification (`KhaltiGatewayClient.VerifyAsync`) didn't bind the
+  callback to the specific `Payment` being confirmed or check the paid amount — an
+  org's own Owner could pay a cheap invoice via Khalti, then replay that payment's
+  `pidx` against a different, more expensive invoice's callback to mark it paid for
+  free. Fixed via a new `Payment.GatewayReference` column persisted at initiate time
+  and checked (together with the amount) at verify time. eSewa was never vulnerable to
+  this (its flow already binds `transaction_uuid` to the payment id under an HMAC).
+- `SubscriptionService.GetPlanSummaryAsync`/`ListInvoicesAsync` were missing
+  `.IgnoreQueryFilters()`, unlike their siblings in the same file — under Platform's
+  null ambient tenant, this silently made the SuperAdmin org list's Plan column and the
+  org-detail Sheet's Invoices section always empty in production. `Platform.Tests`'
+  fakes hard-coded exactly this empty result, so no test caught it.
+- Non-JSON gateway callback payloads (malformed input, HTML error pages from a gateway
+  outage) crashed `Payment.RawVerificationPayload`'s `jsonb` write with a raw 500
+  instead of a controlled `Failed` transition — now wrapped as valid JSON before write.
+- The impersonation session cookie's `maxAge` was hardcoded to 15 minutes while the
+  impersonation token itself lives 30 minutes and cannot be refreshed — the operator
+  was bounced to `/login` at half the banner's advertised countdown. Now derived from
+  the token's real expiry.
+- `PlanService` had no `IAuditLogger` at all — plan creation/retirement (which sets the
+  price every subscribed org is billed) was the one unaudited cross-tenant mutation in
+  the whole phase. Now audited (`plan.created`/`plan.retired`, `IsCrossTenantAction: true`).
+- There was no sign-out control anywhere in the platform frontend — the BFF logout
+  route existed and worked but nothing in the UI ever called it. Added to `PlatformNav`.
+
+**Parked for the next phase (not fixed here — small individually, but real):**
+
+- `ReturnBaseUrl` (the redirect target after a gateway payment) is accepted from the
+  client request body unvalidated and forwarded straight into the eSewa/Khalti redirect
+  URLs (`BillingEndpoints.cs`, `PaymentService.InitiatePaymentAsync`). Should be
+  derived server-side or checked against an allowlist.
+- The four platform organization lifecycle endpoints
+  (`PlatformOrganizationsEndpoints.cs`: suspend/reactivate/delete/restore) return a raw
+  500 for an unknown organization id (`OrganizationAdminService.GetOrThrowAsync` throws
+  a bare `InvalidOperationException`, uncaught) instead of a controlled 404 via the
+  `PlatformValidationException` pattern the impersonation endpoint already uses.
+- `Platform.Tests` is entirely fake-driven (hand-written fakes for
+  `IOrganizationLookupService`/`IBillingLookupService`/`IBranchLookupService`/
+  `IAuditLogReader`) — this is precisely what let the `IgnoreQueryFilters()` bug above
+  ship undetected through 20 tasks of review. Any future method on these interfaces
+  whose doc comment promises cross-tenant/null-ambient-tenant behavior should get at
+  least one real-`AppDbContext` regression test (the pattern already exists:
+  `OrganizationAdminServiceTests.GetAsync_WithNullAmbientTenant_ReturnsOrganization`,
+  `SubscriptionServiceTests`' equivalents). `PlatformDashboardEndpointsTests` also
+  currently asserts only `totalOrganizations >= 0`, which cannot fail.
+- No reconciliation job exists for a payment whose browser never returns from the
+  gateway (closed tab, lost connectivity, failed redirect) — the `Payment` sits in
+  `Initiated` forever, and `OverdueInvoiceJob` will eventually auto-suspend a tenant
+  who actually paid. Both gateways expose server-side status lookups the code already
+  calls once; a periodic sweep over stale `Initiated` payments would close this.
+- Suspend and Delete on the organization detail Sheet
+  (`OrganizationDetailSheet.tsx`) are single-click with no confirmation dialog, and
+  `useOrganizationLifecycleActions.ts` has no `onError` handler — a failed mutation is
+  silent to the operator.
+- `PlatformDashboardService.GetMetricsAsync`/`ListAllInvoicesAsync` both call
+  `IOrganizationLookupService.ListAsync()`, which materializes every `Organization` row
+  into memory just to compute counts or build a name-lookup dictionary — the same class
+  of full-table-scan as Known Limitation #2 below, on two more endpoints.
+- Smaller, lower-priority items noted but not tracked in detail here: `BranchService`'s
+  plan-limit check counts *all* branches while the platform console's branch count
+  shows only active ones (a mismatch, not a security issue); impersonation isn't
+  blocked for a suspended/deleted organization (arguably fine — the actor is already a
+  SuperAdmin — but undecided rather than deliberate); `EsewaGatewayClient`'s
+  status-check JSON parse is still unguarded and its signature comparison isn't
+  constant-time (this codebase already has a `CryptographicOperations.FixedTimeEquals`
+  precedent elsewhere); `MerchantAuthService.RefreshTokenAsync` has no suspension check
+  unlike the staff equivalent; `docs/DOMAIN-MODEL.md` still describes the pre-Billing
+  schema and was not reconciled with this phase's new tables.
 
 ## Known Limitations
 
-Two gaps were identified during implementation itself — not anticipated by the original
-design spec or plan, and not fixed within this phase's scope. Both are real and should be
-treated as the first items considered when this track's next phase is scoped, not
-forgotten background debt.
+Two further gaps were identified during implementation itself — not anticipated by the
+original design spec or plan, and not fixed within this phase's scope. Both are real and
+should be treated as the first items considered when this track's next phase is scoped,
+not forgotten background debt.
 
 1. **No organization ever actually gets a `Plan` assigned.** `SubscriptionService`
    (Billing module) has a working, unit-tested `AssignPlanAsync(organizationId, planId)`
