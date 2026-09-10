@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
+import { LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 const links = [
   { href: "/platform/dashboard", label: "Dashboard" },
@@ -12,9 +14,16 @@ const links = [
 ];
 
 export function PlatformNav() {
+  const router = useRouter();
   const pathname = usePathname();
+
+  const handleSignOut = async () => {
+    await fetch("/api/platform-auth/logout", { method: "POST" });
+    router.push("/platform-login");
+  };
+
   return (
-    <nav className="flex gap-4 border-b bg-card px-6 py-3">
+    <nav className="flex items-center gap-4 border-b bg-card px-6 py-3">
       {links.map((link) => (
         <Link
           key={link.href}
@@ -24,6 +33,10 @@ export function PlatformNav() {
           {link.label}
         </Link>
       ))}
+      <Button size="sm" variant="ghost" className="ml-auto gap-2 text-muted-foreground hover:text-foreground" onClick={handleSignOut}>
+        <LogOut className="h-4 w-4" strokeWidth={2} />
+        Sign out
+      </Button>
     </nav>
   );
 }

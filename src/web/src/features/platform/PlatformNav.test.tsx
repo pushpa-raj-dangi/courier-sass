@@ -1,13 +1,22 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+
+const push = vi.fn();
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/platform/plans",
+  useRouter: () => ({ push }),
 }));
 
 import { PlatformNav } from "./PlatformNav";
 
 describe("PlatformNav", () => {
+  beforeEach(() => {
+    push.mockClear();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true }));
+  });
+
   it("renders all four platform nav links", () => {
     render(<PlatformNav />);
 
@@ -22,5 +31,18 @@ describe("PlatformNav", () => {
 
     expect(screen.getByText("Plans")).toHaveClass("text-foreground");
     expect(screen.getByText("Dashboard")).not.toHaveClass("text-foreground");
+  });
+
+  it("renders a sign-out control that logs out and navigates to /platform-login", async () => {
+    const user = userEvent.setup();
+    render(<PlatformNav />);
+
+    const signOutButton = screen.getByRole("button", { name: /sign out/i });
+    expect(signOutButton).toBeInTheDocument();
+
+    await user.click(signOutButton);
+
+    expect(fetch).toHaveBeenCalledWith("/api/platform-auth/logout", { method: "POST" });
+    expect(push).toHaveBeenCalledWith("/platform-login");
   });
 });
