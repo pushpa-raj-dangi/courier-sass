@@ -90,6 +90,70 @@ public class SubscriptionServiceTests
         Assert.True(entry.IsCrossTenantAction);
     }
 
+    // Finding 1 (Critical, final whole-branch review): a lapsed trial (CurrentCycleEnd already
+    // in the past, e.g. converted 60 days after registering) must have its billing cycle reset
+    // on conversion, or InvoiceGenerationJob/OverdueInvoiceJob back-bill and immediately suspend
+    // the org that just paid to reactivate.
+    [Fact]
+    public async Task AssignPlanAsync_LapsedTrial_ResetsBillingCycleToNow()
+    {
+        var organizationId = Guid.NewGuid();
+        using var dbContext = TestDbContextFactory.Create(new FixedTenantProvider(organizationId));
+        var plan = await SeedPlanAsync(dbContext);
+        var lapsedCycleEnd = DateTimeOffset.UtcNow.AddDays(-60);
+        dbContext.Set<Subscription>().Add(new Subscription
+        {
+            Id = Guid.NewGuid(),
+            OrganizationId = organizationId,
+            PlanId = null,
+            Status = SubscriptionStatus.TrialExpired,
+            TrialEndsAt = DateTimeOffset.UtcNow.AddDays(-53),
+            CurrentCycleStart = DateTimeOffset.UtcNow.AddDays(-90),
+            CurrentCycleEnd = lapsedCycleEnd,
+            CreatedAt = DateTimeOffset.UtcNow.AddDays(-90)
+        });
+        await dbContext.SaveChangesAsync();
+        var service = CreateService(dbContext, new FixedTenantProvider(organizationId));
+        var beforeCall = DateTimeOffset.UtcNow;
+
+        var result = await service.AssignPlanAsync(organizationId, plan.Id, Guid.NewGuid());
+
+        Assert.Equal(SubscriptionStatus.Active, result.Status);
+        Assert.True(result.CurrentCycleStart >= beforeCall && result.CurrentCycleStart <= DateTimeOffset.UtcNow);
+        Assert.True(result.CurrentCycleEnd >= beforeCall.AddMonths(1) && result.CurrentCycleEnd <= DateTimeOffset.UtcNow.AddMonths(1));
+    }
+
+    // Guards the preserved mid-trial-conversion behavior (spec §6.2): converting before the
+    // current cycle has elapsed must NOT reset the billing clock.
+    [Fact]
+    public async Task AssignPlanAsync_MidTrialConversion_DoesNotResetBillingCycle()
+    {
+        var organizationId = Guid.NewGuid();
+        using var dbContext = TestDbContextFactory.Create(new FixedTenantProvider(organizationId));
+        var plan = await SeedPlanAsync(dbContext);
+        var originalCycleStart = DateTimeOffset.UtcNow.AddDays(-3);
+        var originalCycleEnd = DateTimeOffset.UtcNow.AddDays(27);
+        dbContext.Set<Subscription>().Add(new Subscription
+        {
+            Id = Guid.NewGuid(),
+            OrganizationId = organizationId,
+            PlanId = null,
+            Status = SubscriptionStatus.Trial,
+            TrialEndsAt = DateTimeOffset.UtcNow.AddDays(4),
+            CurrentCycleStart = originalCycleStart,
+            CurrentCycleEnd = originalCycleEnd,
+            CreatedAt = originalCycleStart
+        });
+        await dbContext.SaveChangesAsync();
+        var service = CreateService(dbContext, new FixedTenantProvider(organizationId));
+
+        var result = await service.AssignPlanAsync(organizationId, plan.Id, Guid.NewGuid());
+
+        Assert.Equal(SubscriptionStatus.Active, result.Status);
+        Assert.Equal(originalCycleStart, result.CurrentCycleStart);
+        Assert.Equal(originalCycleEnd, result.CurrentCycleEnd);
+    }
+
     [Fact]
     public async Task GetMaxBranchesAsync_PlanWithLimit_ReturnsLimit()
     {
@@ -206,6 +270,26 @@ public class SubscriptionServiceTests
         var entry = Assert.Single(auditLogger.Entries);
         Assert.Equal("subscription.trial_started", entry.Action);
         Assert.Equal(actingUserId, entry.UserId);
+    }
+
+    // Finding 5 (Important, final whole-branch review): StartTrialAsync's doc comment claims
+    // "called once ... and never again" — nothing previously enforced that, so a second call
+    // (a caller retry) hit the unique index on Subscriptions.OrganizationId and threw a raw
+    // DbUpdateException. It must now be a silent no-op instead.
+    [Fact]
+    public async Task StartTrialAsync_CalledTwiceForSameOrganization_IsIdempotentNoOp()
+    {
+        var organizationId = Guid.NewGuid();
+        using var dbContext = TestDbContextFactory.Create(new FixedTenantProvider(organizationId));
+        var auditLogger = new FakeAuditLogger();
+        var service = CreateService(dbContext, new FixedTenantProvider(organizationId), auditLogger);
+
+        await service.StartTrialAsync(organizationId, Guid.NewGuid());
+        var exception = await Record.ExceptionAsync(() => service.StartTrialAsync(organizationId, Guid.NewGuid()));
+
+        Assert.Null(exception);
+        Assert.Equal(1, dbContext.Set<Subscription>().Count(s => s.OrganizationId == organizationId));
+        Assert.Single(auditLogger.Entries);
     }
 
     [Fact]

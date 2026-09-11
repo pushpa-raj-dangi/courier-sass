@@ -47,6 +47,17 @@ public class SubscriptionService : IBillingLookupService
             };
             _dbContext.Set<Subscription>().Add(existing);
         }
+        else if (existing.CurrentCycleEnd <= now)
+        {
+            // A trial (or a previous paid cycle) that already elapsed by the time of conversion
+            // must not be back-billed for the dormant window, and must not be flagged Overdue/
+            // suspended the very next night by OverdueInvoiceJob for an invoice that was already
+            // overdue the moment InvoiceGenerationJob created it. A mid-trial conversion (cycle
+            // not yet elapsed) intentionally falls through and keeps its original cycle — see
+            // spec §6.2.
+            existing.CurrentCycleStart = now;
+            existing.CurrentCycleEnd = now.AddMonths(1);
+        }
         existing.PlanId = plan.Id;
         existing.Status = SubscriptionStatus.Active;
         existing.UpdatedAt = now;
@@ -66,6 +77,17 @@ public class SubscriptionService : IBillingLookupService
     // install with zero Plans configured yet must still let organizations register.
     public async Task StartTrialAsync(Guid organizationId, Guid actingUserId, CancellationToken cancellationToken = default)
     {
+        // Idempotent: a second call for the same org (a caller retry, e.g. Finding 4's fail-open
+        // registration path combined with a higher-level retry) is a silent no-op rather than a
+        // DbUpdateException from the unique index on Subscriptions.OrganizationId — makes the
+        // "called once" contract in this method's doc comment above actually true.
+        var alreadyExists = await _dbContext.Set<Subscription>().IgnoreQueryFilters()
+            .AnyAsync(s => s.OrganizationId == organizationId, cancellationToken);
+        if (alreadyExists)
+        {
+            return;
+        }
+
         var now = DateTimeOffset.UtcNow;
         var subscription = new Subscription
         {

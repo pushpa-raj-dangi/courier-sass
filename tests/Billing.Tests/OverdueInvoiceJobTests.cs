@@ -1,8 +1,10 @@
+using Courier.Audit.Application;
 using Courier.Billing.Application;
 using Courier.Billing.Domain;
 using Courier.Identity.Application;
 using Courier.SharedKernel;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Xunit;
 
 namespace Courier.Billing.Tests;
@@ -70,5 +72,58 @@ public class OverdueInvoiceJobTests
 
         Assert.Equal(InvoiceStatus.Pending, dbContext.Set<Invoice>().IgnoreQueryFilters().Single(i => i.Id == invoice.Id).Status);
         Assert.DoesNotContain(organizationId, organizationLookup.SuspendedOrganizationIds);
+    }
+
+    private sealed class FixedTenantProvider : ICurrentTenantProvider
+    {
+        public FixedTenantProvider(Guid? organizationId) { OrganizationId = organizationId; }
+        public Guid? OrganizationId { get; }
+    }
+
+    private sealed class NoopAuditLogger : IAuditLogger
+    {
+        public Task LogAsync(AuditEntry entry, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
+
+    // Finding 1 (Critical, final whole-branch review) end-to-end regression: converting a
+    // lapsed trial (CurrentCycleEnd 60 days in the past) via AssignPlanAsync must not leave the
+    // org back-billed and auto-suspended by the very next nightly job run. Exercises the real
+    // sequence: SubscriptionService.AssignPlanAsync -> InvoiceGenerationJob -> OverdueInvoiceJob,
+    // all against the same dbContext, following this file's existing job-test pattern.
+    [Fact]
+    public async Task LapsedTrialConversion_ThenNightlyJobs_StaysActiveWithNoBackDatedInvoice()
+    {
+        using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
+        var organizationId = Guid.NewGuid();
+        var plan = new Plan { Id = Guid.NewGuid(), Name = "Pro", Slug = $"pro-{Guid.NewGuid():N}", MonthlyPriceNpr = 2000m, IsActive = true, CreatedAt = DateTimeOffset.UtcNow };
+        dbContext.Set<Plan>().Add(plan);
+        dbContext.Set<Subscription>().Add(new Subscription
+        {
+            Id = Guid.NewGuid(),
+            OrganizationId = organizationId,
+            PlanId = null,
+            Status = SubscriptionStatus.TrialExpired,
+            TrialEndsAt = DateTimeOffset.UtcNow.AddDays(-83),
+            CurrentCycleStart = DateTimeOffset.UtcNow.AddDays(-90),
+            CurrentCycleEnd = DateTimeOffset.UtcNow.AddDays(-60),
+            CreatedAt = DateTimeOffset.UtcNow.AddDays(-90),
+            UpdatedAt = DateTimeOffset.UtcNow.AddDays(-90)
+        });
+        await dbContext.SaveChangesAsync();
+
+        var subscriptionService = new SubscriptionService(dbContext, new NoopAuditLogger(), Options.Create(new BillingOptions()), new FixedTenantProvider(organizationId));
+        await subscriptionService.AssignPlanAsync(organizationId, plan.Id, Guid.NewGuid());
+
+        var invoiceJob = new InvoiceGenerationJob(dbContext, Options.Create(new BillingOptions()));
+        await invoiceJob.RunAsync();
+
+        Assert.False(dbContext.Set<Invoice>().IgnoreQueryFilters().Any(i => i.OrganizationId == organizationId));
+
+        var organizationLookup = new FakeOrganizationLookupService();
+        var overdueJob = new OverdueInvoiceJob(dbContext, organizationLookup);
+        await overdueJob.RunAsync();
+
+        Assert.DoesNotContain(organizationId, organizationLookup.SuspendedOrganizationIds);
+        Assert.Equal(SubscriptionStatus.Active, dbContext.Set<Subscription>().IgnoreQueryFilters().Single(s => s.OrganizationId == organizationId).Status);
     }
 }
