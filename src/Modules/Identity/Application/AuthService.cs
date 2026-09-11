@@ -161,7 +161,24 @@ public class AuthService
         // (not before) so this follows the same "save the primary entities, then record the
         // event" sequencing this method already uses for the "organization.registered" audit
         // entry directly above.
-        await _organizationSubscriptionStarter.StartTrialAsync(organization.Id, owner.Id, cancellationToken);
+        //
+        // Deliberately fails OPEN: the org/owner/refresh-token are already durably committed by
+        // the SaveChangesAsync above (and by the audit log's own SaveChangesAsync), so if this
+        // throws, failing the whole registration would 500 the caller with no access token and
+        // no way to retry (duplicate slug/email) — strictly worse than a trial that silently
+        // didn't start. A missing Subscription row is a well-understood, already-supported state
+        // in this codebase (every pre-existing organization looks exactly like this, and
+        // GetMaxBranchesAsync/IsWriteBlockedAsync already treat "no Subscription" as "unlimited,
+        // unblocked"); a SuperAdmin can still assign a Plan directly. Swallowed without logging —
+        // AuthService has no ILogger dependency today and this fix intentionally does not widen
+        // the class's constructor just to log this one edge case.
+        try
+        {
+            await _organizationSubscriptionStarter.StartTrialAsync(organization.Id, owner.Id, cancellationToken);
+        }
+        catch (Exception)
+        {
+        }
 
         var accessToken = _jwtTokenService.IssueAccessToken(owner.Id, organization.Id, owner.Email);
         return new AuthResult(accessToken, refreshToken.PlainText, owner.Id, organization.Id);

@@ -47,6 +47,15 @@ file class RecordingOrganizationSubscriptionStarter : IOrganizationSubscriptionS
     }
 }
 
+// Finding 4 (Important, final whole-branch review): simulates StartTrialAsync throwing (e.g. a
+// transient DB error) after the org/owner/refresh-token are already durably committed, to prove
+// RegisterOrganizationAsync fails OPEN rather than 500ing a caller who has no way to retry.
+file class ThrowingOrganizationSubscriptionStarter : IOrganizationSubscriptionStarter
+{
+    public Task StartTrialAsync(Guid organizationId, Guid actingUserId, CancellationToken cancellationToken = default)
+        => throw new InvalidOperationException("Simulated failure starting trial subscription.");
+}
+
 public class AuthServiceTests
 {
     private static AppDbContext CreateContext() => TestDbContextFactory.Create(new NullTenantProvider());
@@ -172,5 +181,34 @@ public class AuthServiceTests
         var call = Assert.Single(subscriptionStarter.Calls);
         Assert.Equal(result.OrganizationId, call.OrganizationId);
         Assert.Equal(result.UserId, call.ActingUserId);
+    }
+
+    // Finding 4 (Important, final whole-branch review): StartTrialAsync throwing must not turn
+    // into a 500 for a caller whose org/owner/refresh-token are already durably committed — the
+    // registration must still succeed and return a usable access token.
+    [Fact]
+    public async Task RegisterOrganizationAsync_SubscriptionStarterThrows_StillSucceedsWithAccessToken()
+    {
+        await using var dbContext = CreateContext();
+        var jwtOptions = Options.Create(new JwtOptions
+        {
+            SigningKey = "identity-tests-signing-key-at-least-32-bytes!",
+            Issuer = "courier-tests",
+            Audience = "courier-tests"
+        });
+        var service = new AuthService(dbContext, new PasswordHasherAdapter(), new JwtTokenService(jwtOptions), new NoopAuditLogger(), new NullBranchLookupService(), new ThrowingOrganizationSubscriptionStarter());
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+
+        var result = await service.RegisterOrganizationAsync(new RegisterOrganizationRequest(
+            $"Resilient Org {suffix}", $"resilient-org-{suffix}", $"owner-{suffix}@example.com", "P@ssw0rd123!", "Owner Person"));
+
+        Assert.NotEqual(Guid.Empty, result.UserId);
+        Assert.NotEqual(Guid.Empty, result.OrganizationId);
+        Assert.False(string.IsNullOrWhiteSpace(result.AccessToken));
+        Assert.False(string.IsNullOrWhiteSpace(result.RefreshToken));
+
+        // The org/owner really were committed despite the throw — a fresh login works too.
+        var loginResult = await service.LoginAsync(new LoginRequest($"owner-{suffix}@example.com", "P@ssw0rd123!"));
+        Assert.Equal(result.UserId, loginResult.UserId);
     }
 }
