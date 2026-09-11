@@ -139,6 +139,21 @@ not forgotten background debt.
    default-plan auto-assignment at self-registration time. Until then, this phase's
    billing cycle is fully built but effectively dormant for every real tenant.
 
+   **Update 2026-09-10 — closed.** See
+   `docs/superpowers/specs/2026-09-10-billing-trial-plan-assignment-design.md` and
+   `docs/superpowers/plans/2026-09-10-billing-trial-plan-assignment.md`. Every self-registered
+   organization now starts a 7-day trial (`SubscriptionStatus.Trial`, no `Plan` yet) via
+   `AuthService.RegisterOrganizationAsync` → `IOrganizationSubscriptionStarter` →
+   `SubscriptionService.StartTrialAsync`. An `OrganizationOwner` can self-serve pick a `Plan`
+   from `/billing` (`GET /api/v1/billing/plans`, `POST /api/v1/billing/plan`) at any time,
+   before or after the trial ends. `TrialExpiryJob` flips an unconverted trial to
+   `TrialExpired`, at which point `TrialEnforcementMiddleware` blocks non-GET requests with
+   `402 TRIAL_EXPIRED` until a `Plan` is chosen — backend-enforced, not a frontend-only gate. A
+   `SuperAdmin` can also assign/override any org's `Plan` directly from
+   `/platform/organizations` (`POST /api/v1/platform/organizations/{id}/plan`), which is the
+   path available for the organizations that pre-date this feature and have no `Subscription`
+   at all (deliberately not backfilled — see the design spec's Open Questions for why).
+
 2. **`GET /api/v1/platform/organizations` is an unpaginated N+1 query.**
    `OrganizationLifecycleService.ListOrganizationsAsync` (Tasks 9-10) loops over every
    organization and issues two extra queries per row (a plan-summary lookup and an

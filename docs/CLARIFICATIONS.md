@@ -1048,6 +1048,59 @@ called from any Presentation endpoint or frontend action.
 
 ---
 
+## 22. Trial-based plan assignment: 7-day soft-lock trial, and no backfill for pre-existing organizations
+
+**Where:** `docs/superpowers/specs/2026-09-10-billing-trial-plan-assignment-design.md`,
+`docs/superpowers/plans/2026-09-10-billing-trial-plan-assignment.md`.
+
+**Context:** This document's entry #21 and `docs/PLATFORM-ROADMAP.md`'s Known Limitations #1
+recorded that no organization ever actually got a `Plan` assigned — `SubscriptionService.
+AssignPlanAsync` existed and was unit-tested, but nothing in a real request path ever called
+it, so every self-registered organization ended up with no `Subscription` at all and the
+entire invoice/payment/auto-suspend machinery was unreachable in production. This phase closes
+that gap.
+
+**Resolution:**
+
+1. **Trial model: 7 days, no `Plan` required to register.** `AuthService.
+   RegisterOrganizationAsync` now starts every new organization on a `Subscription` with
+   `Status = SubscriptionStatus.Trial`, `PlanId = null`, and `TrialEndsAt = now + 7 days` (via
+   `IOrganizationSubscriptionStarter` → `SubscriptionService.StartTrialAsync`, keeping
+   Identity's registration flow from taking a direct dependency on Billing's internals). An
+   `OrganizationOwner` can self-serve choose a `Plan` from `/billing` at any point — during the
+   trial or after it has expired — via `SubscriptionService.AssignPlanAsync`, the same method
+   that already existed and was already correct; this phase only makes it reachable.
+
+2. **Enforcement is a soft-lock via new middleware, not the existing hard-lock suspension
+   mechanism.** `Organization`/`Subscription` already had a `Suspended`-style hard lock (used
+   for overdue-invoice auto-suspend) that blocks login itself. Trial expiry deliberately does
+   not reuse that path: an `OrganizationOwner` whose trial has lapsed must still be able to log
+   in and reach `/billing` to pick a `Plan`, or they could never recover on their own. Instead,
+   `TrialExpiryJob` (a new Hangfire recurring job, same cross-tenant `IgnoreQueryFilters()`
+   shape as the existing `OverdueInvoiceJob`/`InvoiceGenerationJob`) flips an unconverted
+   trial's `Status` to `TrialExpired`, and a new `TrialEnforcementMiddleware` (registered after
+   `UseAuthentication()`/`UseAuthorization()`, alongside `ApiKeyRequestLoggingMiddleware`/
+   `IdempotencyMiddleware`) blocks only non-GET/HEAD/OPTIONS requests from a `TrialExpired`
+   org with `402 Payment Required` / `TRIAL_EXPIRED`, exempting `/api/v1/auth`,
+   `/api/v1/billing`, `/api/v1/platform`, `/track`, `/health`, `/swagger`, and `/hangfire` by
+   path prefix. This is backend-enforced per `CLAUDE.md` §33 — the frontend's redirect-on-
+   `TRIAL_EXPIRED` in the shared API error-normalization path is a UX convenience layered on
+   top, not the enforcement boundary itself.
+
+3. **No backfill for the ~25,922 already-registered organizations.** They never went through
+   the new trial-start code path (it only fires from `RegisterOrganizationAsync`), so they keep
+   their pre-existing no-`Subscription` state — unlimited, unblocked — rather than being
+   retroactively dropped into a `Trial` (or `TrialExpired`) state by a migration or backfill
+   script. The design spec's Open Questions (§11) called this out explicitly and recommended
+   against backfilling: their current unlimited/unblocked behavior is not a regression, and
+   retroactively starting a 7-day clock on production-adjacent orgs that never asked for one
+   risks locking out real customers by surprise. The only path to a `Plan` for these
+   pre-existing orgs is a `SuperAdmin` manually assigning one from `/platform/organizations`
+   (`POST /api/v1/platform/organizations/{id}/plan`) — the same override endpoint a
+   `SuperAdmin` can also use on any trial-era org.
+
+---
+
 ## Summary of schema additions implied by this document
 
 * `UserRole` (new entity) — resolves #1, carries `BranchScope` enum — resolves #6.
