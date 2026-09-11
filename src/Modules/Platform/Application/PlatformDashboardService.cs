@@ -2,6 +2,7 @@ using Courier.Audit.Application;
 using Courier.Billing.Application;
 using Courier.Branches.Application;
 using Courier.Identity.Application;
+using Courier.SharedKernel;
 
 namespace Courier.Platform.Application;
 
@@ -66,33 +67,37 @@ public class PlatformDashboardService
         return new OrganizationDetail(organization, subscriptionStatus?.PlanName, subscriptionStatus?.Status, subscriptionStatus?.TrialEndsAt, users, branches, invoices, auditEntries);
     }
 
-    // Joins invoices against organizations in-memory (a full org-name dictionary, then a
-    // dictionary lookup per invoice) rather than an N+1 per-invoice organization lookup. Still
-    // needs every organization's name (an invoice can belong to any org), so this loops
-    // ListAsync's now-paginated pages to rebuild the full dictionary — a stopgap kept correct
-    // (no org silently missing from the name lookup) pending the Invoices-area pagination pass,
-    // which will redesign this join properly instead of paging through every organization here.
-    public async Task<List<InvoiceAdminRecordWithOrgName>> ListAllInvoicesAsync(Courier.Billing.Domain.InvoiceStatus? status, CancellationToken cancellationToken = default)
+    // Bulk-fetches all invoices matching status (Billing's ListAllInvoicesAsync is a single flat
+    // query — Invoices is a much smaller, slower-growing table than Organizations, so this
+    // remains unbounded at the SQL level, unlike the paginated Organizations query below). A
+    // search term is resolved to matching organization IDs first (capped at MaxPageSize matches
+    // — a search term realistically matches a handful of orgs, not hundreds; a documented
+    // limitation, not a silent bug) and used to filter invoices before pagination. Only the
+    // resulting page's invoices then get an org-name lookup — bounded to pageSize (max 200)
+    // per-invoice GetAsync calls, the same "N+1 is fine once bounded by pagination" reasoning as
+    // OrganizationLifecycleService's plan/branch-count enrichment loop.
+    public async Task<PagedResult<InvoiceAdminRecordWithOrgName>> ListAllInvoicesAsync(Courier.Billing.Domain.InvoiceStatus? status, string? search, int? page, int? pageSize, CancellationToken cancellationToken = default)
     {
         var invoices = await _billingLookupService.ListAllInvoicesAsync(status, cancellationToken);
-        var namesByid = new Dictionary<Guid, string>();
-        var page = 1;
-        while (true)
+
+        if (!string.IsNullOrWhiteSpace(search))
         {
-            var result = await _organizationLookupService.ListAsync(null, null, null, page, Courier.SharedKernel.PaginationDefaults.MaxPageSize, cancellationToken);
-            foreach (var organization in result.Items)
-            {
-                namesByid[organization.Id] = organization.Name;
-            }
-            if (page >= result.TotalPages)
-            {
-                break;
-            }
-            page++;
+            var matchingOrgs = await _organizationLookupService.ListAsync(search, null, null, 1, Courier.SharedKernel.PaginationDefaults.MaxPageSize, cancellationToken);
+            var matchingIds = matchingOrgs.Items.Select(o => o.Id).ToHashSet();
+            invoices = invoices.Where(i => matchingIds.Contains(i.OrganizationId)).ToList();
         }
 
-        return invoices
-            .Select(i => new InvoiceAdminRecordWithOrgName(i.Id, i.OrganizationId, namesByid.GetValueOrDefault(i.OrganizationId, "Unknown"), i.PlanName, i.AmountNpr, i.Status, i.DueAt, i.PaidAt))
-            .ToList();
+        var (normalizedPage, normalizedPageSize) = Courier.SharedKernel.PaginationDefaults.Normalize(page, pageSize);
+        var totalCount = invoices.Count;
+        var pageItems = invoices.Skip((normalizedPage - 1) * normalizedPageSize).Take(normalizedPageSize).ToList();
+
+        var withNames = new List<InvoiceAdminRecordWithOrgName>();
+        foreach (var invoice in pageItems)
+        {
+            var org = await _organizationLookupService.GetAsync(invoice.OrganizationId, cancellationToken);
+            withNames.Add(new InvoiceAdminRecordWithOrgName(invoice.Id, invoice.OrganizationId, org?.Name ?? "Unknown", invoice.PlanName, invoice.AmountNpr, invoice.Status, invoice.DueAt, invoice.PaidAt));
+        }
+
+        return new PagedResult<InvoiceAdminRecordWithOrgName>(withNames, normalizedPage, normalizedPageSize, totalCount);
     }
 }

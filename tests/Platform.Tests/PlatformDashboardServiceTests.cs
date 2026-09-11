@@ -135,10 +135,104 @@ public class PlatformDashboardServiceTests
         };
         var service = new PlatformDashboardService(organizationLookup, billingLookup, new FakeBranchLookupService(), new FakeAuditLogReader());
 
-        var invoices = await service.ListAllInvoicesAsync(null);
+        var result = await service.ListAllInvoicesAsync(null, null, null, null);
 
-        Assert.Equal(2, invoices.Count);
-        Assert.Equal("Kathmandu Couriers", invoices.Single(i => i.OrganizationId == knownOrgId).OrganizationName);
-        Assert.Equal("Unknown", invoices.Single(i => i.OrganizationId == unknownOrgId).OrganizationName);
+        Assert.Equal(2, result.Items.Count);
+        Assert.Equal(2, result.TotalCount);
+        Assert.Equal("Kathmandu Couriers", result.Items.Single(i => i.OrganizationId == knownOrgId).OrganizationName);
+        Assert.Equal("Unknown", result.Items.Single(i => i.OrganizationId == unknownOrgId).OrganizationName);
+    }
+
+    [Fact]
+    public async Task ListAllInvoicesAsync_Search_FiltersToMatchingOrganizationOnly()
+    {
+        var kathmanduOrgId = Guid.NewGuid();
+        var pokharaOrgId = Guid.NewGuid();
+        var organizationLookup = new FakeOrganizationLookupService
+        {
+            Organizations = new List<OrganizationRecord>
+            {
+                new(kathmanduOrgId, "Kathmandu Couriers", "kathmandu-couriers", true, false, null, DateTimeOffset.UtcNow),
+                new(pokharaOrgId, "Pokhara Express", "pokhara-express", true, false, null, DateTimeOffset.UtcNow)
+            }
+        };
+        var billingLookup = new FakeBillingLookupService
+        {
+            Invoices = new List<InvoiceAdminRecord>
+            {
+                new(Guid.NewGuid(), kathmanduOrgId, "Growth", 2500m, Courier.Billing.Domain.InvoiceStatus.Paid, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow),
+                new(Guid.NewGuid(), pokharaOrgId, "Starter", 1000m, Courier.Billing.Domain.InvoiceStatus.Paid, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow)
+            }
+        };
+        var service = new PlatformDashboardService(organizationLookup, billingLookup, new FakeBranchLookupService(), new FakeAuditLogReader());
+
+        var result = await service.ListAllInvoicesAsync(null, "Kathmandu", null, null);
+
+        var invoice = Assert.Single(result.Items);
+        Assert.Equal(kathmanduOrgId, invoice.OrganizationId);
+        Assert.Equal(1, result.TotalCount);
+    }
+
+    [Fact]
+    public async Task ListAllInvoicesAsync_Pagination_ReturnsCorrectSliceAndTotalCount()
+    {
+        var orgId = Guid.NewGuid();
+        var organizationLookup = new FakeOrganizationLookupService
+        {
+            Organizations = new List<OrganizationRecord> { new(orgId, "Kathmandu Couriers", "kathmandu-couriers", true, false, null, DateTimeOffset.UtcNow) }
+        };
+        var billingLookup = new FakeBillingLookupService
+        {
+            Invoices = Enumerable.Range(0, 5)
+                .Select(i => new InvoiceAdminRecord(Guid.NewGuid(), orgId, "Growth", 2500m, Courier.Billing.Domain.InvoiceStatus.Paid, DateTimeOffset.UtcNow.AddDays(i), DateTimeOffset.UtcNow))
+                .ToList()
+        };
+        var service = new PlatformDashboardService(organizationLookup, billingLookup, new FakeBranchLookupService(), new FakeAuditLogReader());
+
+        var result = await service.ListAllInvoicesAsync(null, null, page: 2, pageSize: 2);
+
+        Assert.Equal(2, result.Items.Count);
+        Assert.Equal(5, result.TotalCount);
+        Assert.Equal(2, result.Page);
+        Assert.Equal(2, result.PageSize);
+        Assert.Equal(3, result.TotalPages);
+    }
+
+    [Fact]
+    public async Task ListAllInvoicesAsync_StatusFilter_StillAppliedByBillingLookup()
+    {
+        var orgId = Guid.NewGuid();
+        var organizationLookup = new FakeOrganizationLookupService
+        {
+            Organizations = new List<OrganizationRecord> { new(orgId, "Kathmandu Couriers", "kathmandu-couriers", true, false, null, DateTimeOffset.UtcNow) }
+        };
+        // The fake's ListAllInvoicesAsync ignores `status` and returns everything (matching the
+        // real IBillingLookupService's ListAllInvoicesAsync contract, which this fake only
+        // partially stubs) — this test just confirms the status param reaches through PlatformDashboardService
+        // to IBillingLookupService.ListAllInvoicesAsync unchanged; SubscriptionServiceTests already covers
+        // the real filtering behavior against a real DB.
+        var recordingBillingLookup = new RecordingStatusBillingLookupService();
+        var service = new PlatformDashboardService(organizationLookup, recordingBillingLookup, new FakeBranchLookupService(), new FakeAuditLogReader());
+
+        await service.ListAllInvoicesAsync(Courier.Billing.Domain.InvoiceStatus.Overdue, null, null, null);
+
+        Assert.Equal(Courier.Billing.Domain.InvoiceStatus.Overdue, recordingBillingLookup.LastStatus);
+    }
+
+    private sealed class RecordingStatusBillingLookupService : IBillingLookupService
+    {
+        public Courier.Billing.Domain.InvoiceStatus? LastStatus { get; private set; }
+        public Task<int?> GetMaxBranchesAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult((int?)null);
+        public Task<PlanSummary?> GetPlanSummaryAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult<PlanSummary?>(null);
+        public Task<PlatformBillingMetrics> GetPlatformMetricsAsync(CancellationToken cancellationToken = default) => Task.FromResult(new PlatformBillingMetrics(0m, 0));
+        public Task<List<InvoiceResponse>> ListInvoicesForOrganizationAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult(new List<InvoiceResponse>());
+        public Task<List<InvoiceAdminRecord>> ListAllInvoicesAsync(Courier.Billing.Domain.InvoiceStatus? status, CancellationToken cancellationToken = default)
+        {
+            LastStatus = status;
+            return Task.FromResult(new List<InvoiceAdminRecord>());
+        }
+        public Task StartTrialAsync(Guid organizationId, Guid actingUserId, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<bool> IsWriteBlockedAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult(false);
+        public Task<SubscriptionStatusInfo?> GetSubscriptionStatusAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult<SubscriptionStatusInfo?>(null);
     }
 }

@@ -11,8 +11,8 @@ public static class PlatformInvoicesEndpoints
 {
     public static void MapPlatformInvoicesEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/api/v1/platform/invoices", async (InvoiceStatus? status, PlatformDashboardService service, CancellationToken cancellationToken) =>
-                Results.Ok(await service.ListAllInvoicesAsync(status, cancellationToken)))
+        app.MapGet("/api/v1/platform/invoices", async (InvoiceStatus? status, string? search, int? page, int? pageSize, PlatformDashboardService service, CancellationToken cancellationToken) =>
+                Results.Ok(await service.ListAllInvoicesAsync(status, search, page, pageSize, cancellationToken)))
             .WithTags("Platform Invoices")
             .RequireSuperAdmin();
     }
