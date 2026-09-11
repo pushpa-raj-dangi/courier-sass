@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { AppSidebar } from "@/components/app-sidebar";
+import { CommandPalette } from "@/components/layout/CommandPalette";
 import { HeaderSearch } from "@/components/layout/HeaderSearch";
 import { ImpersonationBanner } from "@/components/layout/ImpersonationBanner";
 import { ReauthDialog } from "@/components/layout/ReauthDialog";
@@ -26,6 +27,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="flex-1 bg-background p-6">{children}</div>
       </SidebarInset>
       <ReauthDialog />
+      <CommandPalette />
     </SidebarProvider>
   );
 }

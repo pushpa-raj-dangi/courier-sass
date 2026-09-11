@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Package, Building2, Wallet, Truck, Bike, ClipboardCheck, AlertTriangle, Undo2, ShieldCheck, CreditCard, type LucideIcon } from "lucide-react";
 import { usePermission } from "@/features/auth/hooks/usePermission";
+import { NAV_ITEMS, type NavItem } from "@/lib/navigation/navItems";
 import {
   SidebarGroup,
   SidebarGroupLabel,
@@ -11,30 +11,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-
-interface NavItem {
-  href: string;
-  label: string;
-  permission: string | string[];
-  icon: LucideIcon;
-}
-
-// The full staff nav catalog. Phases F1-F9 each add their real route once built; entries below
-// point at routes that don't exist until their phase lands, which is fine — Link just 404s
-// until then, and the item is hidden entirely for any user lacking the permission regardless.
-const NAV_ITEMS: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", permission: "report.read", icon: LayoutDashboard },
-  { href: "/shipments", label: "Shipments", permission: "shipment.read", icon: Package },
-  { href: "/branches", label: "Branches", permission: "branch.read", icon: Building2 },
-  { href: "/manifests", label: "Manifests", permission: "manifest.read", icon: Truck },
-  { href: "/ndrs", label: "NDRs", permission: "ndr.read", icon: AlertTriangle },
-  { href: "/return-shipments", label: "Return Shipments", permission: "rto.read", icon: Undo2 },
-  { href: "/riders", label: "Riders", permission: "rider.read", icon: Bike },
-  { href: "/rider/tasks", label: "My Deliveries", permission: "delivery.attempt", icon: ClipboardCheck },
-  { href: "/cod", label: "COD", permission: "cod.read", icon: Wallet },
-  { href: "/billing", label: "Billing", permission: "org.billing.manage", icon: CreditCard },
-  { href: "/admin", label: "Admin", permission: ["role.manage", "user.read"], icon: ShieldCheck },
-];
 
 // Flat links, not the block's original collapsible groups — no nav item in this app has
 // sub-items today, and CLAUDE.md's YAGNI guidance says not to build that structure speculatively.
