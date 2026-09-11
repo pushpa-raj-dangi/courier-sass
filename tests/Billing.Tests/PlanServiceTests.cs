@@ -55,8 +55,60 @@ public class PlanServiceTests
 
         await service.CreatePlanAsync(new CreatePlanRequest("Free v2", secondSlug, 0m, null, null, null, true), Guid.NewGuid());
 
-        var plans = await service.ListPlansAsync();
-        Assert.False(plans.Single(p => p.Id == first.Id).IsDefault);
+        // Search by the unique slug prefix (not an unfiltered ListPlansAsync()) — the shared test
+        // DB accumulates plans across many tests/sessions, and an unfiltered default page could
+        // miss this specific plan once the table exceeds one page.
+        var plans = await service.ListPlansAsync(search: firstSlug);
+        Assert.False(plans.Items.Single(p => p.Id == first.Id).IsDefault);
+    }
+
+    [Fact]
+    public async Task ListPlansAsync_SearchMatchesNameSubstring()
+    {
+        using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
+        var service = new PlanService(dbContext, new FakeAuditLogger());
+        var marker = Guid.NewGuid().ToString("N")[..8];
+        await service.CreatePlanAsync(new CreatePlanRequest($"Growth {marker}", $"growth-{marker}", 3000m, null, null, null, false), Guid.NewGuid());
+        await service.CreatePlanAsync(new CreatePlanRequest($"Starter {marker}", $"starter-{marker}", 0m, null, null, null, false), Guid.NewGuid());
+
+        var result = await service.ListPlansAsync(search: $"growth {marker}");
+
+        var single = Assert.Single(result.Items);
+        Assert.Equal($"Growth {marker}", single.Name);
+    }
+
+    [Fact]
+    public async Task ListPlansAsync_SearchMatchesSlugSubstring()
+    {
+        using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
+        var service = new PlanService(dbContext, new FakeAuditLogger());
+        var marker = Guid.NewGuid().ToString("N")[..8];
+        var created = await service.CreatePlanAsync(new CreatePlanRequest($"Plan {marker}", $"custom-slug-{marker}", 500m, null, null, null, false), Guid.NewGuid());
+
+        var result = await service.ListPlansAsync(search: $"custom-slug-{marker}");
+
+        Assert.Contains(result.Items, p => p.Id == created.Id);
+    }
+
+    [Fact]
+    public async Task ListPlansAsync_Paginates()
+    {
+        using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
+        var service = new PlanService(dbContext, new FakeAuditLogger());
+        var marker = Guid.NewGuid().ToString("N")[..8];
+        for (var i = 0; i < 3; i++)
+        {
+            await service.CreatePlanAsync(new CreatePlanRequest($"Paginated {marker} {i}", $"paginated-{marker}-{i}", 100m * i, null, null, null, false), Guid.NewGuid());
+        }
+
+        var page1 = await service.ListPlansAsync(search: marker, page: 1, pageSize: 2);
+        var page2 = await service.ListPlansAsync(search: marker, page: 2, pageSize: 2);
+
+        Assert.Equal(2, page1.Items.Count);
+        Assert.Equal(1, page2.Items.Count);
+        Assert.Equal(3, page1.TotalCount);
+        Assert.Equal(3, page2.TotalCount);
+        Assert.Equal(2, page1.TotalPages);
     }
 
     [Fact]

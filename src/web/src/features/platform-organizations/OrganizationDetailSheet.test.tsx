@@ -55,7 +55,7 @@ const deleteMutate = vi.fn();
 const restoreMutate = vi.fn();
 const platformPlans = [{ id: "plan-1", name: "Growth", slug: "growth", monthlyPriceNpr: 3000, maxBranches: null, maxStaffUsers: null, maxMonthlyShipments: null, isDefault: true, isActive: true }];
 vi.mock("@/features/platform-plans/hooks/usePlatformPlans", () => ({
-  usePlatformPlans: () => ({ data: platformPlans, isLoading: false }),
+  usePlatformPlansForSelect: () => ({ data: platformPlans, isLoading: false }),
 }));
 
 const assignPlanMutate = vi.fn();

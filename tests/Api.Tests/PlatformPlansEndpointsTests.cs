@@ -50,11 +50,32 @@ public class PlatformPlansEndpointsTests : IClassFixture<WebApplicationFactory<P
         var createResponse = await client.PostAsJsonAsync("/api/v1/platform/plans", new { name = "List Test Plan", slug, monthlyPriceNpr = 1500m, maxBranches = (int?)null, maxStaffUsers = (int?)null, maxMonthlyShipments = (int?)null, isDefault = false });
         createResponse.EnsureSuccessStatusCode();
 
-        var response = await client.GetAsync("/api/v1/platform/plans");
+        var response = await client.GetAsync($"/api/v1/platform/plans?search={slug}");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Contains(body.EnumerateArray(), p => p.GetProperty("slug").GetString() == slug);
+        Assert.Contains(body.GetProperty("items").EnumerateArray(), p => p.GetProperty("slug").GetString() == slug);
+    }
+
+    [Fact]
+    public async Task ListPlans_SearchAndPagination_NarrowsAndPagesResults()
+    {
+        var client = _factory.CreateClient();
+        var token = await LoginAsSuperAdminAsync(client);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var marker = Guid.NewGuid().ToString("N")[..8];
+        for (var i = 0; i < 3; i++)
+        {
+            var createResponse = await client.PostAsJsonAsync("/api/v1/platform/plans", new { name = $"Search Test {marker} {i}", slug = $"search-{marker}-{i}", monthlyPriceNpr = 100m * i, maxBranches = (int?)null, maxStaffUsers = (int?)null, maxMonthlyShipments = (int?)null, isDefault = false });
+            createResponse.EnsureSuccessStatusCode();
+        }
+
+        var response = await client.GetAsync($"/api/v1/platform/plans?search={marker}&page=1&pageSize=2");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(2, body.GetProperty("items").GetArrayLength());
+        Assert.Equal(3, body.GetProperty("totalCount").GetInt32());
     }
 
     [Fact]

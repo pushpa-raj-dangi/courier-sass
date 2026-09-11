@@ -1,5 +1,6 @@
 using Courier.Audit.Application;
 using Courier.Billing.Domain;
+using Courier.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 
 namespace Courier.Billing.Application;
@@ -60,8 +61,27 @@ public class PlanService
         return ToResponse(plan);
     }
 
-    public async Task<List<PlanResponse>> ListPlansAsync(CancellationToken cancellationToken = default)
-        => await _dbContext.Set<Plan>().OrderBy(p => p.MonthlyPriceNpr).Select(p => ToResponse(p)).ToListAsync(cancellationToken);
+    // SuperAdmin-facing (includes retired plans). search matches Name or Slug (case-insensitive
+    // substring) — no EF.Functions.ILike, this module has no Npgsql provider package reference.
+    public async Task<PagedResult<PlanResponse>> ListPlansAsync(string? search = null, int? page = null, int? pageSize = null, CancellationToken cancellationToken = default)
+    {
+        var query = _dbContext.Set<Plan>().AsQueryable();
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.ToLower();
+            query = query.Where(p => p.Name.ToLower().Contains(term) || p.Slug.ToLower().Contains(term));
+        }
+
+        var (normalizedPage, normalizedPageSize) = PaginationDefaults.Normalize(page, pageSize);
+        var totalCount = await query.CountAsync(cancellationToken);
+        var items = await query
+            .OrderBy(p => p.MonthlyPriceNpr)
+            .Skip((normalizedPage - 1) * normalizedPageSize)
+            .Take(normalizedPageSize)
+            .Select(p => ToResponse(p))
+            .ToListAsync(cancellationToken);
+        return new PagedResult<PlanResponse>(items, normalizedPage, normalizedPageSize, totalCount);
+    }
 
     // Staff-facing subset of ListPlansAsync (which is SuperAdmin-only and includes retired
     // plans) — an OrganizationOwner choosing a plan must never be offered a retired one.

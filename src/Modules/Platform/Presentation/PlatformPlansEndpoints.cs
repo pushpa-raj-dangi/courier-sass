@@ -16,8 +16,8 @@ public static class PlatformPlansEndpoints
     {
         var group = app.MapGroup("/api/v1/platform/plans").WithTags("Platform Plans");
 
-        group.MapGet("/", async (PlanService service, CancellationToken cancellationToken) =>
-            Results.Ok(await service.ListPlansAsync(cancellationToken)))
+        group.MapGet("/", async (string? search, int? page, int? pageSize, PlanService service, CancellationToken cancellationToken) =>
+            Results.Ok(await service.ListPlansAsync(search, page, pageSize, cancellationToken)))
             .RequireSuperAdmin();
 
         group.MapPost("/", async (CreatePlanRequest request, PlanService service, HttpContext httpContext, CancellationToken cancellationToken) =>

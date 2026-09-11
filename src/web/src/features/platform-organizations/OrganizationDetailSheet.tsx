@@ -11,7 +11,7 @@ import { ErrorState } from "@/components/states/ErrorState";
 import { useOrganizationPanelStore } from "@/features/platform-organizations/store/organizationPanelStore";
 import { usePlatformOrganization } from "@/features/platform-organizations/hooks/usePlatformOrganization";
 import { useImpersonate } from "@/features/platform-organizations/hooks/useImpersonate";
-import { usePlatformPlans } from "@/features/platform-plans/hooks/usePlatformPlans";
+import { usePlatformPlansForSelect } from "@/features/platform-plans/hooks/usePlatformPlans";
 import {
   useSuspendOrganization,
   useReactivateOrganization,
@@ -21,7 +21,7 @@ import {
 } from "@/features/platform-organizations/hooks/useOrganizationLifecycleActions";
 
 function AssignPlanControl({ organizationId }: { organizationId: string | null }) {
-  const { data: plans } = usePlatformPlans();
+  const { data: plans } = usePlatformPlansForSelect();
   const assignPlan = useAssignOrganizationPlan();
   const [selectedPlanId, setSelectedPlanId] = useState<string>("");
 
