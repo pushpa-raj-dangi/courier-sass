@@ -1,20 +1,56 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ErrorState } from "@/components/states/ErrorState";
 import { useOrganizationPanelStore } from "@/features/platform-organizations/store/organizationPanelStore";
 import { usePlatformOrganization } from "@/features/platform-organizations/hooks/usePlatformOrganization";
 import { useImpersonate } from "@/features/platform-organizations/hooks/useImpersonate";
+import { usePlatformPlans } from "@/features/platform-plans/hooks/usePlatformPlans";
 import {
   useSuspendOrganization,
   useReactivateOrganization,
   useDeleteOrganization,
   useRestoreOrganization,
+  useAssignOrganizationPlan,
 } from "@/features/platform-organizations/hooks/useOrganizationLifecycleActions";
+
+function AssignPlanControl({ organizationId }: { organizationId: string | null }) {
+  const { data: plans } = usePlatformPlans();
+  const assignPlan = useAssignOrganizationPlan();
+  const [selectedPlanId, setSelectedPlanId] = useState<string>("");
+
+  if (!organizationId) {
+    return null;
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
+        <SelectTrigger className="w-48">
+          <SelectValue placeholder="Assign a plan" />
+        </SelectTrigger>
+        <SelectContent>
+          {plans?.filter((p) => p.isActive).map((plan) => (
+            <SelectItem key={plan.id} value={plan.id}>{plan.name} — NPR {plan.monthlyPriceNpr}/mo</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Button
+        size="sm"
+        disabled={!selectedPlanId || assignPlan.isPending}
+        onClick={() => assignPlan.mutate({ organizationId, planId: selectedPlanId })}
+      >
+        Assign Plan
+      </Button>
+    </div>
+  );
+}
 
 export function OrganizationDetailSheet() {
   const router = useRouter();
@@ -48,14 +84,18 @@ export function OrganizationDetailSheet() {
         )}
         {data && (
           <div className="space-y-6 p-4">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Badge
                 variant={data.organization.deletedAt ? "destructive" : data.organization.isActive ? "default" : "secondary"}
               >
                 {data.organization.deletedAt ? "Deleted" : data.organization.isActive ? "Active" : "Suspended"}
               </Badge>
-              <span className="text-sm text-muted-foreground">{data.planName ?? "No plan assigned"}</span>
+              <span className="text-sm text-muted-foreground">
+                {data.planName ?? (data.subscriptionStatus === "Trial" ? "On trial — no plan chosen" : data.subscriptionStatus === "TrialExpired" ? "Trial expired — no plan chosen" : "No plan assigned")}
+              </span>
             </div>
+
+            <AssignPlanControl organizationId={organizationId} />
 
             <div className="flex flex-wrap gap-2">
               {data.organization.isActive && !data.organization.deletedAt && (

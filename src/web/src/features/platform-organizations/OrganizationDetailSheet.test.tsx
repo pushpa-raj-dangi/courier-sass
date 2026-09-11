@@ -13,6 +13,8 @@ function makeDetail(overrides: Partial<{ isActive: boolean; deletedAt: string | 
       createdAt: "2026-01-01T00:00:00Z",
     },
     planName: "Growth",
+    subscriptionStatus: "Active" as const,
+    trialEndsAt: null,
     users: [{ id: "u1", email: "owner@kathmandu.example", fullName: "Owner Person", isActive: true }],
     branches: [{ id: "b1", code: "KTM-01", name: "Kathmandu Hub", isActive: true }],
     invoices: [
@@ -51,12 +53,23 @@ const suspendMutate = vi.fn();
 const reactivateMutate = vi.fn();
 const deleteMutate = vi.fn();
 const restoreMutate = vi.fn();
-vi.mock("@/features/platform-organizations/hooks/useOrganizationLifecycleActions", () => ({
-  useSuspendOrganization: () => ({ mutate: suspendMutate, isPending: false }),
-  useReactivateOrganization: () => ({ mutate: reactivateMutate, isPending: false }),
-  useDeleteOrganization: () => ({ mutate: deleteMutate, isPending: false }),
-  useRestoreOrganization: () => ({ mutate: restoreMutate, isPending: false }),
+const platformPlans = [{ id: "plan-1", name: "Growth", slug: "growth", monthlyPriceNpr: 3000, maxBranches: null, maxStaffUsers: null, maxMonthlyShipments: null, isDefault: true, isActive: true }];
+vi.mock("@/features/platform-plans/hooks/usePlatformPlans", () => ({
+  usePlatformPlans: () => ({ data: platformPlans, isLoading: false }),
 }));
+
+const assignPlanMutate = vi.fn();
+vi.mock("@/features/platform-organizations/hooks/useOrganizationLifecycleActions", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/features/platform-organizations/hooks/useOrganizationLifecycleActions")>();
+  return {
+    ...actual,
+    useSuspendOrganization: () => ({ mutate: suspendMutate, isPending: false }),
+    useReactivateOrganization: () => ({ mutate: reactivateMutate, isPending: false }),
+    useDeleteOrganization: () => ({ mutate: deleteMutate, isPending: false }),
+    useRestoreOrganization: () => ({ mutate: restoreMutate, isPending: false }),
+    useAssignOrganizationPlan: () => ({ mutate: assignPlanMutate, isPending: false }),
+  };
+});
 
 const impersonateMutate = vi.fn();
 vi.mock("@/features/platform-organizations/hooks/useImpersonate", () => ({
@@ -166,5 +179,13 @@ describe("OrganizationDetailSheet", () => {
     expect(screen.getByText("Couldn't load this organization")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /retry/i }));
     expect(refetch).toHaveBeenCalled();
+  });
+
+  it("shows an Assign Plan control and calls the mutation with the selected plan", async () => {
+    assignPlanMutate.mockClear();
+    usePlatformOrganization.mockReturnValue({ data: makeDetail(), isLoading: false, isError: false, refetch: vi.fn() });
+    render(<OrganizationDetailSheet />);
+
+    expect(screen.getByText(/Assign a plan/i)).toBeInTheDocument();
   });
 });

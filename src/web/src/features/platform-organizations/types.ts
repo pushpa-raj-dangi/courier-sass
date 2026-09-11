@@ -55,6 +55,8 @@ export interface OrganizationDetail {
     createdAt: string;
   };
   planName: string | null;
+  subscriptionStatus: "Active" | "PastDue" | "Cancelled" | "Trial" | "TrialExpired" | null;
+  trialEndsAt: string | null;
   users: OrganizationUser[];
   branches: OrganizationBranch[];
   invoices: OrganizationInvoice[];

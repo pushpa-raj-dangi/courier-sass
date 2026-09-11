@@ -32,3 +32,18 @@ export function useDeleteOrganization() {
 export function useRestoreOrganization() {
   return useLifecycleAction("restore");
 }
+
+export function useAssignOrganizationPlan() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ organizationId, planId }: { organizationId: string; planId: string }) =>
+      clientFetch(`/api/platform/organizations/${organizationId}/plan`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planId }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["platform-organizations"] });
+    },
+  });
+}
