@@ -1,5 +1,6 @@
 using Courier.Audit.Application;
 using Courier.Audit.Domain;
+using Courier.SharedKernel;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
@@ -54,7 +55,83 @@ public class AuditLogger : IAuditLogger, IAuditLogReader
             .Where(a => a.OrganizationId == organizationId)
             .OrderByDescending(a => a.Timestamp)
             .Take(limit)
-            .Select(a => new AuditLogRecord(a.Id, a.Action, a.EntityType, a.EntityId, a.UserId, a.ImpersonatedByUserId, a.IsCrossTenantAction, a.Timestamp))
+            .Select(a => new AuditLogRecord(a.Id, a.OrganizationId, a.Action, a.EntityType, a.EntityId, a.UserId, a.ImpersonatedByUserId, a.IsCrossTenantAction, a.Timestamp, a.Before, a.After, a.IpAddress, a.UserAgent))
             .ToListAsync(cancellationToken);
+    }
+
+    public Task<PagedResult<AuditLogRecord>> SearchAsync(Guid? organizationId, AuditLogSearchFilter filter, int? page, int? pageSize, CancellationToken cancellationToken = default)
+    {
+        var query = _dbContext.Set<AuditLog>().IgnoreQueryFilters().AsQueryable();
+        if (organizationId is Guid orgId)
+        {
+            query = query.Where(a => a.OrganizationId == orgId);
+        }
+        return PageAsync(ApplyFilters(query, filter), page, pageSize, cancellationToken);
+    }
+
+    public Task<PagedResult<AuditLogRecord>> SearchAcrossOrganizationsAsync(IReadOnlySet<Guid>? organizationIds, AuditLogSearchFilter filter, int? page, int? pageSize, CancellationToken cancellationToken = default)
+    {
+        var query = _dbContext.Set<AuditLog>().IgnoreQueryFilters().AsQueryable();
+        if (organizationIds is not null)
+        {
+            query = query.Where(a => a.OrganizationId != null && organizationIds.Contains(a.OrganizationId.Value));
+        }
+        return PageAsync(ApplyFilters(query, filter), page, pageSize, cancellationToken);
+    }
+
+    private static IQueryable<AuditLog> ApplyFilters(IQueryable<AuditLog> query, AuditLogSearchFilter filter)
+    {
+        if (!string.IsNullOrWhiteSpace(filter.Search))
+        {
+            // Case-insensitive via ToLower() on both sides, matching
+            // OrganizationAdminService.ListAsync's existing search — this module has no
+            // reference to Npgsql.EntityFrameworkCore.PostgreSQL (only provider-agnostic EF
+            // Core), so EF.Functions.ILike isn't available here either.
+            var term = filter.Search.ToLower();
+            query = query.Where(a => a.Action.ToLower().Contains(term) || a.EntityType.ToLower().Contains(term) || a.EntityId.ToLower().Contains(term));
+        }
+        if (!string.IsNullOrWhiteSpace(filter.Action))
+        {
+            query = query.Where(a => a.Action == filter.Action);
+        }
+        if (!string.IsNullOrWhiteSpace(filter.EntityType))
+        {
+            query = query.Where(a => a.EntityType == filter.EntityType);
+        }
+        if (!string.IsNullOrWhiteSpace(filter.EntityId))
+        {
+            query = query.Where(a => a.EntityId == filter.EntityId);
+        }
+        if (filter.UserId is Guid userId)
+        {
+            query = query.Where(a => a.UserId == userId);
+        }
+        if (filter.DateFrom is DateTimeOffset dateFrom)
+        {
+            query = query.Where(a => a.Timestamp >= dateFrom);
+        }
+        if (filter.DateTo is DateTimeOffset dateTo)
+        {
+            query = query.Where(a => a.Timestamp <= dateTo);
+        }
+        return query;
+    }
+
+    private static async Task<PagedResult<AuditLogRecord>> PageAsync(IQueryable<AuditLog> query, int? page, int? pageSize, CancellationToken cancellationToken)
+    {
+        var (normalizedPage, normalizedPageSize) = PaginationDefaults.Normalize(page, pageSize);
+        var totalCount = await query.CountAsync(cancellationToken);
+        var items = await query
+            .OrderByDescending(a => a.Timestamp)
+            .ThenByDescending(a => a.Id)
+            .Skip((normalizedPage - 1) * normalizedPageSize)
+            .Take(normalizedPageSize)
+            // Inlined rather than a shared helper method: EF Core cannot translate a call to an
+            // external method inside Select() to SQL against the real Postgres provider (only
+            // against the InMemory provider these unit tests run on), so the same constructor
+            // call as ListForOrganizationAsync above is repeated here rather than factored out.
+            .Select(a => new AuditLogRecord(a.Id, a.OrganizationId, a.Action, a.EntityType, a.EntityId, a.UserId, a.ImpersonatedByUserId, a.IsCrossTenantAction, a.Timestamp, a.Before, a.After, a.IpAddress, a.UserAgent))
+            .ToListAsync(cancellationToken);
+        return new PagedResult<AuditLogRecord>(items, normalizedPage, normalizedPageSize, totalCount);
     }
 }
