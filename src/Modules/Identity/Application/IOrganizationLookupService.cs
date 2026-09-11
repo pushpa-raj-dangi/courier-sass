@@ -1,3 +1,5 @@
+using Courier.SharedKernel;
+
 namespace Courier.Identity.Application;
 
 public record OrganizationRecord(Guid Id, string Name, string Slug, bool IsActive, bool SuspendedBySystem, DateTimeOffset? DeletedAt, DateTimeOffset CreatedAt);
@@ -28,8 +30,12 @@ public interface IOrganizationLookupService
     // Cross-tenant read for Platform's OrganizationLifecycleService (SuperAdmin org list) — always
     // called with ICurrentTenantProvider.OrganizationId == null, so the implementation must
     // IgnoreQueryFilters() (Organizations carries a tenant query filter that otherwise fails
-    // closed and would return nothing here).
-    Task<List<OrganizationRecord>> ListAsync(CancellationToken cancellationToken = default);
+    // closed and would return nothing here). Paginated: the base org query is filtered/paged
+    // BEFORE OrganizationLifecycleService's per-row plan/branch-count enrichment runs, which is
+    // what keeps that enrichment loop bounded to pageSize rows instead of the whole table.
+    // search matches (case-insensitive substring): organization Name, Slug, or any User's Email
+    // within that organization. isActive/isDeleted map directly to Organization's own fields.
+    Task<PagedResult<OrganizationRecord>> ListAsync(string? search, bool? isActive, bool? isDeleted, int? page, int? pageSize, CancellationToken cancellationToken = default);
 
     // The four lifecycle mutations below are all called only by Platform's
     // OrganizationLifecycleService (SuperAdmin-only, cross-tenant) — same IgnoreQueryFilters()

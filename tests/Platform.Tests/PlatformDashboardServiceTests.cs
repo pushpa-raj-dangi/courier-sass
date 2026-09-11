@@ -3,6 +3,7 @@ using Courier.Billing.Application;
 using Courier.Branches.Application;
 using Courier.Identity.Application;
 using Courier.Platform.Application;
+using Courier.SharedKernel;
 using Xunit;
 
 namespace Courier.Platform.Tests;
@@ -15,7 +16,30 @@ public class PlatformDashboardServiceTests
         public Task<string?> GetSlugAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult<string?>(null);
         public Task<bool> IsActiveAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult(true);
         public Task ReactivateIfSystemSuspendedAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task<List<OrganizationRecord>> ListAsync(CancellationToken cancellationToken = default) => Task.FromResult(Organizations);
+        // Mirrors OrganizationAdminService.ListAsync's real filter/pagination semantics closely
+        // enough for GetMetricsAsync's 4 filtered-count calls (isActive/isDeleted combos) and
+        // ListAllInvoicesAsync's pagination loop to behave correctly against this fake.
+        public Task<PagedResult<OrganizationRecord>> ListAsync(string? search, bool? isActive, bool? isDeleted, int? page, int? pageSize, CancellationToken cancellationToken = default)
+        {
+            var query = Organizations.AsEnumerable();
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var term = search.ToLower();
+                query = query.Where(o => o.Name.ToLower().Contains(term) || o.Slug.ToLower().Contains(term));
+            }
+            if (isActive is bool activeFilter)
+            {
+                query = query.Where(o => o.IsActive == activeFilter);
+            }
+            if (isDeleted is bool deletedFilter)
+            {
+                query = deletedFilter ? query.Where(o => o.DeletedAt != null) : query.Where(o => o.DeletedAt == null);
+            }
+            var filtered = query.OrderBy(o => o.Name).ToList();
+            var (normalizedPage, normalizedPageSize) = PaginationDefaults.Normalize(page, pageSize);
+            var items = filtered.Skip((normalizedPage - 1) * normalizedPageSize).Take(normalizedPageSize).ToList();
+            return Task.FromResult(new PagedResult<OrganizationRecord>(items, normalizedPage, normalizedPageSize, filtered.Count));
+        }
         public Task SuspendAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task ReactivateAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task SoftDeleteAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.CompletedTask;

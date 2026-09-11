@@ -1,5 +1,6 @@
 using Courier.Audit.Application;
 using Courier.Identity.Domain;
+using Courier.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 
 namespace Courier.Identity.Application;
@@ -46,12 +47,42 @@ public class OrganizationAdminService : IOrganizationLookupService
     // runs with ICurrentTenantProvider.OrganizationId == null (SuperAdmin, cross-tenant) — the
     // ambient Organizations query filter fails closed in that situation and would otherwise
     // silently return an empty list.
-    public async Task<List<OrganizationRecord>> ListAsync(CancellationToken cancellationToken = default)
+    public async Task<PagedResult<OrganizationRecord>> ListAsync(string? search, bool? isActive, bool? isDeleted, int? page, int? pageSize, CancellationToken cancellationToken = default)
     {
-        return await _dbContext.Set<Organization>().IgnoreQueryFilters()
+        var query = _dbContext.Set<Organization>().IgnoreQueryFilters().AsQueryable();
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            // Case-insensitive via ToLower() on both sides rather than EF.Functions.ILike — this
+            // module has no reference to Npgsql.EntityFrameworkCore.PostgreSQL (only the
+            // provider-agnostic Microsoft.EntityFrameworkCore package), and adding it solely for
+            // this one search feature isn't justified. Matches name/slug directly, or any user's
+            // email within the org via a correlated Any() subquery — Users also carries a tenant
+            // query filter, so this subquery must IgnoreQueryFilters() too or it would silently
+            // match nothing under Platform's always-null ambient tenant.
+            var term = search.ToLower();
+            query = query.Where(o =>
+                o.Name.ToLower().Contains(term) ||
+                o.Slug.ToLower().Contains(term) ||
+                _dbContext.Set<User>().IgnoreQueryFilters().Any(u => u.OrganizationId == o.Id && u.Email.ToLower().Contains(term)));
+        }
+        if (isActive is bool activeFilter)
+        {
+            query = query.Where(o => o.IsActive == activeFilter);
+        }
+        if (isDeleted is bool deletedFilter)
+        {
+            query = deletedFilter ? query.Where(o => o.DeletedAt != null) : query.Where(o => o.DeletedAt == null);
+        }
+
+        var (normalizedPage, normalizedPageSize) = PaginationDefaults.Normalize(page, pageSize);
+        var totalCount = await query.CountAsync(cancellationToken);
+        var organizations = await query
             .OrderBy(o => o.Name)
+            .Skip((normalizedPage - 1) * normalizedPageSize)
+            .Take(normalizedPageSize)
             .Select(o => new OrganizationRecord(o.Id, o.Name, o.Slug, o.IsActive, o.SuspendedBySystem, o.DeletedAt, o.CreatedAt))
             .ToListAsync(cancellationToken);
+        return new PagedResult<OrganizationRecord>(organizations, normalizedPage, normalizedPageSize, totalCount);
     }
 
     public async Task SuspendAsync(Guid organizationId, CancellationToken cancellationToken = default)

@@ -84,6 +84,140 @@ public class OrganizationAdminServiceTests
     }
 
     [Fact]
+    public async Task ListAsync_NoFilters_ReturnsAllOrderedByName()
+    {
+        // TestDbContextFactory runs against the real shared dev Postgres (tens of thousands of
+        // pre-existing organizations from other tests/dev usage), not an isolated database — a
+        // unique random prefix scopes this test's "no filters" assertion to only its own rows via
+        // the search param, rather than asserting over the whole shared table.
+        using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
+        var prefix = $"NoFilters-{Guid.NewGuid():N}";
+        var orgB = new Organization { Id = Guid.NewGuid(), Name = $"{prefix} Bravo Courier", Slug = $"bravo-{Guid.NewGuid():N}", IsActive = true };
+        var orgA = new Organization { Id = Guid.NewGuid(), Name = $"{prefix} Alpha Courier", Slug = $"alpha-{Guid.NewGuid():N}", IsActive = true };
+        dbContext.Set<Organization>().AddRange(orgB, orgA);
+        await dbContext.SaveChangesAsync();
+        var service = new OrganizationAdminService(dbContext, new FakeAuditLogger());
+
+        var result = await service.ListAsync(search: prefix, isActive: null, isDeleted: null, page: null, pageSize: null);
+
+        Assert.Equal(2, result.TotalCount);
+        Assert.Equal(new[] { $"{prefix} Alpha Courier", $"{prefix} Bravo Courier" }, result.Items.Select(o => o.Name));
+    }
+
+    [Fact]
+    public async Task ListAsync_SearchMatchesNameSubstring_CaseInsensitive()
+    {
+        // Runs against the shared, persistent dev DB — a literal fixed name would accumulate
+        // duplicate rows across repeated test runs and break Assert.Single(); a random suffix in
+        // both the matching name and the search term keeps this run's assertion isolated.
+        using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+        var match = new Organization { Id = Guid.NewGuid(), Name = $"Kathmandu Couriers {suffix}", Slug = $"ktm-{Guid.NewGuid():N}", IsActive = true };
+        var nonMatch = new Organization { Id = Guid.NewGuid(), Name = $"Pokhara Logistics {suffix}", Slug = $"pkr-{Guid.NewGuid():N}", IsActive = true };
+        dbContext.Set<Organization>().AddRange(match, nonMatch);
+        await dbContext.SaveChangesAsync();
+        var service = new OrganizationAdminService(dbContext, new FakeAuditLogger());
+
+        var result = await service.ListAsync(search: $"kathmandu couriers {suffix}", isActive: null, isDeleted: null, page: null, pageSize: null);
+
+        var single = Assert.Single(result.Items);
+        Assert.Equal(match.Id, single.Id);
+    }
+
+    [Fact]
+    public async Task ListAsync_SearchMatchesSlugSubstring()
+    {
+        using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+        var match = new Organization { Id = Guid.NewGuid(), Name = "Some Org", Slug = $"unique-slug-{suffix}", IsActive = true };
+        var nonMatch = new Organization { Id = Guid.NewGuid(), Name = "Other Org", Slug = $"different-{Guid.NewGuid():N}", IsActive = true };
+        dbContext.Set<Organization>().AddRange(match, nonMatch);
+        await dbContext.SaveChangesAsync();
+        var service = new OrganizationAdminService(dbContext, new FakeAuditLogger());
+
+        var result = await service.ListAsync(search: suffix, isActive: null, isDeleted: null, page: null, pageSize: null);
+
+        var single = Assert.Single(result.Items);
+        Assert.Equal(match.Id, single.Id);
+    }
+
+    [Fact]
+    public async Task ListAsync_SearchMatchesUserEmailWithinOrganization()
+    {
+        using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
+        var match = new Organization { Id = Guid.NewGuid(), Name = "Org With Owner", Slug = $"owner-{Guid.NewGuid():N}", IsActive = true };
+        var nonMatch = new Organization { Id = Guid.NewGuid(), Name = "Org No Match", Slug = $"nomatch-{Guid.NewGuid():N}", IsActive = true };
+        dbContext.Set<Organization>().AddRange(match, nonMatch);
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+        var email = $"owner-{suffix}@example.test";
+        dbContext.Set<User>().Add(new User { Id = Guid.NewGuid(), OrganizationId = match.Id, Email = email, PasswordHash = "hash", FullName = "Owner Person", IsActive = true });
+        await dbContext.SaveChangesAsync();
+        var service = new OrganizationAdminService(dbContext, new FakeAuditLogger());
+
+        var result = await service.ListAsync(search: suffix, isActive: null, isDeleted: null, page: null, pageSize: null);
+
+        var single = Assert.Single(result.Items);
+        Assert.Equal(match.Id, single.Id);
+    }
+
+    [Fact]
+    public async Task ListAsync_IsActiveFilter_ReturnsOnlyMatchingOrganizations()
+    {
+        using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
+        var prefix = $"ActiveFilter-{Guid.NewGuid():N}";
+        var active = new Organization { Id = Guid.NewGuid(), Name = $"{prefix} Active Org", Slug = $"active-{Guid.NewGuid():N}", IsActive = true };
+        var suspended = new Organization { Id = Guid.NewGuid(), Name = $"{prefix} Suspended Org", Slug = $"suspended-{Guid.NewGuid():N}", IsActive = false };
+        dbContext.Set<Organization>().AddRange(active, suspended);
+        await dbContext.SaveChangesAsync();
+        var service = new OrganizationAdminService(dbContext, new FakeAuditLogger());
+
+        var result = await service.ListAsync(search: prefix, isActive: true, isDeleted: null, page: null, pageSize: null);
+
+        var single = Assert.Single(result.Items);
+        Assert.Equal(active.Id, single.Id);
+    }
+
+    [Fact]
+    public async Task ListAsync_IsDeletedFilter_ReturnsOnlyMatchingOrganizations()
+    {
+        using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
+        var prefix = $"DeletedFilter-{Guid.NewGuid():N}";
+        var deleted = new Organization { Id = Guid.NewGuid(), Name = $"{prefix} Deleted Org", Slug = $"deleted-{Guid.NewGuid():N}", IsActive = false, DeletedAt = DateTimeOffset.UtcNow };
+        var notDeleted = new Organization { Id = Guid.NewGuid(), Name = $"{prefix} Live Org", Slug = $"live-{Guid.NewGuid():N}", IsActive = true };
+        dbContext.Set<Organization>().AddRange(deleted, notDeleted);
+        await dbContext.SaveChangesAsync();
+        var service = new OrganizationAdminService(dbContext, new FakeAuditLogger());
+
+        var result = await service.ListAsync(search: prefix, isActive: null, isDeleted: true, page: null, pageSize: null);
+
+        var single = Assert.Single(result.Items);
+        Assert.Equal(deleted.Id, single.Id);
+    }
+
+    [Fact]
+    public async Task ListAsync_Pagination_ReturnsCorrectSliceAndTotalCount()
+    {
+        using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
+        var prefix = $"Pagination-{Guid.NewGuid():N}";
+        for (var i = 0; i < 5; i++)
+        {
+            dbContext.Set<Organization>().Add(new Organization { Id = Guid.NewGuid(), Name = $"{prefix} Org {i:D2}", Slug = $"org-{i}-{Guid.NewGuid():N}", IsActive = true });
+        }
+        await dbContext.SaveChangesAsync();
+        var service = new OrganizationAdminService(dbContext, new FakeAuditLogger());
+
+        var page1 = await service.ListAsync(search: prefix, isActive: null, isDeleted: null, page: 1, pageSize: 2);
+        var page2 = await service.ListAsync(search: prefix, isActive: null, isDeleted: null, page: 2, pageSize: 2);
+
+        Assert.Equal(5, page1.TotalCount);
+        Assert.Equal(3, page1.TotalPages);
+        Assert.Equal(2, page1.Items.Count);
+        Assert.Equal(2, page2.Items.Count);
+        Assert.Equal(new[] { $"{prefix} Org 00", $"{prefix} Org 01" }, page1.Items.Select(o => o.Name));
+        Assert.Equal(new[] { $"{prefix} Org 02", $"{prefix} Org 03" }, page2.Items.Select(o => o.Name));
+    }
+
+    [Fact]
     public async Task GetAsync_WithNullAmbientTenant_ReturnsOrganization()
     {
         // Regression guard: GetAsync is called exclusively from Platform's

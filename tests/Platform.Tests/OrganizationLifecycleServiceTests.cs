@@ -15,10 +15,26 @@ public class OrganizationLifecycleServiceTests
     {
         public bool Suspended { get; private set; }
         public bool RevokedStaffTokens { get; private set; }
+        public List<OrganizationRecord> Organizations { get; set; } = new();
+        public string? LastSearch { get; private set; }
+        public bool? LastIsActive { get; private set; }
+        public bool? LastIsDeleted { get; private set; }
+        public int? LastPage { get; private set; }
+        public int? LastPageSize { get; private set; }
         public Task<string?> GetSlugAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult<string?>(null);
         public Task<bool> IsActiveAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult(true);
         public Task ReactivateIfSystemSuspendedAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task<List<OrganizationRecord>> ListAsync(CancellationToken cancellationToken = default) => Task.FromResult(new List<OrganizationRecord>());
+        public Task<PagedResult<OrganizationRecord>> ListAsync(string? search, bool? isActive, bool? isDeleted, int? page, int? pageSize, CancellationToken cancellationToken = default)
+        {
+            LastSearch = search;
+            LastIsActive = isActive;
+            LastIsDeleted = isDeleted;
+            LastPage = page;
+            LastPageSize = pageSize;
+            var (normalizedPage, normalizedPageSize) = PaginationDefaults.Normalize(page, pageSize);
+            var items = Organizations.Skip((normalizedPage - 1) * normalizedPageSize).Take(normalizedPageSize).ToList();
+            return Task.FromResult(new PagedResult<OrganizationRecord>(items, normalizedPage, normalizedPageSize, Organizations.Count));
+        }
         public Task SuspendAsync(Guid organizationId, CancellationToken cancellationToken = default) { Suspended = true; return Task.CompletedTask; }
         public Task ReactivateAsync(Guid organizationId, CancellationToken cancellationToken = default) { Suspended = false; return Task.CompletedTask; }
         public Task SoftDeleteAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.CompletedTask;
@@ -38,8 +54,9 @@ public class OrganizationLifecycleServiceTests
 
     private sealed class FakeBillingLookupService : IBillingLookupService
     {
+        public int GetPlanSummaryCallCount { get; private set; }
         public Task<int?> GetMaxBranchesAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult((int?)null);
-        public Task<PlanSummary?> GetPlanSummaryAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult<PlanSummary?>(null);
+        public Task<PlanSummary?> GetPlanSummaryAsync(Guid organizationId, CancellationToken cancellationToken = default) { GetPlanSummaryCallCount++; return Task.FromResult<PlanSummary?>(null); }
         public Task<PlatformBillingMetrics> GetPlatformMetricsAsync(CancellationToken cancellationToken = default) => Task.FromResult(new PlatformBillingMetrics(0m, 0));
         public Task<List<InvoiceResponse>> ListInvoicesForOrganizationAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult(new List<InvoiceResponse>());
         public Task<List<InvoiceAdminRecord>> ListAllInvoicesAsync(Courier.Billing.Domain.InvoiceStatus? status, CancellationToken cancellationToken = default) => Task.FromResult(new List<InvoiceAdminRecord>());
@@ -80,6 +97,35 @@ public class OrganizationLifecycleServiceTests
         Assert.True(auditLogger.LastEntry!.IsCrossTenantAction);
         Assert.Equal(superAdminId, auditLogger.LastEntry.UserId);
         Assert.Equal(organizationId, auditLogger.LastEntry.OrganizationId);
+    }
+
+    [Fact]
+    public async Task ListOrganizationsAsync_PassesFiltersThrough_AndOnlyEnrichesThePagesRows()
+    {
+        var organizationLookup = new FakeOrganizationLookupService
+        {
+            Organizations = new List<OrganizationRecord>
+            {
+                new(Guid.NewGuid(), "Org A", "org-a", true, false, null, DateTimeOffset.UtcNow),
+                new(Guid.NewGuid(), "Org B", "org-b", true, false, null, DateTimeOffset.UtcNow),
+                new(Guid.NewGuid(), "Org C", "org-c", true, false, null, DateTimeOffset.UtcNow)
+            }
+        };
+        var billingLookup = new FakeBillingLookupService();
+        var service = new OrganizationLifecycleService(organizationLookup, new FakeMerchantSessionRevoker(), billingLookup, new FakeBranchLookupService(), new FakeAuditLogger());
+
+        var result = await service.ListOrganizationsAsync(search: "kathmandu", isActive: true, isDeleted: false, page: 1, pageSize: 2);
+
+        Assert.Equal("kathmandu", organizationLookup.LastSearch);
+        Assert.Equal(true, organizationLookup.LastIsActive);
+        Assert.Equal(false, organizationLookup.LastIsDeleted);
+        Assert.Equal(1, organizationLookup.LastPage);
+        Assert.Equal(2, organizationLookup.LastPageSize);
+        Assert.Equal(3, result.TotalCount);
+        Assert.Equal(2, result.Items.Count);
+        // The lookup fake's ListAsync itself already paginates down to 2 rows — the enrichment
+        // loop in ListOrganizationsAsync must only iterate those, not all 3 organizations.
+        Assert.Equal(2, billingLookup.GetPlanSummaryCallCount);
     }
 
     [Fact]

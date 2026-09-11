@@ -3,6 +3,7 @@ using Courier.Billing.Application;
 using Courier.Branches.Application;
 using Courier.Identity.Application;
 using Courier.Merchants.Application;
+using Courier.SharedKernel;
 
 namespace Courier.Platform.Application;
 
@@ -30,17 +31,22 @@ public class OrganizationLifecycleService
         _auditLogger = auditLogger;
     }
 
-    public async Task<List<OrganizationAdminSummary>> ListOrganizationsAsync(CancellationToken cancellationToken = default)
+    // Paginated: the base org query (search/isActive/isDeleted/page/pageSize) is filtered and
+    // paged FIRST by IOrganizationLookupService.ListAsync — the per-row plan/branch-count
+    // enrichment loop below then only ever iterates the page's rows (bounded by pageSize, max
+    // 200), not the whole organizations table. This is what fixes the N+1-across-every-org
+    // performance gap: the loop itself is unchanged, only its input is now bounded.
+    public async Task<PagedResult<OrganizationAdminSummary>> ListOrganizationsAsync(string? search, bool? isActive, bool? isDeleted, int? page, int? pageSize, CancellationToken cancellationToken = default)
     {
-        var organizations = await _organizationLookupService.ListAsync(cancellationToken);
+        var organizations = await _organizationLookupService.ListAsync(search, isActive, isDeleted, page, pageSize, cancellationToken);
         var summaries = new List<OrganizationAdminSummary>();
-        foreach (var organization in organizations)
+        foreach (var organization in organizations.Items)
         {
             var planSummary = await _billingLookupService.GetPlanSummaryAsync(organization.Id, cancellationToken);
             var branchCount = await _branchLookupService.CountActiveBranchesAsync(organization.Id, cancellationToken);
             summaries.Add(new OrganizationAdminSummary(organization.Id, organization.Name, organization.Slug, planSummary?.PlanName, organization.IsActive, organization.DeletedAt is not null, branchCount));
         }
-        return summaries;
+        return new PagedResult<OrganizationAdminSummary>(summaries, organizations.Page, organizations.PageSize, organizations.TotalCount);
     }
 
     public async Task SuspendAsync(Guid organizationId, Guid actingSuperAdminId, CancellationToken cancellationToken = default)

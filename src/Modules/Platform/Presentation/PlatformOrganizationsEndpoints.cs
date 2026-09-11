@@ -15,8 +15,8 @@ public static class PlatformOrganizationsEndpoints
     {
         var group = app.MapGroup("/api/v1/platform/organizations").WithTags("Platform Organizations");
 
-        group.MapGet("/", async (OrganizationLifecycleService service, CancellationToken cancellationToken) =>
-            Results.Ok(await service.ListOrganizationsAsync(cancellationToken)))
+        group.MapGet("/", async (string? search, bool? isActive, bool? isDeleted, int? page, int? pageSize, OrganizationLifecycleService service, CancellationToken cancellationToken) =>
+            Results.Ok(await service.ListOrganizationsAsync(search, isActive, isDeleted, page, pageSize, cancellationToken)))
             .RequireSuperAdmin();
 
         group.MapPost("/{id:guid}/suspend", async (Guid id, OrganizationLifecycleService service, HttpContext httpContext, CancellationToken cancellationToken) =>

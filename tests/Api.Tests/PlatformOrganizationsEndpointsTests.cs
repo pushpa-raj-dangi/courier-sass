@@ -104,6 +104,61 @@ public class PlatformOrganizationsEndpointsTests : IClassFixture<WebApplicationF
     }
 
     [Fact]
+    public async Task List_AsSuperAdmin_SearchFilterAndPageReachTheService()
+    {
+        var client = _factory.CreateClient();
+        var prefix = $"ListQuery-{Guid.NewGuid():N}";
+        var suffixA = $"{prefix}-a";
+        var suffixB = $"{prefix}-b";
+        var registerA = await client.PostAsJsonAsync("/api/v1/auth/register", new RegisterOrganizationRequest(
+            $"{prefix} Org A", $"lq-a-{Guid.NewGuid():N}", $"owner-{suffixA}@example.test", "P@ssw0rd123!", "Owner"));
+        registerA.EnsureSuccessStatusCode();
+        var registerB = await client.PostAsJsonAsync("/api/v1/auth/register", new RegisterOrganizationRequest(
+            $"{prefix} Org B", $"lq-b-{Guid.NewGuid():N}", $"owner-{suffixB}@example.test", "P@ssw0rd123!", "Owner"));
+        registerB.EnsureSuccessStatusCode();
+
+        var superAdminToken = await LoginAsSuperAdminAsync(client);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", superAdminToken);
+
+        // search narrows to just these two newly-registered orgs, both freshly Active (never
+        // suspended/deleted), regardless of how many other organizations exist in the shared DB.
+        var searchResponse = await client.GetAsync($"/api/v1/platform/organizations?search={Uri.EscapeDataString(prefix)}");
+        Assert.Equal(HttpStatusCode.OK, searchResponse.StatusCode);
+        var searchBody = await searchResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(2, searchBody.GetProperty("totalCount").GetInt32());
+
+        // page/pageSize narrows the returned page to 1 row while totalCount still reflects both.
+        var pagedResponse = await client.GetAsync($"/api/v1/platform/organizations?search={Uri.EscapeDataString(prefix)}&page=1&pageSize=1");
+        var pagedBody = await pagedResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(2, pagedBody.GetProperty("totalCount").GetInt32());
+        Assert.Equal(1, pagedBody.GetProperty("items").GetArrayLength());
+        Assert.Equal(1, pagedBody.GetProperty("page").GetInt32());
+        Assert.Equal(1, pagedBody.GetProperty("pageSize").GetInt32());
+
+        // isActive:false excludes both (they're freshly registered and Active).
+        var inactiveOnlyResponse = await client.GetAsync($"/api/v1/platform/organizations?search={Uri.EscapeDataString(prefix)}&isActive=false");
+        var inactiveOnlyBody = await inactiveOnlyResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(0, inactiveOnlyBody.GetProperty("totalCount").GetInt32());
+    }
+
+    [Fact]
+    public async Task List_AsRegularStaff_Returns403()
+    {
+        var client = _factory.CreateClient();
+        var suffix = $"list-forbidden-{Guid.NewGuid():N}"[..30];
+        var registerRequest = new RegisterOrganizationRequest(
+            $"List Forbidden Org {suffix}", $"lf-{suffix}", $"owner-{suffix}@example.test", "P@ssw0rd123!", "Owner");
+        var registerResponse = await client.PostAsJsonAsync("/api/v1/auth/register", registerRequest);
+        registerResponse.EnsureSuccessStatusCode();
+        var org = (await registerResponse.Content.ReadFromJsonAsync<AuthResult>())!;
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+
+        var response = await client.GetAsync("/api/v1/platform/organizations");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
     public async Task AssignPlan_AsRegularStaff_Returns403()
     {
         var client = _factory.CreateClient();
