@@ -6,6 +6,10 @@ describe("isNonRetryableError", () => {
     expect(isNonRetryableError(new QueuedRequestError(401, "unauthorized"))).toBe(false);
   });
 
+  it("treats a 402 (TRIAL_EXPIRED) as retryable, not terminal — clears once the org's owner picks a plan", () => {
+    expect(isNonRetryableError(new QueuedRequestError(402, "trial expired"))).toBe(false);
+  });
+
   it.each([400, 403, 404, 409, 422, 499])(
     "treats a %i as non-retryable/terminal",
     (status) => {
