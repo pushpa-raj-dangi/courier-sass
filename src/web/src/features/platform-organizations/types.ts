@@ -57,8 +57,8 @@ export interface OrganizationDetail {
   planName: string | null;
   subscriptionStatus: "Active" | "PastDue" | "Cancelled" | "Trial" | "TrialExpired" | null;
   trialEndsAt: string | null;
-  users: OrganizationUser[];
-  branches: OrganizationBranch[];
-  invoices: OrganizationInvoice[];
+  // Users/Branches/Invoices are NOT embedded here — the Sheet fetches each independently,
+  // paginated, via useOrganizationUsers/Branches/Invoices, so paging through one never re-fetches
+  // the whole detail payload.
   recentAuditEntries: OrganizationAuditEntry[];
 }

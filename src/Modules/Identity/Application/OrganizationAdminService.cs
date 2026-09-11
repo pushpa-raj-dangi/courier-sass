@@ -163,11 +163,19 @@ public class OrganizationAdminService : IOrganizationLookupService
             .Select(o => new OrganizationRecord(o.Id, o.Name, o.Slug, o.IsActive, o.SuspendedBySystem, o.DeletedAt, o.CreatedAt))
             .FirstOrDefaultAsync(cancellationToken);
 
-    public async Task<List<OrganizationUserRecord>> ListUsersAsync(Guid organizationId, CancellationToken cancellationToken = default)
-        => await _dbContext.Set<User>().IgnoreQueryFilters()
-            .Where(u => u.OrganizationId == organizationId)
+    public async Task<PagedResult<OrganizationUserRecord>> ListUsersAsync(Guid organizationId, int? page, int? pageSize, CancellationToken cancellationToken = default)
+    {
+        var query = _dbContext.Set<User>().IgnoreQueryFilters().Where(u => u.OrganizationId == organizationId);
+        var (normalizedPage, normalizedPageSize) = PaginationDefaults.Normalize(page, pageSize);
+        var totalCount = await query.CountAsync(cancellationToken);
+        var items = await query
+            .OrderBy(u => u.Email)
+            .Skip((normalizedPage - 1) * normalizedPageSize)
+            .Take(normalizedPageSize)
             .Select(u => new OrganizationUserRecord(u.Id, u.Email, u.FullName, u.IsActive))
             .ToListAsync(cancellationToken);
+        return new PagedResult<OrganizationUserRecord>(items, normalizedPage, normalizedPageSize, totalCount);
+    }
 
     // IgnoreQueryFilters(): called only from Platform's ImpersonationService (SuperAdmin,
     // cross-tenant, ICurrentTenantProvider.OrganizationId == null) — same reasoning as

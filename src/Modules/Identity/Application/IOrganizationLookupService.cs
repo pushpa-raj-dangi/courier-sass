@@ -54,10 +54,12 @@ public interface IOrganizationLookupService
     // drill-down) — always called with ICurrentTenantProvider.OrganizationId == null.
     Task<OrganizationRecord?> GetAsync(Guid organizationId, CancellationToken cancellationToken = default);
 
-    // Cross-tenant read for Platform's PlatformDashboardService — same caller/context as GetAsync
-    // above. IgnoreQueryFilters() is required since Users also carries a tenant query filter that
-    // otherwise fails closed against Platform's always-null ambient tenant.
-    Task<List<OrganizationUserRecord>> ListUsersAsync(Guid organizationId, CancellationToken cancellationToken = default);
+    // Cross-tenant read for Platform's PlatformDashboardService (org detail Sheet's Users
+    // section) — same caller/context as GetAsync above. IgnoreQueryFilters() is required since
+    // Users also carries a tenant query filter that otherwise fails closed against Platform's
+    // always-null ambient tenant. Paginated for the same reason ListAsync above is — an org can
+    // have far more users than fit in one Sheet.
+    Task<PagedResult<OrganizationUserRecord>> ListUsersAsync(Guid organizationId, int? page, int? pageSize, CancellationToken cancellationToken = default);
 
     // Cross-tenant read for Platform's ImpersonationService (SuperAdmin issuing a time-boxed
     // impersonation token for a specific user) — same IgnoreQueryFilters()/explicit organizationId

@@ -27,7 +27,7 @@ file class FixedTenantProvider : ICurrentTenantProvider
 
 file class StubBranchLookupService : IBranchLookupService
 {
-    public Task<List<BranchAdminRecord>> ListForOrganizationAsync(Guid organizationId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    public Task<PagedResult<BranchAdminRecord>> ListForOrganizationAsync(Guid organizationId, int? page, int? pageSize, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     public Task<BranchZoneInfo?> GetZoneInfoAsync(Guid branchId, CancellationToken cancellationToken = default) =>
         Task.FromResult<BranchZoneInfo?>(new BranchZoneInfo(branchId, null));
     public Task<IReadOnlyDictionary<Guid, string>> GetNamesByIdsAsync(IReadOnlySet<Guid> branchIds, CancellationToken cancellationToken = default) =>
@@ -40,7 +40,7 @@ file class StubBranchLookupService : IBranchLookupService
 // to reject a foreign-org BranchId.
 file class SelectiveBranchLookupService : IBranchLookupService
 {
-    public Task<List<BranchAdminRecord>> ListForOrganizationAsync(Guid organizationId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    public Task<PagedResult<BranchAdminRecord>> ListForOrganizationAsync(Guid organizationId, int? page, int? pageSize, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     private readonly HashSet<Guid> _knownBranchIds;
     public SelectiveBranchLookupService(params Guid[] knownBranchIds) => _knownBranchIds = knownBranchIds.ToHashSet();
     public Task<BranchZoneInfo?> GetZoneInfoAsync(Guid branchId, CancellationToken cancellationToken = default) =>

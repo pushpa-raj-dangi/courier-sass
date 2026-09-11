@@ -215,8 +215,19 @@ public class SubscriptionService : IBillingLookupService
         return new PlatformBillingMetrics(mrr, overdueCount);
     }
 
-    public Task<List<InvoiceResponse>> ListInvoicesForOrganizationAsync(Guid organizationId, CancellationToken cancellationToken = default)
-        => ListInvoicesAsync(organizationId, cancellationToken);
+    public async Task<PagedResult<InvoiceResponse>> ListInvoicesForOrganizationAsync(Guid organizationId, int? page, int? pageSize, CancellationToken cancellationToken = default)
+    {
+        var query = _dbContext.Set<Invoice>().IgnoreQueryFilters().Where(i => i.OrganizationId == organizationId);
+        var (normalizedPage, normalizedPageSize) = PaginationDefaults.Normalize(page, pageSize);
+        var totalCount = await query.CountAsync(cancellationToken);
+        var items = await query
+            .OrderByDescending(i => i.CycleStart)
+            .Skip((normalizedPage - 1) * normalizedPageSize)
+            .Take(normalizedPageSize)
+            .Select(i => new InvoiceResponse(i.Id, i.PlanNameSnapshot, i.AmountNprSnapshot, i.CycleStart, i.CycleEnd, i.Status, i.DueAt, i.PaidAt))
+            .ToListAsync(cancellationToken);
+        return new PagedResult<InvoiceResponse>(items, normalizedPage, normalizedPageSize, totalCount);
+    }
 
     // Cross-org by design (Platform's SuperAdmin invoices list) — IgnoreQueryFilters() is
     // required since the caller always runs with a null ambient tenant, same as

@@ -15,20 +15,6 @@ function makeDetail(overrides: Partial<{ isActive: boolean; deletedAt: string | 
     planName: "Growth",
     subscriptionStatus: "Active" as const,
     trialEndsAt: null,
-    users: [{ id: "u1", email: "owner@kathmandu.example", fullName: "Owner Person", isActive: true }],
-    branches: [{ id: "b1", code: "KTM-01", name: "Kathmandu Hub", isActive: true }],
-    invoices: [
-      {
-        id: "i1",
-        planName: "Growth",
-        amountNpr: 5000,
-        cycleStart: "2026-08-01T00:00:00Z",
-        cycleEnd: "2026-08-31T00:00:00Z",
-        status: "Paid" as const,
-        dueAt: "2026-08-05T00:00:00Z",
-        paidAt: "2026-08-02T00:00:00Z",
-      },
-    ],
     recentAuditEntries: [
       {
         id: "a1",
@@ -44,9 +30,43 @@ function makeDetail(overrides: Partial<{ isActive: boolean; deletedAt: string | 
   };
 }
 
+function pagedResult<T>(items: T[]) {
+  return { items, page: 1, pageSize: 10, totalCount: items.length, totalPages: 1 };
+}
+
+const defaultUsers = [{ id: "u1", email: "owner@kathmandu.example", fullName: "Owner Person", isActive: true }];
+const defaultBranches = [{ id: "b1", code: "KTM-01", name: "Kathmandu Hub", isActive: true }];
+const defaultInvoices = [
+  {
+    id: "i1",
+    planName: "Growth Invoice Plan",
+    amountNpr: 5000,
+    cycleStart: "2026-08-01T00:00:00Z",
+    cycleEnd: "2026-08-31T00:00:00Z",
+    status: "Paid" as const,
+    dueAt: "2026-08-05T00:00:00Z",
+    paidAt: "2026-08-02T00:00:00Z",
+  },
+];
+
 const usePlatformOrganization = vi.fn();
 vi.mock("@/features/platform-organizations/hooks/usePlatformOrganization", () => ({
   usePlatformOrganization: (...args: unknown[]) => usePlatformOrganization(...args),
+}));
+
+const useOrganizationUsers = vi.fn();
+vi.mock("@/features/platform-organizations/hooks/useOrganizationUsers", () => ({
+  useOrganizationUsers: (...args: unknown[]) => useOrganizationUsers(...args),
+}));
+
+const useOrganizationBranches = vi.fn();
+vi.mock("@/features/platform-organizations/hooks/useOrganizationBranches", () => ({
+  useOrganizationBranches: (...args: unknown[]) => useOrganizationBranches(...args),
+}));
+
+const useOrganizationInvoices = vi.fn();
+vi.mock("@/features/platform-organizations/hooks/useOrganizationInvoices", () => ({
+  useOrganizationInvoices: (...args: unknown[]) => useOrganizationInvoices(...args),
 }));
 
 const suspendMutate = vi.fn();
@@ -96,6 +116,9 @@ describe("OrganizationDetailSheet", () => {
     restoreMutate.mockClear();
     impersonateMutate.mockClear();
     push.mockClear();
+    useOrganizationUsers.mockReturnValue({ data: pagedResult(defaultUsers), isLoading: false });
+    useOrganizationBranches.mockReturnValue({ data: pagedResult(defaultBranches), isLoading: false });
+    useOrganizationInvoices.mockReturnValue({ data: pagedResult(defaultInvoices), isLoading: false });
   });
 
   it("shows org details and calls suspend / delete for an active organization", async () => {
@@ -115,10 +138,26 @@ describe("OrganizationDetailSheet", () => {
     await waitFor(() => expect(deleteMutate).toHaveBeenCalledWith("org-1"));
   });
 
+  it("renders the Users, Branches, and Invoices sections from their own paginated hooks", async () => {
+    usePlatformOrganization.mockReturnValue({ data: makeDetail(), isLoading: false, isError: false, refetch: vi.fn() });
+    render(<OrganizationDetailSheet />);
+
+    expect(screen.getByText("Owner Person")).toBeInTheDocument();
+    expect(screen.getByText("owner@kathmandu.example")).toBeInTheDocument();
+    expect(screen.getByText("KTM-01")).toBeInTheDocument();
+    expect(screen.getByText("Kathmandu Hub")).toBeInTheDocument();
+    expect(screen.getByText("Paid")).toBeInTheDocument();
+    expect(useOrganizationUsers).toHaveBeenCalledWith("org-1", 1, 10);
+    expect(useOrganizationBranches).toHaveBeenCalledWith("org-1", 1, 10);
+    expect(useOrganizationInvoices).toHaveBeenCalledWith("org-1", 1, 10);
+  });
+
   it("offers Impersonate only for active users, and navigates to /dashboard on success", async () => {
-    const detail = makeDetail();
-    detail.users.push({ id: "u2", email: "gone@kathmandu.example", fullName: "Former Staffer", isActive: false });
-    usePlatformOrganization.mockReturnValue({ data: detail, isLoading: false, isError: false, refetch: vi.fn() });
+    useOrganizationUsers.mockReturnValue({
+      data: pagedResult([...defaultUsers, { id: "u2", email: "gone@kathmandu.example", fullName: "Former Staffer", isActive: false }]),
+      isLoading: false,
+    });
+    usePlatformOrganization.mockReturnValue({ data: makeDetail(), isLoading: false, isError: false, refetch: vi.fn() });
     render(<OrganizationDetailSheet />);
 
     const impersonateButtons = screen.getAllByRole("button", { name: /impersonate/i });

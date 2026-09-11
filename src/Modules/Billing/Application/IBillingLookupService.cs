@@ -1,3 +1,5 @@
+using Courier.SharedKernel;
+
 namespace Courier.Billing.Application;
 
 public record PlanSummary(string PlanName, decimal MonthlyPriceNpr, Courier.Billing.Domain.SubscriptionStatus Status);
@@ -19,10 +21,13 @@ public interface IBillingLookupService
     // IgnoreQueryFilters().
     Task<PlatformBillingMetrics> GetPlatformMetricsAsync(CancellationToken cancellationToken = default);
 
-    // Thin wrapper over SubscriptionService.ListInvoicesAsync, added to the interface so Platform
-    // never needs to inject SubscriptionService directly (mirrors the rest of this interface's
-    // narrow-lookup shape).
-    Task<List<InvoiceResponse>> ListInvoicesForOrganizationAsync(Guid organizationId, CancellationToken cancellationToken = default);
+    // Paginated org-detail Sheet Invoices section, added to the interface so Platform never needs
+    // to inject SubscriptionService directly (mirrors the rest of this interface's narrow-lookup
+    // shape). Deliberately its own query rather than a wrapper over the staff-facing
+    // SubscriptionService.ListInvoicesAsync(organizationId, ct) — that method stays unbounded and
+    // untouched since it also backs the staff /billing page's own invoices list, which is out of
+    // this pagination pass's scope.
+    Task<PagedResult<InvoiceResponse>> ListInvoicesForOrganizationAsync(Guid organizationId, int? page, int? pageSize, CancellationToken cancellationToken = default);
 
     // Cross-org read for Platform's PlatformDashboardService (SuperAdmin invoices list) — like
     // GetPlatformMetricsAsync above, always called with a null ambient tenant, so the

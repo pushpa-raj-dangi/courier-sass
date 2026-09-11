@@ -17,7 +17,7 @@ file class FixedTenantProvider : ICurrentTenantProvider
 
 file class FakeBranchLookup : IBranchLookupService
 {
-    public Task<List<BranchAdminRecord>> ListForOrganizationAsync(Guid organizationId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    public Task<PagedResult<BranchAdminRecord>> ListForOrganizationAsync(Guid organizationId, int? page, int? pageSize, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     private readonly Dictionary<Guid, Guid?> _zonesByBranch;
     public FakeBranchLookup(Dictionary<Guid, Guid?> zonesByBranch) => _zonesByBranch = zonesByBranch;
 

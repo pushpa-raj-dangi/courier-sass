@@ -170,4 +170,37 @@ public class BranchServiceTests
         Assert.NotNull(result);
         Assert.Equal("NEW-02", result.Code);
     }
+
+    [Fact]
+    public async Task ListForOrganizationAsync_ScopesToOrganizationAndPaginates()
+    {
+        await using var dbContext = CreateSeededContext();
+        var organizationId = Guid.NewGuid();
+        var otherOrganizationId = Guid.NewGuid();
+        for (var i = 0; i < 3; i++)
+        {
+            dbContext.Set<Branch>().Add(new Branch
+            {
+                Id = Guid.NewGuid(), OrganizationId = organizationId, Code = $"BR-{i}", Name = $"Branch {i}",
+                Type = BranchType.Branch, ProvinceId = Guid.NewGuid(), DistrictId = Guid.NewGuid(),
+                LocalLevelId = Guid.NewGuid(), WardNumber = 1, AddressLine = "Somewhere", IsActive = true
+            });
+        }
+        dbContext.Set<Branch>().Add(new Branch
+        {
+            Id = Guid.NewGuid(), OrganizationId = otherOrganizationId, Code = "OTHER-01", Name = "Other Org Branch",
+            Type = BranchType.Branch, ProvinceId = Guid.NewGuid(), DistrictId = Guid.NewGuid(),
+            LocalLevelId = Guid.NewGuid(), WardNumber = 1, AddressLine = "Somewhere", IsActive = true
+        });
+        await dbContext.SaveChangesAsync();
+        var service = new BranchService(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), new AllBranchesAuthorizationChecker(), new AllowAllGeographyLookupService(), new FakeBranchPlanLimitProvider { MaxBranches = null });
+
+        var page1 = await service.ListForOrganizationAsync(organizationId, page: 1, pageSize: 2);
+        var page2 = await service.ListForOrganizationAsync(organizationId, page: 2, pageSize: 2);
+
+        Assert.Equal(2, page1.Items.Count);
+        Assert.Single(page2.Items);
+        Assert.Equal(3, page1.TotalCount);
+        Assert.DoesNotContain(page1.Items.Concat(page2.Items), b => b.Name == "Other Org Branch");
+    }
 }

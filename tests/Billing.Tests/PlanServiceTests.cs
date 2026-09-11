@@ -105,7 +105,7 @@ public class PlanServiceTests
         var page2 = await service.ListPlansAsync(search: marker, page: 2, pageSize: 2);
 
         Assert.Equal(2, page1.Items.Count);
-        Assert.Equal(1, page2.Items.Count);
+        Assert.Single(page2.Items);
         Assert.Equal(3, page1.TotalCount);
         Assert.Equal(3, page2.TotalCount);
         Assert.Equal(2, page1.TotalPages);

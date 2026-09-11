@@ -184,11 +184,19 @@ public class BranchService : IBranchLookupService
         => await _dbContext.Set<Branch>().IgnoreQueryFilters()
             .CountAsync(b => b.OrganizationId == organizationId && b.IsActive, cancellationToken);
 
-    public async Task<List<BranchAdminRecord>> ListForOrganizationAsync(Guid organizationId, CancellationToken cancellationToken = default)
-        => await _dbContext.Set<Branch>().IgnoreQueryFilters()
-            .Where(b => b.OrganizationId == organizationId)
+    public async Task<PagedResult<BranchAdminRecord>> ListForOrganizationAsync(Guid organizationId, int? page, int? pageSize, CancellationToken cancellationToken = default)
+    {
+        var query = _dbContext.Set<Branch>().IgnoreQueryFilters().Where(b => b.OrganizationId == organizationId);
+        var (normalizedPage, normalizedPageSize) = PaginationDefaults.Normalize(page, pageSize);
+        var totalCount = await query.CountAsync(cancellationToken);
+        var items = await query
+            .OrderBy(b => b.Code)
+            .Skip((normalizedPage - 1) * normalizedPageSize)
+            .Take(normalizedPageSize)
             .Select(b => new BranchAdminRecord(b.Id, b.Code, b.Name, b.IsActive))
             .ToListAsync(cancellationToken);
+        return new PagedResult<BranchAdminRecord>(items, normalizedPage, normalizedPageSize, totalCount);
+    }
 
     public async Task<BranchResponse?> AssignDeliveryZoneAsync(Guid branchId, AssignDeliveryZoneRequest request, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {

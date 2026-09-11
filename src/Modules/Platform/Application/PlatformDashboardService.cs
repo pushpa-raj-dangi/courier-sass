@@ -7,7 +7,10 @@ using Courier.SharedKernel;
 namespace Courier.Platform.Application;
 
 public record PlatformMetrics(int TotalOrganizations, int ActiveOrganizations, int SuspendedOrganizations, int DeletedOrganizations, decimal MonthlyRecurringRevenueNpr, int OverdueInvoiceCount);
-public record OrganizationDetail(OrganizationRecord Organization, string? PlanName, Courier.Billing.Domain.SubscriptionStatus? SubscriptionStatus, DateTimeOffset? TrialEndsAt, List<OrganizationUserRecord> Users, List<BranchAdminRecord> Branches, List<InvoiceResponse> Invoices, List<AuditLogRecord> RecentAuditEntries);
+// Users/Branches/Invoices are NOT embedded here — the org detail Sheet fetches each of those
+// independently, paginated, via ListOrganizationUsersAsync/BranchesAsync/InvoicesAsync below, so
+// paging through one of them never re-fetches the whole detail payload.
+public record OrganizationDetail(OrganizationRecord Organization, string? PlanName, Courier.Billing.Domain.SubscriptionStatus? SubscriptionStatus, DateTimeOffset? TrialEndsAt, List<AuditLogRecord> RecentAuditEntries);
 public record InvoiceAdminRecordWithOrgName(Guid Id, Guid OrganizationId, string OrganizationName, string PlanName, decimal AmountNpr, Courier.Billing.Domain.InvoiceStatus Status, DateTimeOffset DueAt, DateTimeOffset? PaidAt);
 
 public class PlatformDashboardService
@@ -59,13 +62,22 @@ public class PlatformDashboardService
         }
 
         var subscriptionStatus = await _billingLookupService.GetSubscriptionStatusAsync(organizationId, cancellationToken);
-        var users = await _organizationLookupService.ListUsersAsync(organizationId, cancellationToken);
-        var branches = await _branchLookupService.ListForOrganizationAsync(organizationId, cancellationToken);
-        var invoices = await _billingLookupService.ListInvoicesForOrganizationAsync(organizationId, cancellationToken);
         var auditEntries = await _auditLogReader.ListForOrganizationAsync(organizationId, 50, cancellationToken);
 
-        return new OrganizationDetail(organization, subscriptionStatus?.PlanName, subscriptionStatus?.Status, subscriptionStatus?.TrialEndsAt, users, branches, invoices, auditEntries);
+        return new OrganizationDetail(organization, subscriptionStatus?.PlanName, subscriptionStatus?.Status, subscriptionStatus?.TrialEndsAt, auditEntries);
     }
+
+    // The org detail Sheet's three nested, independently-paginated sections — thin wrappers so
+    // Platform never needs to inject the underlying module services directly, mirroring how
+    // GetOrganizationDetailAsync above already delegates to the same three lookup interfaces.
+    public Task<PagedResult<OrganizationUserRecord>> ListOrganizationUsersAsync(Guid organizationId, int? page, int? pageSize, CancellationToken cancellationToken = default)
+        => _organizationLookupService.ListUsersAsync(organizationId, page, pageSize, cancellationToken);
+
+    public Task<PagedResult<BranchAdminRecord>> ListOrganizationBranchesAsync(Guid organizationId, int? page, int? pageSize, CancellationToken cancellationToken = default)
+        => _branchLookupService.ListForOrganizationAsync(organizationId, page, pageSize, cancellationToken);
+
+    public Task<PagedResult<InvoiceResponse>> ListOrganizationInvoicesAsync(Guid organizationId, int? page, int? pageSize, CancellationToken cancellationToken = default)
+        => _billingLookupService.ListInvoicesForOrganizationAsync(organizationId, page, pageSize, cancellationToken);
 
     // Bulk-fetches all invoices matching status (Billing's ListAllInvoicesAsync is a single flat
     // query — Invoices is a much smaller, slower-growing table than Organizations, so this

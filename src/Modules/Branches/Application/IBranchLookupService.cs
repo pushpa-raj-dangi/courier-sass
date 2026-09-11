@@ -1,3 +1,5 @@
+using Courier.SharedKernel;
+
 namespace Courier.Branches.Application;
 
 public record BranchZoneInfo(Guid BranchId, Guid? DeliveryZoneId);
@@ -19,8 +21,9 @@ public interface IBranchLookupService
     Task<int> CountActiveBranchesAsync(Guid organizationId, CancellationToken cancellationToken = default);
 
     // Cross-tenant read for Platform's PlatformDashboardService (SuperAdmin org detail
-    // drill-down) — always called with ICurrentTenantProvider.OrganizationId == null, so the
-    // implementation must IgnoreQueryFilters(); the explicit organizationId parameter in the
-    // Where clause is the real, correct scope, not the ambient tenant filter.
-    Task<List<BranchAdminRecord>> ListForOrganizationAsync(Guid organizationId, CancellationToken cancellationToken = default);
+    // drill-down, Branches section) — always called with ICurrentTenantProvider.OrganizationId
+    // == null, so the implementation must IgnoreQueryFilters(); the explicit organizationId
+    // parameter in the Where clause is the real, correct scope, not the ambient tenant filter.
+    // Paginated — an org can have far more branches than fit in one Sheet.
+    Task<PagedResult<BranchAdminRecord>> ListForOrganizationAsync(Guid organizationId, int? page, int? pageSize, CancellationToken cancellationToken = default);
 }

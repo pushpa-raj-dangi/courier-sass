@@ -21,5 +21,20 @@ public static class PlatformDashboardEndpoints
             var detail = await service.GetOrganizationDetailAsync(id, cancellationToken);
             return detail is null ? Results.NotFound() : Results.Ok(detail);
         }).RequireSuperAdmin();
+
+        // The org detail Sheet's three nested sections, each independently paginated — see
+        // OrganizationDetail's own doc comment for why these aren't embedded in the detail
+        // response above.
+        group.MapGet("/organizations/{id:guid}/users", async (Guid id, int? page, int? pageSize, PlatformDashboardService service, CancellationToken cancellationToken) =>
+            Results.Ok(await service.ListOrganizationUsersAsync(id, page, pageSize, cancellationToken)))
+            .RequireSuperAdmin();
+
+        group.MapGet("/organizations/{id:guid}/branches", async (Guid id, int? page, int? pageSize, PlatformDashboardService service, CancellationToken cancellationToken) =>
+            Results.Ok(await service.ListOrganizationBranchesAsync(id, page, pageSize, cancellationToken)))
+            .RequireSuperAdmin();
+
+        group.MapGet("/organizations/{id:guid}/invoices", async (Guid id, int? page, int? pageSize, PlatformDashboardService service, CancellationToken cancellationToken) =>
+            Results.Ok(await service.ListOrganizationInvoicesAsync(id, page, pageSize, cancellationToken)))
+            .RequireSuperAdmin();
     }
 }

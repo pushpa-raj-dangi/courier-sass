@@ -240,6 +240,34 @@ public class SubscriptionServiceTests
     }
 
     [Fact]
+    public async Task ListInvoicesForOrganizationAsync_ScopesToOrganizationAndPaginates()
+    {
+        var organizationId = Guid.NewGuid();
+        var otherOrganizationId = Guid.NewGuid();
+        using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
+        var plan = new Plan { Id = Guid.NewGuid(), Name = "Growth", Slug = $"growth-{Guid.NewGuid():N}", MonthlyPriceNpr = 3000m, IsActive = true, CreatedAt = DateTimeOffset.UtcNow };
+        var subscription = new Subscription { Id = Guid.NewGuid(), OrganizationId = organizationId, PlanId = plan.Id, Status = SubscriptionStatus.Active, CurrentCycleStart = DateTimeOffset.UtcNow, CurrentCycleEnd = DateTimeOffset.UtcNow.AddMonths(1), CreatedAt = DateTimeOffset.UtcNow };
+        var otherSubscription = new Subscription { Id = Guid.NewGuid(), OrganizationId = otherOrganizationId, PlanId = plan.Id, Status = SubscriptionStatus.Active, CurrentCycleStart = DateTimeOffset.UtcNow, CurrentCycleEnd = DateTimeOffset.UtcNow.AddMonths(1), CreatedAt = DateTimeOffset.UtcNow };
+        dbContext.Set<Plan>().Add(plan);
+        dbContext.Set<Subscription>().AddRange(subscription, otherSubscription);
+        for (var i = 0; i < 3; i++)
+        {
+            dbContext.Set<Invoice>().Add(new Invoice { Id = Guid.NewGuid(), OrganizationId = organizationId, SubscriptionId = subscription.Id, PlanId = plan.Id, PlanNameSnapshot = plan.Name, AmountNprSnapshot = plan.MonthlyPriceNpr, CycleStart = DateTimeOffset.UtcNow.AddMonths(-i - 1), CycleEnd = DateTimeOffset.UtcNow.AddMonths(-i), Status = InvoiceStatus.Paid, DueAt = DateTimeOffset.UtcNow.AddDays(-1), PaidAt = DateTimeOffset.UtcNow, CreatedAt = DateTimeOffset.UtcNow });
+        }
+        dbContext.Set<Invoice>().Add(new Invoice { Id = Guid.NewGuid(), OrganizationId = otherOrganizationId, SubscriptionId = otherSubscription.Id, PlanId = plan.Id, PlanNameSnapshot = plan.Name, AmountNprSnapshot = plan.MonthlyPriceNpr, CycleStart = DateTimeOffset.UtcNow.AddMonths(-1), CycleEnd = DateTimeOffset.UtcNow, Status = InvoiceStatus.Paid, DueAt = DateTimeOffset.UtcNow.AddDays(-1), PaidAt = DateTimeOffset.UtcNow, CreatedAt = DateTimeOffset.UtcNow.AddMonths(-1) });
+        await dbContext.SaveChangesAsync();
+        var service = CreateService(dbContext, new NullTenantProvider());
+
+        var page1 = await service.ListInvoicesForOrganizationAsync(organizationId, page: 1, pageSize: 2);
+        var page2 = await service.ListInvoicesForOrganizationAsync(organizationId, page: 2, pageSize: 2);
+
+        Assert.Equal(2, page1.Items.Count);
+        Assert.Single(page2.Items);
+        Assert.Equal(3, page1.TotalCount);
+        Assert.All(page1.Items.Concat(page2.Items), i => Assert.Equal(plan.Name, i.PlanName));
+    }
+
+    [Fact]
     public async Task StartTrialAsync_CreatesTrialSubscriptionWithNoPlan()
     {
         var organizationId = Guid.NewGuid();

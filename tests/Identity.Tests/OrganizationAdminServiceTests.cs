@@ -238,4 +238,30 @@ public class OrganizationAdminServiceTests
         Assert.Equal(organization.Name, result.Name);
         Assert.Equal(organization.Slug, result.Slug);
     }
+
+    [Fact]
+    public async Task ListUsersAsync_ScopesToOrganizationAndPaginates()
+    {
+        // Regression guard for IgnoreQueryFilters(): called only from Platform's
+        // PlatformDashboardService (null ambient tenant), same reasoning as GetAsync above.
+        using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
+        var organization = new Organization { Id = Guid.NewGuid(), Name = "Test Org", Slug = $"org-{Guid.NewGuid():N}", IsActive = true };
+        var otherOrganization = new Organization { Id = Guid.NewGuid(), Name = "Other Org", Slug = $"org-{Guid.NewGuid():N}", IsActive = true };
+        dbContext.Set<Organization>().AddRange(organization, otherOrganization);
+        for (var i = 0; i < 3; i++)
+        {
+            dbContext.Set<User>().Add(new User { Id = Guid.NewGuid(), OrganizationId = organization.Id, Email = $"user{i}-{Guid.NewGuid():N}@example.test", PasswordHash = "hash", FullName = $"User {i}", IsActive = true });
+        }
+        dbContext.Set<User>().Add(new User { Id = Guid.NewGuid(), OrganizationId = otherOrganization.Id, Email = $"other-{Guid.NewGuid():N}@example.test", PasswordHash = "hash", FullName = "Other Org User", IsActive = true });
+        await dbContext.SaveChangesAsync();
+        var service = new OrganizationAdminService(dbContext, new FakeAuditLogger());
+
+        var page1 = await service.ListUsersAsync(organization.Id, page: 1, pageSize: 2);
+        var page2 = await service.ListUsersAsync(organization.Id, page: 2, pageSize: 2);
+
+        Assert.Equal(2, page1.Items.Count);
+        Assert.Single(page2.Items);
+        Assert.Equal(3, page1.TotalCount);
+        Assert.DoesNotContain(page1.Items.Concat(page2.Items), u => u.FullName == "Other Org User");
+    }
 }

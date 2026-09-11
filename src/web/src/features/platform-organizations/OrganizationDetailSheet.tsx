@@ -8,9 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ErrorState } from "@/components/states/ErrorState";
+import { DataTable, type ColumnDef } from "@/components/data-table/DataTable";
 import { useOrganizationPanelStore } from "@/features/platform-organizations/store/organizationPanelStore";
 import { usePlatformOrganization } from "@/features/platform-organizations/hooks/usePlatformOrganization";
+import { useOrganizationUsers } from "@/features/platform-organizations/hooks/useOrganizationUsers";
+import { useOrganizationBranches } from "@/features/platform-organizations/hooks/useOrganizationBranches";
+import { useOrganizationInvoices } from "@/features/platform-organizations/hooks/useOrganizationInvoices";
 import { useImpersonate } from "@/features/platform-organizations/hooks/useImpersonate";
+import type { OrganizationUser, OrganizationBranch, OrganizationInvoice } from "@/features/platform-organizations/types";
 import { usePlatformPlansForSelect } from "@/features/platform-plans/hooks/usePlatformPlans";
 import {
   useSuspendOrganization,
@@ -49,6 +54,80 @@ function AssignPlanControl({ organizationId }: { organizationId: string | null }
         Assign Plan
       </Button>
     </div>
+  );
+}
+
+const NESTED_PAGE_SIZE = 10;
+
+function UsersSection({ organizationId, impersonate, router }: { organizationId: string; impersonate: ReturnType<typeof useImpersonate>; router: ReturnType<typeof useRouter> }) {
+  const [page, setPage] = useState(1);
+  const { data, isLoading } = useOrganizationUsers(organizationId, page, NESTED_PAGE_SIZE);
+
+  const columns: ColumnDef<OrganizationUser>[] = [
+    { key: "name", header: "Name", render: (u) => u.fullName },
+    { key: "email", header: "Email", render: (u) => u.email },
+    { key: "status", header: "Status", render: (u) => (!u.isActive ? <Badge variant="secondary">Inactive</Badge> : null) },
+    {
+      key: "actions",
+      header: "",
+      render: (u) =>
+        // Impersonation is only ever offered for active users — an inactive/disabled user
+        // should never be usable as an impersonation identity.
+        u.isActive ? (
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={impersonate.isPending}
+            onClick={() =>
+              impersonate.mutate({ organizationId, userId: u.id }, { onSuccess: () => router.push("/dashboard") })
+            }
+          >
+            Impersonate
+          </Button>
+        ) : null,
+    },
+  ];
+
+  return (
+    <section>
+      <h3 className="mb-2 text-sm font-semibold">Users{data ? ` (${data.totalCount})` : ""}</h3>
+      <DataTable columns={columns} data={data} isLoading={isLoading} emptyTitle="No users" onPageChange={setPage} rowKey={(u) => u.id} />
+    </section>
+  );
+}
+
+function BranchesSection({ organizationId }: { organizationId: string }) {
+  const [page, setPage] = useState(1);
+  const { data, isLoading } = useOrganizationBranches(organizationId, page, NESTED_PAGE_SIZE);
+
+  const columns: ColumnDef<OrganizationBranch>[] = [
+    { key: "code", header: "Code", render: (b) => b.code },
+    { key: "name", header: "Name", render: (b) => b.name },
+  ];
+
+  return (
+    <section>
+      <h3 className="mb-2 text-sm font-semibold">Branches{data ? ` (${data.totalCount})` : ""}</h3>
+      <DataTable columns={columns} data={data} isLoading={isLoading} emptyTitle="No branches" onPageChange={setPage} rowKey={(b) => b.id} />
+    </section>
+  );
+}
+
+function InvoicesSection({ organizationId }: { organizationId: string }) {
+  const [page, setPage] = useState(1);
+  const { data, isLoading } = useOrganizationInvoices(organizationId, page, NESTED_PAGE_SIZE);
+
+  const columns: ColumnDef<OrganizationInvoice>[] = [
+    { key: "plan", header: "Plan", render: (i) => i.planName },
+    { key: "amount", header: "Amount (NPR)", render: (i) => i.amountNpr },
+    { key: "status", header: "Status", render: (i) => <Badge variant={i.status === "Overdue" ? "destructive" : i.status === "Paid" ? "default" : "secondary"}>{i.status}</Badge> },
+  ];
+
+  return (
+    <section>
+      <h3 className="mb-2 text-sm font-semibold">Invoices{data ? ` (${data.totalCount})` : ""}</h3>
+      <DataTable columns={columns} data={data} isLoading={isLoading} emptyTitle="No invoices" onPageChange={setPage} rowKey={(i) => i.id} />
+    </section>
   );
 }
 
@@ -134,58 +213,9 @@ export function OrganizationDetailSheet() {
               )}
             </div>
 
-            <section>
-              <h3 className="mb-2 text-sm font-semibold">Users ({data.users.length})</h3>
-              <ul className="space-y-1 text-sm">
-                {data.users.map((u) => (
-                  <li key={u.id} className="flex items-center justify-between gap-2">
-                    <span>
-                      {u.fullName} — {u.email} {!u.isActive && <Badge variant="secondary">Inactive</Badge>}
-                    </span>
-                    {u.isActive && (
-                      // Impersonation is only ever offered for active users — an inactive/disabled
-                      // user should never be usable as an impersonation identity.
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={impersonate.isPending}
-                        onClick={() =>
-                          organizationId &&
-                          impersonate.mutate(
-                            { organizationId, userId: u.id },
-                            { onSuccess: () => router.push("/dashboard") }
-                          )
-                        }
-                      >
-                        Impersonate
-                      </Button>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </section>
-
-            <section>
-              <h3 className="mb-2 text-sm font-semibold">Branches ({data.branches.length})</h3>
-              <ul className="space-y-1 text-sm">
-                {data.branches.map((b) => (
-                  <li key={b.id}>
-                    {b.code} — {b.name}
-                  </li>
-                ))}
-              </ul>
-            </section>
-
-            <section>
-              <h3 className="mb-2 text-sm font-semibold">Invoices</h3>
-              <ul className="space-y-1 text-sm">
-                {data.invoices.map((i) => (
-                  <li key={i.id}>
-                    {i.planName} — NPR {i.amountNpr} — {i.status}
-                  </li>
-                ))}
-              </ul>
-            </section>
+            {organizationId && <UsersSection organizationId={organizationId} impersonate={impersonate} router={router} />}
+            {organizationId && <BranchesSection organizationId={organizationId} />}
+            {organizationId && <InvoicesSection organizationId={organizationId} />}
 
             <section>
               <h3 className="mb-2 text-sm font-semibold">Recent Activity</h3>

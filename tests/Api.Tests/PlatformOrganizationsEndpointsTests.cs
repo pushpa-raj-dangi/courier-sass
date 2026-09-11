@@ -178,4 +178,87 @@ public class PlatformOrganizationsEndpointsTests : IClassFixture<WebApplicationF
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
+
+    // The org detail Sheet's three nested sections (users/branches/invoices) — each its own
+    // independently-paginated sub-resource route, see PlatformDashboardEndpoints.cs.
+
+    [Fact]
+    public async Task ListUsers_AsSuperAdmin_ReturnsPagedRegisteredOwner()
+    {
+        var client = _factory.CreateClient();
+        var suffix = $"nested-users-{Guid.NewGuid():N}"[..24];
+        var registerResponse = await client.PostAsJsonAsync("/api/v1/auth/register", new RegisterOrganizationRequest(
+            $"Nested Users Org {suffix}", $"nu-{suffix}", $"owner-{suffix}@example.test", "P@ssw0rd123!", "Owner"));
+        registerResponse.EnsureSuccessStatusCode();
+        var org = (await registerResponse.Content.ReadFromJsonAsync<AuthResult>())!;
+
+        var superAdminToken = await LoginAsSuperAdminAsync(client);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", superAdminToken);
+
+        var response = await client.GetAsync($"/api/v1/platform/organizations/{org.OrganizationId}/users?page=1&pageSize=10");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(1, body.GetProperty("totalCount").GetInt32());
+        var item = Assert.Single(body.GetProperty("items").EnumerateArray());
+        Assert.Equal($"owner-{suffix}@example.test", item.GetProperty("email").GetString());
+    }
+
+    [Fact]
+    public async Task ListBranches_AsSuperAdmin_ReturnsEmptyPagedResultForFreshOrganization()
+    {
+        var client = _factory.CreateClient();
+        var suffix = $"nested-branches-{Guid.NewGuid():N}"[..24];
+        var registerResponse = await client.PostAsJsonAsync("/api/v1/auth/register", new RegisterOrganizationRequest(
+            $"Nested Branches Org {suffix}", $"nb-{suffix}", $"owner-{suffix}@example.test", "P@ssw0rd123!", "Owner"));
+        registerResponse.EnsureSuccessStatusCode();
+        var org = (await registerResponse.Content.ReadFromJsonAsync<AuthResult>())!;
+
+        var superAdminToken = await LoginAsSuperAdminAsync(client);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", superAdminToken);
+
+        var response = await client.GetAsync($"/api/v1/platform/organizations/{org.OrganizationId}/branches?page=1&pageSize=10");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(0, body.GetProperty("totalCount").GetInt32());
+        Assert.Empty(body.GetProperty("items").EnumerateArray());
+    }
+
+    [Fact]
+    public async Task ListInvoices_AsSuperAdmin_ReturnsEmptyPagedResultForFreshOrganization()
+    {
+        var client = _factory.CreateClient();
+        var suffix = $"nested-invoices-{Guid.NewGuid():N}"[..24];
+        var registerResponse = await client.PostAsJsonAsync("/api/v1/auth/register", new RegisterOrganizationRequest(
+            $"Nested Invoices Org {suffix}", $"ni-{suffix}", $"owner-{suffix}@example.test", "P@ssw0rd123!", "Owner"));
+        registerResponse.EnsureSuccessStatusCode();
+        var org = (await registerResponse.Content.ReadFromJsonAsync<AuthResult>())!;
+
+        var superAdminToken = await LoginAsSuperAdminAsync(client);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", superAdminToken);
+
+        var response = await client.GetAsync($"/api/v1/platform/organizations/{org.OrganizationId}/invoices?page=1&pageSize=10");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(0, body.GetProperty("totalCount").GetInt32());
+        Assert.Empty(body.GetProperty("items").EnumerateArray());
+    }
+
+    [Fact]
+    public async Task ListUsers_AsRegularStaff_Returns403()
+    {
+        var client = _factory.CreateClient();
+        var suffix = $"nested-forbidden-{Guid.NewGuid():N}"[..24];
+        var registerResponse = await client.PostAsJsonAsync("/api/v1/auth/register", new RegisterOrganizationRequest(
+            $"Nested Forbidden Org {suffix}", $"nf-{suffix}", $"owner-{suffix}@example.test", "P@ssw0rd123!", "Owner"));
+        registerResponse.EnsureSuccessStatusCode();
+        var org = (await registerResponse.Content.ReadFromJsonAsync<AuthResult>())!;
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+
+        var response = await client.GetAsync($"/api/v1/platform/organizations/{org.OrganizationId}/users");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
 }
