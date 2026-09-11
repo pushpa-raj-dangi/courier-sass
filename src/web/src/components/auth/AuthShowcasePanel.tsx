@@ -27,9 +27,12 @@ export function AuthShowcasePanel({ icon: Icon, brand, headline, description, st
       </div>
 
       <div className="max-w-sm">
-        <h1 className="font-display text-3xl font-semibold leading-tight tracking-tight text-auth-panel-foreground xl:text-4xl">
+        {/* h2, not h1: the form's own CardTitle ("Sign in" etc.) is the page's real
+            heading and renders even when this panel is hidden below `lg`, so the
+            page keeps exactly one h1 regardless of viewport. */}
+        <h2 className="font-display text-3xl font-semibold leading-tight tracking-tight text-auth-panel-foreground xl:text-4xl">
           {headline}
-        </h1>
+        </h2>
         <p className="mt-4 text-sm leading-relaxed text-auth-panel-foreground/70">{description}</p>
       </div>
 

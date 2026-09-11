@@ -62,7 +62,9 @@ export function AcceptInviteForm() {
   return (
     <Card className="w-full max-w-sm shadow-xl shadow-primary/5">
       <CardHeader>
-        <CardTitle className="font-display text-xl">Set your password</CardTitle>
+        <CardTitle asChild className="font-display text-xl">
+          <h1>Set your password</h1>
+        </CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>

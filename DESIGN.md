@@ -20,6 +20,12 @@ colors:
   status-rto: "#7a4b52"
   status-sealed: "#2857bd"
   status-received: "#0db9f2"
+  marketing-bg: "hsl(228 20% 97%)"
+  marketing-bg-elevated: "hsl(228 18% 93%)"
+  marketing-fg: "hsl(229.1 20.0% 10.8%)"
+  marketing-muted-fg: "hsl(230.8 6.7% 38.2%)"
+  marketing-accent: "hsl(236.0 73.0% 46.0%)"
+  marketing-border: "hsl(228 15% 55%)"
 typography:
   display:
     fontFamily: "Space Grotesk, IBM Plex Sans, sans-serif"
@@ -132,10 +138,23 @@ A single-series bar chart whose bars are split by a category with no inherent co
 ### Named Rules
 **The Label-Always Rule.** No status is ever communicated by color alone. `StatusBadge` always pairs its colored dot with the status's text label, and any bare-dot use (funnel tiles) sits directly beside the same label — confirmed as the system's own mitigation for status hues that read calmer than a fully saturated categorical palette.
 
-**The Tint-From-Token Rule.** A colored icon-chip or highlight-panel background is always an existing status or accent token at reduced opacity (`/15`) or the `accent` role, never a new ad hoc hex value introduced for one component. What is **not** yet settled is the chip's *shape* for this treatment: the org dashboard's rate tiles use a full circle (`rounded-full`), while the branch dashboard's "Merchant Payable" highlight panel uses a rounded square (`rounded-lg`) for the same tinted-emphasis concept. Treat this as an open inconsistency to resolve in a future `/impeccable polish` pass, not as a rule with two exceptions — pick one shape for tinted-emphasis badges and apply it everywhere the next time either component is touched.
+**The Tint-From-Token Rule.** A colored icon-chip or highlight-panel background is always an existing status or accent token at reduced opacity (`/15`) or the `accent` role, never a new ad hoc hex value introduced for one component. The chip's *shape* was unsettled between the org dashboard's rate tiles (`RateTiles`) and the branch dashboard's "Merchant Payable" highlight panel (`FinancialSummary`) until a 2026-09-11 audit pass standardized both on a rounded square (`rounded-lg`) — matching the neutral `h-9 w-9 rounded-lg bg-muted` section-header icon chip every dashboard Card already uses, so tinted and neutral chips now share one shape. `rounded-full` is no longer used for this treatment anywhere in the app.
 
 ### Dark Mode
 Dark mode is a fully independent tuning, not an inversion: background `#141620`, foreground/ink `#f3efe7`, cards one step lighter than background (`#1e212e`). Status hues are re-lightened per-color rather than uniformly brightened — e.g. Delivered becomes a lighter teal (`#3fb39f`) and NDR a lighter vermillion (`#d45b3d`) — because a hue tuned for a light background does not carry the same contrast on a dark one. Courier Cobalt gets the same independent treatment, but shifts hue as well as lightness (`#1d2863` light → `#4f58e3` dark, 230°→236°): light mode gets its separation from Sealed/Received (both blue-family status hues) from a large lightness gap, but a dark-mode fill has to sit in the same bright range as those two status hues to clear 3:1 against the dark background, so it leans a few degrees further from Sealed's 221° instead. That's a real, checked trade-off, not an oversight — see `globals.css`'s header comment for the exact numbers and the re-validation command.
+
+### Marketing System ("Night Dispatch")
+The public marketing landing page (`/`, Frontend Phase F13) is the system's one confirmed second identity — a deliberately distinct palette for the one Persuade-mode surface the Ledger Counter world excludes by design (Product Principle 4: "clarity, density, and correctness outrank marketing polish," back-office only). It shares this system's type family (Space Grotesk display / IBM Plex Sans body via the same `font-display` class) and component primitives (Button, Sheet for its mobile nav drawer), but never the ledger's warm paper-and-ink palette — `--marketing-*` is its own indigo-neutral hue family (228° neutrals, 236° accent) so it reads as a distinct "night dispatch console" moment rather than a re-skinned dashboard.
+
+- **Marketing Bg** (`hsl(228 20% 97%)` light / `hsl(228 20% 6%)` dark) and **Marketing Bg Elevated** (`hsl(228 18% 93%)` / `hsl(228 18% 10%)`): page background and raised panel fill (e.g. `AppScreenshotFrame`'s browser-chrome frame) — a cool near-black in dark mode, not the ledger's warm paper even when light.
+- **Marketing Fg** (`hsl(229.1 20.0% 10.8%)` / `hsl(40.0 33.3% 92.9%)`) and **Marketing Muted Fg** (`hsl(230.8 6.7% 38.2%)` / `hsl(232.5 9.8% 67.8%)`): body/heading and secondary text, reusing the app's own light `--foreground`/`--muted-foreground` and dark `--foreground` literal values respectively rather than inventing new ones.
+- **Marketing Accent** (`hsl(236.0 73.0% 46.0%)` / `hsl(236.0 73.0% 60.0%)`): the one interactive/emphasis hue — CTA buttons, links, the hero's glow accents, `MarketingThemeToggle`'s active state. Same 236° hue family as Courier Cobalt, underscoring it's one brand, two rooms rather than an unrelated palette.
+- **Marketing Border** (`hsl(228 15% 55%)` / `hsl(228 15% 44%)`): the only separator weight on the page, same hairline-only convention as the rest of the app.
+- **Marketing tones** (neutral/motion/success/alert, used only as `ProductWalkthrough`'s dot/rail fills, never as text): reuse this system's own already-verified `--status-created`/`-in-transit`/`-delivered`/`-ndr` values rather than inventing new hexes — one more instance of the app's standing rule that a new semantic color is sourced from an existing verified token first.
+
+Every marketing color was computed and verified against WCAG AA (4.5:1 text, 3:1 non-text) in both themes — see `globals.css`'s Phase F13 header comment for the exact ratios. `MarketingThemeToggle` follows the same `next-themes` state as the rest of the app (a visitor's theme choice on `/` carries through to `/login` and beyond); only the fixed `--auth-panel` tokens stay intentionally theme-independent. A fixed-opacity noise-grain overlay (`.marketing-grain-overlay`, `opacity: 0.035`, `pointer-events: none`) is the one texture treatment anywhere in the system, reserved for this page.
+
+**The Two-Room Rule.** Marketing and the ledger back-office never borrow each other's palette. A `--marketing-*` token never appears in `(staff)`/`merchant`/`platform`/`rider` surfaces, and the ledger's paper/ink/status tokens never appear on `/`. Shared type family and component primitives are the seam that keeps them one product; the color system is the seam that keeps them two distinct rooms.
 
 ## Typography
 
@@ -259,4 +278,5 @@ The table itself sits in its own bordered container — `rounded-xl border borde
 - **Don't** give Cards the base 6px `--radius` scale; their 12px `rounded-xl` is an intentional, confirmed exception, not a value to "fix" into consistency with buttons/inputs.
 - **Don't** invent a brand name, logo, or marketing personality for this product — it is confirmed unnamed/white-label (`PRODUCT.md`); keep the system generic until that changes.
 - **Don't** build nested/collapsible sidebar nav groups speculatively — the flat list is a deliberate YAGNI choice, not an oversight, until a real feature needs sub-items.
-- **Don't** copy the tinted-emphasis icon badge's shape from just one existing dashboard component and assume it's settled — `RateTiles` (circle) and `FinancialSummary` (square) disagree; pick one deliberately rather than adding a third shape.
+- **Don't** reintroduce a `rounded-full` tinted-emphasis icon badge for a stat/metric tile — `RateTiles` and `FinancialSummary` disagreed on this until a 2026-09-11 audit pass standardized both on `rounded-lg`, matching the rest of the icon-chip system; `rounded-full` stays reserved for avatars, status dots, and the header's icon-only buttons (see Shapes).
+- **Don't** assume the ledger palette applies to the public marketing landing page — `/` intentionally runs a separate, distinct `--marketing-*` token system ("Night Dispatch"; see Colors → Marketing System) as the one confirmed exception to Product Principle 4.

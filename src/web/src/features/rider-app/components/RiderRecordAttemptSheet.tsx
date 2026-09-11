@@ -195,7 +195,7 @@ export function RiderRecordAttemptSheet({ riderId }: { riderId: string }) {
                   />
                   {photoError && <FieldError id="pod-photo-error">{photoError}</FieldError>}
                 </div>
-                <Button type="button" variant="outline" size="sm" onClick={captureLocation}>
+                <Button type="button" variant="outline" size="lg" className="h-11" onClick={captureLocation}>
                   {latitude !== null ? "Location captured" : "Capture current location"}
                 </Button>
                 {task.codAmount > 0 && (

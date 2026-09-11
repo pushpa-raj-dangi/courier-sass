@@ -9,9 +9,12 @@ web
 ## Users
 
 Internal staff of Nepal domestic courier companies, operating the back-office
-web app (`src/web`) this project's design work targets first (merchant portal
-and public tracking are later roadmap phases, not in scope yet). Primary
-personas, per `docs/PRODUCT-SPEC.md` §3 and `docs/RBAC.md`:
+web app (`src/web`). The staff back-office is the primary design surface, but
+the merchant portal, public tracking, and the public marketing landing page
+(all originally later roadmap phases) are now built and shipped as of
+`docs/FRONTEND-ROADMAP.md` Phase F13 (2026-09-09) — treat all four as in
+scope for design work, not just the back-office. Primary personas, per
+`docs/PRODUCT-SPEC.md` §3 and `docs/RBAC.md`:
 
 - **Organization Owner/Admin, Operations Manager** — configure branches, roles,
   rate cards; cross-branch oversight and exception handling; org-wide
@@ -30,9 +33,15 @@ personas, per `docs/PRODUCT-SPEC.md` §3 and `docs/RBAC.md`:
   communication.
 - **Auditor** — read-only audit trail and financial history.
 - **Merchant/Merchant Staff** — e-commerce sellers who book shipments, track
-  parcels, view settlements (own portal, Phase F10, not yet built).
+  parcels, view settlements via their own portal (`/merchant/*`, Phase F10,
+  shipped).
 - **Public recipient/sender** — unauthenticated `/track/{awb}` visitor
-  (Phase F11, not yet built).
+  (Phase F11, shipped).
+- **Prospective courier company (marketing visitor)** — unauthenticated
+  visitor to the public marketing landing page at `/` (Phase F13, shipped),
+  evaluating whether to adopt the platform. A Persuade-mode surface, the one
+  deliberate exception to Product Principle 4's back-office focus — see
+  `docs/FRONTEND-ROADMAP.md` Phase F13.
 - **SuperAdmin** — platform operator (not a tenant), provisions organizations
   and does platform support; never touches day-to-day courier operations.
 
@@ -137,11 +146,15 @@ visual language generic/white-label-appropriate until a name is confirmed.
 ## Evidence on Hand
 
 No real customer data, testimonials, case studies, or press exists — this is
-an internally-developed SaaS platform still in active phased build-out
-(`docs/FRONTEND-ROADMAP.md`: staff back-office phases F0–F4 complete as of
-2026-08-29, F5 onward not started). All data seen in development is seeded
-test data (test organizations, branches, merchants, shipments). Future design
-work must not fabricate testimonials, customer logos, or usage metrics.
+an internally-developed SaaS platform. All frontend phases planned through
+Phase F13 are complete as of 2026-09-09 (`docs/FRONTEND-ROADMAP.md`): staff
+back-office, merchant portal, public tracking, rider mobile-web, and the
+public marketing landing page are all shipped. All data seen in development
+is seeded test data (test organizations, branches, merchants, shipments).
+Future design work — including the marketing page — must not fabricate
+testimonials, customer logos, or usage metrics; the marketing page's
+Credibility section deliberately says "No case studies yet" rather than
+inventing any.
 
 ## Product Principles
 
@@ -157,7 +170,11 @@ work must not fabricate testimonials, customer logos, or usage metrics.
 4. **Design for the branch counter and the back office, not a storefront.**
    This is Operate-mode software for people doing scan-heavy, permission-gated
    operational work under time pressure — clarity, density, and correctness
-   outrank marketing polish.
+   outrank marketing polish. The one deliberate exception is the public
+   marketing landing page at `/` (Phase F13): a Persuade-mode surface with its
+   own distinct "Night Dispatch" visual identity, built specifically because
+   this principle excludes marketing polish from the back-office proper — see
+   DESIGN.md's Marketing System section.
 5. **Sheet-over-pages, one design system.** New surfaces extend the
    already-established shadcn/ui-based system and Sheet-driven interaction
    pattern rather than introducing a competing visual or navigational idiom.

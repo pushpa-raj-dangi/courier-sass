@@ -40,7 +40,9 @@ export function MerchantLoginForm() {
   return (
     <Card className="w-full max-w-md shadow-xl shadow-primary/5">
       <CardHeader className="space-y-1.5 pb-4">
-        <CardTitle className="font-display text-2xl">Merchant sign in</CardTitle>
+        <CardTitle asChild className="font-display text-2xl">
+          <h1>Merchant sign in</h1>
+        </CardTitle>
         <CardDescription>Manage shipments, pickups, and COD settlements.</CardDescription>
       </CardHeader>
       <CardContent>

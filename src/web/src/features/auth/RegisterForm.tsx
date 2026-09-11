@@ -61,7 +61,9 @@ export function RegisterForm() {
   return (
     <Card className="w-full max-w-md shadow-xl shadow-primary/5">
       <CardHeader className="space-y-1.5 pb-4">
-        <CardTitle className="font-display text-2xl">Create your organization</CardTitle>
+        <CardTitle asChild className="font-display text-2xl">
+          <h1>Create your organization</h1>
+        </CardTitle>
         <CardDescription>Set up your courier operation on the platform.</CardDescription>
       </CardHeader>
       <CardContent>

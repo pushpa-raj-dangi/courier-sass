@@ -67,7 +67,7 @@ export function RateTiles({
               key={tile.label}
               className="flex items-center gap-3 rounded-lg border border-border p-4"
             >
-              <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${tile.badgeClass}`}>
+              <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${tile.badgeClass}`}>
                 <Icon className="h-5 w-5" strokeWidth={2} />
               </span>
               <div className="flex flex-col gap-0.5">

@@ -26,7 +26,7 @@ describe("useRevealVariants", () => {
     useReducedMotionMock.mockReturnValue(false);
     const { result } = renderHook(() => useRevealVariants());
     expect(result.current.prefersReducedMotion).toBe(false);
-    expect(result.current.item.hidden).toEqual({ opacity: 0, y: 24 });
+    expect(result.current.item.hidden).toEqual({ opacity: 0, y: 12 });
   });
 
   it("returns static, fully-visible item variants when prefers-reduced-motion is set", () => {
@@ -40,6 +40,6 @@ describe("useRevealVariants", () => {
   it("always returns a container with staggerChildren", () => {
     useReducedMotionMock.mockReturnValue(false);
     const { result } = renderHook(() => useRevealVariants());
-    expect(result.current.container.visible).toEqual({ transition: { staggerChildren: 0.12 } });
+    expect(result.current.container.visible).toEqual({ transition: { staggerChildren: 0.08 } });
   });
 });
