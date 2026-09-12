@@ -70,4 +70,17 @@ describe("NavMain", () => {
 
     await waitFor(() => expect(screen.getByText("Return Shipments")).toBeInTheDocument());
   });
+
+  it("shows the Audit Logs entry when the session has audit.read", async () => {
+    renderNavMain(["report.read", "audit.read"]);
+
+    await waitFor(() => expect(screen.getByText("Audit Logs")).toBeInTheDocument());
+  });
+
+  it("hides the Audit Logs entry when the session lacks audit.read", async () => {
+    renderNavMain(["report.read"]);
+
+    await waitFor(() => expect(screen.getByText("Dashboard")).toBeInTheDocument());
+    expect(screen.queryByText("Audit Logs")).not.toBeInTheDocument();
+  });
 });

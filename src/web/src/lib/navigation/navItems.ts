@@ -10,6 +10,7 @@ import {
   Undo2,
   ShieldCheck,
   CreditCard,
+  History,
   type LucideIcon,
 } from "lucide-react";
 
@@ -35,5 +36,6 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/rider/tasks", label: "My Deliveries", permission: "delivery.attempt", icon: ClipboardCheck },
   { href: "/cod", label: "COD", permission: "cod.read", icon: Wallet },
   { href: "/billing", label: "Billing", permission: "org.billing.manage", icon: CreditCard },
+  { href: "/audit-logs", label: "Audit Logs", permission: "audit.read", icon: History },
   { href: "/admin", label: "Admin", permission: ["role.manage", "user.read"], icon: ShieldCheck },
 ];
