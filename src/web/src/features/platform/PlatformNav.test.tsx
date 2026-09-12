@@ -17,7 +17,7 @@ describe("PlatformNav", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true }));
   });
 
-  it("renders all six platform nav links", () => {
+  it("renders all seven platform nav links", () => {
     render(<PlatformNav />);
 
     expect(screen.getByText("Dashboard")).toBeInTheDocument();
@@ -26,6 +26,7 @@ describe("PlatformNav", () => {
     expect(screen.getByText("Invoices")).toBeInTheDocument();
     expect(screen.getByText("Audit Logs")).toBeInTheDocument();
     expect(screen.getByText("Jobs")).toBeInTheDocument();
+    expect(screen.getByText("Queues")).toBeInTheDocument();
   });
 
   it("highlights the active page based on the current pathname", () => {
