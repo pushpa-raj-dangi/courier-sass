@@ -11,6 +11,7 @@ const links = [
   { href: "/platform/organizations", label: "Organizations" },
   { href: "/platform/plans", label: "Plans" },
   { href: "/platform/invoices", label: "Invoices" },
+  { href: "/platform/audit-logs", label: "Audit Logs" },
 ];
 
 export function PlatformNav() {

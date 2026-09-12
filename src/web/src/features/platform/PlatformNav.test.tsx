@@ -17,13 +17,14 @@ describe("PlatformNav", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true }));
   });
 
-  it("renders all four platform nav links", () => {
+  it("renders all five platform nav links", () => {
     render(<PlatformNav />);
 
     expect(screen.getByText("Dashboard")).toBeInTheDocument();
     expect(screen.getByText("Organizations")).toBeInTheDocument();
     expect(screen.getByText("Plans")).toBeInTheDocument();
     expect(screen.getByText("Invoices")).toBeInTheDocument();
+    expect(screen.getByText("Audit Logs")).toBeInTheDocument();
   });
 
   it("highlights the active page based on the current pathname", () => {
