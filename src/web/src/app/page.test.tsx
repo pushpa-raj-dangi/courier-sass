@@ -2,15 +2,15 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 
 vi.mock("@/lib/auth/session", () => ({
-  getValidAccessToken: vi.fn(),
+  hasSession: vi.fn(),
 }));
 
 import RootPage from "./page";
-import { getValidAccessToken } from "@/lib/auth/session";
+import { hasSession } from "@/lib/auth/session";
 
 describe("RootPage", () => {
   it("renders the marketing page with a Go to dashboard CTA when a session exists", async () => {
-    vi.mocked(getValidAccessToken).mockResolvedValue("token-123");
+    vi.mocked(hasSession).mockReturnValue(true);
 
     const page = await RootPage();
     render(page);
@@ -20,7 +20,7 @@ describe("RootPage", () => {
   });
 
   it("renders the marketing page with a Get started CTA and a Sign in link when there is no session", async () => {
-    vi.mocked(getValidAccessToken).mockResolvedValue(null);
+    vi.mocked(hasSession).mockReturnValue(false);
 
     const page = await RootPage();
     render(page);
@@ -31,7 +31,7 @@ describe("RootPage", () => {
   });
 
   it("renders exactly one h1 (the hero headline)", async () => {
-    vi.mocked(getValidAccessToken).mockResolvedValue(null);
+    vi.mocked(hasSession).mockReturnValue(false);
 
     const page = await RootPage();
     render(page);
@@ -40,7 +40,7 @@ describe("RootPage", () => {
   });
 
   it("keeps heading levels in order with no skipped levels", async () => {
-    vi.mocked(getValidAccessToken).mockResolvedValue(null);
+    vi.mocked(hasSession).mockReturnValue(false);
 
     const page = await RootPage();
     render(page);
@@ -56,7 +56,7 @@ describe("RootPage", () => {
   });
 
   it("exposes header, main, and footer landmarks", async () => {
-    vi.mocked(getValidAccessToken).mockResolvedValue(null);
+    vi.mocked(hasSession).mockReturnValue(false);
 
     const page = await RootPage();
     render(page);

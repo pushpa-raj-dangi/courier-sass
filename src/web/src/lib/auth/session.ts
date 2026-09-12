@@ -27,6 +27,15 @@ export function clearSessionCookies() {
   store.delete(REFRESH_COOKIE);
 }
 
+// Read-only check for whether a session likely exists, without refreshing (and therefore never
+// writing cookies). Safe to call from Server Components during render, which Next.js forbids
+// from mutating cookies. Callers that need an actual bearer token must use getValidAccessToken
+// from a Server Action or Route Handler instead.
+export function hasSession(): boolean {
+  const store = cookies();
+  return Boolean(store.get(ACCESS_COOKIE)?.value || store.get(REFRESH_COOKIE)?.value);
+}
+
 // Returns a usable access token, transparently refreshing (and re-setting cookies) if the
 // stored access token has expired. Returns null only when there is no session at all, or the
 // refresh token itself is invalid/expired/revoked — callers treat null as "not logged in".

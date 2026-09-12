@@ -1,4 +1,4 @@
-import { getValidAccessToken } from "@/lib/auth/session";
+import { hasSession } from "@/lib/auth/session";
 import { MarketingNav } from "@/features/marketing/components/MarketingNav";
 import { Hero } from "@/features/marketing/components/Hero";
 import { ScreenShowcase } from "@/features/marketing/components/ScreenShowcase";
@@ -10,8 +10,7 @@ import { FinalCta } from "@/features/marketing/components/FinalCta";
 import { MarketingFooter } from "@/features/marketing/components/MarketingFooter";
 
 export default async function RootPage() {
-  const accessToken = await getValidAccessToken();
-  const isAuthenticated = Boolean(accessToken);
+  const isAuthenticated = hasSession();
 
   return (
     <div className="min-h-screen bg-marketing-bg selection:bg-marketing-accent/40 selection:text-marketing-fg">
