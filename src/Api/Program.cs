@@ -107,6 +107,16 @@ builder.Services.AddSingleton<RabbitMQ.Client.IConnection>(sp =>
     return factory.CreateConnectionAsync().GetAwaiter().GetResult();
 });
 
+builder.Services.AddHttpClient<IRabbitMqManagementClient, RabbitMqManagementClient>((sp, client) =>
+{
+    var config = sp.GetRequiredService<IConfiguration>();
+    var rabbitUri = new Uri(config.GetConnectionString("RabbitMq")!);
+    client.BaseAddress = new Uri($"http://{rabbitUri.Host}:15672/");
+    var userInfo = rabbitUri.UserInfo.Split(':', 2);
+    var basicAuth = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{userInfo[0]}:{userInfo[1]}"));
+    client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", basicAuth);
+});
+
 // First real (non-health-check) use of Redis in this codebase — backs the new
 // IRateLimiter/IIdempotencyStore (Phase 12). Registered as a singleton the same way the
 // RabbitMQ connection above is: ConnectionMultiplexer is thread-safe and expensive to open,
@@ -179,6 +189,7 @@ builder.Services.AddScoped<OrganizationLifecycleService>();
 builder.Services.AddScoped<PlatformDashboardService>();
 builder.Services.AddScoped<PlatformAuditService>();
 builder.Services.AddScoped<PlatformJobsService>();
+builder.Services.AddScoped<PlatformQueuesService>();
 builder.Services.AddScoped<IImpersonationTokenService, ImpersonationTokenService>();
 builder.Services.AddScoped<ImpersonationService>();
 
@@ -404,6 +415,7 @@ app.MapPlatformInvoicesEndpoints();
 app.MapPlatformImpersonationEndpoints();
 app.MapPlatformAuditEndpoints();
 app.MapPlatformJobsEndpoints();
+app.MapPlatformQueuesEndpoints();
 
 app.MapGet("/health/ping", () => Results.Ok(new { status = "ok" })).WithTags("Health check");
 
