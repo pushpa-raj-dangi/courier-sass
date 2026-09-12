@@ -96,7 +96,8 @@ public class AuditLogger : IAuditLogger, IAuditLogReader
         }
         if (!string.IsNullOrWhiteSpace(filter.EntityType))
         {
-            query = query.Where(a => a.EntityType == filter.EntityType);
+            var entityType = filter.EntityType.ToLower();
+            query = query.Where(a => a.EntityType.ToLower() == entityType);
         }
         if (!string.IsNullOrWhiteSpace(filter.EntityId))
         {

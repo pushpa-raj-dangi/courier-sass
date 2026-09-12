@@ -30,14 +30,18 @@ describe("useAuditLogs", () => {
     expect(global.fetch).toHaveBeenCalledWith("/api/audit-logs?page=1&pageSize=25&search=shipment.created&entityType=Shipment", undefined);
   });
 
-  it("expands date-only dateFrom/dateTo into UTC day-boundary timestamps", async () => {
+  it("expands date-only dateFrom/dateTo into local-day-boundary timestamps converted to UTC", async () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => pagedResult });
 
     const { result } = renderHook(() => useAuditLogs("", "", "2026-09-01", "2026-09-05", 1, 25), { wrapper });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    // Computed the same way the hook computes it (local calendar day -> UTC instant) rather than
+    // hand-typed, so this doesn't silently assume the test runner's timezone is UTC.
+    const expectedFrom = encodeURIComponent(new Date(2026, 8, 1, 0, 0, 0).toISOString());
+    const expectedTo = encodeURIComponent(new Date(2026, 8, 5, 23, 59, 59).toISOString());
     expect(global.fetch).toHaveBeenCalledWith(
-      "/api/audit-logs?page=1&pageSize=25&dateFrom=2026-09-01T00%3A00%3A00Z&dateTo=2026-09-05T23%3A59%3A59Z",
+      `/api/audit-logs?page=1&pageSize=25&dateFrom=${expectedFrom}&dateTo=${expectedTo}`,
       undefined
     );
   });

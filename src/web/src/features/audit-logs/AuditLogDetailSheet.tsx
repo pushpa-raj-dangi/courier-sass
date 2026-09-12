@@ -42,13 +42,13 @@ export function AuditLogDetailSheet() {
             </dl>
             {record.before && (
               <div>
-                <dt className="mb-1 text-muted-foreground">Before</dt>
+                <span className="mb-1 text-muted-foreground">Before</span>
                 <pre className="overflow-x-auto rounded-md bg-muted p-2 text-xs">{record.before}</pre>
               </div>
             )}
             {record.after && (
               <div>
-                <dt className="mb-1 text-muted-foreground">After</dt>
+                <span className="mb-1 text-muted-foreground">After</span>
                 <pre className="overflow-x-auto rounded-md bg-muted p-2 text-xs">{record.after}</pre>
               </div>
             )}

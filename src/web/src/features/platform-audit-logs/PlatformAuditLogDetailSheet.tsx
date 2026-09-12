@@ -21,6 +21,7 @@ export function PlatformAuditLogDetailSheet() {
               <Badge variant="secondary">{record.entityType}</Badge>
               <span className="text-muted-foreground">{record.entityId}</span>
               {record.isCrossTenantAction && <Badge variant="outline">Platform action</Badge>}
+              {record.impersonatedByUserId && <Badge variant="outline">via impersonation</Badge>}
             </div>
             <dl className="space-y-2">
               <div>
@@ -46,13 +47,13 @@ export function PlatformAuditLogDetailSheet() {
             </dl>
             {record.before && (
               <div>
-                <dt className="mb-1 text-muted-foreground">Before</dt>
+                <span className="mb-1 text-muted-foreground">Before</span>
                 <pre className="overflow-x-auto rounded-md bg-muted p-2 text-xs">{record.before}</pre>
               </div>
             )}
             {record.after && (
               <div>
-                <dt className="mb-1 text-muted-foreground">After</dt>
+                <span className="mb-1 text-muted-foreground">After</span>
                 <pre className="overflow-x-auto rounded-md bg-muted p-2 text-xs">{record.after}</pre>
               </div>
             )}

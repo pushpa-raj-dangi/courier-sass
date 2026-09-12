@@ -19,9 +19,9 @@ public static class AuditEndpoints
             DateTimeOffset? dateFrom, DateTimeOffset? dateTo, int? page, int? pageSize,
             IAuditLogReader reader, ICurrentTenantProvider tenant, HttpContext httpContext) =>
         {
-            // Defense in depth: RequirePermission below already requires audit.read, which no
-            // SuperAdmin-only caller (no Role, hence no permissions at all) can ever hold — but
-            // if OrganizationId were ever null here regardless, passing it through unchanged
+            // Defense in depth: a SuperAdmin user has OrganizationId == null but is still a real User row
+            // that could, through ordinary RBAC misconfiguration, be granted a Role containing audit.read.
+            // RequirePermission alone would then pass, and passing a null OrganizationId through unchanged
             // would turn SearchAsync into an unfiltered cross-tenant query. Fail closed instead.
             if (tenant.OrganizationId is null)
             {
