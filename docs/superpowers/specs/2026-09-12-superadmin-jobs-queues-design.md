@@ -107,6 +107,7 @@ namespace Courier.Platform.Infrastructure;
 using Courier.Platform.Application;
 using Hangfire;
 using Hangfire.Common;
+using Hangfire.Storage;
 
 public sealed class HangfireMonitor : IHangfireMonitor
 {

@@ -122,6 +122,7 @@ builder.Services.AddHangfire(config => config
     .UseRecommendedSerializerSettings()
     .UsePostgreSqlStorage(options => options.UseNpgsqlConnection(builder.Configuration.GetConnectionString("Postgres"))));
 builder.Services.AddHangfireServer();
+builder.Services.AddSingleton<IHangfireMonitor, HangfireMonitor>();
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 builder.Services.Configure<MerchantJwtOptions>(builder.Configuration.GetSection("Jwt"));
@@ -177,6 +178,7 @@ builder.Services.AddScoped<IMerchantSessionRevoker, MerchantSessionRevocationSer
 builder.Services.AddScoped<OrganizationLifecycleService>();
 builder.Services.AddScoped<PlatformDashboardService>();
 builder.Services.AddScoped<PlatformAuditService>();
+builder.Services.AddScoped<PlatformJobsService>();
 builder.Services.AddScoped<IImpersonationTokenService, ImpersonationTokenService>();
 builder.Services.AddScoped<ImpersonationService>();
 
@@ -401,6 +403,7 @@ app.MapPlatformDashboardEndpoints();
 app.MapPlatformInvoicesEndpoints();
 app.MapPlatformImpersonationEndpoints();
 app.MapPlatformAuditEndpoints();
+app.MapPlatformJobsEndpoints();
 
 app.MapGet("/health/ping", () => Results.Ok(new { status = "ok" })).WithTags("Health check");
 

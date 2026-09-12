@@ -265,6 +265,7 @@ Create `src/Modules/Platform/Infrastructure/HangfireMonitor.cs`:
 using Courier.Platform.Application;
 using Hangfire;
 using Hangfire.Common;
+using Hangfire.Storage;
 
 namespace Courier.Platform.Infrastructure;
 
