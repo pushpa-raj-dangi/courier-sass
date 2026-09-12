@@ -1065,7 +1065,7 @@ Create `src/web/src/app/platform/jobs/page.test.tsx`:
 
 ```tsx
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 
 const overview = {
   summary: { enqueued: 1, scheduled: 2, processing: 3, succeeded: 50, failed: 4, deleted: 0 },
@@ -1098,7 +1098,7 @@ describe("PlatformJobsPage", () => {
 
     fireEvent.click(screen.getByText("WebhookRetryJob"));
 
-    expect(screen.getByText("Connection refused")).toBeInTheDocument();
+    expect(within(screen.getByRole("dialog")).getByText("Connection refused")).toBeInTheDocument();
   });
 });
 ```
