@@ -76,6 +76,8 @@ public class PlatformDashboardServiceTests
     private sealed class FakeAuditLogReader : IAuditLogReader
     {
         public Task<List<AuditLogRecord>> ListForOrganizationAsync(Guid organizationId, int limit, CancellationToken cancellationToken = default) => Task.FromResult(new List<AuditLogRecord>());
+        public Task<PagedResult<AuditLogRecord>> SearchAsync(Guid? organizationId, AuditLogSearchFilter filter, int? page, int? pageSize, CancellationToken cancellationToken = default) => Task.FromResult(new PagedResult<AuditLogRecord>(new List<AuditLogRecord>(), 1, 25, 0));
+        public Task<PagedResult<AuditLogRecord>> SearchAcrossOrganizationsAsync(IReadOnlySet<Guid>? organizationIds, AuditLogSearchFilter filter, int? page, int? pageSize, CancellationToken cancellationToken = default) => Task.FromResult(new PagedResult<AuditLogRecord>(new List<AuditLogRecord>(), 1, 25, 0));
     }
 
     [Fact]
