@@ -176,6 +176,7 @@ builder.Services.AddScoped<PlatformAuthService>();
 builder.Services.AddScoped<IMerchantSessionRevoker, MerchantSessionRevocationService>();
 builder.Services.AddScoped<OrganizationLifecycleService>();
 builder.Services.AddScoped<PlatformDashboardService>();
+builder.Services.AddScoped<PlatformAuditService>();
 builder.Services.AddScoped<IImpersonationTokenService, ImpersonationTokenService>();
 builder.Services.AddScoped<ImpersonationService>();
 
@@ -399,6 +400,7 @@ app.MapPlatformPlansEndpoints();
 app.MapPlatformDashboardEndpoints();
 app.MapPlatformInvoicesEndpoints();
 app.MapPlatformImpersonationEndpoints();
+app.MapPlatformAuditEndpoints();
 
 app.MapGet("/health/ping", () => Results.Ok(new { status = "ok" })).WithTags("Health check");
 
