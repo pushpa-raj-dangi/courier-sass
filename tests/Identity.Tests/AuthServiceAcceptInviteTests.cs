@@ -1,4 +1,4 @@
-﻿using System.Security.Cryptography;
+using System.Security.Cryptography;
 using Courier.Audit.Application;
 using Courier.Branches.Application;
 using Courier.Identity.Application;

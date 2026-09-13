@@ -1,4 +1,4 @@
-﻿using Courier.Audit.Application;
+using Courier.Audit.Application;
 using Courier.Branches.Application;
 using Courier.Identity.Application;
 using Courier.Identity.Domain;
@@ -195,6 +195,38 @@ public class OrganizationSettingsServiceTests
 
         await Assert.ThrowsAsync<OrganizationSettingsValidationException>(() =>
             service.UpdateDefaultsAsync(organization.Id, Guid.NewGuid(), new OperationalDefaultsDto(Guid.NewGuid(), null)));
+    }
+
+    // Pairs an unresolvable service type with a branch id that DOES resolve, proving the
+    // service-type validation fires on its own merits rather than only ever being exercised
+    // alongside a null (i.e. skipped) branch check.
+    [Fact]
+    public async Task UpdateDefaultsAsync_ValidBranchButUnknownServiceType_ThrowsValidationException()
+    {
+        using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
+        var organization = NewOrganization(dbContext);
+        await dbContext.SaveChangesAsync();
+        var branchId = Guid.NewGuid();
+        var service = new OrganizationSettingsService(dbContext, new NullTenantProvider(), new FakeAuditLogger(), new OrganizationAdminService(dbContext, new FakeAuditLogger()), new StubBranchLookupService(branchId), new StubServiceTypeLookupService());
+
+        await Assert.ThrowsAsync<OrganizationSettingsValidationException>(() =>
+            service.UpdateDefaultsAsync(organization.Id, Guid.NewGuid(), new OperationalDefaultsDto(Guid.NewGuid(), branchId)));
+    }
+
+    // Pairs an unresolvable branch with a service type id that DOES resolve, proving the branch
+    // validation fires on its own merits rather than only ever being exercised alongside a null
+    // (i.e. skipped) service-type check.
+    [Fact]
+    public async Task UpdateDefaultsAsync_ValidServiceTypeButUnknownBranch_ThrowsValidationException()
+    {
+        using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
+        var organization = NewOrganization(dbContext);
+        await dbContext.SaveChangesAsync();
+        var serviceTypeId = Guid.NewGuid();
+        var service = new OrganizationSettingsService(dbContext, new NullTenantProvider(), new FakeAuditLogger(), new OrganizationAdminService(dbContext, new FakeAuditLogger()), new StubBranchLookupService(), new StubServiceTypeLookupService(serviceTypeId));
+
+        await Assert.ThrowsAsync<OrganizationSettingsValidationException>(() =>
+            service.UpdateDefaultsAsync(organization.Id, Guid.NewGuid(), new OperationalDefaultsDto(serviceTypeId, Guid.NewGuid())));
     }
 
     [Fact]

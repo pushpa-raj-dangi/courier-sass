@@ -1,4 +1,4 @@
-﻿using Courier.Audit.Application;
+using Courier.Audit.Application;
 using Courier.Branches.Application;
 using Courier.Identity.Application;
 using Courier.Identity.Domain;
@@ -67,7 +67,7 @@ file class ThrowingOrganizationSubscriptionStarter : IOrganizationSubscriptionSt
 // row with its own SaveChangesAsync (Task 1) before RegisterOrganizationAsync's own closing
 // SaveChangesAsync runs. That is exactly two SaveChangesAsync calls in sequence for a fresh
 // organization. This subclass throws on the second one to simulate a transient failure landing
-// between them â€” the scenario RegisterOrganizationAsync's new explicit transaction exists to
+// between them — the scenario RegisterOrganizationAsync's new explicit transaction exists to
 // make safe (either both commit, or neither does).
 file sealed class FaultOnSecondSaveDbContext : AppDbContext
 {
@@ -136,7 +136,7 @@ public class AuthServiceTests
 
         // IgnoreQueryFilters(): this test's DbContext uses NullTenantProvider (matching every
         // other test in this file, since AuthService's own pre-auth methods rely on the same
-        // bypass) â€” the ambient tenant filter fails CLOSED with no tenant in context, so a plain
+        // bypass) — the ambient tenant filter fails CLOSED with no tenant in context, so a plain
         // Set<Role>() query here would return 0 rows regardless of what was actually seeded.
         var roles = await dbContext.Set<Role>().IgnoreQueryFilters()
             .Where(r => r.OrganizationId == result.OrganizationId)
@@ -217,7 +217,7 @@ public class AuthServiceTests
     }
 
     // Finding 4 (Important, final whole-branch review): StartTrialAsync throwing must not turn
-    // into a 500 for a caller whose org/owner/refresh-token are already durably committed â€” the
+    // into a 500 for a caller whose org/owner/refresh-token are already durably committed — the
     // registration must still succeed and return a usable access token.
     [Fact]
     public async Task RegisterOrganizationAsync_SubscriptionStarterThrows_StillSucceedsWithAccessToken()
@@ -240,7 +240,7 @@ public class AuthServiceTests
         Assert.False(string.IsNullOrWhiteSpace(result.AccessToken));
         Assert.False(string.IsNullOrWhiteSpace(result.RefreshToken));
 
-        // The org/owner really were committed despite the throw â€” a fresh login works too.
+        // The org/owner really were committed despite the throw — a fresh login works too.
         var loginResult = await service.LoginAsync(new LoginRequest($"owner-{suffix}@example.com", "P@ssw0rd123!"));
         Assert.Equal(result.UserId, loginResult.UserId);
     }
@@ -265,7 +265,7 @@ public class AuthServiceTests
         // by recency, so OrderByDescending(ExpiresAt) would actually return that longer-lived
         // registration token instead of login's new one. Ordering ascending picks the
         // soonest-to-expire token, which is the 1-day one LoginAsync just issued under the
-        // updated policy â€” the one this test means to assert on.
+        // updated policy — the one this test means to assert on.
         var token = dbContext.Set<RefreshToken>().OrderBy(t => t.ExpiresAt).First(t => t.UserId == loginResult.UserId);
         Assert.InRange(token.ExpiresAt, DateTimeOffset.UtcNow.AddDays(1).AddMinutes(-1), DateTimeOffset.UtcNow.AddDays(1).AddMinutes(1));
     }
