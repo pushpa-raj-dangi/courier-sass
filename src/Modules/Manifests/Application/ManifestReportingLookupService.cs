@@ -39,4 +39,22 @@ public class ManifestReportingLookupService : IManifestReportingLookupService
         return await _dbContext.Set<ManifestShipment>().AsNoTracking()
             .CountAsync(ms => closedManifestIds.Contains(ms.ManifestId) && ms.ReceivedAt == null, cancellationToken);
     }
+
+    public async Task<IReadOnlyDictionary<ManifestStatus, int>> GetStatusCountsAsync(
+        IReadOnlySet<Guid>? branchIds, CancellationToken cancellationToken = default)
+    {
+        var query = _dbContext.Set<Manifest>().AsNoTracking().AsQueryable();
+        if (branchIds is not null)
+        {
+            var branchIdArray = branchIds.ToArray();
+            query = query.Where(m => branchIdArray.Contains(m.FromBranchId) || branchIdArray.Contains(m.ToBranchId));
+        }
+
+        var counts = await query
+            .GroupBy(m => m.Status)
+            .Select(g => new { Status = g.Key, Count = g.Count() })
+            .ToListAsync(cancellationToken);
+
+        return counts.ToDictionary(x => x.Status, x => x.Count);
+    }
 }

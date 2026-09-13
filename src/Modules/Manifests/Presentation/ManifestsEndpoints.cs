@@ -32,6 +32,13 @@ public static class ManifestsEndpoints
             Results.Ok(await service.ListAsync(branchId, status, httpContext.User, httpContext.RequestAborted)))
             .RequirePermission("manifest.read");
 
+        group.MapGet("/summary", async (IManifestReportingLookupService lookupService, IBranchAuthorizationChecker branchAuthorizationChecker, HttpContext httpContext) =>
+        {
+            var accessibleBranchIds = await branchAuthorizationChecker.GetAccessibleBranchIdsAsync(httpContext.User, "manifest.read", httpContext.RequestAborted);
+            var counts = await lookupService.GetStatusCountsAsync(accessibleBranchIds, httpContext.RequestAborted);
+            return Results.Ok(counts.ToDictionary(kv => kv.Key.ToString(), kv => kv.Value));
+        }).RequirePermission("manifest.read");
+
         group.MapGet("/{id:guid}", async (Guid id, ManifestService service, HttpContext httpContext) =>
         {
             var result = await service.GetByIdAsync(id, httpContext.RequestAborted);

@@ -354,4 +354,28 @@ public class ManifestsEndpointsTests : IClassFixture<WebApplicationFactory<Progr
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
+
+    [Fact]
+    public async Task GetManifestsSummary_ReturnsStatusCounts()
+    {
+        var client = _factory.CreateClient();
+        var auth = await RegisterOrgAsync(client, "summary");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth.AccessToken);
+
+        var response = await client.GetAsync("/api/v1/manifests/summary");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<Dictionary<string, int>>();
+        Assert.NotNull(body);
+    }
+
+    [Fact]
+    public async Task GetManifestsSummary_Unauthenticated_Returns401()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/api/v1/manifests/summary");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
 }

@@ -99,4 +99,39 @@ public class ManifestReportingLookupServiceTests
 
         Assert.Equal(1, count);
     }
+
+    [Fact]
+    public async Task GetStatusCountsAsync_GroupsByStatus_RespectsFromOrToBranchFilter()
+    {
+        var tenantProvider = new FixedTenantProvider();
+        await using var dbContext = TestDbContextFactory.Create(tenantProvider);
+        var (orgId, fromBranchId, toBranchId) = await SeedOrgAsync(dbContext);
+        tenantProvider.OrganizationId = orgId;
+
+        // A third branch for the "elsewhere" leg of inTransitAsReceiver -- Manifest.FromBranchId
+        // has a real foreign key to Branches, so a random unseeded Guid would violate it.
+        var thirdBranchId = Guid.NewGuid();
+        dbContext.Add(new Courier.Branches.Domain.Branch
+        {
+            Id = thirdBranchId, OrganizationId = orgId, Code = "OTH", Name = "Other Branch",
+            Type = Courier.Branches.Domain.BranchType.Branch, ProvinceId = ProvinceId, DistrictId = DistrictId,
+            LocalLevelId = LocalLevelId, WardNumber = 1, AddressLine = "Test Address"
+        });
+
+        // draftAsSender: fromBranchId is the seeded branch (sender-side match).
+        // inTransitAsReceiver: toBranchId is the seeded branch (receiver-side match) -- both
+        // should count for a caller restricted to fromBranchId, matching
+        // ManifestService.Reads.cs:ListAsync's own FromBranchId-OR-ToBranchId convention.
+        var draftAsSender = new Manifest { Id = Guid.NewGuid(), OrganizationId = orgId, Code = "MNF004", FromBranchId = fromBranchId, ToBranchId = toBranchId, Purpose = ManifestPurpose.Forward, Status = ManifestStatus.Draft, ShipmentCount = 0, CreatedByUserId = Guid.NewGuid(), CreatedAt = DateTimeOffset.UtcNow };
+        var inTransitAsReceiver = new Manifest { Id = Guid.NewGuid(), OrganizationId = orgId, Code = "MNF005", FromBranchId = thirdBranchId, ToBranchId = fromBranchId, Purpose = ManifestPurpose.Forward, Status = ManifestStatus.InTransit, ShipmentCount = 1, CreatedByUserId = Guid.NewGuid(), CreatedAt = DateTimeOffset.UtcNow };
+        dbContext.Add(draftAsSender);
+        dbContext.Add(inTransitAsReceiver);
+        await dbContext.SaveChangesAsync();
+
+        var service = new ManifestReportingLookupService(dbContext);
+        var result = await service.GetStatusCountsAsync(new HashSet<Guid> { fromBranchId });
+
+        Assert.Equal(1, result[ManifestStatus.Draft]);
+        Assert.Equal(1, result[ManifestStatus.InTransit]);
+    }
 }
