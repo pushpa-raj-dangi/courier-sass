@@ -24,7 +24,12 @@ export default function AdminPage() {
   const canManageRoles = usePermission("role.manage");
   const canReadUsers = usePermission("user.read");
   const canManageSettings = usePermission("org.settings.manage");
-  const permitted = { roles: canManageRoles, users: canReadUsers, settings: canManageSettings };
+  const canManageTemplates = usePermission("notification_template.manage");
+  // The Settings tab itself is the "tab OR" half of the approved spec's split — a user with only
+  // notification_template.manage (and not org.settings.manage) still needs to reach it to manage
+  // templates; SettingsTab's own sub-tab permitted map is the "section AND" half, hiding every
+  // other sub-tab such a user lacks permission for.
+  const permitted = { roles: canManageRoles, users: canReadUsers, settings: canManageSettings || canManageTemplates };
 
   // The sidebar's own Admin link is visible to anyone with role.manage OR user.read (nav-main.tsx)
   // — a user with only one of the two must never see a tab (or its data fetch) requiring the
