@@ -3,7 +3,6 @@
 import { Undo2, Truck, PackageCheck, CheckCircle2, Clock } from "lucide-react";
 import { StatusBadge } from "@/components/status-badge/StatusBadge";
 import { DataTable, type ColumnDef, type PagedResult } from "@/components/data-table/DataTable";
-import { Spinner } from "@/components/ui/spinner";
 import { ErrorState } from "@/components/states/ErrorState";
 import { SummaryStatsBar, type StatTile } from "@/components/summary-stats/SummaryStatsBar";
 import { useBranches } from "@/features/branches/hooks/useBranches";
@@ -70,23 +69,17 @@ export default function ReturnShipmentsPage() {
         isError={summary.isError}
         skeletonCount={6}
       />
-      {isLoading && (
-        <div className="flex items-center justify-center p-12">
-          <Spinner className="h-6 w-6" />
-        </div>
-      )}
-      {!isLoading && isError && (
+      {isError ? (
         <ErrorState
           title="Couldn't load return shipments"
           description="Something went wrong fetching the RTO list."
           onRetry={() => refetch()}
         />
-      )}
-      {!isLoading && !isError && (
+      ) : (
         <DataTable
           columns={columns}
           data={pagedData}
-          isLoading={false}
+          isLoading={isLoading}
           emptyTitle="No return shipments"
           emptyDescription="Shipments resolved as RTO will show up here."
           onPageChange={() => {}}

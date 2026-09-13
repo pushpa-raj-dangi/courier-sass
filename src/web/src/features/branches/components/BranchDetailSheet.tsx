@@ -1,8 +1,9 @@
 "use client";
 
-import { Spinner } from "@/components/ui/spinner";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ErrorState } from "@/components/states/ErrorState";
+import { DetailSkeleton } from "@/components/states/DetailSkeleton";
 import { useBranch } from "@/features/branches/hooks/useBranch";
 import { useBranchDashboard } from "@/features/reports/hooks/useBranchDashboard";
 import { BranchRecord } from "@/features/branches/BranchRecord";
@@ -36,11 +37,7 @@ export function BranchDetailSheet() {
           <SheetTitle>{branch?.name ?? "Branch"}</SheetTitle>
         </SheetHeader>
         <div className="mt-6 space-y-6">
-          {isBranchLoading && (
-            <div className="flex items-center justify-center p-12">
-              <Spinner className="h-6 w-6" />
-            </div>
-          )}
+          {isBranchLoading && <DetailSkeleton fieldRows={2} />}
           {isBranchError && (
             <ErrorState
               title="Couldn't load this branch"
@@ -52,8 +49,11 @@ export function BranchDetailSheet() {
             <>
               <BranchRecord branch={branch} />
               {isDashboardLoading && (
-                <div className="flex items-center justify-center p-12">
-                  <Spinner className="h-6 w-6" />
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4" role="status" aria-live="polite">
+                  <span className="sr-only">Loading</span>
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <Skeleton key={i} className="h-16 w-full rounded-lg" />
+                  ))}
                 </div>
               )}
               {isDashboardError && (

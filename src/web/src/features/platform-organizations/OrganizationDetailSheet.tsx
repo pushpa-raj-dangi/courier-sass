@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ErrorState } from "@/components/states/ErrorState";
+import { DetailSkeleton } from "@/components/states/DetailSkeleton";
 import { DataTable, type ColumnDef } from "@/components/data-table/DataTable";
 import { useOrganizationPanelStore } from "@/features/platform-organizations/store/organizationPanelStore";
 import { usePlatformOrganization } from "@/features/platform-organizations/hooks/usePlatformOrganization";
@@ -150,8 +150,8 @@ export function OrganizationDetailSheet() {
           <SheetTitle>{data?.organization.name ?? "Organization"}</SheetTitle>
         </SheetHeader>
         {isLoading && (
-          <div className="flex items-center justify-center p-12">
-            <Spinner className="h-6 w-6" />
+          <div className="p-4">
+            <DetailSkeleton fieldRows={1} fieldsPerRow={2} />
           </div>
         )}
         {isError && (

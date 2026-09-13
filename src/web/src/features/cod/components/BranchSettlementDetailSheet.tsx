@@ -8,6 +8,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { FieldError } from "@/components/ui/field-error";
 import { ErrorState } from "@/components/states/ErrorState";
+import { DetailSkeleton } from "@/components/states/DetailSkeleton";
 import { useBranchSettlements } from "@/features/cod/hooks/useBranchSettlements";
 import { useRiderSettlements } from "@/features/cod/hooks/useRiderSettlements";
 import { useCreateFinanceVerification } from "@/features/cod/hooks/useCreateFinanceVerification";
@@ -71,11 +72,7 @@ export function BranchSettlementDetailSheet() {
           <SheetTitle>Branch Settlement</SheetTitle>
         </SheetHeader>
         <div className="mt-6 space-y-6">
-          {isLoading && (
-            <div className="flex items-center justify-center p-12">
-              <Spinner className="h-6 w-6" />
-            </div>
-          )}
+          {isLoading && <DetailSkeleton fieldRows={1} />}
           {isError && <ErrorState title="Couldn't load this settlement" description="Something went wrong." onRetry={() => refetch()} />}
           {settlement && (
             <>

@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { AlertTriangle, Phone, CheckCircle2, RotateCcw, Undo2 } from "lucide-react";
-import { Spinner } from "@/components/ui/spinner";
 import { ErrorState } from "@/components/states/ErrorState";
 import { StatusBadge } from "@/components/status-badge/StatusBadge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -90,23 +89,17 @@ export default function NdrsPage() {
         isError={summary.isError}
         skeletonCount={6}
       />
-      {isLoading && (
-        <div className="flex items-center justify-center p-12">
-          <Spinner className="h-6 w-6" />
-        </div>
-      )}
-      {!isLoading && isError && (
+      {isError ? (
         <ErrorState
           title="Couldn't load NDRs"
           description="Something went wrong fetching the NDR queue."
           onRetry={() => refetch()}
         />
-      )}
-      {!isLoading && !isError && (
+      ) : (
         <DataTable
           columns={columns}
           data={data}
-          isLoading={false}
+          isLoading={isLoading}
           emptyTitle="No NDRs"
           emptyDescription="Failed deliveries that need follow-up will show up here."
           onPageChange={setPage}

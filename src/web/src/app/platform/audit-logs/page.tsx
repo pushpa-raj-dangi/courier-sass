@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Spinner } from "@/components/ui/spinner";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
 import { ErrorState } from "@/components/states/ErrorState";
@@ -112,21 +111,15 @@ export default function PlatformAuditLogsPage() {
           aria-label="Filter to date"
         />
       </div>
-      {isLoading ? (
-        <div className="flex items-center justify-center p-12">
-          <Spinner className="h-6 w-6" />
-        </div>
-      ) : (
-        <DataTable
-          columns={columns}
-          data={data}
-          isLoading={false}
-          emptyTitle="No audit events found"
-          emptyDescription="Try a different search term, entity type, or date range."
-          onPageChange={setPage}
-          rowKey={(r) => r.id}
-        />
-      )}
+      <DataTable
+        columns={columns}
+        data={data}
+        isLoading={isLoading}
+        emptyTitle="No audit events found"
+        emptyDescription="Try a different search term, entity type, or date range."
+        onPageChange={setPage}
+        rowKey={(r) => r.id}
+      />
       <PlatformAuditLogDetailSheet />
     </div>
   );

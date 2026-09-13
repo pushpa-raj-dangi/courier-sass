@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Spinner } from "@/components/ui/spinner";
 import { Input } from "@/components/ui/input";
 import { ErrorState } from "@/components/states/ErrorState";
 import { DataTable, type ColumnDef } from "@/components/data-table/DataTable";
@@ -71,21 +70,15 @@ export default function PlatformPlansPage() {
         className="max-w-sm"
         aria-label="Search plans"
       />
-      {isLoading ? (
-        <div className="flex items-center justify-center p-12">
-          <Spinner className="h-6 w-6" />
-        </div>
-      ) : (
-        <DataTable
-          columns={columns}
-          data={data}
-          isLoading={false}
-          emptyTitle="No plans found"
-          emptyDescription="Try a different search term, or create a plan to start assigning it to organizations."
-          onPageChange={setPage}
-          rowKey={(p) => p.id}
-        />
-      )}
+      <DataTable
+        columns={columns}
+        data={data}
+        isLoading={isLoading}
+        emptyTitle="No plans found"
+        emptyDescription="Try a different search term, or create a plan to start assigning it to organizations."
+        onPageChange={setPage}
+        rowKey={(p) => p.id}
+      />
       <PlanCreateSheet />
     </div>
   );

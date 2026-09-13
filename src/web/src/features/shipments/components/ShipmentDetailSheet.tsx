@@ -1,9 +1,9 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ErrorState } from "@/components/states/ErrorState";
+import { DetailSkeleton } from "@/components/states/DetailSkeleton";
 import { StatusBadge } from "@/components/status-badge/StatusBadge";
 import { usePermission } from "@/features/auth/hooks/usePermission";
 import { useBranches } from "@/features/branches/hooks/useBranches";
@@ -49,11 +49,7 @@ export function ShipmentDetailSheet() {
           <SheetTitle>{shipment?.awb ?? "Shipment"}</SheetTitle>
         </SheetHeader>
         <div className="mt-6 space-y-6">
-          {isLoading && (
-            <div className="flex items-center justify-center p-12">
-              <Spinner className="h-6 w-6" />
-            </div>
-          )}
+          {isLoading && <DetailSkeleton fieldRows={5} />}
           {isError && (
             <ErrorState
               title="Couldn't load this shipment"

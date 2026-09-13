@@ -1,8 +1,9 @@
 "use client";
 
-import { Spinner } from "@/components/ui/spinner";
 import { Badge } from "@/components/ui/badge";
 import { ErrorState } from "@/components/states/ErrorState";
+import { StatTilesSkeleton } from "@/components/states/StatTilesSkeleton";
+import { LoadingState } from "@/components/states/LoadingState";
 import { DataTable, type ColumnDef, type PagedResult } from "@/components/data-table/DataTable";
 import { usePlatformJobs } from "@/features/platform-jobs/hooks/usePlatformJobs";
 import { usePlatformJobPanelStore } from "@/features/platform-jobs/store/platformJobPanelStore";
@@ -54,8 +55,17 @@ export default function PlatformJobsPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center p-12">
-        <Spinner className="h-6 w-6" />
+      <div className="space-y-6 p-6">
+        <h1 className="font-display text-xl font-semibold">Jobs</h1>
+        <StatTilesSkeleton count={6} />
+        <div className="space-y-2">
+          <h2 className="text-sm font-medium text-muted-foreground">Recurring Jobs</h2>
+          <LoadingState rows={4} />
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-sm font-medium text-muted-foreground">Recent Activity</h2>
+          <LoadingState rows={4} />
+        </div>
       </div>
     );
   }

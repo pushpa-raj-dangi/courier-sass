@@ -1,8 +1,8 @@
 "use client";
 
-import { Spinner } from "@/components/ui/spinner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ErrorState } from "@/components/states/ErrorState";
+import { DetailSkeleton } from "@/components/states/DetailSkeleton";
 import { StatusBadge } from "@/components/status-badge/StatusBadge";
 import { useSession } from "@/features/auth/hooks/useSession";
 import { useNdr } from "@/features/ndr/hooks/useNdr";
@@ -38,11 +38,7 @@ export function NdrDetailSheet() {
           <SheetTitle>{ndr?.awb ?? "NDR"}</SheetTitle>
         </SheetHeader>
         <div className="mt-6 space-y-6">
-          {isLoading && (
-            <div className="flex items-center justify-center p-12">
-              <Spinner className="h-6 w-6" />
-            </div>
-          )}
+          {isLoading && <DetailSkeleton fieldRows={1} />}
           {isError && (
             <ErrorState
               title="Couldn't load this NDR"

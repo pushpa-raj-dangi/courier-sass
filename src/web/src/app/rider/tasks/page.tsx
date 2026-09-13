@@ -2,7 +2,7 @@
 
 import { EmptyState } from "@/components/states/EmptyState";
 import { ErrorState } from "@/components/states/ErrorState";
-import { Spinner } from "@/components/ui/spinner";
+import { Skeleton } from "@/components/ui/skeleton";
 import { RiderTaskCard } from "@/features/rider-app/components/RiderTaskCard";
 import { useMyRider } from "@/features/riders/hooks/useMyRider";
 import { useMyTasksToday } from "@/features/riders/hooks/useMyTasksToday";
@@ -14,8 +14,12 @@ export default function RiderTasksPage() {
 
   if (riderLoading || (rider && tasksLoading)) {
     return (
-      <div className="flex items-center justify-center p-12">
-        <Spinner className="h-6 w-6" />
+      <div className="space-y-3 p-4" role="status" aria-live="polite">
+        <span className="sr-only">Loading</span>
+        <Skeleton className="h-6 w-40" />
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Skeleton key={i} className="h-24 w-full rounded-lg" />
+        ))}
       </div>
     );
   }

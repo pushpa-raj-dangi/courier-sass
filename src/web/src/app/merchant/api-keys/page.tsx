@@ -2,9 +2,9 @@
 
 import { Plus, ShieldOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
 import { ErrorState } from "@/components/states/ErrorState";
 import { EmptyState } from "@/components/states/EmptyState";
+import { LoadingState } from "@/components/states/LoadingState";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { BorderedTableContainer } from "@/components/data-table/BorderedTableContainer";
@@ -39,11 +39,7 @@ function MerchantApiKeysList() {
   const revokeKey = useRevokeMerchantApiKey();
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center p-12">
-        <Spinner className="h-6 w-6" />
-      </div>
-    );
+    return <LoadingState rows={3} />;
   }
 
   if (isError) {

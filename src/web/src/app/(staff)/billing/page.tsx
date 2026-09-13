@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/states/ErrorState";
+import { LoadingState } from "@/components/states/LoadingState";
 import { FieldError } from "@/components/ui/field-error";
 import { DataTable, type ColumnDef } from "@/components/data-table/DataTable";
 import { useBillingInvoices } from "@/features/billing/hooks/useBillingInvoices";
@@ -35,7 +36,14 @@ function PlanPicker() {
   };
 
   if (isLoading) {
-    return <Spinner className="h-5 w-5" />;
+    return (
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" role="status" aria-live="polite">
+        <span className="sr-only">Loading</span>
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Skeleton key={i} className="h-28 w-full rounded-lg" />
+        ))}
+      </div>
+    );
   }
 
   return (
@@ -98,7 +106,12 @@ export default function BillingPage() {
   ];
 
   if (subscriptionLoading || invoicesLoading) {
-    return <div className="flex items-center justify-center p-12"><Spinner className="h-6 w-6" /></div>;
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-6 w-40" />
+        <LoadingState rows={5} />
+      </div>
+    );
   }
   if (isError) {
     return <ErrorState title="Couldn't load billing" description="Something went wrong fetching your billing details." onRetry={() => refetch()} />;

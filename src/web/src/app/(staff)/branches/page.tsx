@@ -2,7 +2,6 @@
 
 import { Plus, Building2, CheckCircle2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
 import { ErrorState } from "@/components/states/ErrorState";
 import { DataTable, type ColumnDef } from "@/components/data-table/DataTable";
 import { SummaryStatsBar, type StatTile } from "@/components/summary-stats/SummaryStatsBar";
@@ -67,19 +66,13 @@ export default function BranchesPage() {
         isError={summary.isError}
         skeletonCount={3}
       />
-      {isLoading && (
-        <div className="flex items-center justify-center p-12">
-          <Spinner className="h-6 w-6" />
-        </div>
-      )}
-      {!isLoading && isError && (
+      {isError ? (
         <ErrorState
           title="Couldn't load branches"
           description="Something went wrong fetching the branch list."
           onRetry={() => refetch()}
         />
-      )}
-      {!isLoading && !isError && (
+      ) : (
         <DataTable
           columns={columns}
           data={
@@ -91,7 +84,7 @@ export default function BranchesPage() {
               totalPages: 1,
             }
           }
-          isLoading={false}
+          isLoading={isLoading}
           emptyTitle="No branches yet"
           emptyDescription="Create your organization's first branch to get started."
           onPageChange={() => {}}

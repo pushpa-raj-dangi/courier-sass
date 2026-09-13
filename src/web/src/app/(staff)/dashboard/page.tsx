@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
-import { Spinner } from "@/components/ui/spinner";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/states/ErrorState";
 import { useOrgDashboard } from "@/features/reports/hooks/useOrgDashboard";
 import { DashboardHeader } from "@/features/reports/components/DashboardHeader";
@@ -44,8 +44,23 @@ export default function DashboardPage() {
       </div>
 
       {isLoading && (
-        <div className="flex items-center justify-center p-12">
-          <Spinner className="h-6 w-6" />
+        <div className="space-y-6" role="status" aria-live="polite">
+          <span className="sr-only">Loading</span>
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-20 w-full rounded-lg" />
+            ))}
+          </div>
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-64 w-full rounded-lg" />
+            ))}
+          </div>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+            <Skeleton className="h-48 w-full rounded-lg" />
+            <Skeleton className="h-48 w-full rounded-lg" />
+          </div>
+          <Skeleton className="h-40 w-full rounded-lg" />
         </div>
       )}
       {!isLoading && (isError || !data) && (

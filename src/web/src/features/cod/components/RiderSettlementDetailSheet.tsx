@@ -1,8 +1,8 @@
 "use client";
 
-import { Spinner } from "@/components/ui/spinner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ErrorState } from "@/components/states/ErrorState";
+import { DetailSkeleton } from "@/components/states/DetailSkeleton";
 import { useRiderSettlements } from "@/features/cod/hooks/useRiderSettlements";
 import { useCodPanelStore } from "@/features/cod/store/codPanelStore";
 import { useRiders } from "@/features/riders/hooks/useRiders";
@@ -41,11 +41,7 @@ export function RiderSettlementDetailSheet() {
           <SheetTitle>Rider Settlement</SheetTitle>
         </SheetHeader>
         <div className="mt-6 space-y-6">
-          {isLoading && (
-            <div className="flex items-center justify-center p-12">
-              <Spinner className="h-6 w-6" />
-            </div>
-          )}
+          {isLoading && <DetailSkeleton fieldRows={1} />}
           {isError && (
             <ErrorState title="Couldn't load this settlement" description="Something went wrong." onRetry={() => refetch()} />
           )}

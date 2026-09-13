@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
 import { ErrorState } from "@/components/states/ErrorState";
 import { StatusBadge } from "@/components/status-badge/StatusBadge";
 import { DataTable, type ColumnDef } from "@/components/data-table/DataTable";
@@ -56,15 +55,7 @@ export default function MerchantShipmentsPage() {
     },
   ];
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center p-12">
-        <Spinner className="h-6 w-6" />
-      </div>
-    );
-  }
-
-  if (isError) {
+  if (!isLoading && isError) {
     return (
       <ErrorState
         title="Couldn't load shipments"
@@ -88,7 +79,7 @@ export default function MerchantShipmentsPage() {
       <DataTable
         columns={columns}
         data={data}
-        isLoading={false}
+        isLoading={isLoading}
         emptyTitle="No shipments yet"
         emptyDescription="Book your first shipment to get started."
         onPageChange={setPage}

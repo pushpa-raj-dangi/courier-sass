@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { FieldError } from "@/components/ui/field-error";
 import { EmptyState } from "@/components/states/EmptyState";
@@ -49,7 +50,13 @@ export function UserBranchGrants({ userId }: { userId: string }) {
   }
 
   if (isLoading) {
-    return <Spinner className="h-5 w-5" />;
+    return (
+      <div className="space-y-2" role="status" aria-live="polite">
+        <span className="sr-only">Loading</span>
+        <Skeleton className="h-8 w-full" />
+        <Skeleton className="h-8 w-full" />
+      </div>
+    );
   }
 
   return (

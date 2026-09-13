@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Spinner } from "@/components/ui/spinner";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ErrorState } from "@/components/states/ErrorState";
@@ -88,21 +87,15 @@ export default function PlatformOrganizationsPage() {
           </SelectContent>
         </Select>
       </div>
-      {isLoading ? (
-        <div className="flex items-center justify-center p-12">
-          <Spinner className="h-6 w-6" />
-        </div>
-      ) : (
-        <DataTable
-          columns={columns}
-          data={data}
-          isLoading={false}
-          emptyTitle="No organizations found"
-          emptyDescription="Try a different search term or status filter."
-          onPageChange={setPage}
-          rowKey={(o) => o.id}
-        />
-      )}
+      <DataTable
+        columns={columns}
+        data={data}
+        isLoading={isLoading}
+        emptyTitle="No organizations found"
+        emptyDescription="Try a different search term or status filter."
+        onPageChange={setPage}
+        rowKey={(o) => o.id}
+      />
       <OrganizationDetailSheet />
     </div>
   );

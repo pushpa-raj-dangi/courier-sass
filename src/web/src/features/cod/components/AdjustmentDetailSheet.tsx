@@ -6,6 +6,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { FieldError } from "@/components/ui/field-error";
 import { ErrorState } from "@/components/states/ErrorState";
+import { DetailSkeleton } from "@/components/states/DetailSkeleton";
 import { useAdjustments } from "@/features/cod/hooks/useAdjustments";
 import { useApproveAdjustment } from "@/features/cod/hooks/useApproveAdjustment";
 import { useCodPanelStore } from "@/features/cod/store/codPanelStore";
@@ -53,11 +54,7 @@ export function AdjustmentDetailSheet() {
           <SheetTitle>Adjustment</SheetTitle>
         </SheetHeader>
         <div className="mt-6 space-y-6">
-          {isLoading && (
-            <div className="flex items-center justify-center p-12">
-              <Spinner className="h-6 w-6" />
-            </div>
-          )}
+          {isLoading && <DetailSkeleton fieldRows={1} />}
           {isError && <ErrorState title="Couldn't load this adjustment" description="Something went wrong." onRetry={() => refetch()} />}
           {!isLoading && !isError && !adjustment && (
             <ErrorState title="Adjustment not found" description="It may be outside the current page." onRetry={() => refetch()} />

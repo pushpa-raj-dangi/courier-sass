@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Spinner } from "@/components/ui/spinner";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useMyRider } from "@/features/riders/hooks/useMyRider";
 import { useOutboxStatus } from "@/features/rider-app/sync/useOutboxStatus";
 import { updateOutboxItem } from "@/features/rider-app/sync/outboxDb";
@@ -32,8 +32,17 @@ export default function RiderProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center p-12">
-        <Spinner className="h-6 w-6" />
+      <div className="space-y-4 p-4" role="status" aria-live="polite">
+        <span className="sr-only">Loading</span>
+        <Skeleton className="h-6 w-24" />
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-5 w-32" />
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="h-4 w-48" />
+          </CardContent>
+        </Card>
       </div>
     );
   }

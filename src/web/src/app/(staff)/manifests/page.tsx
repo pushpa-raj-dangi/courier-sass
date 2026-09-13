@@ -2,7 +2,6 @@
 
 import { Plus, FileText, Lock, Truck, PackageCheck, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
 import { ErrorState } from "@/components/states/ErrorState";
 import { StatusBadge } from "@/components/status-badge/StatusBadge";
 import { DataTable, type ColumnDef, type PagedResult } from "@/components/data-table/DataTable";
@@ -92,23 +91,17 @@ export default function ManifestsPage() {
         isError={summary.isError}
         skeletonCount={5}
       />
-      {isLoading && (
-        <div className="flex items-center justify-center p-12">
-          <Spinner className="h-6 w-6" />
-        </div>
-      )}
-      {!isLoading && isError && (
+      {isError ? (
         <ErrorState
           title="Couldn't load manifests"
           description="Something went wrong fetching the manifest list."
           onRetry={() => refetch()}
         />
-      )}
-      {!isLoading && !isError && (
+      ) : (
         <DataTable
           columns={columns}
           data={pagedData}
-          isLoading={false}
+          isLoading={isLoading}
           emptyTitle="No manifests yet"
           emptyDescription="Create a manifest to start building an outgoing transfer."
           onPageChange={() => {}}

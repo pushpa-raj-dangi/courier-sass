@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
+import { Skeleton } from "@/components/ui/skeleton";
 import { FieldError } from "@/components/ui/field-error";
 import { usePermissionCatalog } from "@/features/admin/hooks/usePermissionCatalog";
 import { useRoles } from "@/features/admin/hooks/useRoles";
@@ -71,8 +72,11 @@ export function RoleDetailSheet() {
           </SheetTitle>
         </SheetHeader>
         {!role && (
-          <div className="flex items-center justify-center p-12">
-            <Spinner className="h-6 w-6" />
+          <div className="mt-6 space-y-3" role="status" aria-live="polite">
+            <span className="sr-only">Loading</span>
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-24 w-full rounded-md" />
+            ))}
           </div>
         )}
         {role && (

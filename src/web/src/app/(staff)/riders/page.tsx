@@ -2,7 +2,6 @@
 
 import { Plus, Bike, CheckCircle2, XCircle, ClipboardCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
 import { ErrorState } from "@/components/states/ErrorState";
 import { DataTable, type ColumnDef } from "@/components/data-table/DataTable";
 import { SummaryStatsBar, type StatTile } from "@/components/summary-stats/SummaryStatsBar";
@@ -74,19 +73,13 @@ export default function RidersPage() {
         isError={summary.isError}
         skeletonCount={4}
       />
-      {isLoading && (
-        <div className="flex items-center justify-center p-12">
-          <Spinner className="h-6 w-6" />
-        </div>
-      )}
-      {!isLoading && isError && (
+      {isError ? (
         <ErrorState
           title="Couldn't load riders"
           description="Something went wrong fetching the rider list."
           onRetry={() => refetch()}
         />
-      )}
-      {!isLoading && !isError && (
+      ) : (
         <>
           <DataTable
             columns={columns}
@@ -99,7 +92,7 @@ export default function RidersPage() {
                 totalPages: 1,
               }
             }
-            isLoading={false}
+            isLoading={isLoading}
             emptyTitle="No riders yet"
             emptyDescription="Create your first rider to start assigning pickups and deliveries."
             onPageChange={() => {}}

@@ -1,7 +1,7 @@
 "use client";
 
-import { Spinner } from "@/components/ui/spinner";
 import { ErrorState } from "@/components/states/ErrorState";
+import { StatTilesSkeleton } from "@/components/states/StatTilesSkeleton";
 import { usePlatformDashboard } from "@/features/platform-dashboard/hooks/usePlatformDashboard";
 
 function StatTile({ label, value }: { label: string; value: string | number }) {
@@ -18,8 +18,9 @@ export default function PlatformDashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center p-12">
-        <Spinner className="h-6 w-6" />
+      <div className="space-y-4 p-6">
+        <h1 className="font-display text-xl font-semibold">Platform Dashboard</h1>
+        <StatTilesSkeleton count={6} />
       </div>
     );
   }

@@ -1,8 +1,8 @@
 "use client";
 
-import { Spinner } from "@/components/ui/spinner";
 import { ErrorState } from "@/components/states/ErrorState";
 import { EmptyState } from "@/components/states/EmptyState";
+import { LoadingState } from "@/components/states/LoadingState";
 import { StatusBadge } from "@/components/status-badge/StatusBadge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { BorderedTableContainer } from "@/components/data-table/BorderedTableContainer";
@@ -16,11 +16,7 @@ export default function MerchantCodPage() {
   const openDetail = useMerchantSettlementPanelStore((s) => s.openDetail);
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center p-12">
-        <Spinner className="h-6 w-6" />
-      </div>
-    );
+    return <LoadingState rows={4} />;
   }
 
   if (isError) {

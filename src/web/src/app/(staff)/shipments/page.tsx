@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Plus, Package, Truck, Send, CheckCircle2, AlertTriangle, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
 import { ErrorState } from "@/components/states/ErrorState";
 import { StatusBadge } from "@/components/status-badge/StatusBadge";
 import { DataTable, type ColumnDef } from "@/components/data-table/DataTable";
@@ -91,23 +90,17 @@ export default function ShipmentsPage() {
         isError={summary.isError}
         skeletonCount={6}
       />
-      {isLoading && (
-        <div className="flex items-center justify-center p-12">
-          <Spinner className="h-6 w-6" />
-        </div>
-      )}
-      {!isLoading && isError && (
+      {isError ? (
         <ErrorState
           title="Couldn't load shipments"
           description="Something went wrong fetching the shipment list."
           onRetry={() => refetch()}
         />
-      )}
-      {!isLoading && !isError && (
+      ) : (
         <DataTable
           columns={columns}
           data={data}
-          isLoading={false}
+          isLoading={isLoading}
           emptyTitle="No shipments yet"
           emptyDescription="Book your first shipment to get started."
           onPageChange={setPage}

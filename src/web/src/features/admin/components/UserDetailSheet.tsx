@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
 import { FieldError } from "@/components/ui/field-error";
+import { DetailSkeleton } from "@/components/states/DetailSkeleton";
 import { useAdminUsers } from "@/features/admin/hooks/useAdminUsers";
 import { useSetUserActive } from "@/features/admin/hooks/useSetUserActive";
 import { useAdminPanelStore } from "@/features/admin/store/adminPanelStore";
@@ -48,8 +49,8 @@ export function UserDetailSheet() {
           </SheetTitle>
         </SheetHeader>
         {!user && (
-          <div className="flex items-center justify-center p-12">
-            <Spinner className="h-6 w-6" />
+          <div className="mt-6">
+            <DetailSkeleton fieldRows={1} fieldsPerRow={2} />
           </div>
         )}
         {user && (
