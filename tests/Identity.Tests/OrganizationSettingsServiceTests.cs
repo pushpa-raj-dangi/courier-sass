@@ -30,7 +30,7 @@ public class OrganizationSettingsServiceTests
         using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
         var organization = NewOrganization(dbContext);
         await dbContext.SaveChangesAsync();
-        var service = new OrganizationSettingsService(dbContext, new NullTenantProvider(), new FakeAuditLogger());
+        var service = new OrganizationSettingsService(dbContext, new NullTenantProvider(), new FakeAuditLogger(), new OrganizationAdminService(dbContext, new FakeAuditLogger()));
 
         var result = await service.GetAsync(organization.Id);
 
@@ -49,7 +49,7 @@ public class OrganizationSettingsServiceTests
         var organization = NewOrganization(dbContext);
         dbContext.Set<OrganizationSettings>().Add(new OrganizationSettings { OrganizationId = organization.Id, RefreshTokenLifetimeDays = 14, MinPasswordLength = 10, TimeZoneId = "Asia/Kathmandu" });
         await dbContext.SaveChangesAsync();
-        var service = new OrganizationSettingsService(dbContext, new NullTenantProvider(), new FakeAuditLogger());
+        var service = new OrganizationSettingsService(dbContext, new NullTenantProvider(), new FakeAuditLogger(), new OrganizationAdminService(dbContext, new FakeAuditLogger()));
 
         var result = await service.GetAsync(organization.Id);
 
@@ -64,7 +64,7 @@ public class OrganizationSettingsServiceTests
         using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
         var organization = NewOrganization(dbContext);
         await dbContext.SaveChangesAsync();
-        var service = new OrganizationSettingsService(dbContext, new NullTenantProvider(), new FakeAuditLogger());
+        var service = new OrganizationSettingsService(dbContext, new NullTenantProvider(), new FakeAuditLogger(), new OrganizationAdminService(dbContext, new FakeAuditLogger()));
 
         var result = await service.GetSecurityPolicyAsync(organization.Id);
 
@@ -79,7 +79,7 @@ public class OrganizationSettingsServiceTests
         var organization = NewOrganization(dbContext);
         await dbContext.SaveChangesAsync();
         var auditLogger = new FakeAuditLogger();
-        var service = new OrganizationSettingsService(dbContext, new NullTenantProvider(), auditLogger);
+        var service = new OrganizationSettingsService(dbContext, new NullTenantProvider(), auditLogger, new OrganizationAdminService(dbContext, new FakeAuditLogger()));
         var actingUserId = Guid.NewGuid();
         var profile = new OrganizationProfileDto("support@example.test", "01-4444444", "New Road, Kathmandu", null, "Asia/Kathmandu", "9:00 AM - 6:00 PM");
 
@@ -94,5 +94,60 @@ public class OrganizationSettingsServiceTests
         Assert.Equal("organization.profile_updated", entry.Action);
         Assert.Equal(organization.Id, entry.OrganizationId);
         Assert.Equal(actingUserId, entry.UserId);
+    }
+
+    [Theory]
+    [InlineData(0, 8)]
+    [InlineData(31, 8)]
+    [InlineData(7, 7)]
+    [InlineData(7, 65)]
+    public async Task UpdateSecurityAsync_OutOfBoundsValues_ThrowsValidationException(int refreshDays, int minPasswordLength)
+    {
+        using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
+        var organization = NewOrganization(dbContext);
+        await dbContext.SaveChangesAsync();
+        var service = new OrganizationSettingsService(dbContext, new NullTenantProvider(), new FakeAuditLogger(), new OrganizationAdminService(dbContext, new FakeAuditLogger()));
+
+        await Assert.ThrowsAsync<OrganizationSettingsValidationException>(() =>
+            service.UpdateSecurityAsync(organization.Id, Guid.NewGuid(), new SecurityPolicyDto(refreshDays, minPasswordLength)));
+    }
+
+    [Fact]
+    public async Task UpdateSecurityAsync_ValidValues_PersistsAndWritesAuditEntry()
+    {
+        using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
+        var organization = NewOrganization(dbContext);
+        await dbContext.SaveChangesAsync();
+        var auditLogger = new FakeAuditLogger();
+        var service = new OrganizationSettingsService(dbContext, new NullTenantProvider(), auditLogger, new OrganizationAdminService(dbContext, new FakeAuditLogger()));
+        var actingUserId = Guid.NewGuid();
+
+        var result = await service.UpdateSecurityAsync(organization.Id, actingUserId, new SecurityPolicyDto(14, 12));
+
+        Assert.Equal(14, result.RefreshTokenLifetimeDays);
+        Assert.Equal(12, result.MinPasswordLength);
+        var persisted = dbContext.Set<OrganizationSettings>().IgnoreQueryFilters().Single(s => s.OrganizationId == organization.Id);
+        Assert.Equal(14, persisted.RefreshTokenLifetimeDays);
+        Assert.Equal(actingUserId, persisted.SecurityUpdatedByUserId);
+        Assert.Contains(auditLogger.Entries, e => e.Action == "organization.security_updated");
+    }
+
+    [Fact]
+    public async Task RevokeAllSessionsAsync_RevokesEveryActiveRefreshTokenForOrganization()
+    {
+        using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
+        var organization = NewOrganization(dbContext);
+        var user = new User { Id = Guid.NewGuid(), OrganizationId = organization.Id, Email = $"user-{Guid.NewGuid():N}@example.test", PasswordHash = "hash", FullName = "Some User", IsActive = true };
+        dbContext.Set<User>().Add(user);
+        var token = new RefreshToken { Id = Guid.NewGuid(), UserId = user.Id, TokenHash = $"hash-{Guid.NewGuid():N}", ExpiresAt = DateTimeOffset.UtcNow.AddDays(7) };
+        dbContext.Set<RefreshToken>().Add(token);
+        await dbContext.SaveChangesAsync();
+        var lookupService = new OrganizationAdminService(dbContext, new FakeAuditLogger());
+        var service = new OrganizationSettingsService(dbContext, new NullTenantProvider(), new FakeAuditLogger(), lookupService);
+
+        await service.RevokeAllSessionsAsync(organization.Id, Guid.NewGuid());
+
+        var reloaded = dbContext.Set<RefreshToken>().Single(rt => rt.Id == token.Id);
+        Assert.NotNull(reloaded.RevokedAt);
     }
 }

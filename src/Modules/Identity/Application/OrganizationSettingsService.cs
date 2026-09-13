@@ -10,12 +10,14 @@ public class OrganizationSettingsService
     private readonly DbContext _dbContext;
     private readonly ICurrentTenantProvider _currentTenantProvider;
     private readonly IAuditLogger _auditLogger;
+    private readonly IOrganizationLookupService _organizationLookupService;
 
-    public OrganizationSettingsService(DbContext dbContext, ICurrentTenantProvider currentTenantProvider, IAuditLogger auditLogger)
+    public OrganizationSettingsService(DbContext dbContext, ICurrentTenantProvider currentTenantProvider, IAuditLogger auditLogger, IOrganizationLookupService organizationLookupService)
     {
         _dbContext = dbContext;
         _currentTenantProvider = currentTenantProvider;
         _auditLogger = auditLogger;
+        _organizationLookupService = organizationLookupService;
     }
 
     public async Task<OrganizationSettingsDto> GetAsync(Guid organizationId, CancellationToken cancellationToken = default)
@@ -51,6 +53,38 @@ public class OrganizationSettingsService
             Before: System.Text.Json.JsonSerializer.Serialize(before), After: System.Text.Json.JsonSerializer.Serialize(profile)), cancellationToken);
 
         return new OrganizationProfileDto(settings.SupportEmail, settings.SupportPhone, settings.AddressLine, settings.LogoUrl, settings.TimeZoneId, settings.BusinessHours);
+    }
+
+    public async Task<SecurityPolicyDto> UpdateSecurityAsync(Guid organizationId, Guid actingUserId, SecurityPolicyDto policy, CancellationToken cancellationToken = default)
+    {
+        if (policy.RefreshTokenLifetimeDays is < 1 or > 30)
+        {
+            throw new OrganizationSettingsValidationException("Refresh token lifetime must be between 1 and 30 days.");
+        }
+        if (policy.MinPasswordLength is < 8 or > 64)
+        {
+            throw new OrganizationSettingsValidationException("Minimum password length must be between 8 and 64 characters.");
+        }
+
+        var settings = await GetOrCreateAsync(organizationId, cancellationToken);
+        var before = new SecurityPolicyDto(settings.RefreshTokenLifetimeDays, settings.MinPasswordLength);
+
+        settings.RefreshTokenLifetimeDays = policy.RefreshTokenLifetimeDays;
+        settings.MinPasswordLength = policy.MinPasswordLength;
+        settings.SecurityUpdatedAt = DateTimeOffset.UtcNow;
+        settings.SecurityUpdatedByUserId = actingUserId;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await _auditLogger.LogAsync(new AuditEntry(organizationId, actingUserId, "organization.security_updated", "OrganizationSettings", organizationId.ToString(),
+            Before: System.Text.Json.JsonSerializer.Serialize(before), After: System.Text.Json.JsonSerializer.Serialize(policy)), cancellationToken);
+
+        return new SecurityPolicyDto(settings.RefreshTokenLifetimeDays, settings.MinPasswordLength);
+    }
+
+    public async Task RevokeAllSessionsAsync(Guid organizationId, Guid actingUserId, CancellationToken cancellationToken = default)
+    {
+        await _organizationLookupService.RevokeStaffRefreshTokensAsync(organizationId, cancellationToken);
+        await _auditLogger.LogAsync(new AuditEntry(organizationId, actingUserId, "organization.sessions_revoked", "OrganizationSettings", organizationId.ToString()), cancellationToken);
     }
 
     // IgnoreQueryFilters(): every caller of this method either already holds a resolved ambient

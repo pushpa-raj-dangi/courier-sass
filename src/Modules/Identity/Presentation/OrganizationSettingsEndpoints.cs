@@ -31,5 +31,27 @@ public static class OrganizationSettingsEndpoints
                 return Results.BadRequest(new { error = new { code = "ORGANIZATION_SETTINGS_VALIDATION_FAILED", message = ex.Message } });
             }
         }).RequirePermission("org.settings.manage");
+
+        group.MapPatch("/security", async (SecurityPolicyDto request, OrganizationSettingsService service, ICurrentTenantProvider tenantProvider, HttpContext httpContext) =>
+        {
+            var organizationId = tenantProvider.OrganizationId!.Value;
+            var actingUserId = httpContext.User.GetUserId()!.Value;
+            try
+            {
+                return Results.Ok(await service.UpdateSecurityAsync(organizationId, actingUserId, request, httpContext.RequestAborted));
+            }
+            catch (OrganizationSettingsValidationException ex)
+            {
+                return Results.BadRequest(new { error = new { code = "ORGANIZATION_SETTINGS_VALIDATION_FAILED", message = ex.Message } });
+            }
+        }).RequirePermission("org.settings.manage");
+
+        group.MapPost("/revoke-sessions", async (OrganizationSettingsService service, ICurrentTenantProvider tenantProvider, HttpContext httpContext) =>
+        {
+            var organizationId = tenantProvider.OrganizationId!.Value;
+            var actingUserId = httpContext.User.GetUserId()!.Value;
+            await service.RevokeAllSessionsAsync(organizationId, actingUserId, httpContext.RequestAborted);
+            return Results.Ok();
+        }).RequirePermission("org.settings.manage");
     }
 }
