@@ -60,7 +60,11 @@ export function BranchCreateSheet() {
     <Sheet
       open={isOpen}
       onOpenChange={(open) => {
-        if (!open) close();
+        if (!open) {
+          close();
+          reset();
+          setServerError(null);
+        }
       }}
     >
       <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
