@@ -61,6 +61,8 @@ public static class PermissionCatalog
         ("org.billing.manage", "Manage organization billing"),
         ("org.ownership.transfer", "Transfer organization ownership"),
         ("org.delete", "Delete an organization"),
+        ("org.settings.manage", "Manage organization profile, security policy and operational defaults"),
+        ("notification_template.manage", "Manage notification templates"),
     };
 
     public static Guid IdFor(string key)

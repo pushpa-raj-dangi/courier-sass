@@ -10,4 +10,11 @@ public class PermissionCatalogTests
     {
         Assert.Contains(PermissionCatalog.All, p => p.Key == "manifest.read");
     }
+
+    [Fact]
+    public void All_ContainsOrganizationSettingsAndNotificationTemplatePermissions()
+    {
+        Assert.Contains(PermissionCatalog.All, p => p.Key == "org.settings.manage");
+        Assert.Contains(PermissionCatalog.All, p => p.Key == "notification_template.manage");
+    }
 }

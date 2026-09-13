@@ -127,6 +127,7 @@ public class AppDbContext : DbContext, IDataProtectionKeyContext
         // No tenant filter on UserInvite: no own OrganizationId — tenant isolation flows
         // transitively through UserId -> User.OrganizationId (which does have a filter, above).
         modelBuilder.ApplyConfiguration(new UserInviteConfiguration());
+        modelBuilder.ApplyConfiguration(new OrganizationSettingsConfiguration());
         modelBuilder.ApplyConfiguration(new ProvinceConfiguration());
         modelBuilder.ApplyConfiguration(new DistrictConfiguration());
         modelBuilder.ApplyConfiguration(new LocalLevelConfiguration());

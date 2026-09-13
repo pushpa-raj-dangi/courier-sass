@@ -1668,6 +1668,69 @@ namespace Persistence.Migrations
                     b.ToTable("Organizations", (string)null);
                 });
 
+            modelBuilder.Entity("Courier.Identity.Domain.OrganizationSettings", b =>
+                {
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AddressLine")
+                        .HasColumnType("text");
+
+                    b.Property<string>("BusinessHours")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("DefaultOriginBranchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("DefaultServiceTypeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("DefaultsUpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("DefaultsUpdatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("LogoUrl")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int>("MinPasswordLength")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("ProfileUpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ProfileUpdatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("RefreshTokenLifetimeDays")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("SecurityUpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("SecurityUpdatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SupportEmail")
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)");
+
+                    b.Property<string>("SupportPhone")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<string>("TimeZoneId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("OrganizationId");
+
+                    b.ToTable("OrganizationSettings", (string)null);
+                });
+
             modelBuilder.Entity("Courier.Identity.Domain.Permission", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2015,6 +2078,18 @@ namespace Persistence.Migrations
                             Id = new Guid("129fd727-7731-5255-f54b-922b439730a3"),
                             Description = "Delete an organization",
                             Key = "org.delete"
+                        },
+                        new
+                        {
+                            Id = new Guid("68dee43b-1b9f-0860-374d-d9663127784f"),
+                            Description = "Manage organization profile, security policy and operational defaults",
+                            Key = "org.settings.manage"
+                        },
+                        new
+                        {
+                            Id = new Guid("974a63bd-871c-1917-a8e9-9288f79bf8cf"),
+                            Description = "Manage notification templates",
+                            Key = "notification_template.manage"
                         });
                 });
 
@@ -3881,6 +3956,15 @@ namespace Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("LocalLevelId")
                         .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Courier.Identity.Domain.OrganizationSettings", b =>
+                {
+                    b.HasOne("Courier.Identity.Domain.Organization", null)
+                        .WithOne()
+                        .HasForeignKey("Courier.Identity.Domain.OrganizationSettings", "OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 

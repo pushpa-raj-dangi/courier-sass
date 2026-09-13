@@ -154,6 +154,7 @@ builder.Services.AddScoped<RoleService>();
 builder.Services.AddScoped<UserManagementService>();
 builder.Services.AddScoped<IPermissionChecker, Courier.Identity.Infrastructure.PermissionChecker>();
 builder.Services.AddScoped<IOrganizationLookupService, OrganizationAdminService>();
+builder.Services.AddScoped<OrganizationSettingsService>();
 builder.Services.AddScoped<Courier.Merchants.Application.IMerchantOrganizationLookupService, Courier.Api.MerchantOrganizationLookupAdapter>();
 builder.Services.AddScoped<IBranchHierarchyService, BranchHierarchyService>();
 builder.Services.AddScoped<IBranchAuthorizationChecker, Courier.Identity.Infrastructure.BranchAuthorizationChecker>();
