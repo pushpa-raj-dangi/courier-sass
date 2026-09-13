@@ -5,7 +5,9 @@ export interface AuditLogRecord {
   action: string;
   entityType: string;
   entityId: string;
+  entityName: string | null;
   userId: string | null;
+  actorName: string | null;
   impersonatedByUserId: string | null;
   isCrossTenantAction: boolean;
   timestamp: string;

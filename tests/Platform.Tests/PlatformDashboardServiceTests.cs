@@ -48,6 +48,7 @@ public class PlatformDashboardServiceTests
         public Task<OrganizationRecord?> GetAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult(Organizations.FirstOrDefault(o => o.Id == organizationId));
         public Task<PagedResult<OrganizationUserRecord>> ListUsersAsync(Guid organizationId, int? page, int? pageSize, CancellationToken cancellationToken = default) => Task.FromResult(new PagedResult<OrganizationUserRecord>(new List<OrganizationUserRecord>(), 1, 25, 0));
         public Task<OrganizationUserRecord?> GetUserAsync(Guid organizationId, Guid userId, CancellationToken cancellationToken = default) => Task.FromResult<OrganizationUserRecord?>(null);
+        public Task<string?> GetUserNameAsync(Guid userId, CancellationToken cancellationToken = default) => Task.FromResult<string?>(null);
         public Task SuspendForNonPaymentAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 

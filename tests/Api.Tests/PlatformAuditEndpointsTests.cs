@@ -101,4 +101,22 @@ public class PlatformAuditEndpointsTests : IClassFixture<WebApplicationFactory<P
         Assert.All(result.Items, r => Assert.Equal(matching.OrganizationId, r.OrganizationId));
         Assert.DoesNotContain(result.Items, r => r.OrganizationId == nonMatching.OrganizationId);
     }
+
+    [Fact]
+    public async Task GetPlatformAuditLogs_ResolvesActorNameAndOrganizationEntityName()
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "pauditresolvename");
+
+        var superAdminToken = await LoginAsSuperAdminAsync(client);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", superAdminToken);
+
+        var response = await client.GetAsync($"/api/v1/platform/audit-logs?organizationId={org.OrganizationId}&search=organization.registered");
+        var result = await response.Content.ReadFromJsonAsync<PagedResult<AuditLogRecordWithOrgName>>();
+
+        var record = Assert.Single(result!.Items);
+        Assert.Equal("Owner Person", record.ActorName);
+        Assert.Equal("Organization", record.EntityType);
+        Assert.Equal(record.OrganizationName, record.EntityName);
+    }
 }

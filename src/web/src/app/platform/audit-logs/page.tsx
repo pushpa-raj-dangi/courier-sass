@@ -41,8 +41,8 @@ export default function PlatformAuditLogsPage() {
     },
     { key: "organization", header: "Organization", render: (r) => r.organizationName ?? "—" },
     { key: "action", header: "Action", render: (r) => r.action },
-    { key: "entity", header: "Entity", render: (r) => `${r.entityType} (${r.entityId})` },
-    { key: "actor", header: "Actor", render: (r) => r.userId ?? "System" },
+    { key: "entity", header: "Entity", render: (r) => (r.entityName ? `${r.entityType}: ${r.entityName}` : `${r.entityType} (${r.entityId})`) },
+    { key: "actor", header: "Actor", render: (r) => (r.userId ? (r.actorName ?? r.userId) : "System") },
   ];
 
   if (isError) {

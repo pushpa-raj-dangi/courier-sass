@@ -19,7 +19,7 @@ export function PlatformAuditLogDetailSheet() {
           <div className="space-y-4 p-4 text-sm">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="secondary">{record.entityType}</Badge>
-              <span className="text-muted-foreground">{record.entityId}</span>
+              <span className="text-muted-foreground">{record.entityName ?? record.entityId}</span>
               {record.isCrossTenantAction && <Badge variant="outline">Platform action</Badge>}
               {record.impersonatedByUserId && <Badge variant="outline">via impersonation</Badge>}
             </div>
@@ -34,7 +34,7 @@ export function PlatformAuditLogDetailSheet() {
               </div>
               <div>
                 <dt className="text-muted-foreground">Actor</dt>
-                <dd>{record.userId ?? "System"}</dd>
+                <dd>{record.userId ? (record.actorName ?? record.userId) : "System"}</dd>
               </div>
               <div>
                 <dt className="text-muted-foreground">IP address</dt>

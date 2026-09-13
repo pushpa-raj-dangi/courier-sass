@@ -68,6 +68,15 @@ public interface IOrganizationLookupService
     // callers must not distinguish those two cases in any user-facing error.
     Task<OrganizationUserRecord?> GetUserAsync(Guid organizationId, Guid userId, CancellationToken cancellationToken = default);
 
+    // Cross-tenant, org-agnostic read for Platform's PlatformAuditService (resolving an audit
+    // row's actor/entity display name). Unlike GetUserAsync above, the caller may not know which
+    // organization the user belongs to — an audit row's actor is frequently a SuperAdmin, whose
+    // User row has OrganizationId == null (PlatformAuthService's own login guard), so matching by
+    // id alone (IgnoreQueryFilters(), same requirement as every other Platform-context read here)
+    // is the only lookup that works for both a SuperAdmin and a regular org user. Null iff no User
+    // with this id exists.
+    Task<string?> GetUserNameAsync(Guid userId, CancellationToken cancellationToken = default);
+
     // Called only by Billing.Application.OverdueInvoiceJob (Task 13), a Hangfire recurring job
     // with no ambient tenant context. Distinct from SuspendAsync (a human SuperAdmin's manual
     // action) — this is the system's own action, audited with a null actor UserId to make "the

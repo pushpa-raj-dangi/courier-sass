@@ -188,6 +188,16 @@ public class OrganizationAdminService : IOrganizationLookupService
             .Select(u => new OrganizationUserRecord(u.Id, u.Email, u.FullName, u.IsActive))
             .FirstOrDefaultAsync(cancellationToken);
 
+    // IgnoreQueryFilters(): called only from Platform's PlatformAuditService (SuperAdmin,
+    // cross-tenant, ICurrentTenantProvider.OrganizationId == null) — an audit row's actor is
+    // frequently a SuperAdmin User (OrganizationId == null), so unlike GetUserAsync above this
+    // deliberately matches on id alone, not id + organizationId.
+    public async Task<string?> GetUserNameAsync(Guid userId, CancellationToken cancellationToken = default)
+        => await _dbContext.Set<User>().IgnoreQueryFilters()
+            .Where(u => u.Id == userId)
+            .Select(u => u.FullName)
+            .FirstOrDefaultAsync(cancellationToken);
+
     // IgnoreQueryFilters(): shared helper for the four lifecycle mutations above, all called only
     // from Platform's OrganizationLifecycleService (SuperAdmin, cross-tenant,
     // ICurrentTenantProvider.OrganizationId == null) — without this the ambient Organizations
