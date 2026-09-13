@@ -68,6 +68,16 @@ Reports. Each new endpoint:
 
 No new project, no new cross-module reference. Reports module is untouched.
 
+Every existing frontend list hook in this codebase calls a Next.js **BFF proxy route**
+(`src/web/src/app/api/<x>/route.ts`, a thin `apiFetch` passthrough attaching the session's
+bearer token server-side) rather than the .NET API directly — e.g. `useShipments` calls
+`/api/shipments`, which proxies to `/api/v1/shipments`. Each new summary endpoint needs a
+matching new proxy route (`src/web/src/app/api/<x>/summary/route.ts`) alongside the six that
+already exist for these modules (`api/shipments`, `api/branches`, `api/riders`,
+`api/manifests`, `api/ndrs`, `api/return-shipments`; `api/cod/<tab>` already exists per-tab, so
+COD gets `api/cod/summary`). This is a real, separate file per page, not implied by the backend
+endpoint's existence.
+
 ## 5. Per-Page Detail
 
 ### 5.1 Shipments — `GET /api/v1/shipments/summary`
@@ -108,7 +118,12 @@ Cancelled is omitted from tiles (shown nowhere currently on this page either). T
 dictionary is returned as-is from the API; bucketing is a frontend concern only (keeps the
 endpoint reusable if bucketing needs differ later).
 
-Endpoint: new `group.MapGet("/summary", ...)` in `ShipmentsEndpoints.cs`, `.RequirePermission("shipment.read")`.
+Endpoint: new `group.MapGet("/summary", ...)` in `ShipmentsEndpoints.cs`,
+`.RequirePermission("shipment.read")`. Note this file already maps `GET /{awb}` (an
+unconstrained string route param, since AWB is a string, not a `Guid`) ahead of the plain `GET
+/`; ASP.NET Core's endpoint routing resolves a literal segment (`/summary`) ahead of a parameter
+segment (`/{awb}`) by precedence regardless of registration order, so this doesn't get swallowed
+as a lookup for AWB `"summary"` — but it's worth an explicit API test asserting that.
 
 ### 5.2 Branches — `GET /api/v1/branches/summary`
 
@@ -167,12 +182,14 @@ Task<IReadOnlyDictionary<NdrStatus, int>> GetStatusCountsAsync(
     IReadOnlySet<Guid>? branchIds, CancellationToken cancellationToken = default);
 ```
 
-`NDR` (`Ndr/Domain/NDR.cs`) has no branch column of its own — it joins to `Shipment` via
-`ShipmentId` for branch scoping, using the same origin/destination/current-if-non-null OR
-predicate as §5.1 (not `scanInfo.DestinationBranchId` alone, which is what `NdrService`'s
-existing `CheckBranchAccessAsync` calls use for a single-NDR write-permission check — a
-different concern from scoping a multi-row count). Endpoint on `NdrEndpoints.cs`,
-`.RequirePermission("ndr.read")`.
+`NDR` (`Ndr/Domain/NDR.cs`) has no branch column of its own. Correction after checking
+`NdrService.Reads.cs:ListAsync` directly (the actual multi-row precedent, not just the
+single-NDR `CheckBranchAccessAsync` check): the established scoping field is
+`scanInfo.DestinationBranchId` alone (per-row `IShipmentTransitionService.GetScanInfoAsync`
+lookup, since the filter can't be pushed into SQL) — not the origin/destination/current OR
+predicate §5.1 uses for the Shipments list. Those are two different, already-established
+conventions for two different entities; NDR summary must follow NDR's own. Endpoint on
+`NdrEndpoints.cs`, `.RequirePermission("ndr.read")`.
 
 ### 5.6 Return Shipments — `GET /api/v1/return-shipments/summary`
 
@@ -186,16 +203,20 @@ public record ReturnShipmentSummary(
     IReadOnlyDictionary<ShipmentStatus, int> ByRtoStage, int MerchantConfirmed, int PendingConfirmation);
 ```
 
-`ReturnShipment` deliberately has no own status/branch columns (`ReturnShipment.cs` comment: the
-underlying `Shipment.CurrentStatus`/`CurrentBranchId` is the single source of truth). So this
-joins `ReturnShipment` → `Shipment` (via `OriginalShipmentId`), filters the 4 RTO statuses
-(`RtoInitiated`/`RtoInTransit`/`RtoAtOrigin`/`RtoDelivered`) using the same
-origin/destination/current-if-non-null OR predicate as §5.1 when scoped (RTO shipments go
-through the identical null-`CurrentBranchId`-while-in-transit-or-with-rider lifecycle —
-`ShipmentService.Transitions.cs` clears it on RTO dispatch the same way it does on the outbound
-leg), groups by `CurrentStatus` for `ByRtoStage`, and separately counts `MerchantConfirmedAt !=
-null` vs `== null` for the confirmation split. Endpoint on the `returnShipments` group in
-`NdrEndpoints.cs`, `.RequirePermission("rto.read")`.
+Correction after checking `NdrService.ReturnShipments.cs:ListReturnShipmentsAsync` directly:
+`ReturnShipment` does *not* need a join for branch scoping — unlike bare `NDR`, it already
+stores `DestinationBranchId` as a real column (despite the name, per that file's existing
+comment this holds the *original* shipment's origin branch — where the parcel physically ends
+up after `RtoAtOrigin`), so the accessible-branch filter pushes straight into SQL:
+`query.Where(r => accessibleBranchIdsArray.Contains(r.DestinationBranchId))`, identical to
+`ListReturnShipmentsAsync`'s own filter. `CurrentStatus` still isn't stored on `ReturnShipment`
+itself (`ReturnShipment.cs`'s doc comment: the underlying `Shipment` is the single source of
+truth), so grouping the 4 RTO statuses into `ByRtoStage` requires the same per-row
+`IShipmentTransitionService.GetScanInfoAsync(OriginalShipmentId)` lookup
+`ListReturnShipmentsAsync` already pays for every row it returns — no new performance
+characteristic, just reused. `MerchantConfirmed`/`PendingConfirmation` counts come directly off
+`ReturnShipment.MerchantConfirmedAt` with no lookup needed. Endpoint on the `returnShipments`
+group in `NdrEndpoints.cs`, `.RequirePermission("rto.read")`.
 
 ### 5.7 COD — `GET /api/v1/cod/summary`
 
