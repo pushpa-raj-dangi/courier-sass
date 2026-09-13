@@ -585,4 +585,28 @@ public class CodEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
         var fetched = await getResponse.Content.ReadFromJsonAsync<MerchantSettlementResponse>();
         Assert.Equal(settlement.Id, fetched!.Id);
     }
+
+    [Fact]
+    public async Task GetCodSummary_ReturnsZeroedSummaryForNewOrg()
+    {
+        var client = _factory.CreateClient();
+        var auth = await RegisterOrgAsync(client, "summary");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth.AccessToken);
+
+        var response = await client.GetAsync("/api/v1/cod/summary");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<CodFinancialSummary>();
+        Assert.Equal(0m, body!.Expected);
+    }
+
+    [Fact]
+    public async Task GetCodSummary_Unauthenticated_Returns401()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/api/v1/cod/summary");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
 }

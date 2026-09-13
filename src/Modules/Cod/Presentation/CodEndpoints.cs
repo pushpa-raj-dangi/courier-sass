@@ -20,6 +20,13 @@ public static class CodEndpoints
             Results.Ok(await service.ListCollectionsAsync(status, branchId, merchantId, page, pageSize, httpContext.User, httpContext.RequestAborted)))
             .RequirePermission("cod.read");
 
+        group.MapGet("/summary", async (ICodReportingLookupService lookupService, IBranchAuthorizationChecker branchAuthorizationChecker, HttpContext httpContext) =>
+        {
+            var accessibleBranchIds = await branchAuthorizationChecker.GetAccessibleBranchIdsAsync(httpContext.User, "cod.read", httpContext.RequestAborted);
+            var summary = await lookupService.GetOrgFinancialSummaryAsync(accessibleBranchIds, httpContext.RequestAborted);
+            return Results.Ok(summary);
+        }).RequirePermission("cod.read");
+
         group.MapGet("/collections/{id:guid}", async (Guid id, CodService service, HttpContext httpContext) =>
         {
             var result = await service.GetCollectionByIdAsync(id, httpContext.User, httpContext.RequestAborted);
