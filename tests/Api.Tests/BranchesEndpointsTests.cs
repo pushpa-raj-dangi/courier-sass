@@ -214,4 +214,29 @@ public class BranchesEndpointsTests : IClassFixture<WebApplicationFactory<Progra
         var updated = await response.Content.ReadFromJsonAsync<BranchResponse>();
         Assert.Equal(zone.Id, updated!.DeliveryZoneId);
     }
+
+    [Fact]
+    public async Task GetBranchesSummary_ReturnsCountsForCreatedBranches()
+    {
+        var client = _factory.CreateClient();
+        var auth = await RegisterOrgAsync(client);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth.AccessToken);
+        await client.PostAsJsonAsync("/api/v1/branches", ValidBranchRequest("SUM-01"));
+
+        var response = await client.GetAsync("/api/v1/branches/summary");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.True(body.GetProperty("total").GetInt32() >= 1);
+    }
+
+    [Fact]
+    public async Task GetBranchesSummary_Unauthenticated_Returns401()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/api/v1/branches/summary");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
 }

@@ -105,4 +105,38 @@ public class BranchServiceReportingTests
         Assert.NotNull(result);
         Assert.Empty(result);
     }
+
+    [Fact]
+    public async Task GetSummaryAsync_CountsActiveInactiveAndByType()
+    {
+        await using var dbContext = CreateSeededContext();
+        var organizationId = Guid.NewGuid();
+        var activeHub = new Branch
+        {
+            Id = Guid.NewGuid(), OrganizationId = organizationId, Code = "KTM-01", Name = "Kathmandu Hub",
+            Type = BranchType.Hub, ProvinceId = Guid.NewGuid(), DistrictId = Guid.NewGuid(),
+            LocalLevelId = Guid.NewGuid(), WardNumber = 1, AddressLine = "New Road",
+            DeliveryZoneId = null, IsActive = true
+        };
+        var inactiveBranch = new Branch
+        {
+            Id = Guid.NewGuid(), OrganizationId = organizationId, Code = "KTM-02", Name = "Lalitpur Branch",
+            Type = BranchType.Branch, ProvinceId = Guid.NewGuid(), DistrictId = Guid.NewGuid(),
+            LocalLevelId = Guid.NewGuid(), WardNumber = 2, AddressLine = "Ring Road",
+            DeliveryZoneId = null, IsActive = false
+        };
+        dbContext.Set<Branch>().Add(activeHub);
+        dbContext.Set<Branch>().Add(inactiveBranch);
+        await dbContext.SaveChangesAsync();
+
+        var service = new BranchService(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), new AllBranchesAuthorizationChecker(), new GeographyQueryService(dbContext), new FakeBranchPlanLimitProvider { MaxBranches = null });
+
+        var result = await service.GetSummaryAsync(new ClaimsPrincipal());
+
+        Assert.Equal(2, result.Total);
+        Assert.Equal(1, result.Active);
+        Assert.Equal(1, result.Inactive);
+        Assert.Equal(1, result.ByType[BranchType.Hub]);
+        Assert.Equal(1, result.ByType[BranchType.Branch]);
+    }
 }

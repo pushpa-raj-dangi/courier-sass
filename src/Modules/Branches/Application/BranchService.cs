@@ -141,6 +141,22 @@ public class BranchService : IBranchLookupService
         return branches.Select(ToResponse).ToList();
     }
 
+    public async Task<BranchSummary> GetSummaryAsync(ClaimsPrincipal user, CancellationToken cancellationToken = default)
+    {
+        var accessibleBranchIds = await _branchAuthorizationChecker.GetAccessibleBranchIdsAsync(user, "branch.read", cancellationToken);
+
+        var query = _dbContext.Set<Branch>().AsNoTracking().AsQueryable();
+        if (accessibleBranchIds is not null)
+        {
+            var ids = accessibleBranchIds.ToArray();
+            query = query.Where(b => ids.Contains(b.Id));
+        }
+
+        var branches = await query.Select(b => new { b.IsActive, b.Type }).ToListAsync(cancellationToken);
+        var byType = branches.GroupBy(b => b.Type).ToDictionary(g => g.Key, g => g.Count());
+        return new BranchSummary(branches.Count, branches.Count(b => b.IsActive), branches.Count(b => !b.IsActive), byType);
+    }
+
     // No accessible-branch-id narrowing — unlike ListBranchesAsync, a merchant caller has no
     // branch-grant concept to narrow by; they need every active branch as a candidate booking
     // origin/destination. Relies on the ambient AppDbContext tenant query filter for

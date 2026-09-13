@@ -38,6 +38,8 @@ public record BranchResponse(
 
 public record AssignDeliveryZoneRequest(Guid DeliveryZoneId);
 
+public record BranchSummary(int Total, int Active, int Inactive, IReadOnlyDictionary<BranchType, int> ByType);
+
 public class BranchValidationException : Exception
 {
     public BranchValidationException(string message) : base(message) { }

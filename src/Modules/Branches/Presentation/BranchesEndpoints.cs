@@ -40,6 +40,12 @@ public static class BranchesEndpoints
             return Results.Ok(branches);
         }).RequirePermission("branch.read");
 
+        group.MapGet("/summary", async (BranchService branchService, HttpContext httpContext) =>
+        {
+            var summary = await branchService.GetSummaryAsync(httpContext.User, httpContext.RequestAborted);
+            return Results.Ok(summary);
+        }).RequirePermission("branch.read");
+
         // Branch-scoped, not just permission-scoped: RequireBranchScopedPermission checks both
         // "does this user hold branch.read" and "is {id} within this user's branch grants" in
         // one filter, so no separate .RequirePermission(...) is chained here.
