@@ -232,4 +232,62 @@ public class ShipmentReportingLookupServiceTests
 
         Assert.Equal(shipment.Awb, result[shipment.Id]);
     }
+
+    [Fact]
+    public async Task GetCurrentStatusCountsAsync_GroupsByCurrentStatus_NoBranchFilter()
+    {
+        var tenantProvider = new FixedTenantProvider();
+        await using var dbContext = TestDbContextFactory.Create(tenantProvider);
+        var (orgId, originBranchId, destBranchId, merchantId) = await SeedOrgAsync(dbContext);
+        tenantProvider.OrganizationId = orgId;
+
+        dbContext.Add(BuildShipment(orgId, originBranchId, destBranchId, merchantId, ShipmentStatus.Delivered));
+        dbContext.Add(BuildShipment(orgId, originBranchId, destBranchId, merchantId, ShipmentStatus.Delivered));
+        dbContext.Add(BuildShipment(orgId, originBranchId, destBranchId, merchantId, ShipmentStatus.Created));
+        await dbContext.SaveChangesAsync();
+
+        var service = new ShipmentReportingLookupService(dbContext);
+        var result = await service.GetCurrentStatusCountsAsync(null);
+
+        Assert.Equal(2, result[ShipmentStatus.Delivered]);
+        Assert.Equal(1, result[ShipmentStatus.Created]);
+    }
+
+    [Fact]
+    public async Task GetCurrentStatusCountsAsync_BranchRestricted_IncludesShipmentWithNullCurrentBranchIdViaOriginOrDestination()
+    {
+        var tenantProvider = new FixedTenantProvider();
+        await using var dbContext = TestDbContextFactory.Create(tenantProvider);
+        var (orgId, originBranchId, destBranchId, merchantId) = await SeedOrgAsync(dbContext);
+        tenantProvider.OrganizationId = orgId;
+
+        // OutForDelivery shipment has CurrentBranchId == null (with a rider) -- must still count
+        // toward its origin branch's restricted total via the OriginBranchId arm of the filter,
+        // not be silently dropped the way a bare CurrentBranchId-only filter would drop it.
+        var outForDelivery = BuildShipment(orgId, originBranchId, destBranchId, merchantId, ShipmentStatus.OutForDelivery, currentBranchId: null);
+        dbContext.Add(outForDelivery);
+        await dbContext.SaveChangesAsync();
+
+        var service = new ShipmentReportingLookupService(dbContext);
+        var result = await service.GetCurrentStatusCountsAsync(new HashSet<Guid> { originBranchId });
+
+        Assert.Equal(1, result[ShipmentStatus.OutForDelivery]);
+    }
+
+    [Fact]
+    public async Task GetCurrentStatusCountsAsync_BranchRestricted_ExcludesShipmentTouchingNoAccessibleBranch()
+    {
+        var tenantProvider = new FixedTenantProvider();
+        await using var dbContext = TestDbContextFactory.Create(tenantProvider);
+        var (orgId, originBranchId, destBranchId, merchantId) = await SeedOrgAsync(dbContext);
+        tenantProvider.OrganizationId = orgId;
+
+        dbContext.Add(BuildShipment(orgId, originBranchId, destBranchId, merchantId, ShipmentStatus.InTransit));
+        await dbContext.SaveChangesAsync();
+
+        var service = new ShipmentReportingLookupService(dbContext);
+        var result = await service.GetCurrentStatusCountsAsync(new HashSet<Guid> { Guid.NewGuid() });
+
+        Assert.False(result.ContainsKey(ShipmentStatus.InTransit));
+    }
 }

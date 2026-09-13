@@ -349,4 +349,28 @@ public class ShipmentsEndpointsTests : IClassFixture<WebApplicationFactory<Progr
         var shipments = await Task.WhenAll(responses.Select(r => r.Content.ReadFromJsonAsync<ShipmentResponse>()));
         Assert.Equal(concurrency, shipments.Select(s => s!.Awb).Distinct().Count());
     }
+
+    [Fact]
+    public async Task GetShipmentsSummary_ReturnsStatusCounts_NotSwallowedByAwbRoute()
+    {
+        var client = _factory.CreateClient();
+        var auth = await RegisterOrgAsync(client, "summary");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth.AccessToken);
+
+        var response = await client.GetAsync("/api/v1/shipments/summary");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<Dictionary<string, int>>();
+        Assert.NotNull(body);
+    }
+
+    [Fact]
+    public async Task GetShipmentsSummary_Unauthenticated_Returns401()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/api/v1/shipments/summary");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
 }

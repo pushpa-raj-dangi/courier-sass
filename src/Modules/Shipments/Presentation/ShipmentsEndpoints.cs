@@ -60,6 +60,21 @@ public static class ShipmentsEndpoints
             }
         });
 
+        // Literal segment "/summary" is resolved ahead of the unconstrained "/{awb}" parameter
+        // route below by ASP.NET Core's endpoint-routing precedence (literal beats parameter,
+        // regardless of registration order), so this is never swallowed as an AWB lookup for
+        // "summary" -- confirmed by GetShipmentsSummary_ReturnsStatusCounts_NotSwallowedByAwbRoute.
+        group.MapGet("/summary", async (IShipmentReportingLookupService lookupService, IBranchAuthorizationChecker branchAuthorizationChecker, HttpContext httpContext, IPermissionChecker permissionChecker) =>
+        {
+            if (!await permissionChecker.HasPermissionAsync(httpContext.User, "shipment.read", httpContext.RequestAborted))
+            {
+                return Results.Forbid();
+            }
+            var accessibleBranchIds = await branchAuthorizationChecker.GetAccessibleBranchIdsAsync(httpContext.User, "shipment.read", httpContext.RequestAborted);
+            var counts = await lookupService.GetCurrentStatusCountsAsync(accessibleBranchIds, httpContext.RequestAborted);
+            return Results.Ok(counts.ToDictionary(kv => kv.Key.ToString(), kv => kv.Value));
+        });
+
         group.MapGet("/{awb}", async (string awb, ShipmentService service, HttpContext httpContext, IPermissionChecker permissionChecker, IMerchantAuthorizationChecker merchantAuthorizationChecker) =>
         {
             if (!await HasReadAccessAsync(httpContext, permissionChecker, merchantAuthorizationChecker))

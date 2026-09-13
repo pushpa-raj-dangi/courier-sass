@@ -134,4 +134,30 @@ public class ShipmentReportingLookupService : IShipmentReportingLookupService, I
             .ToListAsync(cancellationToken);
         return rows.ToDictionary(r => r.Id, r => r.Awb);
     }
+
+    // Live snapshot (no date range), unlike GetCohortStatusCountsAsync (cohort-by-creation-date,
+    // used only by the org dashboard). Branch scoping reuses ShipmentService.Reads.cs:ListAsync's
+    // exact predicate -- origin, destination, or current branch when non-null -- not a bare
+    // CurrentBranchId filter, which would silently drop every in-transit/out-for-delivery/
+    // RTO-in-transit shipment (CurrentBranchId is null exactly during those states).
+    public async Task<IReadOnlyDictionary<ShipmentStatus, int>> GetCurrentStatusCountsAsync(
+        IReadOnlySet<Guid>? branchIds, CancellationToken cancellationToken = default)
+    {
+        var query = _dbContext.Set<Shipment>().AsNoTracking().AsQueryable();
+        if (branchIds is not null)
+        {
+            var branchIdArray = branchIds.ToArray();
+            query = query.Where(s =>
+                branchIdArray.Contains(s.OriginBranchId) ||
+                branchIdArray.Contains(s.DestinationBranchId) ||
+                (s.CurrentBranchId != null && branchIdArray.Contains(s.CurrentBranchId.Value)));
+        }
+
+        var counts = await query
+            .GroupBy(s => s.CurrentStatus)
+            .Select(g => new { Status = g.Key, Count = g.Count() })
+            .ToListAsync(cancellationToken);
+
+        return counts.ToDictionary(x => x.Status, x => x.Count);
+    }
 }

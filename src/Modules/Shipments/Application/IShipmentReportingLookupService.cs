@@ -31,4 +31,7 @@ public interface IShipmentReportingLookupService
 
     Task<IReadOnlyDictionary<Guid, string>> GetAwbsByShipmentIdsAsync(
         IReadOnlySet<Guid> shipmentIds, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyDictionary<ShipmentStatus, int>> GetCurrentStatusCountsAsync(
+        IReadOnlySet<Guid>? branchIds, CancellationToken cancellationToken = default);
 }
