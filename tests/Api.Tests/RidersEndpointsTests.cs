@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Courier.Branches.Application;
 using Courier.Branches.Domain;
 using Courier.Geography.Application;
@@ -424,5 +425,29 @@ public class RidersEndpointsTests : IClassFixture<WebApplicationFactory<Program>
         var result = await response.Content.ReadFromJsonAsync<MyTasksTodayResponse>();
         Assert.Null(result!.DeliveryRunId);
         Assert.Empty(result.Tasks);
+    }
+
+    [Fact]
+    public async Task GetRidersSummary_ReturnsCounts()
+    {
+        var client = _factory.CreateClient();
+        var auth = await RegisterOrgAsync(client, "summary");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth.AccessToken);
+
+        var response = await client.GetAsync("/api/v1/riders/summary");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(0, body.GetProperty("total").GetInt32());
+    }
+
+    [Fact]
+    public async Task GetRidersSummary_Unauthenticated_Returns401()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/api/v1/riders/summary");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 }

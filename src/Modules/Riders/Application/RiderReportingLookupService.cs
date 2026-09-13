@@ -77,4 +77,27 @@ public class RiderReportingLookupService : IRiderReportingLookupService
 
         return grouped.ToDictionary(g => g.RiderId, g => new DeliverySuccessStats(g.Attempts, g.Successes));
     }
+
+    public async Task<RiderSummary> GetSummaryAsync(IReadOnlySet<Guid>? branchIds, CancellationToken cancellationToken = default)
+    {
+        var query = _dbContext.Set<Rider>().AsNoTracking().AsQueryable();
+        if (branchIds is not null)
+        {
+            var branchIdArray = branchIds.ToArray();
+            query = query.Where(r => branchIdArray.Contains(r.BaseBranchId));
+        }
+
+        var riders = await query.Select(r => new { r.Id, r.IsActive }).ToListAsync(cancellationToken);
+        var riderIds = riders.Select(r => r.Id).ToArray();
+
+        var currentlyAssigned = await (
+            from task in _dbContext.Set<DeliveryTask>().AsNoTracking()
+            join run in _dbContext.Set<DeliveryRun>().AsNoTracking() on task.DeliveryRunId equals run.Id
+            where task.Status == DeliveryTaskStatus.Pending && riderIds.Contains(run.RiderId)
+            select run.RiderId)
+            .Distinct()
+            .CountAsync(cancellationToken);
+
+        return new RiderSummary(riders.Count, riders.Count(r => r.IsActive), riders.Count(r => !r.IsActive), currentlyAssigned);
+    }
 }

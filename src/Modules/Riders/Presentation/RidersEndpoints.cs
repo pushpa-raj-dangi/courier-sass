@@ -42,6 +42,13 @@ public static class RidersEndpoints
             Results.Ok(await service.ListAsync(httpContext.User, httpContext.RequestAborted)))
             .RequirePermission("rider.read");
 
+        riders.MapGet("/summary", async (IRiderReportingLookupService lookupService, IBranchAuthorizationChecker branchAuthorizationChecker, HttpContext httpContext) =>
+        {
+            var accessibleBranchIds = await branchAuthorizationChecker.GetAccessibleBranchIdsAsync(httpContext.User, "rider.read", httpContext.RequestAborted);
+            var summary = await lookupService.GetSummaryAsync(accessibleBranchIds, httpContext.RequestAborted);
+            return Results.Ok(summary);
+        }).RequirePermission("rider.read");
+
         riders.MapGet("/me", async (RiderService service, HttpContext httpContext) =>
         {
             var result = await service.GetMyRiderAsync(httpContext.User, httpContext.RequestAborted);

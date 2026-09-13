@@ -123,4 +123,31 @@ public class RiderReportingLookupServiceTests
         Assert.Equal(1, result[rider.Id].Attempts);
         Assert.Equal(1, result[rider.Id].Successes);
     }
+
+    [Fact]
+    public async Task GetSummaryAsync_CountsActiveInactiveAndCurrentlyAssigned()
+    {
+        var tenantProvider = new FixedTenantProvider();
+        await using var dbContext = TestDbContextFactory.Create(tenantProvider);
+        var (orgId, branchId) = await SeedOrgAsync(dbContext);
+        tenantProvider.OrganizationId = orgId;
+
+        var activeAssignedRider = BuildRider(orgId, branchId);
+        var inactiveRider = BuildRider(orgId, branchId);
+        inactiveRider.IsActive = false;
+        dbContext.Add(activeAssignedRider);
+        dbContext.Add(inactiveRider);
+        var run = new DeliveryRun { Id = Guid.NewGuid(), RiderId = activeAssignedRider.Id, BranchId = branchId, Date = DateOnly.FromDateTime(DateTime.UtcNow), Status = DeliveryRunStatus.Active };
+        dbContext.Add(run);
+        dbContext.Add(new DeliveryTask { Id = Guid.NewGuid(), DeliveryRunId = run.Id, ShipmentId = Guid.NewGuid(), Type = DeliveryTaskType.Delivery, Sequence = 1, Status = DeliveryTaskStatus.Pending });
+        await dbContext.SaveChangesAsync();
+
+        var service = new RiderReportingLookupService(dbContext);
+        var result = await service.GetSummaryAsync(new HashSet<Guid> { branchId });
+
+        Assert.Equal(2, result.Total);
+        Assert.Equal(1, result.Active);
+        Assert.Equal(1, result.Inactive);
+        Assert.Equal(1, result.CurrentlyAssigned);
+    }
 }
