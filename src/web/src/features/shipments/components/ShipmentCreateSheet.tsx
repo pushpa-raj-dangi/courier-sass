@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm, Controller, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ import { useMerchants } from "@/features/shipments/hooks/useMerchants";
 import { useServiceTypes } from "@/features/shipments/hooks/useServiceTypes";
 import { useShipmentQuote } from "@/features/shipments/hooks/useShipmentQuote";
 import { useShipmentPanelStore } from "@/features/shipments/store/shipmentPanelStore";
+import { useOrganizationSettings } from "@/features/admin/settings/hooks/useOrganizationSettings";
 import { ItemsField } from "@/features/shipments/components/ItemsField";
 
 export function ShipmentCreateSheet() {
@@ -32,6 +33,7 @@ export function ShipmentCreateSheet() {
   const { data: merchants } = useMerchants();
   const { data: serviceTypes } = useServiceTypes();
   const { data: branches } = useBranches();
+  const { data: organizationSettings } = useOrganizationSettings();
   const [serverError, setServerError] = useState<string | null>(null);
 
   const methods = useForm<CreateShipmentFormValues>({
@@ -55,6 +57,24 @@ export function ShipmentCreateSheet() {
 
   const [originBranchId, destinationBranchId, weightKg, serviceTypeId, codAmount, wantsInsurance, merchantId, items] =
     watch(["originBranchId", "destinationBranchId", "weightKg", "serviceTypeId", "codAmount", "wantsInsurance", "merchantId", "items"]);
+
+  useEffect(() => {
+    if (!isOpen || !organizationSettings) {
+      return;
+    }
+    const { defaultOriginBranchId, defaultServiceTypeId } = organizationSettings.defaults;
+    if (!originBranchId && defaultOriginBranchId) {
+      setValue("originBranchId", defaultOriginBranchId);
+    }
+    if (!serviceTypeId && defaultServiceTypeId) {
+      setValue("serviceTypeId", defaultServiceTypeId);
+    }
+    // originBranchId/serviceTypeId are intentionally excluded from deps — including them would
+    // re-run this effect (and re-apply the default) every time the user edits the very fields it
+    // sets, fighting a deliberate override. It should re-run only when the sheet opens fresh or the
+    // org's defaults change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, organizationSettings, setValue]);
 
   const declaredValue = (items ?? []).reduce((sum, item) => sum + (item.quantity || 0) * (item.unitValue || 0), 0);
 
