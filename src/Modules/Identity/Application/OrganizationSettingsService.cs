@@ -1,5 +1,7 @@
 using Courier.Audit.Application;
+using Courier.Branches.Application;
 using Courier.Identity.Domain;
+using Courier.Pricing.Application;
 using Courier.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,13 +13,17 @@ public class OrganizationSettingsService
     private readonly ICurrentTenantProvider _currentTenantProvider;
     private readonly IAuditLogger _auditLogger;
     private readonly IOrganizationLookupService _organizationLookupService;
+    private readonly IBranchLookupService _branchLookupService;
+    private readonly IServiceTypeLookupService _serviceTypeLookupService;
 
-    public OrganizationSettingsService(DbContext dbContext, ICurrentTenantProvider currentTenantProvider, IAuditLogger auditLogger, IOrganizationLookupService organizationLookupService)
+    public OrganizationSettingsService(DbContext dbContext, ICurrentTenantProvider currentTenantProvider, IAuditLogger auditLogger, IOrganizationLookupService organizationLookupService, IBranchLookupService branchLookupService, IServiceTypeLookupService serviceTypeLookupService)
     {
         _dbContext = dbContext;
         _currentTenantProvider = currentTenantProvider;
         _auditLogger = auditLogger;
         _organizationLookupService = organizationLookupService;
+        _branchLookupService = branchLookupService;
+        _serviceTypeLookupService = serviceTypeLookupService;
     }
 
     public async Task<OrganizationSettingsDto> GetAsync(Guid organizationId, CancellationToken cancellationToken = default)
@@ -85,6 +91,32 @@ public class OrganizationSettingsService
     {
         await _organizationLookupService.RevokeStaffRefreshTokensAsync(organizationId, cancellationToken);
         await _auditLogger.LogAsync(new AuditEntry(organizationId, actingUserId, "organization.sessions_revoked", "OrganizationSettings", organizationId.ToString()), cancellationToken);
+    }
+
+    public async Task<OperationalDefaultsDto> UpdateDefaultsAsync(Guid organizationId, Guid actingUserId, OperationalDefaultsDto defaults, CancellationToken cancellationToken = default)
+    {
+        if (defaults.DefaultOriginBranchId is Guid branchId && await _branchLookupService.GetZoneInfoAsync(branchId, cancellationToken) is null)
+        {
+            throw new OrganizationSettingsValidationException("Default origin branch does not exist.");
+        }
+        if (defaults.DefaultServiceTypeId is Guid serviceTypeId && !await _serviceTypeLookupService.ExistsAsync(serviceTypeId, cancellationToken))
+        {
+            throw new OrganizationSettingsValidationException("Default service type does not exist.");
+        }
+
+        var settings = await GetOrCreateAsync(organizationId, cancellationToken);
+        var before = new OperationalDefaultsDto(settings.DefaultServiceTypeId, settings.DefaultOriginBranchId);
+
+        settings.DefaultServiceTypeId = defaults.DefaultServiceTypeId;
+        settings.DefaultOriginBranchId = defaults.DefaultOriginBranchId;
+        settings.DefaultsUpdatedAt = DateTimeOffset.UtcNow;
+        settings.DefaultsUpdatedByUserId = actingUserId;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await _auditLogger.LogAsync(new AuditEntry(organizationId, actingUserId, "organization.defaults_updated", "OrganizationSettings", organizationId.ToString(),
+            Before: System.Text.Json.JsonSerializer.Serialize(before), After: System.Text.Json.JsonSerializer.Serialize(defaults)), cancellationToken);
+
+        return new OperationalDefaultsDto(settings.DefaultServiceTypeId, settings.DefaultOriginBranchId);
     }
 
     // IgnoreQueryFilters(): every caller of this method either already holds a resolved ambient

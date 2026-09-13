@@ -1,10 +1,11 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using Courier.Audit.Application;
 using Courier.Branches.Application;
 using Courier.Identity.Application;
 using Courier.Identity.Domain;
 using Courier.Identity.Infrastructure;
 using Courier.Persistence;
+using Courier.Pricing.Application;
 using Courier.SharedKernel;
 using Microsoft.Extensions.Options;
 using Xunit;
@@ -31,6 +32,11 @@ file class NullBranchLookupService : IBranchLookupService
     public Task<int> CountActiveBranchesAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult(0);
 }
 
+file class NullServiceTypeLookupService : IServiceTypeLookupService
+{
+    public Task<bool> ExistsAsync(Guid serviceTypeId, CancellationToken cancellationToken = default) => Task.FromResult(false);
+}
+
 file class NoopOrganizationSubscriptionStarter : IOrganizationSubscriptionStarter
 {
     public Task StartTrialAsync(Guid organizationId, Guid actingUserId, CancellationToken cancellationToken = default) => Task.CompletedTask;
@@ -48,7 +54,7 @@ public class AuthServiceAcceptInviteTests
             Issuer = "courier-tests",
             Audience = "courier-tests"
         });
-        return new AuthService(dbContext, new PasswordHasherAdapter(), new JwtTokenService(jwtOptions), new NoopAuditLogger(), new NullBranchLookupService(), new NoopOrganizationSubscriptionStarter(), new OrganizationSettingsService(dbContext, new NullTenantProvider(), new NoopAuditLogger(), new OrganizationAdminService(dbContext, new NoopAuditLogger())));
+        return new AuthService(dbContext, new PasswordHasherAdapter(), new JwtTokenService(jwtOptions), new NoopAuditLogger(), new NullBranchLookupService(), new NoopOrganizationSubscriptionStarter(), new OrganizationSettingsService(dbContext, new NullTenantProvider(), new NoopAuditLogger(), new OrganizationAdminService(dbContext, new NoopAuditLogger()), new NullBranchLookupService(), new NullServiceTypeLookupService()));
     }
 
     private static async Task<(Guid OrganizationId, Guid UserId, string PlainTextToken)> SeedInvitedUserAsync(AppDbContext dbContext, DateTimeOffset? expiresAt = null, DateTimeOffset? acceptedAt = null)
@@ -137,7 +143,7 @@ public class AuthServiceAcceptInviteTests
     {
         await using var dbContext = CreateContext();
         var (organizationId, _, plainTextToken) = await SeedInvitedUserAsync(dbContext);
-        var settingsService = new OrganizationSettingsService(dbContext, new NullTenantProvider(), new NoopAuditLogger(), new OrganizationAdminService(dbContext, new NoopAuditLogger()));
+        var settingsService = new OrganizationSettingsService(dbContext, new NullTenantProvider(), new NoopAuditLogger(), new OrganizationAdminService(dbContext, new NoopAuditLogger()), new NullBranchLookupService(), new NullServiceTypeLookupService());
         await settingsService.UpdateSecurityAsync(organizationId, Guid.NewGuid(), new SecurityPolicyDto(7, 12));
         var service = CreateService(dbContext);
 
@@ -150,7 +156,7 @@ public class AuthServiceAcceptInviteTests
     {
         await using var dbContext = CreateContext();
         var (organizationId, userId, plainTextToken) = await SeedInvitedUserAsync(dbContext);
-        var settingsService = new OrganizationSettingsService(dbContext, new NullTenantProvider(), new NoopAuditLogger(), new OrganizationAdminService(dbContext, new NoopAuditLogger()));
+        var settingsService = new OrganizationSettingsService(dbContext, new NullTenantProvider(), new NoopAuditLogger(), new OrganizationAdminService(dbContext, new NoopAuditLogger()), new NullBranchLookupService(), new NullServiceTypeLookupService());
         await settingsService.UpdateSecurityAsync(organizationId, Guid.NewGuid(), new SecurityPolicyDto(7, 12));
         var service = CreateService(dbContext);
 

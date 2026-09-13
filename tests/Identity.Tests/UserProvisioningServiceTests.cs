@@ -4,6 +4,7 @@ using Courier.Geography.Infrastructure;
 using Courier.Identity.Application;
 using Courier.Identity.Infrastructure;
 using Courier.Persistence;
+using Courier.Pricing.Application;
 using Courier.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -27,6 +28,11 @@ file class NullBranchLookupService : IBranchLookupService
     public Task<int> CountActiveBranchesAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult(0);
 }
 
+file class NullServiceTypeLookupService : IServiceTypeLookupService
+{
+    public Task<bool> ExistsAsync(Guid serviceTypeId, CancellationToken cancellationToken = default) => Task.FromResult(false);
+}
+
 file class NoopOrganizationSubscriptionStarter : IOrganizationSubscriptionStarter
 {
     public Task StartTrialAsync(Guid organizationId, Guid actingUserId, CancellationToken cancellationToken = default) => Task.CompletedTask;
@@ -44,7 +50,7 @@ public class UserProvisioningServiceTests
             Issuer = "courier-tests",
             Audience = "courier-tests"
         });
-        return new AuthService(dbContext, new PasswordHasherAdapter(), new JwtTokenService(jwtOptions), new NoopAuditLogger(), new NullBranchLookupService(), new NoopOrganizationSubscriptionStarter(), new OrganizationSettingsService(dbContext, new NullTenantProvider(), new NoopAuditLogger(), new OrganizationAdminService(dbContext, new NoopAuditLogger())));
+        return new AuthService(dbContext, new PasswordHasherAdapter(), new JwtTokenService(jwtOptions), new NoopAuditLogger(), new NullBranchLookupService(), new NoopOrganizationSubscriptionStarter(), new OrganizationSettingsService(dbContext, new NullTenantProvider(), new NoopAuditLogger(), new OrganizationAdminService(dbContext, new NoopAuditLogger()), new NullBranchLookupService(), new NullServiceTypeLookupService()));
     }
 
     private class NoopAuditLogger : Courier.Audit.Application.IAuditLogger

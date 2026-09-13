@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Courier.Pricing.Application;
 
-public class PricingService
+public class PricingService : IServiceTypeLookupService
 {
     private readonly DbContext _dbContext;
     private readonly ICurrentTenantProvider _currentTenantProvider;
@@ -152,4 +152,7 @@ public class PricingService
 
         return new PriceQuoteResponse(zoneRate.BaseRate, applied, discountPercent, runningSubtotal, total, rateCard.Id, rateCard.Version);
     }
+
+    public async Task<bool> ExistsAsync(Guid serviceTypeId, CancellationToken cancellationToken = default)
+        => await _dbContext.Set<Courier.Pricing.Domain.ServiceType>().AnyAsync(s => s.Id == serviceTypeId, cancellationToken);
 }

@@ -1,9 +1,10 @@
-using Courier.Audit.Application;
+﻿using Courier.Audit.Application;
 using Courier.Branches.Application;
 using Courier.Identity.Application;
 using Courier.Identity.Domain;
 using Courier.Identity.Infrastructure;
 using Courier.Persistence;
+using Courier.Pricing.Application;
 using Courier.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -30,6 +31,11 @@ file class NullBranchLookupService : IBranchLookupService
     public Task<IReadOnlyDictionary<Guid, string>> GetNamesByIdsAsync(IReadOnlySet<Guid> branchIds, CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyDictionary<Guid, string>>(new Dictionary<Guid, string>());
     public Task<int> CountActiveBranchesAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult(0);
+}
+
+file class NullServiceTypeLookupService : IServiceTypeLookupService
+{
+    public Task<bool> ExistsAsync(Guid serviceTypeId, CancellationToken cancellationToken = default) => Task.FromResult(false);
 }
 
 file class NoopOrganizationSubscriptionStarter : IOrganizationSubscriptionStarter
@@ -61,7 +67,7 @@ file class ThrowingOrganizationSubscriptionStarter : IOrganizationSubscriptionSt
 // row with its own SaveChangesAsync (Task 1) before RegisterOrganizationAsync's own closing
 // SaveChangesAsync runs. That is exactly two SaveChangesAsync calls in sequence for a fresh
 // organization. This subclass throws on the second one to simulate a transient failure landing
-// between them — the scenario RegisterOrganizationAsync's new explicit transaction exists to
+// between them â€” the scenario RegisterOrganizationAsync's new explicit transaction exists to
 // make safe (either both commit, or neither does).
 file sealed class FaultOnSecondSaveDbContext : AppDbContext
 {
@@ -95,7 +101,7 @@ public class AuthServiceTests
             Issuer = "courier-tests",
             Audience = "courier-tests"
         });
-        return new AuthService(dbContext, new PasswordHasherAdapter(), new JwtTokenService(jwtOptions), new NoopAuditLogger(), new NullBranchLookupService(), new NoopOrganizationSubscriptionStarter(), new OrganizationSettingsService(dbContext, new NullTenantProvider(), new NoopAuditLogger(), new OrganizationAdminService(dbContext, new NoopAuditLogger())));
+        return new AuthService(dbContext, new PasswordHasherAdapter(), new JwtTokenService(jwtOptions), new NoopAuditLogger(), new NullBranchLookupService(), new NoopOrganizationSubscriptionStarter(), new OrganizationSettingsService(dbContext, new NullTenantProvider(), new NoopAuditLogger(), new OrganizationAdminService(dbContext, new NoopAuditLogger()), new NullBranchLookupService(), new NullServiceTypeLookupService()));
     }
 
     [Fact]
@@ -130,7 +136,7 @@ public class AuthServiceTests
 
         // IgnoreQueryFilters(): this test's DbContext uses NullTenantProvider (matching every
         // other test in this file, since AuthService's own pre-auth methods rely on the same
-        // bypass) — the ambient tenant filter fails CLOSED with no tenant in context, so a plain
+        // bypass) â€” the ambient tenant filter fails CLOSED with no tenant in context, so a plain
         // Set<Role>() query here would return 0 rows regardless of what was actually seeded.
         var roles = await dbContext.Set<Role>().IgnoreQueryFilters()
             .Where(r => r.OrganizationId == result.OrganizationId)
@@ -199,7 +205,7 @@ public class AuthServiceTests
             Audience = "courier-tests"
         });
         var subscriptionStarter = new RecordingOrganizationSubscriptionStarter();
-        var service = new AuthService(dbContext, new PasswordHasherAdapter(), new JwtTokenService(jwtOptions), new NoopAuditLogger(), new NullBranchLookupService(), subscriptionStarter, new OrganizationSettingsService(dbContext, new NullTenantProvider(), new NoopAuditLogger(), new OrganizationAdminService(dbContext, new NoopAuditLogger())));
+        var service = new AuthService(dbContext, new PasswordHasherAdapter(), new JwtTokenService(jwtOptions), new NoopAuditLogger(), new NullBranchLookupService(), subscriptionStarter, new OrganizationSettingsService(dbContext, new NullTenantProvider(), new NoopAuditLogger(), new OrganizationAdminService(dbContext, new NoopAuditLogger()), new NullBranchLookupService(), new NullServiceTypeLookupService()));
         var suffix = Guid.NewGuid().ToString("N")[..8];
 
         var result = await service.RegisterOrganizationAsync(new RegisterOrganizationRequest(
@@ -211,7 +217,7 @@ public class AuthServiceTests
     }
 
     // Finding 4 (Important, final whole-branch review): StartTrialAsync throwing must not turn
-    // into a 500 for a caller whose org/owner/refresh-token are already durably committed — the
+    // into a 500 for a caller whose org/owner/refresh-token are already durably committed â€” the
     // registration must still succeed and return a usable access token.
     [Fact]
     public async Task RegisterOrganizationAsync_SubscriptionStarterThrows_StillSucceedsWithAccessToken()
@@ -223,7 +229,7 @@ public class AuthServiceTests
             Issuer = "courier-tests",
             Audience = "courier-tests"
         });
-        var service = new AuthService(dbContext, new PasswordHasherAdapter(), new JwtTokenService(jwtOptions), new NoopAuditLogger(), new NullBranchLookupService(), new ThrowingOrganizationSubscriptionStarter(), new OrganizationSettingsService(dbContext, new NullTenantProvider(), new NoopAuditLogger(), new OrganizationAdminService(dbContext, new NoopAuditLogger())));
+        var service = new AuthService(dbContext, new PasswordHasherAdapter(), new JwtTokenService(jwtOptions), new NoopAuditLogger(), new NullBranchLookupService(), new ThrowingOrganizationSubscriptionStarter(), new OrganizationSettingsService(dbContext, new NullTenantProvider(), new NoopAuditLogger(), new OrganizationAdminService(dbContext, new NoopAuditLogger()), new NullBranchLookupService(), new NullServiceTypeLookupService()));
         var suffix = Guid.NewGuid().ToString("N")[..8];
 
         var result = await service.RegisterOrganizationAsync(new RegisterOrganizationRequest(
@@ -234,7 +240,7 @@ public class AuthServiceTests
         Assert.False(string.IsNullOrWhiteSpace(result.AccessToken));
         Assert.False(string.IsNullOrWhiteSpace(result.RefreshToken));
 
-        // The org/owner really were committed despite the throw — a fresh login works too.
+        // The org/owner really were committed despite the throw â€” a fresh login works too.
         var loginResult = await service.LoginAsync(new LoginRequest($"owner-{suffix}@example.com", "P@ssw0rd123!"));
         Assert.Equal(result.UserId, loginResult.UserId);
     }
@@ -248,7 +254,7 @@ public class AuthServiceTests
         var registerRequest = new RegisterOrganizationRequest($"Org {suffix}", $"org-{suffix}", $"owner-{suffix}@example.com", "P@ssw0rd123!", "Owner Person");
         var registered = await service.RegisterOrganizationAsync(registerRequest);
 
-        var settingsService = new OrganizationSettingsService(dbContext, new NullTenantProvider(), new NoopAuditLogger(), new OrganizationAdminService(dbContext, new NoopAuditLogger()));
+        var settingsService = new OrganizationSettingsService(dbContext, new NullTenantProvider(), new NoopAuditLogger(), new OrganizationAdminService(dbContext, new NoopAuditLogger()), new NullBranchLookupService(), new NullServiceTypeLookupService());
         await settingsService.UpdateSecurityAsync(registered.OrganizationId, Guid.NewGuid(), new SecurityPolicyDto(1, 8));
 
         var loginResult = await service.LoginAsync(new LoginRequest($"owner-{suffix}@example.com", "P@ssw0rd123!"));
@@ -259,7 +265,7 @@ public class AuthServiceTests
         // by recency, so OrderByDescending(ExpiresAt) would actually return that longer-lived
         // registration token instead of login's new one. Ordering ascending picks the
         // soonest-to-expire token, which is the 1-day one LoginAsync just issued under the
-        // updated policy — the one this test means to assert on.
+        // updated policy â€” the one this test means to assert on.
         var token = dbContext.Set<RefreshToken>().OrderBy(t => t.ExpiresAt).First(t => t.UserId == loginResult.UserId);
         Assert.InRange(token.ExpiresAt, DateTimeOffset.UtcNow.AddDays(1).AddMinutes(-1), DateTimeOffset.UtcNow.AddDays(1).AddMinutes(1));
     }

@@ -1,6 +1,8 @@
-using Courier.Audit.Application;
+﻿using Courier.Audit.Application;
+using Courier.Branches.Application;
 using Courier.Identity.Application;
 using Courier.Identity.Domain;
+using Courier.Pricing.Application;
 using Courier.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
@@ -17,6 +19,26 @@ public class OrganizationSettingsServiceTests
         public Task LogAsync(AuditEntry entry, CancellationToken cancellationToken = default) { Entries.Add(entry); return Task.CompletedTask; }
     }
 
+    private sealed class StubBranchLookupService : IBranchLookupService
+    {
+        private readonly HashSet<Guid> _existingBranchIds;
+        public StubBranchLookupService(params Guid[] existingBranchIds) => _existingBranchIds = existingBranchIds.ToHashSet();
+        public Task<BranchZoneInfo?> GetZoneInfoAsync(Guid branchId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(_existingBranchIds.Contains(branchId) ? new BranchZoneInfo(branchId, null) : null);
+        public Task<IReadOnlyDictionary<Guid, string>> GetNamesByIdsAsync(IReadOnlySet<Guid> branchIds, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyDictionary<Guid, string>>(new Dictionary<Guid, string>());
+        public Task<int> CountActiveBranchesAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult(0);
+        public Task<PagedResult<BranchAdminRecord>> ListForOrganizationAsync(Guid organizationId, int? page, int? pageSize, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+    }
+
+    private sealed class StubServiceTypeLookupService : IServiceTypeLookupService
+    {
+        private readonly HashSet<Guid> _existingIds;
+        public StubServiceTypeLookupService(params Guid[] existingIds) => _existingIds = existingIds.ToHashSet();
+        public Task<bool> ExistsAsync(Guid serviceTypeId, CancellationToken cancellationToken = default) => Task.FromResult(_existingIds.Contains(serviceTypeId));
+    }
+
     private static Organization NewOrganization(DbContext dbContext)
     {
         var organization = new Organization { Id = Guid.NewGuid(), Name = "Test Org", Slug = $"org-{Guid.NewGuid():N}", IsActive = true };
@@ -30,7 +52,7 @@ public class OrganizationSettingsServiceTests
         using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
         var organization = NewOrganization(dbContext);
         await dbContext.SaveChangesAsync();
-        var service = new OrganizationSettingsService(dbContext, new NullTenantProvider(), new FakeAuditLogger(), new OrganizationAdminService(dbContext, new FakeAuditLogger()));
+        var service = new OrganizationSettingsService(dbContext, new NullTenantProvider(), new FakeAuditLogger(), new OrganizationAdminService(dbContext, new FakeAuditLogger()), new StubBranchLookupService(), new StubServiceTypeLookupService());
 
         var result = await service.GetAsync(organization.Id);
 
@@ -49,7 +71,7 @@ public class OrganizationSettingsServiceTests
         var organization = NewOrganization(dbContext);
         dbContext.Set<OrganizationSettings>().Add(new OrganizationSettings { OrganizationId = organization.Id, RefreshTokenLifetimeDays = 14, MinPasswordLength = 10, TimeZoneId = "Asia/Kathmandu" });
         await dbContext.SaveChangesAsync();
-        var service = new OrganizationSettingsService(dbContext, new NullTenantProvider(), new FakeAuditLogger(), new OrganizationAdminService(dbContext, new FakeAuditLogger()));
+        var service = new OrganizationSettingsService(dbContext, new NullTenantProvider(), new FakeAuditLogger(), new OrganizationAdminService(dbContext, new FakeAuditLogger()), new StubBranchLookupService(), new StubServiceTypeLookupService());
 
         var result = await service.GetAsync(organization.Id);
 
@@ -64,7 +86,7 @@ public class OrganizationSettingsServiceTests
         using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
         var organization = NewOrganization(dbContext);
         await dbContext.SaveChangesAsync();
-        var service = new OrganizationSettingsService(dbContext, new NullTenantProvider(), new FakeAuditLogger(), new OrganizationAdminService(dbContext, new FakeAuditLogger()));
+        var service = new OrganizationSettingsService(dbContext, new NullTenantProvider(), new FakeAuditLogger(), new OrganizationAdminService(dbContext, new FakeAuditLogger()), new StubBranchLookupService(), new StubServiceTypeLookupService());
 
         var result = await service.GetSecurityPolicyAsync(organization.Id);
 
@@ -79,7 +101,7 @@ public class OrganizationSettingsServiceTests
         var organization = NewOrganization(dbContext);
         await dbContext.SaveChangesAsync();
         var auditLogger = new FakeAuditLogger();
-        var service = new OrganizationSettingsService(dbContext, new NullTenantProvider(), auditLogger, new OrganizationAdminService(dbContext, new FakeAuditLogger()));
+        var service = new OrganizationSettingsService(dbContext, new NullTenantProvider(), auditLogger, new OrganizationAdminService(dbContext, new FakeAuditLogger()), new StubBranchLookupService(), new StubServiceTypeLookupService());
         var actingUserId = Guid.NewGuid();
         var profile = new OrganizationProfileDto("support@example.test", "01-4444444", "New Road, Kathmandu", null, "Asia/Kathmandu", "9:00 AM - 6:00 PM");
 
@@ -106,7 +128,7 @@ public class OrganizationSettingsServiceTests
         using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
         var organization = NewOrganization(dbContext);
         await dbContext.SaveChangesAsync();
-        var service = new OrganizationSettingsService(dbContext, new NullTenantProvider(), new FakeAuditLogger(), new OrganizationAdminService(dbContext, new FakeAuditLogger()));
+        var service = new OrganizationSettingsService(dbContext, new NullTenantProvider(), new FakeAuditLogger(), new OrganizationAdminService(dbContext, new FakeAuditLogger()), new StubBranchLookupService(), new StubServiceTypeLookupService());
 
         await Assert.ThrowsAsync<OrganizationSettingsValidationException>(() =>
             service.UpdateSecurityAsync(organization.Id, Guid.NewGuid(), new SecurityPolicyDto(refreshDays, minPasswordLength)));
@@ -119,7 +141,7 @@ public class OrganizationSettingsServiceTests
         var organization = NewOrganization(dbContext);
         await dbContext.SaveChangesAsync();
         var auditLogger = new FakeAuditLogger();
-        var service = new OrganizationSettingsService(dbContext, new NullTenantProvider(), auditLogger, new OrganizationAdminService(dbContext, new FakeAuditLogger()));
+        var service = new OrganizationSettingsService(dbContext, new NullTenantProvider(), auditLogger, new OrganizationAdminService(dbContext, new FakeAuditLogger()), new StubBranchLookupService(), new StubServiceTypeLookupService());
         var actingUserId = Guid.NewGuid();
 
         var result = await service.UpdateSecurityAsync(organization.Id, actingUserId, new SecurityPolicyDto(14, 12));
@@ -143,11 +165,67 @@ public class OrganizationSettingsServiceTests
         dbContext.Set<RefreshToken>().Add(token);
         await dbContext.SaveChangesAsync();
         var lookupService = new OrganizationAdminService(dbContext, new FakeAuditLogger());
-        var service = new OrganizationSettingsService(dbContext, new NullTenantProvider(), new FakeAuditLogger(), lookupService);
+        var service = new OrganizationSettingsService(dbContext, new NullTenantProvider(), new FakeAuditLogger(), lookupService, new StubBranchLookupService(), new StubServiceTypeLookupService());
 
         await service.RevokeAllSessionsAsync(organization.Id, Guid.NewGuid());
 
         var reloaded = dbContext.Set<RefreshToken>().Single(rt => rt.Id == token.Id);
         Assert.NotNull(reloaded.RevokedAt);
+    }
+
+    [Fact]
+    public async Task UpdateDefaultsAsync_UnknownBranch_ThrowsValidationException()
+    {
+        using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
+        var organization = NewOrganization(dbContext);
+        await dbContext.SaveChangesAsync();
+        var service = new OrganizationSettingsService(dbContext, new NullTenantProvider(), new FakeAuditLogger(), new OrganizationAdminService(dbContext, new FakeAuditLogger()), new StubBranchLookupService(), new StubServiceTypeLookupService());
+
+        await Assert.ThrowsAsync<OrganizationSettingsValidationException>(() =>
+            service.UpdateDefaultsAsync(organization.Id, Guid.NewGuid(), new OperationalDefaultsDto(null, Guid.NewGuid())));
+    }
+
+    [Fact]
+    public async Task UpdateDefaultsAsync_UnknownServiceType_ThrowsValidationException()
+    {
+        using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
+        var organization = NewOrganization(dbContext);
+        await dbContext.SaveChangesAsync();
+        var service = new OrganizationSettingsService(dbContext, new NullTenantProvider(), new FakeAuditLogger(), new OrganizationAdminService(dbContext, new FakeAuditLogger()), new StubBranchLookupService(), new StubServiceTypeLookupService());
+
+        await Assert.ThrowsAsync<OrganizationSettingsValidationException>(() =>
+            service.UpdateDefaultsAsync(organization.Id, Guid.NewGuid(), new OperationalDefaultsDto(Guid.NewGuid(), null)));
+    }
+
+    [Fact]
+    public async Task UpdateDefaultsAsync_ValidIds_PersistsAndWritesAuditEntry()
+    {
+        using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
+        var organization = NewOrganization(dbContext);
+        await dbContext.SaveChangesAsync();
+        var branchId = Guid.NewGuid();
+        var serviceTypeId = Guid.NewGuid();
+        var auditLogger = new FakeAuditLogger();
+        var service = new OrganizationSettingsService(dbContext, new NullTenantProvider(), auditLogger, new OrganizationAdminService(dbContext, new FakeAuditLogger()), new StubBranchLookupService(branchId), new StubServiceTypeLookupService(serviceTypeId));
+
+        var result = await service.UpdateDefaultsAsync(organization.Id, Guid.NewGuid(), new OperationalDefaultsDto(serviceTypeId, branchId));
+
+        Assert.Equal(serviceTypeId, result.DefaultServiceTypeId);
+        Assert.Equal(branchId, result.DefaultOriginBranchId);
+        Assert.Contains(auditLogger.Entries, e => e.Action == "organization.defaults_updated");
+    }
+
+    [Fact]
+    public async Task UpdateDefaultsAsync_NullIds_ClearsDefaultsWithoutValidation()
+    {
+        using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
+        var organization = NewOrganization(dbContext);
+        await dbContext.SaveChangesAsync();
+        var service = new OrganizationSettingsService(dbContext, new NullTenantProvider(), new FakeAuditLogger(), new OrganizationAdminService(dbContext, new FakeAuditLogger()), new StubBranchLookupService(), new StubServiceTypeLookupService());
+
+        var result = await service.UpdateDefaultsAsync(organization.Id, Guid.NewGuid(), new OperationalDefaultsDto(null, null));
+
+        Assert.Null(result.DefaultServiceTypeId);
+        Assert.Null(result.DefaultOriginBranchId);
     }
 }

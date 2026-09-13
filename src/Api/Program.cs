@@ -164,6 +164,7 @@ builder.Services.AddScoped<BranchService>();
 builder.Services.AddScoped<IBranchLookupService>(sp => sp.GetRequiredService<BranchService>());
 builder.Services.AddScoped<RateCardService>();
 builder.Services.AddScoped<PricingService>();
+builder.Services.AddScoped<IServiceTypeLookupService>(sp => sp.GetRequiredService<PricingService>());
 builder.Services.AddScoped<ReferenceDataService>();
 builder.Services.AddScoped<ShipmentService>();
 builder.Services.AddScoped<IShipmentTransitionService>(sp => sp.GetRequiredService<ShipmentService>());

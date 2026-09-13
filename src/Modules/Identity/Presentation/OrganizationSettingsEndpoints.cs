@@ -53,5 +53,19 @@ public static class OrganizationSettingsEndpoints
             await service.RevokeAllSessionsAsync(organizationId, actingUserId, httpContext.RequestAborted);
             return Results.Ok();
         }).RequirePermission("org.settings.manage");
+
+        group.MapPatch("/defaults", async (OperationalDefaultsDto request, OrganizationSettingsService service, ICurrentTenantProvider tenantProvider, HttpContext httpContext) =>
+        {
+            var organizationId = tenantProvider.OrganizationId!.Value;
+            var actingUserId = httpContext.User.GetUserId()!.Value;
+            try
+            {
+                return Results.Ok(await service.UpdateDefaultsAsync(organizationId, actingUserId, request, httpContext.RequestAborted));
+            }
+            catch (OrganizationSettingsValidationException ex)
+            {
+                return Results.BadRequest(new { error = new { code = "ORGANIZATION_SETTINGS_VALIDATION_FAILED", message = ex.Message } });
+            }
+        }).RequirePermission("org.settings.manage");
     }
 }

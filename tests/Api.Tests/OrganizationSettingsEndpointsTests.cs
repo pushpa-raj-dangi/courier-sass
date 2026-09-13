@@ -108,4 +108,34 @@ public class OrganizationSettingsEndpointsTests : IClassFixture<WebApplicationFa
         var refreshResponse = await client.PostAsJsonAsync("/api/v1/auth/refresh", new { refreshToken = auth.RefreshToken });
         Assert.Equal(HttpStatusCode.Unauthorized, refreshResponse.StatusCode);
     }
+
+    [Fact]
+    public async Task PatchDefaults_UnknownServiceType_Returns400()
+    {
+        var client = _factory.CreateClient();
+        var auth = await RegisterOrgAsync(client);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth.AccessToken);
+
+        var response = await client.PatchAsJsonAsync("/api/v1/settings/organization/defaults", new OperationalDefaultsDto(Guid.NewGuid(), null));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task PatchDefaults_ValidServiceType_UpdatesSettings()
+    {
+        var client = _factory.CreateClient();
+        var auth = await RegisterOrgAsync(client);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth.AccessToken);
+        var serviceTypesResponse = await client.GetAsync("/api/v1/service-types");
+        var serviceTypes = await serviceTypesResponse.Content.ReadFromJsonAsync<List<JsonElement>>();
+        var serviceTypeId = serviceTypes![0].GetProperty("id").GetGuid();
+
+        var response = await client.PatchAsJsonAsync("/api/v1/settings/organization/defaults", new OperationalDefaultsDto(serviceTypeId, null));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var getResponse = await client.GetAsync("/api/v1/settings/organization");
+        var body = await getResponse.Content.ReadFromJsonAsync<OrganizationSettingsDto>();
+        Assert.Equal(serviceTypeId, body!.Defaults.DefaultServiceTypeId);
+    }
 }
