@@ -8,7 +8,11 @@ import { NotificationTemplateEditSheet } from "@/features/admin/settings/notific
 import type { NotificationChannel, NotificationTemplate } from "@/features/admin/settings/notification-templates/types";
 
 const EVENT_TYPES = ["shipment.created", "shipment.delivered", "shipment.ndr_created", "cod.collected", "user.invited"];
-const CHANNELS: NotificationChannel[] = ["Sms", "Email", "WhatsApp", "Push"];
+// Restricted to Email: NotificationDispatchService only ever dispatches the Email channel today
+// (Sms/WhatsApp/Push implementations exist but nothing invokes them), so surfacing those channels
+// here would let an admin configure a "Custom" template that can never actually be sent. Add a
+// channel back to this list only once NotificationDispatchService actually dispatches it.
+const CHANNELS: NotificationChannel[] = ["Email"];
 
 interface Row {
   eventType: string;
