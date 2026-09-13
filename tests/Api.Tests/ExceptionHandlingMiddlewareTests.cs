@@ -31,4 +31,49 @@ public class ExceptionHandlingMiddlewareTests
         Assert.Equal("INTERNAL_SERVER_ERROR", error.GetProperty("code").GetString());
         Assert.False(string.IsNullOrEmpty(error.GetProperty("traceId").GetString()));
     }
+
+    [Fact]
+    public async Task InvokeAsync_WhenNextThrowsJsonException_Writes400ErrorEnvelope()
+    {
+        var context = new DefaultHttpContext();
+        context.Response.Body = new MemoryStream();
+
+        var middleware = new ExceptionHandlingMiddleware(
+            next: _ => throw new JsonException("The JSON value could not be converted to System.Guid."),
+            logger: NullLogger<ExceptionHandlingMiddleware>.Instance);
+
+        await middleware.InvokeAsync(context);
+
+        Assert.Equal((int)HttpStatusCode.BadRequest, context.Response.StatusCode);
+
+        context.Response.Body.Seek(0, SeekOrigin.Begin);
+        var body = await new StreamReader(context.Response.Body).ReadToEndAsync();
+        using var json = JsonDocument.Parse(body);
+        var error = json.RootElement.GetProperty("error");
+
+        Assert.Equal("INVALID_REQUEST_BODY", error.GetProperty("code").GetString());
+        Assert.False(string.IsNullOrEmpty(error.GetProperty("traceId").GetString()));
+    }
+
+    [Fact]
+    public async Task InvokeAsync_WhenNextThrowsBadHttpRequestException_Writes400ErrorEnvelope()
+    {
+        var context = new DefaultHttpContext();
+        context.Response.Body = new MemoryStream();
+
+        var middleware = new ExceptionHandlingMiddleware(
+            next: _ => throw new BadHttpRequestException("Failed to read parameter from the request body as JSON."),
+            logger: NullLogger<ExceptionHandlingMiddleware>.Instance);
+
+        await middleware.InvokeAsync(context);
+
+        Assert.Equal((int)HttpStatusCode.BadRequest, context.Response.StatusCode);
+
+        context.Response.Body.Seek(0, SeekOrigin.Begin);
+        var body = await new StreamReader(context.Response.Body).ReadToEndAsync();
+        using var json = JsonDocument.Parse(body);
+        var error = json.RootElement.GetProperty("error");
+
+        Assert.Equal("INVALID_REQUEST_BODY", error.GetProperty("code").GetString());
+    }
 }

@@ -20,6 +20,31 @@ public class ExceptionHandlingMiddleware
         {
             await _next(context);
         }
+        // A malformed request body (invalid GUID/enum in a JSON property, truncated JSON, etc.)
+        // surfaces as JsonException/BadHttpRequestException from minimal API model binding, not
+        // as a domain exception — the framework does not convert it to 400 on its own once it
+        // reaches this middleware, so without this branch every bad request body a client sends
+        // came back as a 500 INTERNAL_SERVER_ERROR instead of a 400 validation error.
+        catch (Exception ex) when (ex is JsonException or BadHttpRequestException)
+        {
+            _logger.LogWarning(ex, "Malformed request body for {Path}", context.Request.Path);
+
+            context.Response.ContentType = "application/json";
+            context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+
+            var envelope = new
+            {
+                error = new
+                {
+                    code = "INVALID_REQUEST_BODY",
+                    message = "The request body could not be parsed.",
+                    details = (object?)null,
+                    traceId = context.TraceIdentifier
+                }
+            };
+
+            await context.Response.WriteAsync(JsonSerializer.Serialize(envelope));
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unhandled exception processing {Path}", context.Request.Path);
