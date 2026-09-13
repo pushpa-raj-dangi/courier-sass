@@ -16,6 +16,7 @@ public class AuthService
     private readonly IAuditLogger _auditLogger;
     private readonly IBranchLookupService _branchLookupService;
     private readonly IOrganizationSubscriptionStarter _organizationSubscriptionStarter;
+    private readonly OrganizationSettingsService _organizationSettingsService;
 
     // Computed exactly once for the lifetime of the process. AuthService is registered as
     // Scoped (one instance per HTTP request), so an instance-level cache would be recomputed
@@ -26,7 +27,7 @@ public class AuthService
     private static readonly string DummyPasswordHash =
         new Courier.Identity.Infrastructure.PasswordHasherAdapter().Hash("dummy-password-for-timing-safety");
 
-    public AuthService(DbContext dbContext, IPasswordHasher passwordHasher, IJwtTokenService jwtTokenService, IAuditLogger auditLogger, IBranchLookupService branchLookupService, IOrganizationSubscriptionStarter organizationSubscriptionStarter)
+    public AuthService(DbContext dbContext, IPasswordHasher passwordHasher, IJwtTokenService jwtTokenService, IAuditLogger auditLogger, IBranchLookupService branchLookupService, IOrganizationSubscriptionStarter organizationSubscriptionStarter, OrganizationSettingsService organizationSettingsService)
     {
         _dbContext = dbContext;
         _passwordHasher = passwordHasher;
@@ -34,6 +35,7 @@ public class AuthService
         _auditLogger = auditLogger;
         _branchLookupService = branchLookupService;
         _organizationSubscriptionStarter = organizationSubscriptionStarter;
+        _organizationSettingsService = organizationSettingsService;
     }
 
     public async Task<AuthResult> RegisterOrganizationAsync(RegisterOrganizationRequest request, CancellationToken cancellationToken = default)
@@ -149,7 +151,7 @@ public class AuthService
             AssignedByUserId = owner.Id
         });
 
-        var refreshToken = await IssueRefreshTokenAsync(owner.Id, cancellationToken);
+        var refreshToken = await IssueRefreshTokenAsync(owner.Id, organization.Id, cancellationToken);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -218,7 +220,7 @@ public class AuthService
             throw new OrganizationSuspendedException("Your organization has been suspended. Contact support.");
         }
 
-        var refreshToken = await IssueRefreshTokenAsync(user.Id, cancellationToken);
+        var refreshToken = await IssueRefreshTokenAsync(user.Id, user.OrganizationId.Value, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         await _auditLogger.LogAsync(new AuditEntry(user.OrganizationId, user.Id, "user.login", "User", user.Id.ToString()), cancellationToken);
@@ -258,7 +260,7 @@ public class AuthService
             throw new AuthenticationFailedException("Refresh token is invalid or expired.");
         }
 
-        var newRefreshToken = await IssueRefreshTokenAsync(user.Id, cancellationToken);
+        var newRefreshToken = await IssueRefreshTokenAsync(user.Id, user.OrganizationId!.Value, cancellationToken);
         existing.RevokedAt = DateTimeOffset.UtcNow;
         existing.ReplacedByTokenId = newRefreshToken.Entity.Id;
 
@@ -285,10 +287,17 @@ public class AuthService
         // No tenant is known yet at this pre-authentication endpoint — same reasoning as
         // RegisterOrganizationAsync's/LoginAsync's own IgnoreQueryFilters() reads.
         var user = await _dbContext.Set<User>().IgnoreQueryFilters().FirstAsync(u => u.Id == invite.UserId, cancellationToken);
+
+        var securityPolicy = await _organizationSettingsService.GetSecurityPolicyAsync(user.OrganizationId!.Value, cancellationToken);
+        if (request.Password.Length < securityPolicy.MinPasswordLength)
+        {
+            throw new AuthenticationFailedException($"Password must be at least {securityPolicy.MinPasswordLength} characters.");
+        }
+
         user.PasswordHash = _passwordHasher.Hash(request.Password);
         invite.AcceptedAt = DateTimeOffset.UtcNow;
 
-        var refreshToken = await IssueRefreshTokenAsync(user.Id, cancellationToken);
+        var refreshToken = await IssueRefreshTokenAsync(user.Id, user.OrganizationId!.Value, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         await _auditLogger.LogAsync(new AuditEntry(user.OrganizationId, user.Id, "user.invite_accepted", "User", user.Id.ToString()), cancellationToken);
@@ -297,18 +306,18 @@ public class AuthService
         return new AuthResult(accessToken, refreshToken.PlainText, user.Id, user.OrganizationId.Value);
     }
 
-    private async Task<(RefreshToken Entity, string PlainText)> IssueRefreshTokenAsync(Guid userId, CancellationToken cancellationToken)
+    private async Task<(RefreshToken Entity, string PlainText)> IssueRefreshTokenAsync(Guid userId, Guid organizationId, CancellationToken cancellationToken)
     {
+        var securityPolicy = await _organizationSettingsService.GetSecurityPolicyAsync(organizationId, cancellationToken);
         var plainText = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
         var entity = new RefreshToken
         {
             Id = Guid.NewGuid(),
             UserId = userId,
             TokenHash = HashToken(plainText),
-            ExpiresAt = DateTimeOffset.UtcNow.AddDays(7)
+            ExpiresAt = DateTimeOffset.UtcNow.AddDays(securityPolicy.RefreshTokenLifetimeDays)
         };
         _dbContext.Set<RefreshToken>().Add(entity);
-        await Task.CompletedTask;
         return (entity, plainText);
     }
 

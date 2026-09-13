@@ -48,7 +48,7 @@ public class AuthServiceAcceptInviteTests
             Issuer = "courier-tests",
             Audience = "courier-tests"
         });
-        return new AuthService(dbContext, new PasswordHasherAdapter(), new JwtTokenService(jwtOptions), new NoopAuditLogger(), new NullBranchLookupService(), new NoopOrganizationSubscriptionStarter());
+        return new AuthService(dbContext, new PasswordHasherAdapter(), new JwtTokenService(jwtOptions), new NoopAuditLogger(), new NullBranchLookupService(), new NoopOrganizationSubscriptionStarter(), new OrganizationSettingsService(dbContext, new NullTenantProvider(), new NoopAuditLogger(), new OrganizationAdminService(dbContext, new NoopAuditLogger())));
     }
 
     private static async Task<(Guid OrganizationId, Guid UserId, string PlainTextToken)> SeedInvitedUserAsync(AppDbContext dbContext, DateTimeOffset? expiresAt = null, DateTimeOffset? acceptedAt = null)
@@ -130,5 +130,32 @@ public class AuthServiceAcceptInviteTests
         var service = CreateService(dbContext);
 
         await Assert.ThrowsAsync<AuthenticationFailedException>(() => service.AcceptInviteAsync(new AcceptInviteRequest(plainTextToken, "")));
+    }
+
+    [Fact]
+    public async Task AcceptInviteAsync_PasswordShorterThanOrganizationMinimum_ThrowsAuthenticationFailedException()
+    {
+        await using var dbContext = CreateContext();
+        var (organizationId, _, plainTextToken) = await SeedInvitedUserAsync(dbContext);
+        var settingsService = new OrganizationSettingsService(dbContext, new NullTenantProvider(), new NoopAuditLogger(), new OrganizationAdminService(dbContext, new NoopAuditLogger()));
+        await settingsService.UpdateSecurityAsync(organizationId, Guid.NewGuid(), new SecurityPolicyDto(7, 12));
+        var service = CreateService(dbContext);
+
+        await Assert.ThrowsAsync<AuthenticationFailedException>(() =>
+            service.AcceptInviteAsync(new AcceptInviteRequest(plainTextToken, "short7!")));
+    }
+
+    [Fact]
+    public async Task AcceptInviteAsync_PasswordAtOrganizationMinimum_Succeeds()
+    {
+        await using var dbContext = CreateContext();
+        var (organizationId, userId, plainTextToken) = await SeedInvitedUserAsync(dbContext);
+        var settingsService = new OrganizationSettingsService(dbContext, new NullTenantProvider(), new NoopAuditLogger(), new OrganizationAdminService(dbContext, new NoopAuditLogger()));
+        await settingsService.UpdateSecurityAsync(organizationId, Guid.NewGuid(), new SecurityPolicyDto(7, 12));
+        var service = CreateService(dbContext);
+
+        var result = await service.AcceptInviteAsync(new AcceptInviteRequest(plainTextToken, "twelve-chars"));
+
+        Assert.Equal(userId, result.UserId);
     }
 }

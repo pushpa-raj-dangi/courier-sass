@@ -68,7 +68,7 @@ public class AuthServiceTests
             Issuer = "courier-tests",
             Audience = "courier-tests"
         });
-        return new AuthService(dbContext, new PasswordHasherAdapter(), new JwtTokenService(jwtOptions), new NoopAuditLogger(), new NullBranchLookupService(), new NoopOrganizationSubscriptionStarter());
+        return new AuthService(dbContext, new PasswordHasherAdapter(), new JwtTokenService(jwtOptions), new NoopAuditLogger(), new NullBranchLookupService(), new NoopOrganizationSubscriptionStarter(), new OrganizationSettingsService(dbContext, new NullTenantProvider(), new NoopAuditLogger(), new OrganizationAdminService(dbContext, new NoopAuditLogger())));
     }
 
     [Fact]
@@ -172,7 +172,7 @@ public class AuthServiceTests
             Audience = "courier-tests"
         });
         var subscriptionStarter = new RecordingOrganizationSubscriptionStarter();
-        var service = new AuthService(dbContext, new PasswordHasherAdapter(), new JwtTokenService(jwtOptions), new NoopAuditLogger(), new NullBranchLookupService(), subscriptionStarter);
+        var service = new AuthService(dbContext, new PasswordHasherAdapter(), new JwtTokenService(jwtOptions), new NoopAuditLogger(), new NullBranchLookupService(), subscriptionStarter, new OrganizationSettingsService(dbContext, new NullTenantProvider(), new NoopAuditLogger(), new OrganizationAdminService(dbContext, new NoopAuditLogger())));
         var suffix = Guid.NewGuid().ToString("N")[..8];
 
         var result = await service.RegisterOrganizationAsync(new RegisterOrganizationRequest(
@@ -196,7 +196,7 @@ public class AuthServiceTests
             Issuer = "courier-tests",
             Audience = "courier-tests"
         });
-        var service = new AuthService(dbContext, new PasswordHasherAdapter(), new JwtTokenService(jwtOptions), new NoopAuditLogger(), new NullBranchLookupService(), new ThrowingOrganizationSubscriptionStarter());
+        var service = new AuthService(dbContext, new PasswordHasherAdapter(), new JwtTokenService(jwtOptions), new NoopAuditLogger(), new NullBranchLookupService(), new ThrowingOrganizationSubscriptionStarter(), new OrganizationSettingsService(dbContext, new NullTenantProvider(), new NoopAuditLogger(), new OrganizationAdminService(dbContext, new NoopAuditLogger())));
         var suffix = Guid.NewGuid().ToString("N")[..8];
 
         var result = await service.RegisterOrganizationAsync(new RegisterOrganizationRequest(
@@ -210,5 +210,30 @@ public class AuthServiceTests
         // The org/owner really were committed despite the throw — a fresh login works too.
         var loginResult = await service.LoginAsync(new LoginRequest($"owner-{suffix}@example.com", "P@ssw0rd123!"));
         Assert.Equal(result.UserId, loginResult.UserId);
+    }
+
+    [Fact]
+    public async Task LoginAsync_UsesOrganizationConfiguredRefreshTokenLifetime()
+    {
+        await using var dbContext = CreateContext();
+        var service = CreateService(dbContext);
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+        var registerRequest = new RegisterOrganizationRequest($"Org {suffix}", $"org-{suffix}", $"owner-{suffix}@example.com", "P@ssw0rd123!", "Owner Person");
+        var registered = await service.RegisterOrganizationAsync(registerRequest);
+
+        var settingsService = new OrganizationSettingsService(dbContext, new NullTenantProvider(), new NoopAuditLogger(), new OrganizationAdminService(dbContext, new NoopAuditLogger()));
+        await settingsService.UpdateSecurityAsync(registered.OrganizationId, Guid.NewGuid(), new SecurityPolicyDto(1, 8));
+
+        var loginResult = await service.LoginAsync(new LoginRequest($"owner-{suffix}@example.com", "P@ssw0rd123!"));
+
+        // RegisterOrganizationAsync above already issued one refresh token under the
+        // organization's still-default (7-day) policy, before UpdateSecurityAsync shortened it
+        // to 1 day. RefreshToken has no CreatedAt column to pick "the one LoginAsync just issued"
+        // by recency, so OrderByDescending(ExpiresAt) would actually return that longer-lived
+        // registration token instead of login's new one. Ordering ascending picks the
+        // soonest-to-expire token, which is the 1-day one LoginAsync just issued under the
+        // updated policy — the one this test means to assert on.
+        var token = dbContext.Set<RefreshToken>().OrderBy(t => t.ExpiresAt).First(t => t.UserId == loginResult.UserId);
+        Assert.InRange(token.ExpiresAt, DateTimeOffset.UtcNow.AddDays(1).AddMinutes(-1), DateTimeOffset.UtcNow.AddDays(1).AddMinutes(1));
     }
 }
