@@ -9,11 +9,13 @@ import { UsersTab } from "@/features/admin/components/UsersTab";
 import { UserInviteSheet } from "@/features/admin/components/UserInviteSheet";
 import { UserDetailSheet } from "@/features/admin/components/UserDetailSheet";
 import { usePermission } from "@/features/auth/hooks/usePermission";
+import { SettingsTab } from "@/features/admin/settings/components/SettingsTab";
 
 // This file grows additively — new tabs and their Sheets appended, never restructured.
 const TABS = [
   { key: "roles", label: "Roles", permission: "role.manage" },
   { key: "users", label: "Users", permission: "user.read" },
+  { key: "settings", label: "Settings", permission: "org.settings.manage" },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -21,7 +23,8 @@ type TabKey = (typeof TABS)[number]["key"];
 export default function AdminPage() {
   const canManageRoles = usePermission("role.manage");
   const canReadUsers = usePermission("user.read");
-  const permitted = { roles: canManageRoles, users: canReadUsers };
+  const canManageSettings = usePermission("org.settings.manage");
+  const permitted = { roles: canManageRoles, users: canReadUsers, settings: canManageSettings };
 
   // The sidebar's own Admin link is visible to anyone with role.manage OR user.read (nav-main.tsx)
   // — a user with only one of the two must never see a tab (or its data fetch) requiring the
@@ -42,6 +45,7 @@ export default function AdminPage() {
           </TabsList>
           <TabsContent value="roles"><RolesTab /></TabsContent>
           <TabsContent value="users"><UsersTab /></TabsContent>
+          <TabsContent value="settings"><SettingsTab /></TabsContent>
         </Tabs>
       )}
 
