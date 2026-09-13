@@ -67,12 +67,12 @@ export function SecurityPolicyForm() {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
         <div className="space-y-2">
           <Label htmlFor="refreshTokenLifetimeDays">Session Length (days)</Label>
-          <Input id="refreshTokenLifetimeDays" type="number" min={1} max={30} aria-invalid={!!errors.refreshTokenLifetimeDays} {...register("refreshTokenLifetimeDays")} />
+          <Input id="refreshTokenLifetimeDays" type="number" min={1} max={30} aria-invalid={!!errors.refreshTokenLifetimeDays} {...register("refreshTokenLifetimeDays", { valueAsNumber: true })} />
           {errors.refreshTokenLifetimeDays && <FieldError id="refreshTokenLifetimeDays-error">{errors.refreshTokenLifetimeDays.message}</FieldError>}
         </div>
         <div className="space-y-2">
           <Label htmlFor="minPasswordLength">Minimum Password Length</Label>
-          <Input id="minPasswordLength" type="number" min={8} max={64} aria-invalid={!!errors.minPasswordLength} {...register("minPasswordLength")} />
+          <Input id="minPasswordLength" type="number" min={8} max={64} aria-invalid={!!errors.minPasswordLength} {...register("minPasswordLength", { valueAsNumber: true })} />
           {errors.minPasswordLength && <FieldError id="minPasswordLength-error">{errors.minPasswordLength.message}</FieldError>}
         </div>
         {serverError && <FieldError id="security-server-error">{serverError}</FieldError>}

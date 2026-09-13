@@ -12,8 +12,14 @@ export const organizationProfileSchema = z.object({
 export type OrganizationProfileFormValues = z.infer<typeof organizationProfileSchema>;
 
 export const securityPolicySchema = z.object({
-  refreshTokenLifetimeDays: z.coerce.number().int().min(1, "Must be at least 1 day.").max(30, "Must be at most 30 days."),
-  minPasswordLength: z.coerce.number().int().min(8, "Must be at least 8 characters.").max(64, "Must be at most 64 characters."),
+  // Don't use z.coerce.number() here - its *input* type is `unknown`, which conflicts with
+  // useForm<SecurityPolicyFormValues>'s output-inferred `number`, since zodResolver's Resolver
+  // type is checked against both the schema's input and output shapes (see the branches schema's
+  // wardNumber comment for the full explanation). SecurityPolicyForm instead passes
+  // `valueAsNumber: true` to register() so RHF converts the DOM input's string value before it
+  // reaches Zod, keeping both the input and output types `number`.
+  refreshTokenLifetimeDays: z.number().int().min(1, "Must be at least 1 day.").max(30, "Must be at most 30 days."),
+  minPasswordLength: z.number().int().min(8, "Must be at least 8 characters.").max(64, "Must be at most 64 characters."),
 });
 
 export type SecurityPolicyFormValues = z.infer<typeof securityPolicySchema>;
