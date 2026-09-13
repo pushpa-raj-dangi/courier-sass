@@ -54,108 +54,148 @@ public class AuthService
             throw new AuthenticationFailedException("Email is already registered.");
         }
 
-        var organization = new Organization
+        // Transactional: IssueRefreshTokenAsync below calls into OrganizationSettingsService,
+        // which — for a brand-new organization with no OrganizationSettings row yet — persists
+        // that row with its own SaveChangesAsync (Task 1's GetOrCreateAsync) before this method's
+        // own closing SaveChangesAsync runs. Without an explicit transaction spanning both calls,
+        // that split registration into two independent commits: a failure in the second call
+        // (e.g. a transient DB error) would leave the organization/roles/owner durably committed
+        // with no refresh token issued and no way to retry (duplicate email/slug). Wrapping both
+        // SaveChangesAsync calls in one transaction restores the original all-or-nothing write.
+        // Same IsRelational() guard as CodService.Settlements.cs's CreateRiderSettlementAsync —
+        // EF Core's InMemory provider (not used by this module's own tests, which run against
+        // real Postgres via TestDbContextFactory, but kept for parity with the established
+        // convention) does not support transactions.
+        Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction? transaction = null;
+        if (_dbContext.Database.IsRelational())
         {
-            Id = Guid.NewGuid(),
-            Name = request.OrganizationName,
-            Slug = request.OrganizationSlug
-        };
-        _dbContext.Set<Organization>().Add(organization);
-
-        var allPermissions = await _dbContext.Set<Permission>().ToListAsync(cancellationToken);
-        var ownerRole = new Role
-        {
-            Id = Guid.NewGuid(),
-            OrganizationId = organization.Id,
-            Name = "OrganizationOwner",
-            IsSystemDefault = true
-        };
-        _dbContext.Set<Role>().Add(ownerRole);
-        // These Permission rows are already tracked (loaded above), so EF Core inserts
-        // only the join-table rows here, not new Permission rows.
-        foreach (var permission in allPermissions)
-        {
-            ownerRole.Permissions.Add(permission);
+            transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
         }
 
-        // Phase 8: PickupRider/DeliveryRider are seeded here (not lazily on first rider creation)
-        // so they exist from org registration onward, matching how OrganizationOwner already works
-        // — RiderService (Riders module) looks them up by name via IUserProvisioningService and
-        // never creates roles itself. Permission sets per RBAC.md §4 (DeliveryRider is explicit
-        // there) and CLARIFICATIONS.md's new Phase 8 entry (PickupRider — not itemized in RBAC.md,
-        // resolved to shipment.scan only, since a pickup rider's whole job is the pickup scan).
-        var deliveryRiderPermissionKeys = new[] { "delivery.attempt", "delivery.complete", "cod.collect", "shipment.scan" };
-        var deliveryRiderRole = new Role
+        Organization organization;
+        User owner;
+        (RefreshToken Entity, string PlainText) refreshToken;
+        try
         {
-            Id = Guid.NewGuid(),
-            OrganizationId = organization.Id,
-            Name = "DeliveryRider",
-            IsSystemDefault = true
-        };
-        _dbContext.Set<Role>().Add(deliveryRiderRole);
-        foreach (var permission in allPermissions.Where(p => deliveryRiderPermissionKeys.Contains(p.Key)))
-        {
-            deliveryRiderRole.Permissions.Add(permission);
-        }
+            organization = new Organization
+            {
+                Id = Guid.NewGuid(),
+                Name = request.OrganizationName,
+                Slug = request.OrganizationSlug
+            };
+            _dbContext.Set<Organization>().Add(organization);
 
-        var pickupRiderRole = new Role
-        {
-            Id = Guid.NewGuid(),
-            OrganizationId = organization.Id,
-            Name = "PickupRider",
-            IsSystemDefault = true
-        };
-        _dbContext.Set<Role>().Add(pickupRiderRole);
-        foreach (var permission in allPermissions.Where(p => p.Key == "shipment.scan"))
-        {
-            pickupRiderRole.Permissions.Add(permission);
-        }
-
-        // The 11 CLAUDE.md §6 roles not already seeded above (Frontend Phase F9,
-        // CLARIFICATIONS.md #18) — same "load once, join tracked Permission rows" pattern as
-        // OrganizationOwner/DeliveryRider/PickupRider.
-        foreach (var (roleName, permissionKeys) in AdditionalRoleSeeds.ByRoleName)
-        {
-            var role = new Role
+            var allPermissions = await _dbContext.Set<Permission>().ToListAsync(cancellationToken);
+            var ownerRole = new Role
             {
                 Id = Guid.NewGuid(),
                 OrganizationId = organization.Id,
-                Name = roleName,
+                Name = "OrganizationOwner",
                 IsSystemDefault = true
             };
-            _dbContext.Set<Role>().Add(role);
-            foreach (var permission in allPermissions.Where(p => permissionKeys.Contains(p.Key)))
+            _dbContext.Set<Role>().Add(ownerRole);
+            // These Permission rows are already tracked (loaded above), so EF Core inserts
+            // only the join-table rows here, not new Permission rows.
+            foreach (var permission in allPermissions)
             {
-                role.Permissions.Add(permission);
+                ownerRole.Permissions.Add(permission);
             }
+
+            // Phase 8: PickupRider/DeliveryRider are seeded here (not lazily on first rider creation)
+            // so they exist from org registration onward, matching how OrganizationOwner already works
+            // — RiderService (Riders module) looks them up by name via IUserProvisioningService and
+            // never creates roles itself. Permission sets per RBAC.md §4 (DeliveryRider is explicit
+            // there) and CLARIFICATIONS.md's new Phase 8 entry (PickupRider — not itemized in RBAC.md,
+            // resolved to shipment.scan only, since a pickup rider's whole job is the pickup scan).
+            var deliveryRiderPermissionKeys = new[] { "delivery.attempt", "delivery.complete", "cod.collect", "shipment.scan" };
+            var deliveryRiderRole = new Role
+            {
+                Id = Guid.NewGuid(),
+                OrganizationId = organization.Id,
+                Name = "DeliveryRider",
+                IsSystemDefault = true
+            };
+            _dbContext.Set<Role>().Add(deliveryRiderRole);
+            foreach (var permission in allPermissions.Where(p => deliveryRiderPermissionKeys.Contains(p.Key)))
+            {
+                deliveryRiderRole.Permissions.Add(permission);
+            }
+
+            var pickupRiderRole = new Role
+            {
+                Id = Guid.NewGuid(),
+                OrganizationId = organization.Id,
+                Name = "PickupRider",
+                IsSystemDefault = true
+            };
+            _dbContext.Set<Role>().Add(pickupRiderRole);
+            foreach (var permission in allPermissions.Where(p => p.Key == "shipment.scan"))
+            {
+                pickupRiderRole.Permissions.Add(permission);
+            }
+
+            // The 11 CLAUDE.md §6 roles not already seeded above (Frontend Phase F9,
+            // CLARIFICATIONS.md #18) — same "load once, join tracked Permission rows" pattern as
+            // OrganizationOwner/DeliveryRider/PickupRider.
+            foreach (var (roleName, permissionKeys) in AdditionalRoleSeeds.ByRoleName)
+            {
+                var role = new Role
+                {
+                    Id = Guid.NewGuid(),
+                    OrganizationId = organization.Id,
+                    Name = roleName,
+                    IsSystemDefault = true
+                };
+                _dbContext.Set<Role>().Add(role);
+                foreach (var permission in allPermissions.Where(p => permissionKeys.Contains(p.Key)))
+                {
+                    role.Permissions.Add(permission);
+                }
+            }
+
+            owner = new User
+            {
+                Id = Guid.NewGuid(),
+                OrganizationId = organization.Id,
+                Email = ownerEmail,
+                PasswordHash = _passwordHasher.Hash(request.OwnerPassword),
+                FullName = request.OwnerFullName
+            };
+            _dbContext.Set<User>().Add(owner);
+
+            _dbContext.Set<UserRole>().Add(new UserRole
+            {
+                Id = Guid.NewGuid(),
+                UserId = owner.Id,
+                RoleId = ownerRole.Id,
+                OrganizationId = organization.Id,
+                BranchScope = BranchScope.AllBranches,
+                AssignedAt = DateTimeOffset.UtcNow,
+                AssignedByUserId = owner.Id
+            });
+
+            refreshToken = await IssueRefreshTokenAsync(owner.Id, organization.Id, cancellationToken);
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            if (transaction is not null)
+            {
+                await transaction.CommitAsync(cancellationToken);
+            }
+
+            await _auditLogger.LogAsync(new AuditEntry(organization.Id, owner.Id, "organization.registered", "Organization", organization.Id.ToString()), cancellationToken);
         }
-
-        var owner = new User
+        catch
         {
-            Id = Guid.NewGuid(),
-            OrganizationId = organization.Id,
-            Email = ownerEmail,
-            PasswordHash = _passwordHasher.Hash(request.OwnerPassword),
-            FullName = request.OwnerFullName
-        };
-        _dbContext.Set<User>().Add(owner);
-
-        _dbContext.Set<UserRole>().Add(new UserRole
+            if (transaction is not null)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+            }
+            throw;
+        }
+        finally
         {
-            Id = Guid.NewGuid(),
-            UserId = owner.Id,
-            RoleId = ownerRole.Id,
-            OrganizationId = organization.Id,
-            BranchScope = BranchScope.AllBranches,
-            AssignedAt = DateTimeOffset.UtcNow,
-            AssignedByUserId = owner.Id
-        });
-
-        var refreshToken = await IssueRefreshTokenAsync(owner.Id, organization.Id, cancellationToken);
-
-        await _dbContext.SaveChangesAsync(cancellationToken);
-
-        await _auditLogger.LogAsync(new AuditEntry(organization.Id, owner.Id, "organization.registered", "Organization", organization.Id.ToString()), cancellationToken);
+            transaction?.Dispose();
+        }
 
         // Every self-registered organization starts on a 7-day trial with no committed Plan —
         // TrialEnforcementMiddleware only blocks writes once TrialExpiryJob flips this to

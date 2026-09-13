@@ -56,6 +56,33 @@ file class ThrowingOrganizationSubscriptionStarter : IOrganizationSubscriptionSt
         => throw new InvalidOperationException("Simulated failure starting trial subscription.");
 }
 
+// Task 4 fix round (Important finding): RegisterOrganizationAsync's IssueRefreshTokenAsync call
+// makes OrganizationSettingsService.GetOrCreateAsync persist a brand-new org's OrganizationSettings
+// row with its own SaveChangesAsync (Task 1) before RegisterOrganizationAsync's own closing
+// SaveChangesAsync runs. That is exactly two SaveChangesAsync calls in sequence for a fresh
+// organization. This subclass throws on the second one to simulate a transient failure landing
+// between them — the scenario RegisterOrganizationAsync's new explicit transaction exists to
+// make safe (either both commit, or neither does).
+file sealed class FaultOnSecondSaveDbContext : AppDbContext
+{
+    private int _saveCallCount;
+
+    public FaultOnSecondSaveDbContext(DbContextOptions<AppDbContext> options, ICurrentTenantProvider tenantProvider)
+        : base(options, tenantProvider)
+    {
+    }
+
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        _saveCallCount++;
+        if (_saveCallCount == 2)
+        {
+            throw new InvalidOperationException("Simulated transient failure on the second SaveChangesAsync call.");
+        }
+        return base.SaveChangesAsync(cancellationToken);
+    }
+}
+
 public class AuthServiceTests
 {
     private static AppDbContext CreateContext() => TestDbContextFactory.Create(new NullTenantProvider());
@@ -235,5 +262,44 @@ public class AuthServiceTests
         // updated policy — the one this test means to assert on.
         var token = dbContext.Set<RefreshToken>().OrderBy(t => t.ExpiresAt).First(t => t.UserId == loginResult.UserId);
         Assert.InRange(token.ExpiresAt, DateTimeOffset.UtcNow.AddDays(1).AddMinutes(-1), DateTimeOffset.UtcNow.AddDays(1).AddMinutes(1));
+    }
+
+    // Task 4 fix round (Important finding): proves RegisterOrganizationAsync's new explicit
+    // transaction actually restores the original all-or-nothing write. FaultOnSecondSaveDbContext
+    // throws on the second of the two SaveChangesAsync calls this method now makes for a
+    // brand-new organization (the first, inside OrganizationSettingsService.GetOrCreateAsync,
+    // persists the org/roles/owner/OrganizationSettings; the second persists the refresh token).
+    // Without the transaction, the first SaveChangesAsync would have committed independently,
+    // leaving a durable organization/owner with no refresh token and no way to retry. With the
+    // fix, both are rolled back together.
+    [Fact]
+    public async Task RegisterOrganizationAsync_FailureBetweenTheTwoSaveChangesCalls_RollsBackEverything()
+    {
+        // Warm up the shared schema via TestDbContextFactory's lazy migration before the
+        // fault-injecting context (built directly, bypassing TestDbContextFactory.Create) touches
+        // the database.
+        await using (var warmup = CreateContext())
+        {
+        }
+
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseNpgsql(TestDbContextFactory.GetConnectionString())
+            .Options;
+        await using var faultyDbContext = new FaultOnSecondSaveDbContext(options, new NullTenantProvider());
+        var service = CreateService(faultyDbContext);
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+        var request = new RegisterOrganizationRequest(
+            $"Atomicity Org {suffix}", $"atomicity-org-{suffix}", $"owner-{suffix}@example.com", "P@ssw0rd123!", "Owner Person");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.RegisterOrganizationAsync(request));
+
+        await using var verifyContext = CreateContext();
+        var organizationExists = await verifyContext.Set<Organization>().IgnoreQueryFilters()
+            .AnyAsync(o => o.Slug == request.OrganizationSlug);
+        Assert.False(organizationExists, "The transaction should have rolled back the organization insert along with everything else.");
+
+        var userExists = await verifyContext.Set<User>().IgnoreQueryFilters()
+            .AnyAsync(u => u.Email == request.OwnerEmail.ToLowerInvariant());
+        Assert.False(userExists, "The transaction should have rolled back the owner user insert along with everything else.");
     }
 }
