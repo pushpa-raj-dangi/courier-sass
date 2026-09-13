@@ -55,4 +55,29 @@ public class NdrReportingLookupService : INdrReportingLookupService
             .ToListAsync(cancellationToken);
         return matched.ToHashSet();
     }
+
+    // Same Join-to-Shipment shape GetOpenNdrCountForBranchAsync already uses -- pushed into SQL,
+    // no per-row IShipmentTransitionService lookup needed (NDR is a status-count, not a full
+    // response DTO), and no new constructor dependency.
+    public async Task<IReadOnlyDictionary<NdrStatus, int>> GetStatusCountsAsync(
+        IReadOnlySet<Guid>? branchIds, CancellationToken cancellationToken = default)
+    {
+        var joined = _dbContext.Set<NDR>().AsNoTracking()
+            .Join(_dbContext.Set<Shipment>().AsNoTracking(),
+                n => n.ShipmentId, s => s.Id, (n, s) => new { n.Status, s.DestinationBranchId });
+
+        var query = joined.AsQueryable();
+        if (branchIds is not null)
+        {
+            var branchIdArray = branchIds.ToArray();
+            query = query.Where(x => branchIdArray.Contains(x.DestinationBranchId));
+        }
+
+        var counts = await query
+            .GroupBy(x => x.Status)
+            .Select(g => new { Status = g.Key, Count = g.Count() })
+            .ToListAsync(cancellationToken);
+
+        return counts.ToDictionary(x => x.Status, x => x.Count);
+    }
 }

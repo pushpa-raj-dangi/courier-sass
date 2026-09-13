@@ -20,6 +20,13 @@ public static class NdrEndpoints
             Results.Ok(await service.ListAsync(status, page, pageSize, shipmentId, httpContext.User, httpContext.RequestAborted)))
             .RequirePermission("ndr.read");
 
+        group.MapGet("/summary", async (INdrReportingLookupService lookupService, IBranchAuthorizationChecker branchAuthorizationChecker, HttpContext httpContext) =>
+        {
+            var accessibleBranchIds = await branchAuthorizationChecker.GetAccessibleBranchIdsAsync(httpContext.User, "ndr.read", httpContext.RequestAborted);
+            var counts = await lookupService.GetStatusCountsAsync(accessibleBranchIds, httpContext.RequestAborted);
+            return Results.Ok(counts.ToDictionary(kv => kv.Key.ToString(), kv => kv.Value));
+        }).RequirePermission("ndr.read");
+
         group.MapGet("/{id:guid}", async (Guid id, NdrService service, HttpContext httpContext) =>
         {
             var result = await service.GetByIdAsync(id, httpContext.RequestAborted);
@@ -51,6 +58,10 @@ public static class NdrEndpoints
         returnShipments.MapPost("/{id:guid}/confirm", async (Guid id, NdrService service, HttpContext httpContext) =>
             await HandleAsync(() => service.ConfirmReturnShipmentAsync(id, httpContext.User, httpContext.RequestAborted)))
             .RequirePermission("rto.manage");
+
+        returnShipments.MapGet("/summary", async (NdrService service, HttpContext httpContext) =>
+            Results.Ok(await service.GetReturnShipmentSummaryAsync(httpContext.User, httpContext.RequestAborted)))
+            .RequirePermission("rto.read");
     }
 
     private static async Task<IResult> HandleAsync<T>(Func<Task<T>> operation)

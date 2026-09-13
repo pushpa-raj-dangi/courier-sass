@@ -121,4 +121,38 @@ public class NdrReportingLookupServiceTests
 
         Assert.Empty(result);
     }
+
+    [Fact]
+    public async Task GetStatusCountsAsync_GroupsByStatus_ScopedByShipmentDestinationBranch()
+    {
+        var tenantProvider = new FixedTenantProvider();
+        await using var dbContext = TestDbContextFactory.Create(tenantProvider);
+        var (orgId, branchId, merchantId) = await SeedOrgAsync(dbContext);
+        tenantProvider.OrganizationId = orgId;
+
+        // A second, real branch for the out-of-scope shipment's DestinationBranchId -- Shipment
+        // has a real foreign key to Branches, so a random unseeded Guid would violate it.
+        var otherBranchId = Guid.NewGuid();
+        dbContext.Add(new Courier.Branches.Domain.Branch
+        {
+            Id = otherBranchId, OrganizationId = orgId, Code = "BR2", Name = "Branch Two",
+            Type = Courier.Branches.Domain.BranchType.Branch, ProvinceId = ProvinceId, DistrictId = DistrictId,
+            LocalLevelId = LocalLevelId, WardNumber = 1, AddressLine = "Test Address"
+        });
+
+        var inScopeShipment = BuildShipment(orgId, branchId, merchantId);
+        var outOfScopeShipment = BuildShipment(orgId, branchId, merchantId);
+        outOfScopeShipment.DestinationBranchId = otherBranchId;
+        dbContext.Add(inScopeShipment);
+        dbContext.Add(outOfScopeShipment);
+        dbContext.Add(new NDR { Id = Guid.NewGuid(), OrganizationId = orgId, ShipmentId = inScopeShipment.Id, Reason = NdrReason.CustomerUnavailable, Status = NdrStatus.Open });
+        dbContext.Add(new NDR { Id = Guid.NewGuid(), OrganizationId = orgId, ShipmentId = outOfScopeShipment.Id, Reason = NdrReason.WrongAddress, Status = NdrStatus.Contacting });
+        await dbContext.SaveChangesAsync();
+
+        var service = new NdrReportingLookupService(dbContext);
+        var result = await service.GetStatusCountsAsync(new HashSet<Guid> { branchId });
+
+        Assert.Equal(1, result[NdrStatus.Open]);
+        Assert.False(result.ContainsKey(NdrStatus.Contacting));
+    }
 }

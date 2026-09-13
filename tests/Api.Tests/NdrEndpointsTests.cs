@@ -316,4 +316,53 @@ public class NdrEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
+
+    [Fact]
+    public async Task GetNdrsSummary_ReturnsStatusCounts()
+    {
+        var client = _factory.CreateClient();
+        var auth = await RegisterOrgAsync(client, "summary");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth.AccessToken);
+
+        var response = await client.GetAsync("/api/v1/ndrs/summary");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<Dictionary<string, int>>();
+        Assert.NotNull(body);
+    }
+
+    [Fact]
+    public async Task GetNdrsSummary_Unauthenticated_Returns401()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/api/v1/ndrs/summary");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetReturnShipmentsSummary_ReturnsEmptySummaryForNewOrg()
+    {
+        var client = _factory.CreateClient();
+        var auth = await RegisterOrgAsync(client, "summary");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth.AccessToken);
+
+        var response = await client.GetAsync("/api/v1/return-shipments/summary");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<ReturnShipmentSummary>();
+        Assert.Equal(0, body!.MerchantConfirmed);
+        Assert.Equal(0, body.PendingConfirmation);
+    }
+
+    [Fact]
+    public async Task GetReturnShipmentsSummary_Unauthenticated_Returns401()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/api/v1/return-shipments/summary");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
 }

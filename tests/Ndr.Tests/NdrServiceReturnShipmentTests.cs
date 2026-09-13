@@ -155,4 +155,44 @@ public class NdrServiceReturnShipmentTests
 
         Assert.Null(await service.GetReturnShipmentByIdAsync(Guid.NewGuid()));
     }
+
+    [Fact]
+    public async Task GetReturnShipmentSummaryAsync_GroupsByRtoStageAndConfirmationState()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var confirmedOriginalId = Guid.NewGuid();
+        var pendingOriginalId = Guid.NewGuid();
+        var originBranchId = Guid.NewGuid();
+        var destinationBranchId = Guid.NewGuid();
+
+        var confirmed = new ReturnShipment
+        {
+            Id = Guid.NewGuid(), OriginalShipmentId = confirmedOriginalId, OrganizationId = organizationId,
+            ReturnAwb = "RTO-001", RtoReason = "Customer refused",
+            OriginBranchId = destinationBranchId, DestinationBranchId = originBranchId,
+            MerchantConfirmedAt = DateTimeOffset.UtcNow
+        };
+        var pending = new ReturnShipment
+        {
+            Id = Guid.NewGuid(), OriginalShipmentId = pendingOriginalId, OrganizationId = organizationId,
+            ReturnAwb = "RTO-002", RtoReason = "Wrong address",
+            OriginBranchId = destinationBranchId, DestinationBranchId = originBranchId
+        };
+        dbContext.Set<ReturnShipment>().Add(confirmed);
+        dbContext.Set<ReturnShipment>().Add(pending);
+        await dbContext.SaveChangesAsync();
+
+        var shipments = new FakeShipmentTransitionService();
+        shipments.ShipmentsById[confirmedOriginalId] = new ShipmentScanInfo(confirmedOriginalId, organizationId, "AWB001", ShipmentStatus.RtoAtOrigin, originBranchId, originBranchId, destinationBranchId, null);
+        shipments.ShipmentsById[pendingOriginalId] = new ShipmentScanInfo(pendingOriginalId, organizationId, "AWB002", ShipmentStatus.RtoInTransit, null, originBranchId, destinationBranchId, null);
+        var service = new NdrService(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), shipments, new AllBranchesAuthorizationChecker());
+
+        var result = await service.GetReturnShipmentSummaryAsync(ActingUser(Guid.NewGuid()));
+
+        Assert.Equal(1, result.ByRtoStage[ShipmentStatus.RtoAtOrigin]);
+        Assert.Equal(1, result.ByRtoStage[ShipmentStatus.RtoInTransit]);
+        Assert.Equal(1, result.MerchantConfirmed);
+        Assert.Equal(1, result.PendingConfirmation);
+    }
 }
