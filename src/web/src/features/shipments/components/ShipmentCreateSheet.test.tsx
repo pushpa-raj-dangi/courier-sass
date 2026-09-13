@@ -22,13 +22,9 @@ vi.mock("@/features/branches/hooks/useBranches", () => ({
 }));
 vi.mock("@/features/shipments/hooks/useShipmentQuote", () => ({ useShipmentQuote: () => ({ data: null, isFetching: false }) }));
 vi.mock("@/features/shipments/hooks/useCreateShipment", () => ({ useCreateShipment: () => ({ mutateAsync: vi.fn(), isPending: false }) }));
-vi.mock("@/features/admin/settings/hooks/useOrganizationSettings", () => ({
-  useOrganizationSettings: () => ({
-    data: {
-      profile: { supportEmail: null, supportPhone: null, addressLine: null, logoUrl: null, timeZoneId: "Asia/Kathmandu", businessHours: null },
-      security: { refreshTokenLifetimeDays: 7, minPasswordLength: 8 },
-      defaults: { defaultServiceTypeId: "st-standard", defaultOriginBranchId: "branch-ktm" },
-    },
+vi.mock("@/features/shipments/hooks/useShipmentDefaults", () => ({
+  useShipmentDefaults: () => ({
+    data: { defaultServiceTypeId: "st-standard", defaultOriginBranchId: "branch-ktm" },
   }),
 }));
 
@@ -83,7 +79,7 @@ describe("ShipmentCreateSheet", () => {
     expect(screen.getByLabelText("Origin branch")).toHaveTextContent("Pokhara Hub");
 
     // Force a re-render of the form (typing in an unrelated field triggers RHF/watch re-renders,
-    // and the mocked useOrganizationSettings hook returns a fresh object identity on every call,
+    // and the mocked useShipmentDefaults hook returns a fresh object identity on every call,
     // which would re-run the pre-fill effect if it weren't guarded). The manually chosen branch
     // must survive — the pre-fill must never re-apply once the field is non-empty.
     fireEvent.change(screen.getByLabelText("Weight (kg)"), { target: { value: "5" } });

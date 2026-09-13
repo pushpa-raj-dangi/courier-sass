@@ -54,6 +54,17 @@ public static class OrganizationSettingsEndpoints
             return Results.Ok();
         }).RequirePermission("org.settings.manage");
 
+        // Narrower than GET "/": exposes only OperationalDefaultsDto (no profile/security data) and
+        // is gated on shipment.create rather than org.settings.manage, so every shipment-creating
+        // role (CounterStaff, OperationsManager) can pre-fill the shipment-creation form without
+        // being granted the full Settings-management permission.
+        group.MapGet("/defaults", async (OrganizationSettingsService service, ICurrentTenantProvider tenantProvider, CancellationToken cancellationToken) =>
+        {
+            var organizationId = tenantProvider.OrganizationId!.Value;
+            var settings = await service.GetAsync(organizationId, cancellationToken);
+            return Results.Ok(settings.Defaults);
+        }).RequirePermission("shipment.create");
+
         group.MapPatch("/defaults", async (OperationalDefaultsDto request, OrganizationSettingsService service, ICurrentTenantProvider tenantProvider, HttpContext httpContext) =>
         {
             var organizationId = tenantProvider.OrganizationId!.Value;

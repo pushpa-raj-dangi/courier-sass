@@ -20,7 +20,7 @@ import { useMerchants } from "@/features/shipments/hooks/useMerchants";
 import { useServiceTypes } from "@/features/shipments/hooks/useServiceTypes";
 import { useShipmentQuote } from "@/features/shipments/hooks/useShipmentQuote";
 import { useShipmentPanelStore } from "@/features/shipments/store/shipmentPanelStore";
-import { useOrganizationSettings } from "@/features/admin/settings/hooks/useOrganizationSettings";
+import { useShipmentDefaults } from "@/features/shipments/hooks/useShipmentDefaults";
 import { ItemsField } from "@/features/shipments/components/ItemsField";
 
 export function ShipmentCreateSheet() {
@@ -33,7 +33,7 @@ export function ShipmentCreateSheet() {
   const { data: merchants } = useMerchants();
   const { data: serviceTypes } = useServiceTypes();
   const { data: branches } = useBranches();
-  const { data: organizationSettings } = useOrganizationSettings();
+  const { data: shipmentDefaults } = useShipmentDefaults();
   const [serverError, setServerError] = useState<string | null>(null);
 
   const methods = useForm<CreateShipmentFormValues>({
@@ -59,10 +59,10 @@ export function ShipmentCreateSheet() {
     watch(["originBranchId", "destinationBranchId", "weightKg", "serviceTypeId", "codAmount", "wantsInsurance", "merchantId", "items"]);
 
   useEffect(() => {
-    if (!isOpen || !organizationSettings) {
+    if (!isOpen || !shipmentDefaults) {
       return;
     }
-    const { defaultOriginBranchId, defaultServiceTypeId } = organizationSettings.defaults;
+    const { defaultOriginBranchId, defaultServiceTypeId } = shipmentDefaults;
     if (!originBranchId && defaultOriginBranchId) {
       setValue("originBranchId", defaultOriginBranchId);
     }
@@ -74,7 +74,7 @@ export function ShipmentCreateSheet() {
     // sets, fighting a deliberate override. It should re-run only when the sheet opens fresh or the
     // org's defaults change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, organizationSettings, setValue]);
+  }, [isOpen, shipmentDefaults, setValue]);
 
   const declaredValue = (items ?? []).reduce((sum, item) => sum + (item.quantity || 0) * (item.unitValue || 0), 0);
 
