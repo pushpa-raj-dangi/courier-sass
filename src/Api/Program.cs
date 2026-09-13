@@ -386,6 +386,7 @@ app.UseMiddleware<Courier.Api.Middleware.IdempotencyMiddleware>();
 app.MapAuthEndpoints();
 app.MapUsersEndpoints();
 app.MapRolesEndpoints();
+app.MapOrganizationSettingsEndpoints();
 app.MapBranchesEndpoints();
 app.MapMerchantBranchesEndpoints();
 app.MapGeographyEndpoints();

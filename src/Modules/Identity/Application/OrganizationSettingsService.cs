@@ -32,6 +32,27 @@ public class OrganizationSettingsService
         return new SecurityPolicyDto(settings.RefreshTokenLifetimeDays, settings.MinPasswordLength);
     }
 
+    public async Task<OrganizationProfileDto> UpdateProfileAsync(Guid organizationId, Guid actingUserId, OrganizationProfileDto profile, CancellationToken cancellationToken = default)
+    {
+        var settings = await GetOrCreateAsync(organizationId, cancellationToken);
+        var before = new OrganizationProfileDto(settings.SupportEmail, settings.SupportPhone, settings.AddressLine, settings.LogoUrl, settings.TimeZoneId, settings.BusinessHours);
+
+        settings.SupportEmail = profile.SupportEmail;
+        settings.SupportPhone = profile.SupportPhone;
+        settings.AddressLine = profile.AddressLine;
+        settings.LogoUrl = profile.LogoUrl;
+        settings.TimeZoneId = string.IsNullOrWhiteSpace(profile.TimeZoneId) ? "Asia/Kathmandu" : profile.TimeZoneId;
+        settings.BusinessHours = profile.BusinessHours;
+        settings.ProfileUpdatedAt = DateTimeOffset.UtcNow;
+        settings.ProfileUpdatedByUserId = actingUserId;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await _auditLogger.LogAsync(new AuditEntry(organizationId, actingUserId, "organization.profile_updated", "OrganizationSettings", organizationId.ToString(),
+            Before: System.Text.Json.JsonSerializer.Serialize(before), After: System.Text.Json.JsonSerializer.Serialize(profile)), cancellationToken);
+
+        return new OrganizationProfileDto(settings.SupportEmail, settings.SupportPhone, settings.AddressLine, settings.LogoUrl, settings.TimeZoneId, settings.BusinessHours);
+    }
+
     // IgnoreQueryFilters(): every caller of this method either already holds a resolved ambient
     // tenant (staff Settings endpoints, Task 2/3/5) or explicitly runs with no ambient tenant at
     // all (AuthService's pre-authentication flows, Task 4) — the explicit organizationId

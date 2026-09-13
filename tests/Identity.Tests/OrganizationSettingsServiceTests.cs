@@ -71,4 +71,28 @@ public class OrganizationSettingsServiceTests
         Assert.Equal(7, result.RefreshTokenLifetimeDays);
         Assert.Equal(8, result.MinPasswordLength);
     }
+
+    [Fact]
+    public async Task UpdateProfileAsync_PersistsFieldsAndWritesAuditEntry()
+    {
+        using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
+        var organization = NewOrganization(dbContext);
+        await dbContext.SaveChangesAsync();
+        var auditLogger = new FakeAuditLogger();
+        var service = new OrganizationSettingsService(dbContext, new NullTenantProvider(), auditLogger);
+        var actingUserId = Guid.NewGuid();
+        var profile = new OrganizationProfileDto("support@example.test", "01-4444444", "New Road, Kathmandu", null, "Asia/Kathmandu", "9:00 AM - 6:00 PM");
+
+        var result = await service.UpdateProfileAsync(organization.Id, actingUserId, profile);
+
+        Assert.Equal("support@example.test", result.SupportEmail);
+        var persisted = dbContext.Set<OrganizationSettings>().IgnoreQueryFilters().Single(s => s.OrganizationId == organization.Id);
+        Assert.Equal("support@example.test", persisted.SupportEmail);
+        Assert.NotNull(persisted.ProfileUpdatedAt);
+        Assert.Equal(actingUserId, persisted.ProfileUpdatedByUserId);
+        var entry = Assert.Single(auditLogger.Entries);
+        Assert.Equal("organization.profile_updated", entry.Action);
+        Assert.Equal(organization.Id, entry.OrganizationId);
+        Assert.Equal(actingUserId, entry.UserId);
+    }
 }
