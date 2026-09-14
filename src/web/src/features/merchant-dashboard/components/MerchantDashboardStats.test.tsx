@@ -47,14 +47,14 @@ describe("MerchantDashboardStats", () => {
     // Created tile: 2 "Created" rows + 1 "PickupAssigned" row = 3.
     await waitFor(() => expect(screen.getByText("3")).toBeInTheDocument());
     const createdLabel = screen.getByText("Created");
-    expect(createdLabel.parentElement?.nextElementSibling).toHaveTextContent("3");
+    expect(createdLabel.nextElementSibling).toHaveTextContent("3");
 
     // "1" alone is ambiguous here (Out for Delivery and Delivered are also 1), so scope to the
     // In Transit tile specifically, following the label -> value DOM lookup used elsewhere
     // (see QuickStatsStrip.test.tsx) rather than a bare getByText("1"). This also confirms the
     // PickupAssigned row was NOT double-counted into In Transit.
     const inTransitLabel = screen.getByText("In Transit");
-    expect(inTransitLabel.parentElement?.nextElementSibling).toHaveTextContent("1");
+    expect(inTransitLabel.nextElementSibling).toHaveTextContent("1");
   });
 
   it("sums COD pending and settled from settlements", async () => {
