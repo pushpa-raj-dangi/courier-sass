@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Package } from "lucide-react";
 import { LoginForm } from "@/features/auth/LoginForm";
 import { AuthShowcasePanel } from "@/components/auth/AuthShowcasePanel";
+import { MobileBrandLockup } from "@/components/auth/MobileBrandLockup";
 import type { AuthLifecycleStop } from "@/components/auth/AuthLifecycleGraphic";
 
 const STOPS: AuthLifecycleStop[] = [
@@ -23,10 +24,7 @@ export default function LoginPage() {
       />
       <div className="flex flex-col items-center justify-center gap-6 bg-background p-4">
         <div className="flex flex-col items-center gap-2 lg:hidden">
-          <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary">
-            <Package className="h-5 w-5 text-primary-foreground" strokeWidth={2} />
-          </span>
-          <span className="font-display text-lg font-semibold tracking-tight">Courier Platform</span>
+          <MobileBrandLockup icon={Package} brand="Courier Platform" />
         </div>
         <LoginForm />
         <p className="text-sm text-muted-foreground">
