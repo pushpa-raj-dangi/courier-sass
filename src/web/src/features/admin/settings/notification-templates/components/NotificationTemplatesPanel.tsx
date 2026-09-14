@@ -34,7 +34,6 @@ export function NotificationTemplatesPanel() {
 
   const columns: ColumnDef<Row>[] = [
     { key: "eventType", header: "Event", render: (r) => r.eventType },
-    { key: "channel", header: "Channel", render: (r) => r.channel },
     {
       key: "status",
       header: "Status",
