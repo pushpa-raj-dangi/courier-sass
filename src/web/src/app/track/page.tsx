@@ -3,7 +3,6 @@
 import { motion } from "framer-motion";
 import { Package } from "lucide-react";
 import { MarketingThemeToggle } from "@/features/marketing/components/MarketingThemeToggle";
-import { RouteLineGraphic } from "@/features/marketing/components/RouteLineGraphic";
 import { useRevealVariants } from "@/features/marketing/lib/motionVariants";
 import { TrackingSearchForm } from "@/features/tracking/TrackingSearchForm";
 
@@ -13,25 +12,15 @@ export default function TrackPage() {
   return (
     <div className="relative isolate min-h-screen bg-marketing-bg selection:bg-marketing-accent/40 selection:text-marketing-fg">
       <div aria-hidden="true" className="marketing-grain-overlay" />
-      {/* Two-layer glow: the accent ellipse up top is the page's brand light; the warmer
-          motion-tone orb lower-left reuses the same hue the shipment timeline uses for "in
-          transit" — a wink at the subject matter rather than an arbitrary decorative color. */}
+      {/* One brand-light glow — this is a single-task search page, not the homepage hero, so it
+          gets one ambient wash rather than the hero's full layered treatment (route line, second
+          orb, per-element glow). */}
       <div
         aria-hidden="true"
         className="pointer-events-none fixed inset-0 -z-20"
         style={{
           background: "radial-gradient(ellipse 70% 50% at 50% 0%, hsl(var(--marketing-accent) / 0.18), transparent 70%)",
         }}
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none fixed -bottom-16 -left-16 -z-20 h-[26rem] w-[26rem] rounded-full opacity-30 blur-3xl"
-        style={{ backgroundColor: "hsl(var(--marketing-tone-motion))" }}
-      />
-      <RouteLineGraphic
-        className="pointer-events-none fixed inset-x-0 top-[16%] -z-10 h-72 w-full"
-        strokeOpacity={0.4}
-        hubOpacity={0.55}
       />
 
       <div className="relative z-10 flex min-h-screen flex-col">
@@ -59,12 +48,7 @@ export default function TrackPage() {
             </p>
           </motion.div>
 
-          <motion.div variants={item} className="relative">
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute -inset-6 -z-10 rounded-[2rem] opacity-60 blur-2xl"
-              style={{ backgroundColor: "hsl(var(--marketing-accent) / 0.12)" }}
-            />
+          <motion.div variants={item}>
             <TrackingSearchForm />
           </motion.div>
 
