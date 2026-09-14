@@ -210,7 +210,7 @@ function ShipmentResultsGroup({
       {results.map((r) => (
         <CommandItem key={r.awb} value={`shipment-${r.awb}`} onSelect={() => onRun(() => openDetail(r.awb))}>
           <Package strokeWidth={2} />
-          <span>{r.awb}</span>
+          <span className="font-mono">{r.awb}</span>
           <span className="ml-2 truncate text-muted-foreground">{r.recipientName}</span>
         </CommandItem>
       ))}
@@ -260,7 +260,7 @@ function ManifestResultsGroup({
       {results.map((r) => (
         <CommandItem key={r.id} value={`manifest-${r.id}`} onSelect={() => onRun(() => openDetail(r.id))}>
           <Truck strokeWidth={2} />
-          <span>{r.code}</span>
+          <span className="font-mono">{r.code}</span>
           <span className="ml-2 truncate text-muted-foreground">{r.status}</span>
         </CommandItem>
       ))}
@@ -285,7 +285,7 @@ function NdrResultsGroup({
       {results.map((r) => (
         <CommandItem key={r.id} value={`ndr-${r.id}`} onSelect={() => onRun(() => openDetail(r.id))}>
           <AlertTriangle strokeWidth={2} />
-          <span>{r.awb}</span>
+          <span className="font-mono">{r.awb}</span>
           <span className="ml-2 truncate text-muted-foreground">{r.status}</span>
         </CommandItem>
       ))}
@@ -310,7 +310,7 @@ function ReturnShipmentResultsGroup({
       {results.map((r) => (
         <CommandItem key={r.id} value={`return-shipment-${r.id}`} onSelect={() => onRun(() => openDetail(r.id))}>
           <Undo2 strokeWidth={2} />
-          <span>{r.returnAwb}</span>
+          <span className="font-mono">{r.returnAwb}</span>
           <span className="ml-2 truncate text-muted-foreground">{r.status}</span>
         </CommandItem>
       ))}

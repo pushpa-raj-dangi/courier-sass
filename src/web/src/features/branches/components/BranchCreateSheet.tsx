@@ -71,78 +71,82 @@ export function BranchCreateSheet() {
         <SheetHeader>
           <SheetTitle>New Branch</SheetTitle>
         </SheetHeader>
-        <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4" noValidate>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="code">Code</Label>
-              <Input
-                id="code"
-                aria-invalid={!!errors.code}
-                aria-describedby={errors.code ? "code-error" : undefined}
-                {...register("code")}
-              />
-              {errors.code && <FieldError id="code-error">{errors.code.message}</FieldError>}
+        <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-6" noValidate>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="code">Code</Label>
+                <Input
+                  id="code"
+                  aria-invalid={!!errors.code}
+                  aria-describedby={errors.code ? "code-error" : undefined}
+                  {...register("code")}
+                />
+                {errors.code && <FieldError id="code-error">{errors.code.message}</FieldError>}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="name">Name</Label>
+                <Input
+                  id="name"
+                  aria-invalid={!!errors.name}
+                  aria-describedby={errors.name ? "name-error" : undefined}
+                  {...register("name")}
+                />
+                {errors.name && <FieldError id="name-error">{errors.name.message}</FieldError>}
+              </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
-              <Input
-                id="name"
-                aria-invalid={!!errors.name}
-                aria-describedby={errors.name ? "name-error" : undefined}
-                {...register("name")}
+              <Label htmlFor="type">Type</Label>
+              <Controller
+                name="type"
+                control={control}
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger
+                      id="type"
+                      aria-label="Type"
+                      aria-invalid={!!errors.type}
+                      aria-describedby={errors.type ? "type-error" : undefined}
+                    >
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {BRANCH_TYPES.map((t) => (
+                        <SelectItem key={t} value={t}>
+                          {t}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               />
-              {errors.name && <FieldError id="name-error">{errors.name.message}</FieldError>}
+              {errors.type && <FieldError id="type-error">{errors.type.message}</FieldError>}
             </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="type">Type</Label>
-            <Controller
-              name="type"
-              control={control}
-              render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger
-                    id="type"
-                    aria-label="Type"
-                    aria-invalid={!!errors.type}
-                    aria-describedby={errors.type ? "type-error" : undefined}
-                  >
-                    <SelectValue placeholder="Select type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {BRANCH_TYPES.map((t) => (
-                      <SelectItem key={t} value={t}>
-                        {t}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+          <div className="space-y-4 border-t border-border pt-6">
+            <GeographyPicker
+              value={geographyValue}
+              onChange={(next) => {
+                setValue("provinceId", next.provinceId ?? "");
+                setValue("districtId", next.districtId ?? "");
+                setValue("localLevelId", next.localLevelId ?? "");
+                setValue("wardNumber", next.wardNumber ?? undefined as never);
+              }}
+            />
+            <div className="space-y-2">
+              <Label htmlFor="addressLine">Address</Label>
+              <Input
+                id="addressLine"
+                aria-invalid={!!errors.addressLine}
+                aria-describedby={errors.addressLine ? "addressLine-error" : undefined}
+                {...register("addressLine")}
+              />
+              {errors.addressLine && (
+                <FieldError id="addressLine-error">{errors.addressLine.message}</FieldError>
               )}
-            />
-            {errors.type && <FieldError id="type-error">{errors.type.message}</FieldError>}
+            </div>
           </div>
-          <GeographyPicker
-            value={geographyValue}
-            onChange={(next) => {
-              setValue("provinceId", next.provinceId ?? "");
-              setValue("districtId", next.districtId ?? "");
-              setValue("localLevelId", next.localLevelId ?? "");
-              setValue("wardNumber", next.wardNumber ?? undefined as never);
-            }}
-          />
-          <div className="space-y-2">
-            <Label htmlFor="addressLine">Address</Label>
-            <Input
-              id="addressLine"
-              aria-invalid={!!errors.addressLine}
-              aria-describedby={errors.addressLine ? "addressLine-error" : undefined}
-              {...register("addressLine")}
-            />
-            {errors.addressLine && (
-              <FieldError id="addressLine-error">{errors.addressLine.message}</FieldError>
-            )}
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 border-t border-border pt-6 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="phone">Phone</Label>
               <Input id="phone" {...register("phone")} />
@@ -152,7 +156,7 @@ export function BranchCreateSheet() {
               <Input id="operatingHours" placeholder="9:00 AM - 6:00 PM" {...register("operatingHours")} />
             </div>
           </div>
-          <div className="space-y-2">
+          <div className="space-y-2 border-t border-border pt-6">
             <Label htmlFor="parentBranchId">Parent Branch</Label>
             <Controller
               name="parentBranchId"

@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -50,10 +49,7 @@ export function AcceptInviteForm() {
     return (
       <Card className="w-full max-w-sm shadow-xl shadow-primary/5">
         <CardContent className="pt-6">
-          <FieldError id="invite-token-error" className="flex items-center gap-1.5">
-            <AlertCircle className="h-3.5 w-3.5" strokeWidth={2} />
-            This invite link is missing its token. Check the link in your email and try again.
-          </FieldError>
+          <FieldError id="invite-token-error">This invite link is missing its token. Check the link in your email and try again.</FieldError>
         </CardContent>
       </Card>
     );
@@ -79,10 +75,7 @@ export function AcceptInviteForm() {
               {...register("password")}
             />
             {errors.password && (
-              <FieldError id="password-error" className="flex items-center gap-1.5">
-                <AlertCircle className="h-3.5 w-3.5" strokeWidth={2} />
-                {errors.password.message}
-              </FieldError>
+              <FieldError id="password-error">{errors.password.message}</FieldError>
             )}
           </div>
           <div className="space-y-2">
@@ -96,17 +89,11 @@ export function AcceptInviteForm() {
               {...register("confirmPassword")}
             />
             {errors.confirmPassword && (
-              <FieldError id="confirmPassword-error" className="flex items-center gap-1.5">
-                <AlertCircle className="h-3.5 w-3.5" strokeWidth={2} />
-                {errors.confirmPassword.message}
-              </FieldError>
+              <FieldError id="confirmPassword-error">{errors.confirmPassword.message}</FieldError>
             )}
           </div>
           {serverError && (
-            <FieldError id="accept-invite-server-error" className="flex items-center gap-1.5">
-              <AlertCircle className="h-3.5 w-3.5" strokeWidth={2} />
-              {serverError}
-            </FieldError>
+            <FieldError id="accept-invite-server-error">{serverError}</FieldError>
           )}
           <Button type="submit" className="w-full" disabled={isSubmitting}>
             {isSubmitting ? "Setting password..." : "Set Password & Sign In"}

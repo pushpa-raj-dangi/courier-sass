@@ -46,7 +46,7 @@ export function ShipmentDetailSheet() {
     <Sheet open={isOpen} onOpenChange={(open) => { if (!open) close(); }}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
         <SheetHeader>
-          <SheetTitle>{shipment?.awb ?? "Shipment"}</SheetTitle>
+          <SheetTitle className={shipment?.awb ? "font-mono" : undefined}>{shipment?.awb ?? "Shipment"}</SheetTitle>
         </SheetHeader>
         <div className="mt-6 space-y-6">
           {isLoading && <DetailSkeleton fieldRows={5} />}

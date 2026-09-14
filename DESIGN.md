@@ -96,7 +96,7 @@ The palette is deliberately calmer than a typical categorical status system: eve
 
 Two rejections are explicit and confirmed, not just absent: no camera/scanner chrome or courier-brand marketing gloss (this is Operate-mode software, not a storefront for the courier company), and no invented brand *name* — the product has no confirmed market name or logo yet (`PRODUCT.md`), so nothing here claims to be a logo or wordmark. Courier Cobalt is a color decision, not a naming one, and doesn't change that white-label status.
 
-This system is still mid-build (Phases F0–F4 of nine staff-portal phases; see `docs/FRONTEND-ROADMAP.md`), and it shows two small, real seams rather than one seamless language — both called out honestly below instead of papered over: dashboards use two different shapes for a "tinted emphasis" icon badge (Colors' Named Rules), and the global header search bar is a visual placeholder with no function behind it yet (Do's and Don'ts).
+This system is still mid-build (Phases F0–F4 of nine staff-portal phases; see `docs/FRONTEND-ROADMAP.md`), and it shows small, real seams rather than one seamless language, called out honestly below instead of papered over — see Colors' Named Rules and the Components section for specifics as they're found and closed.
 
 **Key Characteristics:**
 - Warm paper background + deep indigo ink, not black-on-white or cool gray-on-white.
@@ -160,7 +160,7 @@ Every marketing color was computed and verified against WCAG AA (4.5:1 text, 3:1
 
 **Display Font:** Space Grotesk (with IBM Plex Sans, sans-serif fallback)
 **Body Font:** IBM Plex Sans (with Arial, Helvetica, sans-serif fallback)
-**Label/Mono Font:** IBM Plex Mono (monospace) — configured and loaded, but not yet applied to any shipped component; reserved for AWB/tracking-number-style data once that UI exists. Do not introduce a second monospace family for that purpose.
+**Label/Mono Font:** IBM Plex Mono (monospace) — reserved for AWB/tracking-number/manifest-code data: the shipment list and detail Sheet title, manifest scan lists and detail Sheet title, and `CommandPalette`'s entity-search results, plus the public tracking page and merchant API keys. Do not introduce a second monospace family for that purpose.
 
 **Character:** Space Grotesk's slightly geometric, wider-set forms give page titles, section headers, and the auth-gate surfaces a touch of confidence and structure; IBM Plex Sans's plainer, highly legible forms carry every sentence of actual operational content. The pairing reads as "considered software," not generic or decorative.
 
@@ -232,7 +232,7 @@ A highlighted single-metric callout (`FinancialSummary`'s "Merchant Payable") es
 - **Style:** transparent background, hairline border, `rounded-md`, `shadow-sm`, `h-9` (36px) — Input and SelectTrigger share this exact treatment.
 - **Focus:** `focus-visible:ring-1 focus-visible:ring-ring` — a thin single ring, not a glow or border-color shift.
 - **Icon-decorated input:** email/password fields on the two auth surfaces prefix an absolutely-positioned `h-4 w-4 text-muted-foreground` icon inside the field (`pl-9` on the input to clear it) — established on Login and the reauth Dialog; the password field additionally gets a right-aligned show/hide toggle (`Eye`/`EyeOff`). Not yet used on any non-auth form; adopt it there too if a field's purpose benefits from the icon, rather than treating it as auth-only by rule.
-- **Error:** the input itself never changes color on validation failure; a `text-sm text-destructive` message appears directly beneath the field instead. The two auth surfaces additionally lead that message with an `AlertCircle` icon; other forms (e.g. `BranchCreateSheet`) currently show bare text — treat the icon as an optional strengthening, not yet a required pattern everywhere.
+- **Error:** the input itself never changes color on validation failure; the shared `FieldError` component renders the message beneath the field instead, always leading with a small `AlertCircle` icon (`h-3.5 w-3.5`) — every form gets this from the one shared component, not a per-surface opt-in.
 - **Labels:** `Label` (shadcn default) sits directly above its control with `space-y-2` (8px) between them; every field is a `Label` + control + optional error-message stack, never a floating/inline label.
 
 ### Sheets (signature interaction pattern)
@@ -251,7 +251,7 @@ The user menu is the only dropdown in the app today: an avatar + name trigger (`
 - **Mobile:** below `md`, the permanent rail is replaced by a `Sheet`-based drawer opened via a header hamburger trigger — sharing the same `SidebarNav` content as desktop so the two can't drift apart.
 
 ### Header
-Sticky, `h-16`, hairline bottom border, `bg-card`: sidebar trigger, a global search bar, then theme toggle + vertical hairline separator + user menu, right-aligned. The search bar (`⌘K`-labeled) is a confirmed **visual placeholder only** — `aria-hidden`, no click handler, no keyboard listener — because there is nothing in the app yet for it to search across; see Do's and Don'ts before building on top of it.
+Sticky, `h-16`, hairline bottom border, `bg-card`: sidebar trigger, a global search bar, then theme toggle + vertical hairline separator + user menu, right-aligned. The search bar (`⌘K`-labeled) opens `CommandPalette` — a real `Ctrl+K`/`⌘K` command dialog (`components/layout/CommandPalette.tsx`) listing every permitted nav page and permission-gated quick-create action, plus live entity search once a query is at least 2 characters (shipments, branches, manifests, NDRs, return shipments via `useGlobalSearch`). AWB/manifest-code results use the same reserved monospace treatment as the shipment list (see Typography). This replaced an earlier non-functional placeholder; nothing in the header is decorative-only anymore.
 
 ### Data Table
 The table itself sits in its own bordered container — `rounded-xl border border-border bg-muted/40` (`overflow-hidden` to clip the corners), the same corner radius as a Card. `bg-muted/40` rather than `bg-card` is deliberate: `DataTable` is typically the entire content of a list page, sitting directly on the page background rather than nested inside a Card, and `bg-card` is hex-identical to the page background in light mode (see Cards, above) — invisible as a container fill there. A light `muted` tint reads as a distinct, lifted panel in both themes. Header row + body rows keep the shadcn `Table` default 1px hairline row separators inside that container, no zebra striping, no row hover highlight beyond the default. Below the table, outside the bordered container: a plain-text "Page X of Y (N total)" caption on the left, numbered `PaginationLink`s with ellipsis collapsing plus Previous/Next controls (disabled at the bounds) on the right — this superseded an earlier Previous/Next-only design once real page counts made jump-ahead navigation worth the extra chrome. The bordered/rounded/tinted container itself is a standalone component, `BorderedTableContainer` (`components/data-table/`), promoted out of `DataTable` during the 2026-09-08 audit pass once a sixth hand-rolled copy of the same wrapper markup showed up across the app; `DataTable` and every non-`DataTable` table (`MerchantSettlementsTab` and the five merchant portal list pages — cod, kyc, pickups, staff, api-keys, none of which paginate since their list endpoints don't support it yet) now render through this one shared wrapper instead of copy-pasting the div.
@@ -270,7 +270,7 @@ The table itself sits in its own bordered container — `rounded-xl border borde
 - **Do** open every detail/create/edit view as a right-side Sheet backed by a Zustand panel store; reserve routed pages for list/index views, and the centered Dialog exclusively for app-level interruptions like session expiry.
 - **Do** verify a new status or semantic color against WCAG AA contrast and CVD-safe adjacent-pair separation before adding it (the dataviz validator this system was built with) — this is a binding standard per `PRODUCT.md`, not best-effort.
 - **Do** hide a nav item or gated action entirely (`return null`) when the user lacks the permission, rather than showing it disabled.
-- **Do** wire up real search functionality (with a real click handler and `⌘K` listener) before extending the header search bar's visual treatment — it renders today but does nothing, and no other surface should copy that "looks functional, isn't" pattern.
+- **Do** extend `CommandPalette`'s entity search (`useGlobalSearch`) to new record types as they ship, rather than building a second, page-local search input — it's the one search surface in the app.
 
 ### Don't:
 - **Don't** add a shadow to an at-rest surface (card, tile, table row) that doesn't already have one — depth is reserved for overlays (Sheet, dialog, dropdown) and the two auth-gate surfaces only.

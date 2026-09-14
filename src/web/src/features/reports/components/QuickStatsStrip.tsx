@@ -52,13 +52,13 @@ export function QuickStatsStrip({ data }: { data: OrgDashboardSummary }) {
         return (
           <Card key={tile.label}>
             <CardContent className="flex items-center gap-3 py-4">
-              <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${tile.badgeClass}`}>
+              <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${tile.badgeClass}`}>
                 <Icon className="h-5 w-5" strokeWidth={2} />
               </span>
               <div className="flex flex-col gap-0.5 overflow-hidden">
                 <span className="truncate text-xs text-muted-foreground">{tile.label}</span>
                 <span
-                  className={`truncate font-sans text-lg font-semibold sm:text-xl ${
+                  className={`truncate font-sans text-lg font-semibold tabular-nums sm:text-xl ${
                     tile.highlight ? "text-primary" : "text-foreground"
                   }`}
                 >

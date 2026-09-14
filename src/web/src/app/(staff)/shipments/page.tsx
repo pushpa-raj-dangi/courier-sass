@@ -56,7 +56,7 @@ export default function ShipmentsPage() {
         <button
           type="button"
           onClick={() => openDetail(s.awb)}
-          className="font-medium text-foreground hover:underline"
+          className="font-mono font-medium text-foreground hover:underline"
         >
           {s.awb}
         </button>

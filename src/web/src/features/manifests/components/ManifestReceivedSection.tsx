@@ -21,7 +21,7 @@ export function ManifestReceivedSection({ manifest }: { manifest: Manifest }) {
         {!isLoading && missing && missing.length > 0 && (
           <ul className="space-y-1 text-sm">
             {missing.map((m) => (
-              <li key={m.shipmentId} className="text-destructive">{m.awb}</li>
+              <li key={m.shipmentId} className="font-mono text-destructive">{m.awb}</li>
             ))}
           </ul>
         )}

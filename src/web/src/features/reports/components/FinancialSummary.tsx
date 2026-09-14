@@ -44,7 +44,7 @@ export function FinancialSummary({ data }: { data: CodFinancialSummary }) {
                 </span>
                 <span className="text-xs text-muted-foreground">{field.label}</span>
                 <span
-                  className="font-sans text-lg font-semibold text-foreground"
+                  className="font-sans text-lg font-semibold tabular-nums text-foreground"
                   title={exactCurrencyFormatter.format(data[field.key])}
                 >
                   {currencyFormatter.format(data[field.key])}
@@ -60,7 +60,7 @@ export function FinancialSummary({ data }: { data: CodFinancialSummary }) {
           <div className="flex flex-col gap-1">
             <span className="text-xs text-accent-foreground/70">Merchant Payable</span>
             <span
-              className="font-sans text-xl font-semibold text-status-in-transit"
+              className="font-sans text-xl font-semibold tabular-nums text-status-in-transit"
               title={exactCurrencyFormatter.format(data.merchantPayable)}
             >
               {currencyFormatter.format(data.merchantPayable)}

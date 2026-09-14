@@ -35,7 +35,7 @@ export function ManifestDetailSheet() {
     <Sheet open={isOpen} onOpenChange={(open) => { if (!open) close(); }}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
         <SheetHeader>
-          <SheetTitle>{manifest?.code ?? "Manifest"}</SheetTitle>
+          <SheetTitle className={manifest?.code ? "font-mono" : undefined}>{manifest?.code ?? "Manifest"}</SheetTitle>
         </SheetHeader>
         <div className="mt-6 space-y-6">
           {isLoading && <DetailSkeleton fieldRows={2} />}

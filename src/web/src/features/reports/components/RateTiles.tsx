@@ -72,7 +72,7 @@ export function RateTiles({
               </span>
               <div className="flex flex-col gap-0.5">
                 <span className="text-xs text-muted-foreground">{tile.label}</span>
-                <span className="font-sans text-lg font-semibold text-foreground">{tile.value}</span>
+                <span className="font-sans text-lg font-semibold tabular-nums text-foreground">{tile.value}</span>
               </div>
             </div>
           );

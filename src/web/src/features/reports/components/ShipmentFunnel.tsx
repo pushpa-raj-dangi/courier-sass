@@ -3,6 +3,7 @@
 import { Bar, BarChart, CartesianGrid, Cell, XAxis, YAxis } from "recharts";
 import { Package } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/states/EmptyState";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 
 const FUNNEL_BUCKETS: Array<{ label: string; token: string; statuses: string[] }> = [
@@ -34,6 +35,7 @@ export function ShipmentFunnel({ data }: { data: Record<string, number> }) {
     count: sumStatuses(data, bucket.statuses),
     fill: `hsl(var(--${bucket.token}))`,
   }));
+  const hasActivity = chartData.some((bucket) => bucket.count > 0);
 
   return (
     <Card>
@@ -47,28 +49,35 @@ export function ShipmentFunnel({ data }: { data: Record<string, number> }) {
         <CardDescription>Shipment activity for today</CardDescription>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={chartConfig} className="aspect-auto h-[300px] w-full">
-          <BarChart accessibilityLayer data={chartData} margin={{ top: 8, bottom: 24 }}>
-            <CartesianGrid vertical={false} />
-            <XAxis
-              dataKey="status"
-              tickLine={false}
-              axisLine={false}
-              interval={0}
-              angle={-35}
-              textAnchor="end"
-              height={56}
-              tickMargin={8}
-            />
-            <YAxis dataKey="count" type="number" hide />
-            <ChartTooltip cursor={{ fill: "hsl(var(--muted))" }} content={<ChartTooltipContent indicator="line" />} />
-            <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-              {chartData.map((entry) => (
-                <Cell key={entry.status} fill={entry.fill} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ChartContainer>
+        {hasActivity ? (
+          <ChartContainer config={chartConfig} className="aspect-auto h-[300px] w-full">
+            <BarChart accessibilityLayer data={chartData} layout="vertical" margin={{ top: 8, right: 16, bottom: 8 }}>
+              <CartesianGrid horizontal={false} />
+              <XAxis dataKey="count" type="number" hide />
+              <YAxis
+                dataKey="status"
+                type="category"
+                tickLine={false}
+                axisLine={false}
+                interval={0}
+                width={96}
+                tickMargin={8}
+              />
+              <ChartTooltip cursor={{ fill: "hsl(var(--muted))" }} content={<ChartTooltipContent indicator="line" />} />
+              <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+                {chartData.map((entry) => (
+                  <Cell key={entry.status} fill={entry.fill} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ChartContainer>
+        ) : (
+          <EmptyState
+            title="No shipment activity yet"
+            description="Today's shipments appear here once bookings start coming in."
+            icon={Package}
+          />
+        )}
       </CardContent>
     </Card>
   );

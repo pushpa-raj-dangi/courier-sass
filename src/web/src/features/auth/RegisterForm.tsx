@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Building2, Mail, Lock, User, Eye, EyeOff, ArrowRight, AlertCircle } from "lucide-react";
+import { Building2, Mail, Lock, User, Eye, EyeOff, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -85,10 +85,7 @@ export function RegisterForm() {
               />
             </div>
             {errors.organizationName && (
-              <FieldError id="organizationName-error" className="flex items-center gap-1.5">
-                <AlertCircle className="h-3.5 w-3.5" strokeWidth={2} />
-                {errors.organizationName.message}
-              </FieldError>
+              <FieldError id="organizationName-error">{errors.organizationName.message}</FieldError>
             )}
           </div>
           <div className="space-y-2">
@@ -102,10 +99,7 @@ export function RegisterForm() {
               {...register("organizationSlug", { onChange: onSlugChange })}
             />
             {errors.organizationSlug && (
-              <FieldError id="organizationSlug-error" className="flex items-center gap-1.5">
-                <AlertCircle className="h-3.5 w-3.5" strokeWidth={2} />
-                {errors.organizationSlug.message}
-              </FieldError>
+              <FieldError id="organizationSlug-error">{errors.organizationSlug.message}</FieldError>
             )}
           </div>
           <div className="space-y-2">
@@ -125,10 +119,7 @@ export function RegisterForm() {
               />
             </div>
             {errors.ownerFullName && (
-              <FieldError id="ownerFullName-error" className="flex items-center gap-1.5">
-                <AlertCircle className="h-3.5 w-3.5" strokeWidth={2} />
-                {errors.ownerFullName.message}
-              </FieldError>
+              <FieldError id="ownerFullName-error">{errors.ownerFullName.message}</FieldError>
             )}
           </div>
           <div className="space-y-2">
@@ -149,10 +140,7 @@ export function RegisterForm() {
               />
             </div>
             {errors.ownerEmail && (
-              <FieldError id="ownerEmail-error" className="flex items-center gap-1.5">
-                <AlertCircle className="h-3.5 w-3.5" strokeWidth={2} />
-                {errors.ownerEmail.message}
-              </FieldError>
+              <FieldError id="ownerEmail-error">{errors.ownerEmail.message}</FieldError>
             )}
           </div>
           <div className="space-y-2">
@@ -185,10 +173,7 @@ export function RegisterForm() {
               </button>
             </div>
             {errors.ownerPassword && (
-              <FieldError id="ownerPassword-error" className="flex items-center gap-1.5">
-                <AlertCircle className="h-3.5 w-3.5" strokeWidth={2} />
-                {errors.ownerPassword.message}
-              </FieldError>
+              <FieldError id="ownerPassword-error">{errors.ownerPassword.message}</FieldError>
             )}
           </div>
           <div className="space-y-2">
@@ -209,17 +194,11 @@ export function RegisterForm() {
               />
             </div>
             {errors.confirmPassword && (
-              <FieldError id="confirmPassword-error" className="flex items-center gap-1.5">
-                <AlertCircle className="h-3.5 w-3.5" strokeWidth={2} />
-                {errors.confirmPassword.message}
-              </FieldError>
+              <FieldError id="confirmPassword-error">{errors.confirmPassword.message}</FieldError>
             )}
           </div>
           {serverError && (
-            <FieldError id="register-server-error" className="flex items-center gap-1.5">
-              <AlertCircle className="h-3.5 w-3.5" strokeWidth={2} />
-              {serverError}
-            </FieldError>
+            <FieldError id="register-server-error">{serverError}</FieldError>
           )}
           <Button type="submit" size="lg" className="group w-full" disabled={isSubmitting}>
             {isSubmitting ? "Creating organization..." : "Create organization"}

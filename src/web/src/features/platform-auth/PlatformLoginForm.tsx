@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -65,10 +65,7 @@ export function PlatformLoginForm() {
               />
             </div>
             {errors.email && (
-              <FieldError id="email-error" className="flex items-center gap-1.5">
-                <AlertCircle className="h-3.5 w-3.5" strokeWidth={2} />
-                {errors.email.message}
-              </FieldError>
+              <FieldError id="email-error">{errors.email.message}</FieldError>
             )}
           </div>
           <div className="space-y-2">
@@ -101,17 +98,11 @@ export function PlatformLoginForm() {
               </button>
             </div>
             {errors.password && (
-              <FieldError id="password-error" className="flex items-center gap-1.5">
-                <AlertCircle className="h-3.5 w-3.5" strokeWidth={2} />
-                {errors.password.message}
-              </FieldError>
+              <FieldError id="password-error">{errors.password.message}</FieldError>
             )}
           </div>
           {serverError && (
-            <FieldError id="platform-login-server-error" className="flex items-center gap-1.5">
-              <AlertCircle className="h-3.5 w-3.5" strokeWidth={2} />
-              {serverError}
-            </FieldError>
+            <FieldError id="platform-login-server-error">{serverError}</FieldError>
           )}
           <Button type="submit" size="lg" className="group w-full" disabled={isSubmitting}>
             {isSubmitting ? "Signing in..." : "Sign in"}

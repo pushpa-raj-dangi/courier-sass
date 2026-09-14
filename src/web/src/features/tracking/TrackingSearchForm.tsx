@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AlertCircle, ArrowRight, PackageSearch } from "lucide-react";
+import { ArrowRight, PackageSearch } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FieldError } from "@/components/ui/field-error";
@@ -50,10 +50,7 @@ export function TrackingSearchForm() {
             />
           </div>
           {errors.awb && (
-            <FieldError id="awb-error" className="flex items-center gap-1.5">
-              <AlertCircle className="h-3.5 w-3.5" strokeWidth={2} />
-              {errors.awb.message}
-            </FieldError>
+            <FieldError id="awb-error">{errors.awb.message}</FieldError>
           )}
         </div>
         <button

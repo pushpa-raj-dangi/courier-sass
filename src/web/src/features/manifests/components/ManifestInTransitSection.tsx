@@ -63,7 +63,7 @@ export function ManifestInTransitSection({ manifest }: { manifest: Manifest }) {
       {scanned.length > 0 && (
         <ul className="space-y-1 text-sm">
           {scanned.map((s) => (
-            <li key={s.id}>{s.awb}</li>
+            <li key={s.id} className="font-mono">{s.awb}</li>
           ))}
         </ul>
       )}
