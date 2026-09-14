@@ -315,6 +315,17 @@ body {
   color: hsl(var(--accent-foreground));
 }
 
+/* Hides the native scroll affordance on an overflowing flex row (Tabs' horizontally-scrolling
+   TabsList) while keeping wheel/trackpad/touch/keyboard scrolling itself fully working — a
+   platform scrollbar with drag buttons has no place in the flat, hairline-only ledger vocabulary. */
+.scrollbar-hidden {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-hidden::-webkit-scrollbar {
+  display: none;
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;
