@@ -1,17 +1,9 @@
 "use client";
 
 import { ErrorState } from "@/components/states/ErrorState";
+import { StatTile } from "@/components/states/StatTile";
 import { StatTilesSkeleton } from "@/components/states/StatTilesSkeleton";
 import { usePlatformDashboard } from "@/features/platform-dashboard/hooks/usePlatformDashboard";
-
-function StatTile({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="rounded-lg border bg-card p-4">
-      <div className="text-sm text-muted-foreground">{label}</div>
-      <div className="mt-1 text-2xl font-semibold">{value}</div>
-    </div>
-  );
-}
 
 export default function PlatformDashboardPage() {
   const { data, isLoading, isError, refetch } = usePlatformDashboard();

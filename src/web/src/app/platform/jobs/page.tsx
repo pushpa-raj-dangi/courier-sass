@@ -2,6 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { ErrorState } from "@/components/states/ErrorState";
+import { StatTile } from "@/components/states/StatTile";
 import { StatTilesSkeleton } from "@/components/states/StatTilesSkeleton";
 import { LoadingState } from "@/components/states/LoadingState";
 import { DataTable, type ColumnDef, type PagedResult } from "@/components/data-table/DataTable";
@@ -9,15 +10,6 @@ import { usePlatformJobs } from "@/features/platform-jobs/hooks/usePlatformJobs"
 import { usePlatformJobPanelStore } from "@/features/platform-jobs/store/platformJobPanelStore";
 import { PlatformJobDetailSheet } from "@/features/platform-jobs/PlatformJobDetailSheet";
 import type { RecurringJobSummary, RecentJobSummary } from "@/features/platform-jobs/types";
-
-function StatTile({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="rounded-lg border bg-card p-4">
-      <div className="text-sm text-muted-foreground">{label}</div>
-      <div className="mt-1 text-2xl font-semibold">{value}</div>
-    </div>
-  );
-}
 
 function toSinglePage<T>(items: T[]): PagedResult<T> {
   return { items, page: 1, pageSize: Math.max(items.length, 1), totalCount: items.length, totalPages: 1 };
