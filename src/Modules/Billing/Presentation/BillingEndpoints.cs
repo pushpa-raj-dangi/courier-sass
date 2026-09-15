@@ -9,6 +9,7 @@ namespace Courier.Billing.Presentation;
 
 public record PayInvoiceRequest(PaymentGateway Gateway, string ReturnBaseUrl);
 public record AssignPlanRequest(Guid PlanId);
+public record BillingStatusResponse(SubscriptionStatus Status, DateTimeOffset? TrialEndsAt);
 
 public static class BillingEndpoints
 {
@@ -30,6 +31,20 @@ public static class BillingEndpoints
             var status = await service.GetSubscriptionStatusAsync(tenantProvider.OrganizationId!.Value, cancellationToken);
             return status is null ? Results.NotFound() : Results.Ok(status);
         }).RequirePermission("org.billing.manage");
+
+        // Deliberately NOT permission-gated beyond authentication: every staff member (not just
+        // the OrganizationOwner who holds org.billing.manage) needs to know their org's trial/
+        // subscription state to understand why writes might be blocked
+        // (TrialEnforcementMiddleware). This is a narrower projection of GET /subscription above
+        // (Status/TrialEndsAt only, no PlanName/MonthlyPriceNpr) so it never leaks pricing to
+        // non-owner staff.
+        group.MapGet("/status", async (SubscriptionService service, ICurrentTenantProvider tenantProvider, CancellationToken cancellationToken) =>
+        {
+            var status = await service.GetSubscriptionStatusAsync(tenantProvider.OrganizationId!.Value, cancellationToken);
+            return status is null
+                ? Results.NotFound()
+                : Results.Ok(new BillingStatusResponse(status.Status, status.TrialEndsAt));
+        }).RequireAuthorization();
 
         group.MapGet("/plans", async (PlanService service, CancellationToken cancellationToken) =>
             Results.Ok(await service.ListActivePlansAsync(cancellationToken)))

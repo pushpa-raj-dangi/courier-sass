@@ -39,6 +39,50 @@ public class BillingEndpointsTests : IClassFixture<WebApplicationFactory<Program
         return (await response.Content.ReadFromJsonAsync<AuthResult>())!;
     }
 
+    // Shared by tests that need a non-owner staff user to prove an endpoint's permission gate (or
+    // lack of one) — provisions a CounterStaff user (holds shipment.create/read/update and
+    // pricing.read only, per AdditionalRoleSeeds.cs — notably NOT org.billing.manage) via the
+    // real invite/accept-invite/login flow and returns an authenticated HttpClient for that user.
+    private async Task<HttpClient> InviteCounterStaffAndLoginAsync(HttpClient ownerClient, AuthResult org)
+    {
+        var roles = await (await ownerClient.GetAsync("/api/v1/roles")).Content.ReadFromJsonAsync<List<RoleResponse>>();
+        var counterStaffRole = roles!.Single(r => r.Name == "CounterStaff");
+
+        var branchResponse = await ownerClient.PostAsJsonAsync("/api/v1/branches", new
+        {
+            code = $"BR{Guid.NewGuid():N}"[..8],
+            name = "Billing Perm Branch",
+            type = "Branch",
+            provinceId = Courier.Geography.Infrastructure.GeographyIds.ProvinceId("Bagmati"),
+            districtId = Courier.Geography.Infrastructure.GeographyIds.DistrictId("Bagmati", "Kathmandu"),
+            localLevelId = Courier.Geography.Infrastructure.GeographyIds.LocalLevelId("Bagmati", "Kathmandu", "Kathmandu Metropolitan City"),
+            wardNumber = 1,
+            addressLine = "Somewhere in Kathmandu"
+        });
+        branchResponse.EnsureSuccessStatusCode();
+        var branchId = (await branchResponse.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+
+        var staffEmail = $"staff-{Guid.NewGuid():N}@example.com";
+        await ownerClient.PostAsJsonAsync("/api/v1/users/invite", new InviteUserRequest(staffEmail, "Staff Person", null, counterStaffRole.Id, branchId, null));
+
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var outboxMessage = await dbContext.Set<OutboxMessage>().IgnoreQueryFilters()
+            .Where(m => m.EventType == "user.invited")
+            .OrderByDescending(m => m.CreatedAt)
+            .FirstAsync(m => m.Payload.Contains(staffEmail));
+        var payload = JsonDocument.Parse(outboxMessage.Payload).RootElement;
+        var inviteUrl = payload.GetProperty("InviteUrl").GetString()!;
+        var token = Uri.UnescapeDataString(inviteUrl.Split("token=")[1]);
+        await ownerClient.PostAsJsonAsync("/api/v1/auth/accept-invite", new AcceptInviteRequest(token, "St@ffPassword1"));
+
+        var staffClient = _factory.CreateClient();
+        var loginResponse = await staffClient.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest(staffEmail, "St@ffPassword1"));
+        var staffAuth = await loginResponse.Content.ReadFromJsonAsync<AuthResult>();
+        staffClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", staffAuth!.AccessToken);
+        return staffClient;
+    }
+
     [Fact]
     public async Task GetPlan_NoOrgBillingManagePermission_Returns403()
     {
@@ -171,6 +215,24 @@ public class BillingEndpointsTests : IClassFixture<WebApplicationFactory<Program
         var body = await subscriptionResponse.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal("Active", body.GetProperty("status").GetString());
         Assert.Equal("SelfServe", body.GetProperty("planName").GetString());
+    }
+
+    [Fact]
+    public async Task GetStatus_AsNonOwnerStaff_ReturnsTrialStatusWithoutRequiringBillingPermission()
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "trialstatuslite");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var staffClient = await InviteCounterStaffAndLoginAsync(client, org);
+
+        var response = await staffClient.GetAsync("/api/v1/billing/status");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Trial", body.GetProperty("status").GetString());
+        Assert.True(body.GetProperty("trialEndsAt").ValueKind != JsonValueKind.Null);
+        Assert.False(body.TryGetProperty("planName", out _));
+        Assert.False(body.TryGetProperty("monthlyPriceNpr", out _));
     }
 
 }
