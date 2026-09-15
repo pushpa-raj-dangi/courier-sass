@@ -38,3 +38,8 @@ export interface GatewayCheckoutInfo {
   redirectUrl: string;
   formFields: Record<string, string>;
 }
+
+export interface TrialStatusInfo {
+  status: "Active" | "PastDue" | "Cancelled" | "Trial" | "TrialExpired";
+  trialEndsAt: string | null;
+}

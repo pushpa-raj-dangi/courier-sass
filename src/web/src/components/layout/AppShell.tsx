@@ -5,6 +5,7 @@ import { HeaderSearch } from "@/components/layout/HeaderSearch";
 import { ImpersonationBanner } from "@/components/layout/ImpersonationBanner";
 import { ReauthDialog } from "@/components/layout/ReauthDialog";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
+import { TrialStatusBanner } from "@/components/layout/TrialStatusBanner";
 import { UserMenu } from "@/components/layout/UserMenu";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
@@ -15,6 +16,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <AppSidebar />
       <SidebarInset>
         <ImpersonationBanner />
+        <TrialStatusBanner />
         <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-3 border-b border-border bg-card px-4 sm:px-6">
           <SidebarTrigger className="h-9 w-9 rounded-lg border border-input" />
           <HeaderSearch />
