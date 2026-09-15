@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -8,6 +9,7 @@ import { ErrorState } from "@/components/states/ErrorState";
 import { LoadingState } from "@/components/states/LoadingState";
 import { FieldError } from "@/components/ui/field-error";
 import { DataTable, type ColumnDef } from "@/components/data-table/DataTable";
+import { usePermission } from "@/features/auth/hooks/usePermission";
 import { useBillingInvoices } from "@/features/billing/hooks/useBillingInvoices";
 import { usePayInvoice } from "@/features/billing/hooks/usePayInvoice";
 import { useSubscriptionStatus } from "@/features/billing/hooks/useSubscriptionStatus";
@@ -73,8 +75,12 @@ function PlanPicker() {
 }
 
 export default function BillingPage() {
-  const { data: subscription, isLoading: subscriptionLoading } = useSubscriptionStatus();
-  const { data: invoices, isLoading: invoicesLoading, isError, refetch } = useBillingInvoices();
+  // usePermission reads from the cached session and returns false until that session loads —
+  // the same "hidden/denied until loaded" convention NAV_ITEMS filtering already relies on, so
+  // an OrganizationOwner may see this gate flash briefly before their session resolves.
+  const canManageBilling = usePermission("org.billing.manage");
+  const { data: subscription, isLoading: subscriptionLoading } = useSubscriptionStatus({ enabled: canManageBilling });
+  const { data: invoices, isLoading: invoicesLoading, isError, refetch } = useBillingInvoices({ enabled: canManageBilling });
   const payInvoice = usePayInvoice();
   const [payError, setPayError] = useState<string | null>(null);
 
@@ -105,6 +111,15 @@ export default function BillingPage() {
     },
   ];
 
+  if (!canManageBilling) {
+    return (
+      <ErrorState
+        title="Billing is managed by your organization owner"
+        description="Ask them to sign in and choose a plan to continue."
+      />
+    );
+  }
+
   if (subscriptionLoading || invoicesLoading) {
     return (
       <div className="space-y-6">
@@ -132,7 +147,10 @@ export default function BillingPage() {
           </p>
         )}
         {subscription?.status === "TrialExpired" && (
-          <p className="mt-1 text-sm text-destructive">Your trial has ended. Choose a plan below to continue using the app.</p>
+          <Alert variant="destructive" className="mt-4">
+            <AlertTitle>Your trial has ended</AlertTitle>
+            <AlertDescription>Choose a plan below to continue using the app.</AlertDescription>
+          </Alert>
         )}
         {(subscription?.status === "PastDue" || subscription?.status === "Cancelled") && (
           <p className="mt-1 text-sm text-muted-foreground">Current plan: {subscription.planName} ({subscription.status})</p>
