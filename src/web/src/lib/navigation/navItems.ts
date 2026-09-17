@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   CreditCard,
   History,
+  MapPin,
   type LucideIcon,
 } from "lucide-react";
 
@@ -33,6 +34,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/ndrs", label: "NDRs", permission: "ndr.read", icon: AlertTriangle },
   { href: "/return-shipments", label: "Return Shipments", permission: "rto.read", icon: Undo2 },
   { href: "/riders", label: "Riders", permission: "rider.read", icon: Bike },
+  { href: "/riders/live-map", label: "Live Map", permission: "rider.location.read", icon: MapPin },
   { href: "/rider/tasks", label: "My Deliveries", permission: "delivery.attempt", icon: ClipboardCheck },
   { href: "/cod", label: "COD", permission: "cod.read", icon: Wallet },
   { href: "/billing", label: "Billing", permission: "org.billing.manage", icon: CreditCard },
