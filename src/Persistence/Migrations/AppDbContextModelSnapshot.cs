@@ -2009,6 +2009,12 @@ namespace Persistence.Migrations
                         },
                         new
                         {
+                            Id = new Guid("c3b32f0f-366b-d23b-62a2-6fa2c4511fd1"),
+                            Description = "Read rider live location and breadcrumb history",
+                            Key = "rider.location.read"
+                        },
+                        new
+                        {
                             Id = new Guid("2f1d3988-bb08-0869-311a-0b04efd45888"),
                             Description = "Read pricing",
                             Key = "pricing.read"

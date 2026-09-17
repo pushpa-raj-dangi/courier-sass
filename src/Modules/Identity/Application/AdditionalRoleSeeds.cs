@@ -24,17 +24,24 @@ public static class AdditionalRoleSeeds
             "rider.read", "rider.assign", "ndr.read", "ndr.manage", "ndr.resolve", "rto.read", "rto.manage",
             "branch.read", "zone.read", "report.read"
         },
-        // docs/RBAC.md §4's exact BranchManager example.
+        // docs/RBAC.md §4's exact BranchManager example, plus a deliberate RBAC fix (this design's
+        // spec §4.2): BranchManager never held rider.read at all before this — it's the realistic
+        // day-to-day user of the new Live Map, so it gains rider.read and rider.location.read
+        // together rather than being left out.
         ["BranchManager"] = new[]
         {
             "shipment.read", "shipment.assign", "shipment.scan",
             "manifest.read", "manifest.create", "manifest.seal", "manifest.dispatch", "manifest.receive", "manifest.close",
-            "delivery.assign", "ndr.manage", "ndr.read", "cod.reconcile", "cod.read", "branch.read"
+            "delivery.assign", "ndr.manage", "ndr.read", "cod.reconcile", "cod.read", "branch.read",
+            "rider.read", "rider.location.read"
         },
+        // Same rider.read/rider.location.read RBAC fix as BranchManager above — Dispatcher runs
+        // day-to-day dispatch and had no visibility into riders at all before this.
         ["Dispatcher"] = new[]
         {
             "manifest.read", "manifest.create", "manifest.seal", "manifest.dispatch", "manifest.receive", "manifest.close",
-            "shipment.transfer", "shipment.read", "branch.read"
+            "shipment.transfer", "shipment.read", "branch.read",
+            "rider.read", "rider.location.read"
         },
         ["SortingStaff"] = new[] { "shipment.scan", "shipment.sort", "manifest.read" },
         ["CounterStaff"] = new[] { "shipment.create", "shipment.read", "shipment.update", "pricing.read" },

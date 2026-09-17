@@ -49,6 +49,7 @@ public static class PermissionCatalog
         ("rider.read", "Read riders"),
         ("rider.create", "Create riders"),
         ("rider.assign", "Assign riders"),
+        ("rider.location.read", "Read rider live location and breadcrumb history"),
         ("pricing.read", "Read pricing"),
         ("pricing.manage", "Manage pricing"),
         ("report.read", "Read reports"),
