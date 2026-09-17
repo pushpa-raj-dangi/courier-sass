@@ -88,7 +88,7 @@ export function SecurityPolicyForm() {
           {revokeAllSessions.isPending ? <Spinner className="h-4 w-4" /> : "Revoke All Sessions"}
         </Button>
         {revokeResult === "success" && <p className="text-sm text-status-delivered">All sessions revoked.</p>}
-        {revokeResult === "error" && <FieldError id="revoke-sessions-error">Couldn't revoke sessions. Try again.</FieldError>}
+        {revokeResult === "error" && <FieldError id="revoke-sessions-error">Couldn&apos;t revoke sessions. Try again.</FieldError>}
       </div>
     </div>
   );
