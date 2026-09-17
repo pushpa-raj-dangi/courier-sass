@@ -144,9 +144,13 @@ subject a rider" rather than a permission grant.
   `IdempotencyMiddleware`'s rider-route list from Phase F12's design — a
   duplicate location ping is harmless (it's just an extra row with the same
   coordinates), unlike a duplicate COD collection or delivery attempt.
-- `GET /api/v1/branches/{branchId}/riders/locations` — `rider.location.read`
+- `GET /api/v1/riders/branches/{branchId}/locations` — `rider.location.read`
   + existing branch-scope authorization (identical check shape to every
-  other branch-scoped read in this codebase). Scopes riders by
+  other branch-scoped read in this codebase). Lives in the existing `riders`
+  route group with `branchId` as a path param, the same nesting convention
+  `Reports.Presentation.ReportsEndpoints` already uses for
+  `GET /api/v1/reports/dashboard/branch/{branchId}` — not a new
+  `/api/v1/branches/...` cross-module group. Scopes riders by
   `Rider.BaseBranchId == branchId && IsActive`, matching the exact
   convention `RiderReportingLookupService.GetBranchRiderTaskLoadAsync`
   already established for "riders at this branch" (not the active run's
@@ -154,9 +158,17 @@ subject a rider" rather than a permission grant.
   latest `RiderLocationPing` per matching rider, with each rider's
   `RecordedAt` age so the frontend can render "last seen Xm ago" instead of
   a raw timestamp.
-- `GET /api/v1/delivery-runs/{id}/breadcrumbs` — `rider.location.read`,
-  branch-scoped via the run's `BranchId`. Returns the full ordered
-  `RiderLocationPing` list for that run.
+- `GET /api/v1/riders/runs/{runId}/breadcrumbs` — `rider.location.read`,
+  branch-scoped via the run's `BranchId`. Also in the `riders` group — no
+  `/api/v1/delivery-runs` group exists anywhere in this codebase today, and
+  `DeliveryRun` has no route surface of its own to extend. Returns the full
+  ordered `RiderLocationPing` list for that run. Since `DeliveryRun` carries
+  no own `OrganizationId`/query filter, this handler must resolve the run's
+  owning `Rider` first (`Rider` itself is tenant-filtered) and treat "no
+  matching `Rider` in the current tenant" as a 404 — the same
+  cross-tenant-returns-404 shape `GetById`-style lookups use elsewhere in
+  this codebase — rather than trusting `DeliveryRun.BranchId` directly
+  off an attacker-suppliable route id.
 
 ### 4.4 Retention — Hangfire recurring job
 
@@ -198,7 +210,7 @@ permission-request UX pattern introduced.
 New `features/rider-tracking/` feature folder, one new page under the
 branch dashboard surface (branch-scoped like every other branch view),
 gated on `rider.location.read`. Polls
-`GET /api/v1/branches/{branchId}/riders/locations` on a 15–20s TanStack
+`GET /api/v1/riders/branches/{branchId}/locations` on a 15–20s TanStack
 Query `refetchInterval`, rendering each rider as a map pin with name,
 vehicle, and "last seen" age; a run's breadcrumb trail is a secondary
 drill-down (click a rider → fetch that run's breadcrumbs) rather than a
