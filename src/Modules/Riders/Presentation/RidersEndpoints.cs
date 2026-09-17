@@ -60,8 +60,15 @@ public static class RidersEndpoints
 
         riders.MapPost("/me/location", async (LocationPingRequest request, RiderService service, HttpContext httpContext) =>
         {
-            var recorded = await service.RecordLocationPingAsync(request, httpContext.User, httpContext.RequestAborted);
-            return recorded ? Results.NoContent() : Results.NotFound();
+            try
+            {
+                var recorded = await service.RecordLocationPingAsync(request, httpContext.User, httpContext.RequestAborted);
+                return recorded ? Results.NoContent() : Results.NotFound();
+            }
+            catch (RiderValidationException ex)
+            {
+                return Results.BadRequest(new { error = new { code = "RIDER_VALIDATION_FAILED", message = ex.Message } });
+            }
         });
 
         riders.MapGet("/branches/{branchId:guid}/locations", async (Guid branchId, RiderService service, HttpContext httpContext) =>
