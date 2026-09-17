@@ -80,6 +80,7 @@ merchant.read             merchant.create         merchant.update
 merchant.kyc.review
 
 rider.read                 rider.create           rider.assign
+rider.location.read
 
 pricing.read               pricing.manage
 
@@ -104,7 +105,9 @@ table — but indicative of intent:
 
 * **BranchManager**: `shipment.read/assign/scan`, `manifest.*`, `delivery.assign`,
   `ndr.manage`, `cod.reconcile`, scoped to their assigned branch(es) only (the exact
-  example given in CLAUDE.md §7).
+  example given in CLAUDE.md §7). Also holds `rider.read`/`rider.location.read`
+  (Phase 14a — a pre-existing gap closed so the branch's day-to-day manager can see the
+  Live Map for their own branch).
 * **FinanceManager**: `cod.*` including `cod.adjust` and `cod.settle`, `report.read/export`,
   org-wide (`BranchScope = AllBranches`) since settlement spans branches.
 * **DeliveryRider**: `delivery.attempt`, `delivery.complete`, `cod.collect`,

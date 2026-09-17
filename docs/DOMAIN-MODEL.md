@@ -233,6 +233,18 @@ DeliveryProof { Id, OrganizationId, ShipmentId, DeliveryAttemptId, RiderId, OtpV
                 # no server-side OTP generate/verify flow exists yet (Phase 8; needs Phase 11's real
                 # SMS delivery to be meaningful). No correction endpoint exists yet either — the
                 # columns exist now so a later phase adding one needs no migration.
+
+RiderLocationPing { Id, RiderId, DeliveryRunId (nullable), Latitude, Longitude,
+                     AccuracyMeters (nullable), RecordedAt, ReceivedAt }
+                   # No own OrganizationId — flows transitively through RiderId -> Rider.OrganizationId,
+                   # the same pattern DeliveryTask establishes above (via DeliveryRunId -> DeliveryRun ->
+                   # RiderId -> Rider.OrganizationId). DeliveryRunId is nullable: a rider can report a
+                   # position before their first task of the day is assigned. RecordedAt is the rider
+                   # device's own client-reported timestamp (trusted only for chronological ordering
+                   # within a run's breadcrumb); ReceivedAt is set server-side (DateTimeOffset.UtcNow at
+                   # insert) and is what "last seen" age display and the retention job's 30-day pruning
+                   # are anchored to, so a skewed device clock can neither fake freshness nor corrupt
+                   # what gets deleted (Phase 14a).
 ```
 
 ## NDR — `OrganizationId` present

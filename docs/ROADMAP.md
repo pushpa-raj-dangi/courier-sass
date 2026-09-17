@@ -442,6 +442,18 @@ these precisely).
 Explicitly out of v1 scope per `PRODUCT-SPEC.md` §5 — only entered once Phases 0–13
 are in production and there's a real operational need driving it, not speculatively.
 
+*Status (Phase 14a — Live Rider GPS Tracking): Shipped 2026-09-17.* A narrow, real
+operational need (dispatchers/branch managers needing to see where riders currently are)
+was carved out of this phase ahead of the rest: foreground-only rider position reporting
+from the rider PWA (`POST /api/v1/riders/me/location`), a branch-scoped Live Map
+(`GET /api/v1/riders/branches/{branchId}/locations`) showing each active rider's latest
+position, and a per-run breadcrumb trail (`GET /api/v1/riders/runs/{runId}/breadcrumbs`)
+for audit/replay of a completed run's path — plus a pre-existing RBAC gap closed as part
+of this work, granting `rider.read`/`rider.location.read` to `BranchManager`, `Dispatcher`,
+and `OperationsManager`. Route optimization, ETA, smart dispatch, partner courier
+integrations, and a customer-facing "rider is nearby" tracking indicator remain separate,
+un-started future sub-projects of this phase.
+
 ## Cross-Phase Rule
 
 Any ambiguity discovered while implementing a later phase gets resolved the same way

@@ -1099,6 +1099,61 @@ that gap.
    (`POST /api/v1/platform/organizations/{id}/plan`) — the same override endpoint a
    `SuperAdmin` can also use on any trial-era org.
 
+## 23. Phase 14a: RBAC gap closed for rider visibility, branch-existence check on the Live Map, breadcrumbs error-handling consistency, and server-anchored ping timestamps
+
+**Where:** `docs/superpowers/specs/2026-09-17-phase-14a-live-rider-gps-tracking-design.md`,
+`docs/superpowers/plans/2026-09-17-phase-14a-live-rider-gps-tracking.md`.
+
+**Context:** This phase carved live rider GPS tracking (foreground position reporting, a
+branch-scoped Live Map, per-run breadcrumbs) out of the otherwise-deferred Phase 14, ahead
+of route optimization/ETA/smart dispatch/partner integrations. Several real decisions were
+made during implementation and during the branch's final whole-branch review that are
+recorded here rather than only in commit messages.
+
+**Resolution:**
+
+1. **`BranchManager`/`Dispatcher`/`OperationsManager` all gained `rider.read` +
+   `rider.location.read`.** Per spec §4.2, `rider.location.read` was meant to go to "every
+   role that holds `rider.read` today." `BranchManager` and `Dispatcher` held neither
+   permission before this phase at all, so both were granted the pair together rather than
+   being left out of rider visibility entirely (`AdditionalRoleSeeds.cs`). A final-review
+   pass then found `OperationsManager` already held `rider.read` but had been missed when
+   `rider.location.read` was added — closed as the same pre-existing RBAC gap, not a new
+   decision.
+2. **`GetBranchLocationsAsync` needed an explicit branch-existence check.**
+   `CheckBranchAccessAsync` alone is a no-op for an `AllBranches`-scoped caller (e.g.
+   `OrganizationOwner`) against any `branchId` on the route, including one belonging to a
+   different tenant — it would silently return an empty list instead of rejecting the
+   request. `GetBranchLocationsAsync` now also calls `IBranchLookupService.
+   GetZoneInfoAsync(branchId)` and throws `RiderValidationException` (400) when it returns
+   null, the same fix `BranchDashboardService.GetAsync` already applies for the identical
+   shape of gap.
+3. **The breadcrumbs endpoint needed the same `HandleAsync` wrapper its sibling uses.**
+   `GET /runs/{runId}/breadcrumbs` was initially mapped without `HandleAsync`, so a
+   `RiderValidationException` thrown by `CheckBranchAccessAsync` inside
+   `GetRunBreadcrumbsAsync` (a branch-scoped caller denied access to the run's branch) would
+   have surfaced as an uncaught 500 instead of the standard 400 `RIDER_VALIDATION_FAILED`
+   shape every other Riders endpoint returns. Wrapped in `HandleAsync` for consistency, with
+   the "run not found"/"cross-tenant run" `null` case translated into a thrown
+   `RiderNotFoundException` so `HandleAsync`'s existing catch still maps it to 404.
+4. **A server-side `ReceivedAt` timestamp was added, separate from the client-reported
+   `RecordedAt`.** `RiderLocationPing.RecordedAt` is the rider device's own clock, taken
+   verbatim from the POST body — fine for ordering pings within a run's breadcrumb, but
+   unsuitable as the basis for anything a client could manipulate. A skewed-forward device
+   clock would make the Live Map's "last seen Xm ago" display falsely read as "just now"
+   forever, violating spec §2's "never a fake continuously-moving pin" guarantee; a
+   skewed-forward or skewed-backward clock would also make the 30-day retention job
+   (`RiderLocationPingRetentionJob`) prune real breadcrumb evidence early or never prune a
+   stale row at all. `ReceivedAt` (`DateTimeOffset.UtcNow`, set in
+   `RiderService.RecordLocationPingAsync` at insert time, never read from the request) is
+   now what the Live Map's age display and the retention job's cutoff are both anchored to;
+   `RecordedAt` is unchanged and still used only for within-run chronological ordering.
+5. **The breadcrumb drill-down UI was deferred.** Spec §5.2 describes clicking a rider pin
+   on the Live Map to fetch and display that rider's current run's breadcrumb trail. The
+   backend endpoint (`GET /api/v1/riders/runs/{runId}/breadcrumbs`) exists, is permission-
+   and branch-scoped, and is usable directly via the API for audit/replay purposes today —
+   but no frontend click-through was built in this phase. This is a scope cut, not a bug.
+
 ---
 
 ## Summary of schema additions implied by this document
