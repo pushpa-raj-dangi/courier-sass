@@ -1,5 +1,5 @@
 using Courier.Branches.Domain;
-using Courier.Geography.Domain;
+using Courier.Geography.Infrastructure;
 using Courier.Identity.Domain;
 using Courier.Persistence;
 using Courier.Riders.Application;
@@ -13,6 +13,15 @@ namespace Courier.Riders.Tests;
 public class RiderLocationPingRetentionJobTests
 {
     private sealed class NullTenantProvider : ICurrentTenantProvider { public Guid? OrganizationId => null; }
+
+    // Reuses the real seeded Bagmati/Kathmandu geography (same convention as
+    // CodReportingLookupServiceTests/NdrReportingLookupServiceTests) instead of inserting fresh
+    // Province/District/LocalLevel rows per run — this test's DB has no reset between runs, and an
+    // earlier version of this file inserted a new Province row on every execution, polluting the
+    // shared Provinces table and breaking GeographyEndpointsTests' exact-count assertions.
+    private static readonly Guid ProvinceId = GeographyIds.ProvinceId("Bagmati");
+    private static readonly Guid DistrictId = GeographyIds.DistrictId("Bagmati", "Kathmandu");
+    private static readonly Guid LocalLevelId = GeographyIds.LocalLevelId("Bagmati", "Kathmandu", "Kathmandu Metropolitan City");
 
     [Fact]
     public async Task RunAsync_PingOlderThan30Days_IsDeleted()
@@ -51,27 +60,14 @@ public class RiderLocationPingRetentionJobTests
         var suffix = Guid.NewGuid().ToString("N")[..8];
         var organizationId = Guid.NewGuid();
 
-        // Create geography entities
-        var provinceId = Guid.NewGuid();
-        var districtId = Guid.NewGuid();
-        var localLevelId = Guid.NewGuid();
-
-        dbContext.Set<Province>().Add(new Province { Id = provinceId, Name = $"Province {suffix}" });
-        await dbContext.SaveChangesAsync();
-
-        dbContext.Set<District>().Add(new District { Id = districtId, ProvinceId = provinceId, Name = $"District {suffix}" });
-        await dbContext.SaveChangesAsync();
-
-        dbContext.Set<LocalLevel>().Add(new LocalLevel { Id = localLevelId, DistrictId = districtId, Name = $"LocalLevel {suffix}", Type = LocalLevelType.Municipality });
-        await dbContext.SaveChangesAsync();
-
         // Create organization
         dbContext.Set<Organization>().Add(new Organization { Id = organizationId, Name = $"Test Org {suffix}", Slug = $"test-org-{suffix}" });
         await dbContext.SaveChangesAsync();
 
-        // Create branch
+        // Create branch — against the real seeded Bagmati/Kathmandu geography (see ProvinceId/
+        // DistrictId/LocalLevelId above), not fixture rows created by this test.
         var branchId = Guid.NewGuid();
-        dbContext.Set<Branch>().Add(new Branch { Id = branchId, OrganizationId = organizationId, Code = "TST-001", Name = "Test Branch", Type = BranchType.Branch, ProvinceId = provinceId, DistrictId = districtId, LocalLevelId = localLevelId, WardNumber = 1, AddressLine = "Test Address" });
+        dbContext.Set<Branch>().Add(new Branch { Id = branchId, OrganizationId = organizationId, Code = "TST-001", Name = "Test Branch", Type = BranchType.Branch, ProvinceId = ProvinceId, DistrictId = DistrictId, LocalLevelId = LocalLevelId, WardNumber = 1, AddressLine = "Test Address" });
         await dbContext.SaveChangesAsync();
 
         // Create rider
