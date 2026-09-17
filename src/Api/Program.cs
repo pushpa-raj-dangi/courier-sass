@@ -185,6 +185,7 @@ builder.Services.AddScoped<PaymentService>();
 builder.Services.AddScoped<InvoiceGenerationJob>();
 builder.Services.AddScoped<OverdueInvoiceJob>();
 builder.Services.AddScoped<TrialExpiryJob>();
+builder.Services.AddScoped<Courier.Riders.Application.RiderLocationPingRetentionJob>();
 builder.Services.AddScoped<IPlatformJwtTokenService, PlatformJwtTokenService>();
 builder.Services.AddScoped<PlatformAuthService>();
 builder.Services.AddScoped<IMerchantSessionRevoker, MerchantSessionRevocationService>();
@@ -444,6 +445,7 @@ RecurringJob.AddOrUpdate<WebhookRetryJob>("webhook-retry", job => job.RunAsync(C
 RecurringJob.AddOrUpdate<InvoiceGenerationJob>("billing-invoice-generation", job => job.RunAsync(CancellationToken.None), "0 1 * * *");
 RecurringJob.AddOrUpdate<OverdueInvoiceJob>("billing-overdue-invoice-suspension", job => job.RunAsync(CancellationToken.None), "0 2 * * *");
 RecurringJob.AddOrUpdate<TrialExpiryJob>("billing-trial-expiry", job => job.RunAsync(CancellationToken.None), "0 3 * * *");
+RecurringJob.AddOrUpdate<Courier.Riders.Application.RiderLocationPingRetentionJob>("rider-location-ping-retention", job => job.RunAsync(CancellationToken.None), "0 4 * * *");
 
 app.Run();
 
