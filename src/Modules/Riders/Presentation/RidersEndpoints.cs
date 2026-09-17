@@ -68,11 +68,17 @@ public static class RidersEndpoints
             await HandleAsync(() => service.GetBranchLocationsAsync(branchId, httpContext.User, httpContext.RequestAborted)))
             .RequirePermission("rider.location.read");
 
+        // Wrapped in HandleAsync (same as GetBranchLocationsAsync's mapping above) so a
+        // RiderValidationException thrown by CheckBranchAccessAsync inside GetRunBreadcrumbsAsync
+        // (a branch-scoped caller denied access to run.BranchId) produces the standard 400
+        // RIDER_VALIDATION_FAILED shape instead of an uncaught 500. The "run not found"/
+        // "cross-tenant run" null case is preserved as 404 by translating it into
+        // RiderNotFoundException, which HandleAsync's existing catch maps to Results.NotFound().
         riders.MapGet("/runs/{runId:guid}/breadcrumbs", async (Guid runId, RiderService service, HttpContext httpContext) =>
-        {
-            var result = await service.GetRunBreadcrumbsAsync(runId, httpContext.User, httpContext.RequestAborted);
-            return result is null ? Results.NotFound() : Results.Ok(result);
-        }).RequirePermission("rider.location.read");
+            await HandleAsync(async () =>
+                await service.GetRunBreadcrumbsAsync(runId, httpContext.User, httpContext.RequestAborted)
+                ?? throw new RiderNotFoundException(runId)))
+            .RequirePermission("rider.location.read");
 
         riders.MapGet("/{id:guid}", async (Guid id, RiderService service, HttpContext httpContext) =>
         {

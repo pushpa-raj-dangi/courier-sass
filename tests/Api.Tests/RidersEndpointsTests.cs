@@ -650,6 +650,46 @@ public class RidersEndpointsTests : IClassFixture<WebApplicationFactory<Program>
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
+    [Fact]
+    public async Task GetRunBreadcrumbs_BranchManagerOutsideRunBranch_Returns400()
+    {
+        // Fix-round regression test: a branch-scoped caller (BranchManager, who does hold
+        // rider.location.read per Task 2's RBAC fix) denied access to the run's branch must get a
+        // clean 400 RIDER_VALIDATION_FAILED from CheckBranchAccessAsync's RiderValidationException
+        // — not an uncaught 500 — proving the endpoint mapping now routes through HandleAsync.
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "breadcrumbs-branch-scope");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (originBranchId, destinationBranchId, serviceTypeId) = await SeedBranchesAsync(client);
+        var merchantId = await CreateMerchantAsync(client);
+        var suffix = Guid.NewGuid().ToString("N");
+        var riderEmail = $"rider-{suffix}@example.com";
+        await client.PostAsJsonAsync("/api/v1/riders", new CreateRiderRequest(
+            riderEmail, "P@ssw0rd123!", "Scope Rider", null, $"LIC-{suffix[..10]}", originBranchId, RiderRoleType.PickupRider));
+        var shipment = await (await client.PostAsJsonAsync("/api/v1/shipments", ValidShipmentRequest(merchantId, originBranchId, destinationBranchId, serviceTypeId))).Content.ReadFromJsonAsync<ShipmentResponse>();
+
+        var riderClient = _factory.CreateClient();
+        var loginResponse = await riderClient.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest(riderEmail, "P@ssw0rd123!"));
+        var riderAuth = await loginResponse.Content.ReadFromJsonAsync<AuthResult>();
+        riderClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", riderAuth!.AccessToken);
+
+        var riderRecord = await (await riderClient.GetAsync("/api/v1/riders/me")).Content.ReadFromJsonAsync<RiderResponse>();
+        // Pickup task -> DeliveryRun.BranchId is scanInfo.OriginBranchId (RiderService.Tasks.cs), so
+        // this run belongs to originBranchId, not destinationBranchId.
+        await client.PostAsJsonAsync("/api/v1/riders/tasks", new AssignDeliveryTaskRequest(riderRecord!.Id, shipment!.Id, DeliveryTaskType.Pickup));
+        var tasksToday = await (await riderClient.GetAsync("/api/v1/riders/me/tasks/today")).Content.ReadFromJsonAsync<MyTasksTodayResponse>();
+        var runId = tasksToday!.DeliveryRunId!.Value;
+
+        // BranchManager scoped only to destinationBranchId — a different branch than the run's.
+        var token = await InviteAcceptAndLoginForBranchAsync(client, "BranchManager", destinationBranchId);
+        var branchManagerClient = _factory.CreateClient();
+        branchManagerClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await branchManagerClient.GetAsync($"/api/v1/riders/runs/{runId}/breadcrumbs");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
     // Invites, accepts, and logs in a user under roleName scoped to the given branchId — same
     // invite/accept-invite/login chain as OrganizationSettingsEndpointsTests.InviteAcceptAndLoginAsync,
     // adapted to take an explicit branchId (that test's version always creates a fresh branch, but
