@@ -19,16 +19,62 @@ public class PaymentServiceTests
         public Guid? OrganizationId { get; }
     }
 
+    // ReconcilePendingAsync runs with no ambient tenant at all (same as the Hangfire jobs it sits
+    // alongside — OverdueInvoiceJob/TrialExpiryJob), so its own tests seed directly via a
+    // null-tenant dbContext rather than going through InitiatePaymentAsync's tenant-filtered path.
+    private sealed class NullTenantProvider : ICurrentTenantProvider { public Guid? OrganizationId => null; }
+
     private sealed class FakeGatewayClient : IPaymentGatewayClient
     {
         private readonly bool _verifySucceeds;
         private readonly string _rawPayload;
         public FakeGatewayClient(PaymentGateway gateway, bool verifySucceeds, string rawPayload = "{}") { Gateway = gateway; _verifySucceeds = verifySucceeds; _rawPayload = rawPayload; }
         public PaymentGateway Gateway { get; }
+        public string? CapturedReturnUrl { get; private set; }
+        public Task<GatewayInitiationResult> InitiateAsync(Guid paymentId, decimal amountNpr, string returnUrl, CancellationToken cancellationToken = default)
+        {
+            CapturedReturnUrl = returnUrl;
+            return Task.FromResult(new GatewayInitiationResult(new GatewayCheckoutInfo("https://fake-gateway.test/pay", new Dictionary<string, string>()), $"ref-{paymentId}"));
+        }
+        public Task<GatewayVerificationResult> VerifyAsync(Guid paymentId, decimal expectedAmountNpr, string? expectedGatewayReference, IReadOnlyDictionary<string, string> callbackParameters, CancellationToken cancellationToken = default)
+            => Task.FromResult(new GatewayVerificationResult(_verifySucceeds, _verifySucceeds ? "TXN-FAKE" : null, _rawPayload));
+        public Task<GatewayVerificationResult> CheckStatusAsync(Guid paymentId, decimal expectedAmountNpr, string? expectedGatewayReference, CancellationToken cancellationToken = default)
+            => Task.FromResult(new GatewayVerificationResult(_verifySucceeds, _verifySucceeds ? "TXN-FAKE" : null, _rawPayload));
+    }
+
+    // Used only by ReconcilePendingAsync tests: CheckStatusAsync's result is configurable
+    // per-call (unlike FakeGatewayClient's fixed constructor value) so a single test can assert
+    // "still pending" now and "now confirmed" on a later run, and calls are counted so a test can
+    // prove a too-fresh payment was skipped entirely rather than merely reported unconfirmed.
+    // ReconcilePendingAsync's own query (IgnoreQueryFilters, "any Payment stuck at Initiated") is
+    // deliberately broad — by design it runs with no ambient tenant, same as every other Hangfire
+    // job in this codebase. TestDbContextFactory points at the same shared dev Postgres instance
+    // these tests run against in this repo's convention (not an isolated per-test database), so a
+    // stray Initiated Esewa payment left over from anything else (e.g. manual browser testing)
+    // that happens to be old enough would ALSO be swept into that query here. targetPaymentId
+    // scopes this fake's canned result to only the payment THIS test seeded — anything else
+    // observed gets an inert "still pending" response rather than the test's configured result,
+    // so a test can never accidentally mark an unrelated real payment Succeeded/Failed.
+    private sealed class ReconciliationGatewayClient : IPaymentGatewayClient
+    {
+        private readonly Guid _targetPaymentId;
+        private readonly Func<GatewayVerificationResult> _checkStatusResult;
+        public ReconciliationGatewayClient(PaymentGateway gateway, Guid targetPaymentId, Func<GatewayVerificationResult> checkStatusResult) { Gateway = gateway; _targetPaymentId = targetPaymentId; _checkStatusResult = checkStatusResult; }
+        public PaymentGateway Gateway { get; }
+        public int CheckStatusCallCount { get; private set; }
         public Task<GatewayInitiationResult> InitiateAsync(Guid paymentId, decimal amountNpr, string returnUrl, CancellationToken cancellationToken = default)
             => Task.FromResult(new GatewayInitiationResult(new GatewayCheckoutInfo("https://fake-gateway.test/pay", new Dictionary<string, string>()), $"ref-{paymentId}"));
         public Task<GatewayVerificationResult> VerifyAsync(Guid paymentId, decimal expectedAmountNpr, string? expectedGatewayReference, IReadOnlyDictionary<string, string> callbackParameters, CancellationToken cancellationToken = default)
-            => Task.FromResult(new GatewayVerificationResult(_verifySucceeds, _verifySucceeds ? "TXN-FAKE" : null, _rawPayload));
+            => throw new NotSupportedException("ReconcilePendingAsync must call CheckStatusAsync, never VerifyAsync (no browser callback payload exists to verify).");
+        public Task<GatewayVerificationResult> CheckStatusAsync(Guid paymentId, decimal expectedAmountNpr, string? expectedGatewayReference, CancellationToken cancellationToken = default)
+        {
+            if (paymentId != _targetPaymentId)
+            {
+                return Task.FromResult(new GatewayVerificationResult(false, null, "{\"status\":\"PENDING\"}"));
+            }
+            CheckStatusCallCount++;
+            return Task.FromResult(_checkStatusResult());
+        }
     }
 
     // Simulates a naive (unbound) gateway client — succeeds for ANY callback regardless of which
@@ -48,6 +94,8 @@ public class PaymentServiceTests
             var succeeded = suppliedReference is not null && suppliedReference == expectedGatewayReference;
             return Task.FromResult(new GatewayVerificationResult(succeeded, succeeded ? "TXN-FAKE" : null, "{}"));
         }
+        public Task<GatewayVerificationResult> CheckStatusAsync(Guid paymentId, decimal expectedAmountNpr, string? expectedGatewayReference, CancellationToken cancellationToken = default)
+            => Task.FromResult(new GatewayVerificationResult(false, null, "{}"));
     }
 
     private sealed class FakeOrganizationLookupService : IOrganizationLookupService
@@ -148,6 +196,43 @@ public class PaymentServiceTests
         Assert.Equal($"ref-{payment.Id}", payment.GatewayReference);
     }
 
+    // Regression test for a real bug caught against the live eSewa RC sandbox: eSewa appends its
+    // own "?data=..." to success_url using a literal "?", not "&", even when success_url already
+    // has a query string. A "?paymentId=X" query param collided with eSewa's own "?data=Y" into
+    // one unparseable "?paymentId=X?data=Y" blob — corrupting paymentId and silently dropping
+    // data, so /billing/callback could never confirm a real payment. paymentId must be a PATH
+    // segment, which no gateway's own query-string append can ever collide with.
+    [Fact]
+    public async Task InitiatePaymentAsync_AppendsPaymentIdAsPathSegmentNotQueryParam()
+    {
+        var organizationId = Guid.NewGuid();
+        using var dbContext = TestDbContextFactory.Create(new FixedTenantProvider(organizationId));
+        var (_, _, invoice) = await SeedInvoiceAsync(dbContext, organizationId);
+        var gatewayClient = new FakeGatewayClient(PaymentGateway.Esewa, true);
+        var service = new PaymentService(dbContext, new IPaymentGatewayClient[] { gatewayClient }, new FakeOrganizationLookupService());
+
+        await service.InitiatePaymentAsync(invoice.Id, PaymentGateway.Esewa, "https://example.test/billing/callback");
+
+        var payment = dbContext.Set<Payment>().Single(p => p.InvoiceId == invoice.Id);
+        Assert.Equal($"https://example.test/billing/callback/{payment.Id}", gatewayClient.CapturedReturnUrl);
+        Assert.DoesNotContain("?paymentId=", gatewayClient.CapturedReturnUrl);
+    }
+
+    [Fact]
+    public async Task InitiatePaymentAsync_ReturnBaseUrlWithTrailingSlash_DoesNotProduceDoubleSlash()
+    {
+        var organizationId = Guid.NewGuid();
+        using var dbContext = TestDbContextFactory.Create(new FixedTenantProvider(organizationId));
+        var (_, _, invoice) = await SeedInvoiceAsync(dbContext, organizationId);
+        var gatewayClient = new FakeGatewayClient(PaymentGateway.Esewa, true);
+        var service = new PaymentService(dbContext, new IPaymentGatewayClient[] { gatewayClient }, new FakeOrganizationLookupService());
+
+        await service.InitiatePaymentAsync(invoice.Id, PaymentGateway.Esewa, "https://example.test/billing/callback/");
+
+        var payment = dbContext.Set<Payment>().Single(p => p.InvoiceId == invoice.Id);
+        Assert.Equal($"https://example.test/billing/callback/{payment.Id}", gatewayClient.CapturedReturnUrl);
+    }
+
     // The regression test for the Critical cross-invoice payment-confirmation vulnerability:
     // an org creates two payments (a cheap one and an expensive one), and the callback for the
     // EXPENSIVE payment supplies the CHEAP payment's gateway reference. A naive (unbound)
@@ -224,5 +309,83 @@ public class PaymentServiceTests
         // fail at the jsonb column write inside SaveChangesAsync with Postgres error 22P02).
         using var document = System.Text.Json.JsonDocument.Parse(reloaded.RawVerificationPayload!);
         Assert.Equal("not json at all", document.RootElement.GetProperty("raw").GetString());
+    }
+
+    private static async Task<(Subscription Subscription, Invoice Invoice, Payment Payment)> SeedStuckPaymentAsync(
+        Courier.Persistence.AppDbContext dbContext, Guid organizationId, DateTimeOffset initiatedAt, PaymentStatus status = PaymentStatus.Initiated, SubscriptionStatus subscriptionStatus = SubscriptionStatus.PastDue)
+    {
+        var plan = new Plan { Id = Guid.NewGuid(), Name = "Pro", Slug = $"pro-{Guid.NewGuid():N}", MonthlyPriceNpr = 2000m, IsActive = true, CreatedAt = DateTimeOffset.UtcNow };
+        var subscription = new Subscription { Id = Guid.NewGuid(), OrganizationId = organizationId, PlanId = plan.Id, Status = subscriptionStatus, CurrentCycleStart = DateTimeOffset.UtcNow, CurrentCycleEnd = DateTimeOffset.UtcNow.AddMonths(1), CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow };
+        var invoice = new Invoice { Id = Guid.NewGuid(), OrganizationId = organizationId, SubscriptionId = subscription.Id, PlanId = plan.Id, PlanNameSnapshot = plan.Name, AmountNprSnapshot = 2000m, CycleStart = DateTimeOffset.UtcNow.AddMonths(-1), CycleEnd = DateTimeOffset.UtcNow, Status = InvoiceStatus.Overdue, DueAt = DateTimeOffset.UtcNow.AddDays(-1), CreatedAt = DateTimeOffset.UtcNow.AddMonths(-1) };
+        var payment = new Payment { Id = Guid.NewGuid(), InvoiceId = invoice.Id, Gateway = PaymentGateway.Esewa, Status = status, AmountNpr = 2000m, InitiatedAt = initiatedAt, GatewayReference = Guid.NewGuid().ToString() };
+        dbContext.Set<Plan>().Add(plan);
+        dbContext.Set<Subscription>().Add(subscription);
+        dbContext.Set<Invoice>().Add(invoice);
+        dbContext.Set<Payment>().Add(payment);
+        await dbContext.SaveChangesAsync();
+        return (subscription, invoice, payment);
+    }
+
+    [Fact]
+    public async Task ReconcilePendingAsync_GatewayNowConfirms_MarksInvoicePaidAndReactivatesOrg()
+    {
+        using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
+        var organizationId = Guid.NewGuid();
+        var (_, invoice, payment) = await SeedStuckPaymentAsync(dbContext, organizationId, DateTimeOffset.UtcNow.AddMinutes(-10));
+        var organizationLookup = new FakeOrganizationLookupService();
+        var gatewayClient = new ReconciliationGatewayClient(PaymentGateway.Esewa, payment.Id, () => new GatewayVerificationResult(true, "REF-RECONCILED", "{}"));
+        var service = new PaymentService(dbContext, new IPaymentGatewayClient[] { gatewayClient }, organizationLookup);
+
+        await service.ReconcilePendingAsync();
+
+        Assert.Equal(PaymentStatus.Succeeded, dbContext.Set<Payment>().Single(p => p.Id == payment.Id).Status);
+        Assert.Equal(InvoiceStatus.Paid, dbContext.Set<Invoice>().IgnoreQueryFilters().Single(i => i.Id == invoice.Id).Status);
+        Assert.Equal(organizationId, organizationLookup.ReactivatedOrganizationId);
+    }
+
+    [Fact]
+    public async Task ReconcilePendingAsync_PaymentStillWithinGracePeriod_IsSkippedEntirely()
+    {
+        using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
+        var organizationId = Guid.NewGuid();
+        // Initiated seconds ago — still well within the 5-minute grace period, so it must not
+        // even be checked yet (the customer could still be mid-checkout on the gateway's page).
+        var (_, _, payment) = await SeedStuckPaymentAsync(dbContext, organizationId, DateTimeOffset.UtcNow.AddSeconds(-30));
+        var gatewayClient = new ReconciliationGatewayClient(PaymentGateway.Esewa, payment.Id, () => throw new InvalidOperationException("Should not have been called."));
+        var service = new PaymentService(dbContext, new IPaymentGatewayClient[] { gatewayClient }, new FakeOrganizationLookupService());
+
+        await service.ReconcilePendingAsync();
+
+        Assert.Equal(0, gatewayClient.CheckStatusCallCount);
+        Assert.Equal(PaymentStatus.Initiated, dbContext.Set<Payment>().Single(p => p.Id == payment.Id).Status);
+    }
+
+    [Fact]
+    public async Task ReconcilePendingAsync_GatewayStillPendingAndNotYetAbandoned_LeavesPaymentInitiated()
+    {
+        using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
+        var organizationId = Guid.NewGuid();
+        var (_, _, payment) = await SeedStuckPaymentAsync(dbContext, organizationId, DateTimeOffset.UtcNow.AddHours(-1));
+        var gatewayClient = new ReconciliationGatewayClient(PaymentGateway.Esewa, payment.Id, () => new GatewayVerificationResult(false, null, "{\"status\":\"PENDING\"}"));
+        var service = new PaymentService(dbContext, new IPaymentGatewayClient[] { gatewayClient }, new FakeOrganizationLookupService());
+
+        await service.ReconcilePendingAsync();
+
+        Assert.Equal(1, gatewayClient.CheckStatusCallCount);
+        Assert.Equal(PaymentStatus.Initiated, dbContext.Set<Payment>().Single(p => p.Id == payment.Id).Status);
+    }
+
+    [Fact]
+    public async Task ReconcilePendingAsync_GatewayStillUnconfirmedPastMaxAge_MarksFailed()
+    {
+        using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
+        var organizationId = Guid.NewGuid();
+        var (_, _, payment) = await SeedStuckPaymentAsync(dbContext, organizationId, DateTimeOffset.UtcNow.AddHours(-25));
+        var gatewayClient = new ReconciliationGatewayClient(PaymentGateway.Esewa, payment.Id, () => new GatewayVerificationResult(false, null, "{\"status\":\"PENDING\"}"));
+        var service = new PaymentService(dbContext, new IPaymentGatewayClient[] { gatewayClient }, new FakeOrganizationLookupService());
+
+        await service.ReconcilePendingAsync();
+
+        Assert.Equal(PaymentStatus.Failed, dbContext.Set<Payment>().Single(p => p.Id == payment.Id).Status);
     }
 }

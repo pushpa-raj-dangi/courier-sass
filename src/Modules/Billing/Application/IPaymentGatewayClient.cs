@@ -16,4 +16,9 @@ public interface IPaymentGatewayClient
     PaymentGateway Gateway { get; }
     Task<GatewayInitiationResult> InitiateAsync(Guid paymentId, decimal amountNpr, string returnUrl, CancellationToken cancellationToken = default);
     Task<GatewayVerificationResult> VerifyAsync(Guid paymentId, decimal expectedAmountNpr, string? expectedGatewayReference, IReadOnlyDictionary<string, string> callbackParameters, CancellationToken cancellationToken = default);
+    // Server-to-server-only confirmation — no signed browser callback payload required, only the
+    // GatewayReference persisted at initiate time. Used by PaymentService.ReconcilePendingAsync to
+    // resolve payments where the customer completed checkout on the gateway's own page but the
+    // browser never made it back to /billing/callback (closed tab, dropped connection, etc.).
+    Task<GatewayVerificationResult> CheckStatusAsync(Guid paymentId, decimal expectedAmountNpr, string? expectedGatewayReference, CancellationToken cancellationToken = default);
 }

@@ -71,6 +71,21 @@ public class KhaltiGatewayClient : IPaymentGatewayClient
             return new GatewayVerificationResult(false, null, "{}");
         }
 
+        return await CheckStatusAsync(paymentId, expectedAmountNpr, pidx, cancellationToken);
+    }
+
+    // Unlike eSewa (whose VerifyAsync needs the decoded browser payload's signature checked
+    // before this point), Khalti's confirmation IS the lookup call by pidx alone — VerifyAsync
+    // above only adds the pidx-presence and binding checks a browser callback needs on top of
+    // this, so a reconciliation job can call this directly with the persisted GatewayReference.
+    public async Task<GatewayVerificationResult> CheckStatusAsync(Guid paymentId, decimal expectedAmountNpr, string? expectedGatewayReference, CancellationToken cancellationToken = default)
+    {
+        if (expectedGatewayReference is null)
+        {
+            return new GatewayVerificationResult(false, null, "{}");
+        }
+        var pidx = expectedGatewayReference;
+
         using var request = new HttpRequestMessage(HttpMethod.Post, _options.LookupUrl)
         {
             Content = JsonContent.Create(new { pidx })

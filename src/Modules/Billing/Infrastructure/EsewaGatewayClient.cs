@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -65,6 +66,7 @@ public class EsewaGatewayClient : IPaymentGatewayClient
         string transactionUuid;
         string receivedSignature;
         string? transactionCode;
+        string signMessage;
         try
         {
             decoded = Encoding.UTF8.GetString(Convert.FromBase64String(encodedData));
@@ -74,6 +76,17 @@ public class EsewaGatewayClient : IPaymentGatewayClient
             transactionUuid = root.GetProperty("transaction_uuid").GetString() ?? "";
             receivedSignature = root.GetProperty("signature").GetString() ?? "";
             transactionCode = root.TryGetProperty("transaction_code", out var codeProp) ? codeProp.GetString() : null;
+
+            // The browser-return callback signs a DIFFERENT, and self-referential, field set than
+            // the initiate request — confirmed against the real eSewa RC sandbox: the callback's
+            // own signed_field_names is "transaction_code,status,total_amount,transaction_uuid,
+            // product_code,signed_field_names" (six fields, including signed_field_names' own
+            // value), not the three-field "total_amount,transaction_uuid,product_code" used to
+            // sign the checkout form. The message to verify must always be built from exactly the
+            // field names this specific payload lists, in that order — never a hardcoded list.
+            var signedFieldNames = root.GetProperty("signed_field_names").GetString()
+                ?? throw new JsonException("signed_field_names missing");
+            signMessage = string.Join(",", signedFieldNames.Split(',').Select(name => $"{name}={root.GetProperty(name).GetString()}"));
         }
         catch (Exception ex) when (ex is FormatException or JsonException or InvalidOperationException or KeyNotFoundException)
         {
@@ -83,7 +96,7 @@ public class EsewaGatewayClient : IPaymentGatewayClient
             return new GatewayVerificationResult(false, null, "invalid payload");
         }
 
-        var expectedSignature = SignFields($"total_amount={totalAmount},transaction_uuid={transactionUuid},product_code={_options.ProductCode}");
+        var expectedSignature = SignFields(signMessage);
         if (receivedSignature != expectedSignature || transactionUuid != paymentId.ToString())
         {
             return new GatewayVerificationResult(false, null, decoded);
@@ -97,24 +110,59 @@ public class EsewaGatewayClient : IPaymentGatewayClient
         {
             return new GatewayVerificationResult(false, null, decoded);
         }
-        if (totalAmount != expectedAmountNpr.ToString("F2"))
+        // Numeric comparison, not string-exact: confirmed against the real eSewa RC sandbox that
+        // the decoded callback's own total_amount is NOT reliably zero-padded to two decimals —
+        // a genuinely-COMPLETE NPR 10.00 payment came back as "10.0", which would fail a
+        // "10.0" != "10.00" string check and reject a real, already-completed payment.
+        if (!decimal.TryParse(totalAmount, out var receivedAmount) || receivedAmount != expectedAmountNpr)
         {
             return new GatewayVerificationResult(false, null, decoded);
         }
 
-        // Server-to-server confirmation — never trust the decoded redirect payload alone.
+        // Server-to-server confirmation — never trust the decoded redirect payload alone. The
+        // decoded payload's own transaction_code (set above) is kept as GatewayTransactionId
+        // here rather than whatever CallStatusCheckApiAsync's ref_id resolves to, since that is
+        // the value this codebase has always surfaced for a browser-return confirmation.
+        var (succeeded, _, body) = await CallStatusCheckApiAsync(transactionUuid, totalAmount, cancellationToken);
+        return new GatewayVerificationResult(succeeded, transactionCode, body);
+    }
+
+    public async Task<GatewayVerificationResult> CheckStatusAsync(Guid paymentId, decimal expectedAmountNpr, string? expectedGatewayReference, CancellationToken cancellationToken = default)
+    {
+        // No browser return ever happened for this payment (that's the whole point of a
+        // reconciliation call) — expectedGatewayReference IS the transaction_uuid to check,
+        // falling back to paymentId.ToString() only because that's what InitiateAsync always
+        // sets it to in the first place.
+        var transactionUuid = expectedGatewayReference ?? paymentId.ToString();
+        var totalAmount = expectedAmountNpr.ToString("F2");
+        var (succeeded, refId, body) = await CallStatusCheckApiAsync(transactionUuid, totalAmount, cancellationToken);
+        return new GatewayVerificationResult(succeeded, refId, body);
+    }
+
+    private async Task<(bool Succeeded, string? RefId, string Body)> CallStatusCheckApiAsync(string transactionUuid, string totalAmount, CancellationToken cancellationToken)
+    {
         var statusUrl = $"{_options.StatusCheckUrl}?product_code={Uri.EscapeDataString(_options.ProductCode)}&total_amount={Uri.EscapeDataString(totalAmount)}&transaction_uuid={Uri.EscapeDataString(transactionUuid)}";
         var response = await _httpClient.GetAsync(statusUrl, cancellationToken);
         var body = await response.Content.ReadAsStringAsync(cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
-            return new GatewayVerificationResult(false, null, body);
+            return (false, null, body);
         }
 
-        using var statusDocument = JsonDocument.Parse(body);
-        var status = statusDocument.RootElement.TryGetProperty("status", out var statusProp) ? statusProp.GetString() : null;
-
-        return new GatewayVerificationResult(status == "COMPLETE", transactionCode, body);
+        try
+        {
+            using var statusDocument = JsonDocument.Parse(body);
+            var root = statusDocument.RootElement;
+            var status = root.TryGetProperty("status", out var statusProp) ? statusProp.GetString() : null;
+            var refId = root.TryGetProperty("ref_id", out var refProp) ? refProp.GetString() : null;
+            return (status == "COMPLETE", refId, body);
+        }
+        catch (JsonException)
+        {
+            // Malformed status-check response must never propagate as an unhandled exception —
+            // treat it as an unverified payment, same as every other defensive parse in this class.
+            return (false, null, body);
+        }
     }
 
     private string SignFields(string message)

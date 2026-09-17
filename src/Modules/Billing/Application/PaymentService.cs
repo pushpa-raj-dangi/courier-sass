@@ -9,6 +9,13 @@ public record PaymentCompletionResult(bool Succeeded, string Message);
 
 public class PaymentService
 {
+    // Bounds for ReconcilePendingAsync below: a payment younger than MinPendingAge is likely
+    // still mid-checkout on the gateway's own page, so re-polling it early would be wasted calls
+    // (and could race the customer's own return to /billing/callback); one still Initiated past
+    // MaxPendingAge is treated as abandoned rather than polled forever.
+    private static readonly TimeSpan MinPendingAge = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan MaxPendingAge = TimeSpan.FromHours(24);
+
     private readonly DbContext _dbContext;
     private readonly IEnumerable<IPaymentGatewayClient> _gatewayClients;
     private readonly IOrganizationLookupService _organizationLookupService;
@@ -22,9 +29,15 @@ public class PaymentService
 
     // returnBaseUrl is a bare page URL the frontend controls (e.g. "https://app.example.com/billing/callback"),
     // NOT the full return URL — the caller cannot know Payment.Id in advance (it's generated
-    // here), so this method appends "?paymentId={payment.Id}" itself before handing the URL to
-    // the gateway. This also means the frontend never needs to invent or track a correlation id
-    // of its own for "which payment is this browser tab waiting on."
+    // here), so this method appends "/{payment.Id}" itself as a PATH segment, never a query
+    // param, before handing the URL to the gateway. This also means the frontend never needs to
+    // invent or track a correlation id of its own for "which payment is this browser tab waiting
+    // on." Confirmed against the real eSewa RC sandbox: eSewa appends its own "?data=..." to
+    // success_url using a literal "?", not "&", even when success_url already has a query string
+    // — "?paymentId=X" then collided with eSewa's own "?data=Y" into one unparseable
+    // "?paymentId=X?data=Y" blob, silently corrupting paymentId and dropping data entirely. A
+    // path segment can never collide with a gateway's own query string, regardless of whether
+    // that gateway appends it correctly with "&".
     public async Task<GatewayCheckoutInfo> InitiatePaymentAsync(Guid invoiceId, PaymentGateway gateway, string returnBaseUrl, CancellationToken cancellationToken = default)
     {
         var invoice = await _dbContext.Set<Invoice>().FirstOrDefaultAsync(i => i.Id == invoiceId, cancellationToken)
@@ -49,8 +62,7 @@ public class PaymentService
         _dbContext.Set<Payment>().Add(payment);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        var separator = returnBaseUrl.Contains('?') ? "&" : "?";
-        var returnUrl = $"{returnBaseUrl}{separator}paymentId={payment.Id}";
+        var returnUrl = $"{returnBaseUrl.TrimEnd('/')}/{payment.Id}";
         var result = await client.InitiateAsync(payment.Id, invoice.AmountNprSnapshot, returnUrl, cancellationToken);
 
         // Second save after the external gateway call, same established pattern as
@@ -90,24 +102,78 @@ public class PaymentService
             ?? throw new BillingValidationException($"Gateway '{payment.Gateway}' is not configured.");
 
         var verification = await client.VerifyAsync(payment.Id, payment.AmountNpr, payment.GatewayReference, callbackParameters, cancellationToken);
-        payment.RawVerificationPayload = ToJsonOrWrap(verification.RawPayload);
 
         if (!verification.Succeeded)
         {
             payment.Status = PaymentStatus.Failed;
+            payment.RawVerificationPayload = ToJsonOrWrap(verification.RawPayload);
             await _dbContext.SaveChangesAsync(cancellationToken);
             return new PaymentCompletionResult(false, "Payment could not be confirmed. Please try again.");
         }
 
+        await ApplySucceededVerificationAsync(payment, verification, cancellationToken);
+        return new PaymentCompletionResult(true, "Payment confirmed.");
+    }
+
+    // Re-polls the gateway's own server-to-server status/lookup API (IPaymentGatewayClient.
+    // CheckStatusAsync — no signed browser callback payload needed) for any Payment stuck at
+    // Initiated, to catch customers who paid on the gateway's hosted page but whose browser
+    // never made it back to /billing/callback. Called from PaymentReconciliationJob, a Hangfire
+    // recurring job — same "no ambient tenant, IgnoreQueryFilters() everywhere" shape as
+    // OverdueInvoiceJob/TrialExpiryJob, since there is no request-scoped tenant here at all.
+    public async Task ReconcilePendingAsync(CancellationToken cancellationToken = default)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var freshCutoff = now - MinPendingAge;
+        var abandonCutoff = now - MaxPendingAge;
+
+        var stuckPayments = await _dbContext.Set<Payment>().IgnoreQueryFilters()
+            .Where(p => p.Status == PaymentStatus.Initiated && p.GatewayReference != null && p.InitiatedAt <= freshCutoff)
+            .ToListAsync(cancellationToken);
+
+        foreach (var payment in stuckPayments)
+        {
+            var client = _gatewayClients.FirstOrDefault(c => c.Gateway == payment.Gateway);
+            if (client is null)
+            {
+                continue;
+            }
+
+            var verification = await client.CheckStatusAsync(payment.Id, payment.AmountNpr, payment.GatewayReference, cancellationToken);
+            if (verification.Succeeded)
+            {
+                await ApplySucceededVerificationAsync(payment, verification, cancellationToken);
+            }
+            else if (payment.InitiatedAt <= abandonCutoff)
+            {
+                // Past MaxPendingAge with still no confirmation — stop polling this one forever
+                // and let it show up as a failed payment the merchant can retry.
+                payment.Status = PaymentStatus.Failed;
+                payment.RawVerificationPayload = ToJsonOrWrap(verification.RawPayload);
+                await _dbContext.SaveChangesAsync(cancellationToken);
+            }
+            // else: gateway still reports it unconfirmed and it's not abandoned yet — leave it
+            // at Initiated for the next run to re-check.
+        }
+    }
+
+    private async Task ApplySucceededVerificationAsync(Payment payment, GatewayVerificationResult verification, CancellationToken cancellationToken)
+    {
+        payment.RawVerificationPayload = ToJsonOrWrap(verification.RawPayload);
         payment.Status = PaymentStatus.Succeeded;
         payment.GatewayTransactionId = verification.GatewayTransactionId;
         payment.CompletedAt = DateTimeOffset.UtcNow;
 
-        var invoice = await _dbContext.Set<Invoice>().FirstAsync(i => i.Id == payment.InvoiceId, cancellationToken);
+        // IgnoreQueryFilters(): CompletePaymentAsync's caller runs inside the org's own tenant
+        // context so the ambient filter would pass anyway, but ReconcilePendingAsync (the
+        // Hangfire job path) has no ambient tenant at all — payment.InvoiceId/invoice.
+        // SubscriptionId are already resolved from a specific, already-validated Payment row
+        // either way, so bypassing the filter here cannot leak a different org's data.
+        var invoice = await _dbContext.Set<Invoice>().IgnoreQueryFilters().FirstAsync(i => i.Id == payment.InvoiceId, cancellationToken);
         invoice.Status = InvoiceStatus.Paid;
         invoice.PaidAt = payment.CompletedAt;
 
-        var subscription = await _dbContext.Set<Subscription>().FirstAsync(s => s.Id == invoice.SubscriptionId, cancellationToken);
+        var subscription = await _dbContext.Set<Subscription>().IgnoreQueryFilters().FirstAsync(s => s.Id == invoice.SubscriptionId, cancellationToken);
         if (subscription.Status == SubscriptionStatus.PastDue)
         {
             subscription.Status = SubscriptionStatus.Active;
@@ -124,8 +190,6 @@ public class PaymentService
         // Billing's own transaction (this codebase has no cross-module distributed transaction
         // mechanism, and building one is far outside this phase's scope).
         await _organizationLookupService.ReactivateIfSystemSuspendedAsync(invoice.OrganizationId, cancellationToken);
-
-        return new PaymentCompletionResult(true, "Payment confirmed.");
     }
 
     // Payment.RawVerificationPayload is a jsonb column, but several gateway-client failure paths

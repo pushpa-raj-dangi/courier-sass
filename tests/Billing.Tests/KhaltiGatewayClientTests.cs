@@ -95,6 +95,31 @@ public class KhaltiGatewayClientTests
         Assert.False(result.Succeeded);
     }
 
+    [Fact]
+    public async Task CheckStatusAsync_CompletedStatus_SucceedsUsingPersistedGatewayReferenceAlone()
+    {
+        // No callbackParameters dict at all — reconciliation only ever has the persisted
+        // GatewayReference (pidx) and the payment's own expected amount.
+        var httpClientFactory = new StubHttpClientFactory(new StubHandler(JsonSerializer.Serialize(new { pidx = "abc123", status = "Completed", transaction_id = "TXN456", total_amount = 200000 })));
+        var client = new KhaltiGatewayClient(Microsoft.Extensions.Options.Options.Create(Options()), httpClientFactory);
+
+        var result = await client.CheckStatusAsync(Guid.NewGuid(), 2000m, "abc123");
+
+        Assert.True(result.Succeeded);
+        Assert.Equal("TXN456", result.GatewayTransactionId);
+    }
+
+    [Fact]
+    public async Task CheckStatusAsync_NoGatewayReference_FailsWithoutCallingLookup()
+    {
+        var httpClientFactory = new StubHttpClientFactory(new ThrowingHandler());
+        var client = new KhaltiGatewayClient(Microsoft.Extensions.Options.Options.Create(Options()), httpClientFactory);
+
+        var result = await client.CheckStatusAsync(Guid.NewGuid(), 2000m, null);
+
+        Assert.False(result.Succeeded);
+    }
+
     // A matching pidx but a lookup response reporting a DIFFERENT total_amount than what this
     // payment actually costs must also be rejected — otherwise a payment for a smaller declared
     // amount could be looked up successfully and treated as full confirmation.

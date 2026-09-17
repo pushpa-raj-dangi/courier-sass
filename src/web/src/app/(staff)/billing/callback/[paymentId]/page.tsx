@@ -1,31 +1,36 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { useCompletePayment } from "@/features/billing/hooks/useCompletePayment";
 
+// paymentId is a PATH segment (not a query param) — PaymentService.InitiatePaymentAsync appends
+// it that way deliberately, since eSewa appends its own "?data=..." to success_url using a
+// literal "?" even when success_url already has a query string. A "?paymentId=X" query param
+// collided with eSewa's own "?data=Y" into one unparseable blob (confirmed against the real
+// eSewa RC sandbox) — a path segment can never collide with a gateway's own query string.
+//
 // useSearchParams() bails out of static rendering unless wrapped in its own Suspense boundary —
 // same split this codebase already uses for AcceptInviteForm/accept-invite/page.tsx — so the
 // search-params-consuming logic lives in its own inner component here.
 function BillingCallbackContent() {
   const router = useRouter();
+  const params = useParams<{ paymentId: string }>();
   const searchParams = useSearchParams();
   const completePayment = useCompletePayment();
   const [result, setResult] = useState<{ succeeded: boolean; message: string } | null>(null);
 
   useEffect(() => {
-    const paymentId = searchParams.get("paymentId");
+    const paymentId = params.paymentId;
     if (!paymentId) {
       setResult({ succeeded: false, message: "No payment reference was returned." });
       return;
     }
     const callbackParameters: Record<string, string> = {};
     searchParams.forEach((value, key) => {
-      if (key !== "paymentId") {
-        callbackParameters[key] = value;
-      }
+      callbackParameters[key] = value;
     });
     completePayment.mutate(
       { paymentId, callbackParameters },
