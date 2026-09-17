@@ -2,20 +2,25 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Check } from "lucide-react";
+import { Building2, Check, Package, Users, type LucideIcon } from "lucide-react";
 import { PRICING_PLANS, getPrimaryCta, type PricingPlan } from "../content";
 import { useRevealVariants } from "../lib/motionVariants";
 
-function formatCount(value: number | null, unit: string): string {
-  return value === null ? `Unlimited ${unit}` : `${value.toLocaleString("en-US")} ${unit}`;
+function formatMetric(value: number | null): string {
+  return value === null ? "Unlimited" : value.toLocaleString("en-US");
 }
 
-function planLimits(plan: PricingPlan): string[] {
+interface PlanMetric {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+}
+
+function planMetrics(plan: PricingPlan): PlanMetric[] {
   return [
-    formatCount(plan.maxBranches, plan.maxBranches === 1 ? "branch" : "branches"),
-    formatCount(plan.maxStaffUsers, "staff accounts"),
-    formatCount(plan.maxMonthlyShipments, "shipments / month"),
-    "7-day free trial",
+    { icon: Building2, label: "Branches", value: formatMetric(plan.maxBranches) },
+    { icon: Users, label: "Staff accounts", value: formatMetric(plan.maxStaffUsers) },
+    { icon: Package, label: "Shipments/mo", value: formatMetric(plan.maxMonthlyShipments) },
   ];
 }
 
@@ -27,12 +32,12 @@ function PlanCard({ plan, isAuthenticated }: { plan: PricingPlan; isAuthenticate
       data-testid="pricing-card"
       className={
         plan.isDefault
-          ? "relative flex flex-col gap-6 rounded-xl border border-marketing-accent bg-marketing-bg-elevated p-6 shadow-[0_0_50px_-15px_hsl(var(--marketing-accent)/0.7)]"
-          : "flex flex-col gap-6 rounded-xl border border-marketing-border bg-marketing-bg-elevated p-6 transition-shadow hover:shadow-[0_0_40px_-15px_hsl(var(--marketing-accent)/0.4)]"
+          ? "relative z-10 flex h-full flex-col gap-6 rounded-xl border border-marketing-accent bg-marketing-bg-elevated p-6 shadow-[0_0_60px_-14px_hsl(var(--marketing-accent)/0.65)] lg:-translate-y-3 lg:scale-[1.03]"
+          : "relative flex h-full flex-col gap-6 rounded-xl border border-marketing-border bg-marketing-bg-elevated p-6 transition-shadow hover:shadow-[0_0_40px_-15px_hsl(var(--marketing-accent)/0.4)]"
       }
     >
       {plan.isDefault && (
-        <span className="absolute -top-3 left-6 rounded-full bg-marketing-accent px-3 py-1 text-xs font-medium text-marketing-accent-fg">
+        <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-marketing-accent px-3 py-1 text-xs font-semibold text-marketing-accent-fg shadow-sm">
           Most teams start here
         </span>
       )}
@@ -42,7 +47,10 @@ function PlanCard({ plan, isAuthenticated }: { plan: PricingPlan; isAuthenticate
       </div>
       <div className="flex flex-col gap-1">
         {plan.monthlyPriceNpr === null ? (
-          <span className="font-display text-3xl font-semibold text-marketing-fg">Custom</span>
+          <>
+            <span className="font-display text-3xl font-semibold text-marketing-fg">Custom</span>
+            <span className="text-sm text-marketing-muted-fg">Contact for pricing</span>
+          </>
         ) : (
           <>
             <span className="whitespace-nowrap font-display text-3xl font-semibold text-marketing-fg">
@@ -52,14 +60,17 @@ function PlanCard({ plan, isAuthenticated }: { plan: PricingPlan; isAuthenticate
           </>
         )}
       </div>
-      <ul className="flex flex-col gap-2.5">
-        {planLimits(plan).map((limit) => (
-          <li key={limit} className="flex items-start gap-2.5 text-sm text-marketing-fg">
-            <Check className="mt-0.5 h-4 w-4 shrink-0 text-marketing-accent" strokeWidth={2} aria-hidden="true" />
-            {limit}
-          </li>
+      <dl className="flex flex-col divide-y divide-marketing-border/50 border-y border-marketing-border/50">
+        {planMetrics(plan).map((metric) => (
+          <div key={metric.label} className="flex items-center justify-between gap-4 py-2.5">
+            <dt className="flex items-center gap-2 text-sm text-marketing-muted-fg">
+              <metric.icon className="h-4 w-4 shrink-0 text-marketing-muted-fg" strokeWidth={2} aria-hidden="true" />
+              {metric.label}
+            </dt>
+            <dd className="text-sm font-semibold text-marketing-fg">{metric.value}</dd>
+          </div>
         ))}
-      </ul>
+      </dl>
       <Link
         href={cta.href}
         aria-label={`${cta.label} — ${plan.name} plan`}
@@ -80,7 +91,7 @@ export function PricingPlans({ isAuthenticated }: { isAuthenticated: boolean }) 
 
   return (
     <section id="plans" className="mx-auto max-w-6xl px-4 pb-24 pt-20">
-      <div className="mb-12 flex flex-col items-center gap-3 text-center">
+      <div className="mb-12 flex flex-col items-center gap-4 text-center">
         <h1 className="font-display text-4xl font-semibold tracking-tight text-marketing-fg sm:text-5xl">
           Priced by what you run, not what you promise
         </h1>
@@ -88,16 +99,20 @@ export function PricingPlans({ isAuthenticated }: { isAuthenticated: boolean }) 
           Every plan gets the full platform — branches, riders, COD, NDR, RTO. The tier is just how many branches,
           staff, and shipments it&apos;s sized for. NPR only, billed monthly, no hidden fees.
         </p>
+        <span className="inline-flex items-center gap-2 rounded-full border border-marketing-border bg-marketing-accent/10 px-4 py-1.5 text-xs font-medium text-marketing-fg">
+          <Check className="h-3.5 w-3.5 text-marketing-accent" strokeWidth={2.5} aria-hidden="true" />
+          Every plan includes a 7-day free trial
+        </span>
       </div>
       <motion.div
         variants={container}
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, amount: 0.15 }}
-        className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4"
+        className="grid grid-cols-1 gap-6 pt-3 sm:grid-cols-2 lg:grid-cols-4"
       >
         {PRICING_PLANS.map((plan) => (
-          <motion.div key={plan.slug} variants={item}>
+          <motion.div key={plan.slug} variants={item} className="h-full">
             <PlanCard plan={plan} isAuthenticated={isAuthenticated} />
           </motion.div>
         ))}

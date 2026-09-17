@@ -23,7 +23,19 @@ describe("PricingPlans", () => {
 
   it("shows Unlimited for null branch/staff/shipment limits instead of a number", () => {
     render(<PricingPlans isAuthenticated={false} />);
-    expect(screen.getAllByText(/^Unlimited /).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Unlimited").length).toBeGreaterThan(0);
+  });
+
+  it("labels every plan's branch, staff, and shipment metrics for row-by-row comparison", () => {
+    render(<PricingPlans isAuthenticated={false} />);
+    expect(screen.getAllByText("Branches")).toHaveLength(PRICING_PLANS.length);
+    expect(screen.getAllByText("Staff accounts")).toHaveLength(PRICING_PLANS.length);
+    expect(screen.getAllByText("Shipments/mo")).toHaveLength(PRICING_PLANS.length);
+  });
+
+  it("states the shared 7-day trial once instead of repeating it on every card", () => {
+    render(<PricingPlans isAuthenticated={false} />);
+    expect(screen.getByText("Every plan includes a 7-day free trial")).toBeInTheDocument();
   });
 
   it("highlights exactly the default plan with a 'Most teams start here' tag", () => {
