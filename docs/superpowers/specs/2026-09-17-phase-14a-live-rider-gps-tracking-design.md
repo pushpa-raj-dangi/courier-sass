@@ -111,21 +111,24 @@ Added to `Identity.Application.PermissionCatalog` alongside the existing
 ("rider.location.read", "Read rider live location and breadcrumb history"),
 ```
 
-Granted to exactly the roles that hold `rider.read` today, verified against
-the real seed data in `AdditionalRoleSeeds.cs` rather than `RBAC.md`'s
-illustrative table: `OrganizationAdmin` (via its "everything except
-billing/ownership/delete" grant), `OperationsManager` (explicit), and
-`Auditor` (via its blanket `*.read` grant), plus `OrganizationOwner`
-(seeded separately with the full permission set). Notably `BranchManager`,
-`Dispatcher`, and `HubStaff` do **not** hold `rider.read` today, so they get
-no `rider.location.read` grant either — this design does not expand who can
-see rider profiles/locations beyond the existing `rider.read` boundary,
-even though that means `BranchManager` (the role most likely to actually
-want a branch's Live Map) cannot see it out of the box. That's a
-pre-existing RBAC gap on `rider.read` itself, not something to fix as a
-side effect of this design — flagging it in case the user wants
-`rider.read`/`rider.location.read` added to `BranchManager`/`Dispatcher` as
-a separate, explicit RBAC change. The rider's own
+Granted to every role that holds `rider.read` today (`OrganizationAdmin` via
+its "everything except billing/ownership/delete" grant, `OperationsManager`
+explicit, `Auditor` via its blanket `*.read` grant, `OrganizationOwner`
+seeded separately with the full permission set — all verified against the
+real seed data in `AdditionalRoleSeeds.cs`, not `RBAC.md`'s illustrative
+table), **plus a deliberate RBAC fix bundled into this design**:
+`BranchManager` and `Dispatcher` — the two branch-level roles that actually
+run day-to-day dispatch and are the realistic primary users of the Live Map
+— gain `rider.read` for the first time, and `rider.location.read` alongside
+it. Both additions go directly into `AdditionalRoleSeeds.cs`'s existing
+`BranchManager`/`Dispatcher` arrays (`"rider.read", "rider.location.read"`
+appended to each), requiring the corresponding EF migration for the seeded
+`RolePermission` rows, the same way Phase 7 had to generate a dedicated
+migration the moment `manifest.read` was added to the permission catalog.
+`HubStaff` is deliberately left out of this fix — its existing
+permission set (`manifest.*`, `shipment.scan/sort`, `branch.read`) is
+scan/sorting-focused, not dispatch-focused, and no one has identified a real
+need for it to see rider locations. The rider's own
 self-reporting endpoint (§4.3) needs no new permission — it follows the
 existing `/riders/me/*` self-lookup pattern, which authorizes "is this JWT's
 subject a rider" rather than a permission grant.
@@ -227,9 +230,11 @@ already holds a provider account, but that's not a blocker for this slice.
   `DeliveryRunId` when none does yet.
 - **Backend unit:** the retention job deletes pings older than the
   configured window and leaves newer ones untouched.
-- **Backend permission test:** a role holding `rider.read` but not
-  `rider.location.read` is rejected on both new `GET` endpoints (proves the
-  new permission is actually enforced, not just declared).
+- **Backend permission test:** a role holding neither permission (e.g.
+  `HubStaff`, deliberately excluded per §4.2) is rejected on both new `GET`
+  endpoints, and `BranchManager`/`Dispatcher` — newly granted both
+  permissions by this design's RBAC fix — succeed, proving the seed change
+  actually took effect and isn't just declared in the design.
 - **Frontend unit:** `useLocationReporting`'s throttle and
   visibility-pause/resume behavior (mocked `navigator.geolocation` and
   `document.visibilityState`).
