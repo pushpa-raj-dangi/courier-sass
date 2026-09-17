@@ -3301,6 +3301,44 @@ namespace Persistence.Migrations
                     b.ToTable("Riders", (string)null);
                 });
 
+            modelBuilder.Entity("Courier.Riders.Domain.RiderLocationPing", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal?>("AccuracyMeters")
+                        .HasPrecision(9, 2)
+                        .HasColumnType("numeric(9,2)");
+
+                    b.Property<Guid?>("DeliveryRunId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Latitude")
+                        .HasPrecision(9, 6)
+                        .HasColumnType("numeric(9,6)");
+
+                    b.Property<decimal>("Longitude")
+                        .HasPrecision(9, 6)
+                        .HasColumnType("numeric(9,6)");
+
+                    b.Property<DateTimeOffset>("RecordedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("RiderId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DeliveryRunId");
+
+                    b.HasIndex("RecordedAt");
+
+                    b.HasIndex("RiderId", "RecordedAt");
+
+                    b.ToTable("RiderLocationPings", (string)null);
+                });
+
             modelBuilder.Entity("Courier.Riders.Domain.Vehicle", b =>
                 {
                     b.Property<Guid>("Id")
@@ -4383,6 +4421,20 @@ namespace Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("OrganizationId")
                         .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Courier.Riders.Domain.RiderLocationPing", b =>
+                {
+                    b.HasOne("Courier.Riders.Domain.DeliveryRun", null)
+                        .WithMany()
+                        .HasForeignKey("DeliveryRunId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Courier.Riders.Domain.Rider", null)
+                        .WithMany()
+                        .HasForeignKey("RiderId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 

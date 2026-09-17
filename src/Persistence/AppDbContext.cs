@@ -85,6 +85,7 @@ public class AppDbContext : DbContext, IDataProtectionKeyContext
     public DbSet<DeliveryTask> DeliveryTasks => Set<DeliveryTask>();
     public DbSet<DeliveryAttempt> DeliveryAttempts => Set<DeliveryAttempt>();
     public DbSet<DeliveryProof> DeliveryProofs => Set<DeliveryProof>();
+    public DbSet<RiderLocationPing> RiderLocationPings => Set<RiderLocationPing>();
     public DbSet<NDR> Ndrs => Set<NDR>();
     public DbSet<ReturnShipment> ReturnShipments => Set<ReturnShipment>();
     public DbSet<CODCollection> CODCollections => Set<CODCollection>();
@@ -159,6 +160,7 @@ public class AppDbContext : DbContext, IDataProtectionKeyContext
         modelBuilder.ApplyConfiguration(new DeliveryTaskConfiguration());
         modelBuilder.ApplyConfiguration(new DeliveryAttemptConfiguration());
         modelBuilder.ApplyConfiguration(new DeliveryProofConfiguration());
+        modelBuilder.ApplyConfiguration(new RiderLocationPingConfiguration());
         modelBuilder.ApplyConfiguration(new NdrConfiguration());
         modelBuilder.ApplyConfiguration(new ReturnShipmentConfiguration());
         modelBuilder.ApplyConfiguration(new CODCollectionConfiguration());
