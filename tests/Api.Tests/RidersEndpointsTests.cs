@@ -450,4 +450,38 @@ public class RidersEndpointsTests : IClassFixture<WebApplicationFactory<Program>
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
+
+    [Fact]
+    public async Task PostLocation_LoggedInAsRider_RecordsPingAndReturns204()
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "location-ping");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (originBranchId, _, _) = await SeedBranchesAsync(client);
+        var suffix = Guid.NewGuid().ToString("N");
+        var riderEmail = $"rider-{suffix}@example.com";
+        await client.PostAsJsonAsync("/api/v1/riders", new CreateRiderRequest(
+            riderEmail, "P@ssw0rd123!", "Location Rider", null, $"LIC-{suffix[..10]}", originBranchId, RiderRoleType.PickupRider));
+
+        var riderClient = _factory.CreateClient();
+        var loginResponse = await riderClient.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest(riderEmail, "P@ssw0rd123!"));
+        var riderAuth = await loginResponse.Content.ReadFromJsonAsync<AuthResult>();
+        riderClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", riderAuth!.AccessToken);
+
+        var response = await riderClient.PostAsJsonAsync("/api/v1/riders/me/location",
+            new LocationPingRequest(27.7172m, 85.3240m, 12.5m, DateTimeOffset.UtcNow));
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task PostLocation_Unauthenticated_Returns401()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/v1/riders/me/location",
+            new LocationPingRequest(27.7172m, 85.3240m, null, DateTimeOffset.UtcNow));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
 }

@@ -58,6 +58,12 @@ public static class RidersEndpoints
         riders.MapGet("/me/tasks/today", async (RiderService service, HttpContext httpContext) =>
             Results.Ok(await service.GetMyTasksTodayAsync(httpContext.User, httpContext.RequestAborted)));
 
+        riders.MapPost("/me/location", async (LocationPingRequest request, RiderService service, HttpContext httpContext) =>
+        {
+            var recorded = await service.RecordLocationPingAsync(request, httpContext.User, httpContext.RequestAborted);
+            return recorded ? Results.NoContent() : Results.NotFound();
+        });
+
         riders.MapGet("/{id:guid}", async (Guid id, RiderService service, HttpContext httpContext) =>
         {
             var result = await service.GetByIdAsync(id, httpContext.RequestAborted);
