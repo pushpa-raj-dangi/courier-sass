@@ -68,6 +68,12 @@ public static class RidersEndpoints
             await HandleAsync(() => service.GetBranchLocationsAsync(branchId, httpContext.User, httpContext.RequestAborted)))
             .RequirePermission("rider.location.read");
 
+        riders.MapGet("/runs/{runId:guid}/breadcrumbs", async (Guid runId, RiderService service, HttpContext httpContext) =>
+        {
+            var result = await service.GetRunBreadcrumbsAsync(runId, httpContext.User, httpContext.RequestAborted);
+            return result is null ? Results.NotFound() : Results.Ok(result);
+        }).RequirePermission("rider.location.read");
+
         riders.MapGet("/{id:guid}", async (Guid id, RiderService service, HttpContext httpContext) =>
         {
             var result = await service.GetByIdAsync(id, httpContext.RequestAborted);

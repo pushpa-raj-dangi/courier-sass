@@ -89,4 +89,37 @@ public partial class RiderService
         }
         return results;
     }
+
+    // DeliveryRun carries no own OrganizationId/query filter (Task 1's design note), so a raw
+    // lookup by runId is NOT tenant-safe on its own — the owning Rider must be re-resolved through
+    // a tenant-filtered query before trusting run.BranchId, the same way GetMyTasksTodayAsync
+    // resolves Rider before ever touching DeliveryRun/DeliveryTask. Returning null for "run exists
+    // but its Rider isn't visible in this tenant" (rather than a distinct error) never leaks that
+    // a run with this id exists in another organization. Because the Rider lookup below is
+    // tenant-filtered and DeliveryRun.BranchId is only ever set server-side from that same Rider's
+    // organization, reaching CheckBranchAccessAsync below already guarantees run.BranchId belongs
+    // to the caller's tenant — unlike GetBranchLocationsAsync's branchId (taken raw off the route),
+    // this branchId needs no separate tenant existence check before the branch-scope check.
+    public async Task<List<RiderLocationResponse>?> GetRunBreadcrumbsAsync(Guid runId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
+    {
+        var run = await _dbContext.Set<DeliveryRun>().FirstOrDefaultAsync(r => r.Id == runId, cancellationToken);
+        if (run is null)
+        {
+            return null;
+        }
+        var rider = await _dbContext.Set<Rider>().FirstOrDefaultAsync(r => r.Id == run.RiderId, cancellationToken);
+        if (rider is null)
+        {
+            return null;
+        }
+
+        await CheckBranchAccessAsync(actingUser, "rider.location.read", run.BranchId, cancellationToken);
+
+        var pings = await _dbContext.Set<RiderLocationPing>().AsNoTracking()
+            .Where(p => p.DeliveryRunId == runId)
+            .OrderBy(p => p.RecordedAt)
+            .ToListAsync(cancellationToken);
+
+        return pings.Select(p => new RiderLocationResponse(p.RiderId, p.Latitude, p.Longitude, p.AccuracyMeters, p.RecordedAt)).ToList();
+    }
 }

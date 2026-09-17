@@ -569,6 +569,87 @@ public class RidersEndpointsTests : IClassFixture<WebApplicationFactory<Program>
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
+    [Fact]
+    public async Task GetRunBreadcrumbs_TwoPingsSameRun_ReturnsBothOrderedByTime()
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "breadcrumbs");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (originBranchId, destinationBranchId, serviceTypeId) = await SeedBranchesAsync(client);
+        var merchantId = await CreateMerchantAsync(client);
+        var suffix = Guid.NewGuid().ToString("N");
+        var riderEmail = $"rider-{suffix}@example.com";
+        await client.PostAsJsonAsync("/api/v1/riders", new CreateRiderRequest(
+            riderEmail, "P@ssw0rd123!", "Breadcrumb Rider", null, $"LIC-{suffix[..10]}", originBranchId, RiderRoleType.PickupRider));
+        var shipment = await (await client.PostAsJsonAsync("/api/v1/shipments", ValidShipmentRequest(merchantId, originBranchId, destinationBranchId, serviceTypeId))).Content.ReadFromJsonAsync<ShipmentResponse>();
+
+        var riderClient = _factory.CreateClient();
+        var loginResponse = await riderClient.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest(riderEmail, "P@ssw0rd123!"));
+        var riderAuth = await loginResponse.Content.ReadFromJsonAsync<AuthResult>();
+        riderClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", riderAuth!.AccessToken);
+
+        // AssignTaskAsync (Task 8, Phase 8) auto-creates today's DeliveryRun — the only way to get a
+        // real DeliveryRunId to attach pings to, matching how every other Riders test reaches a run.
+        var riderRecord = await (await riderClient.GetAsync("/api/v1/riders/me")).Content.ReadFromJsonAsync<RiderResponse>();
+        await client.PostAsJsonAsync("/api/v1/riders/tasks", new AssignDeliveryTaskRequest(riderRecord!.Id, shipment!.Id, DeliveryTaskType.Pickup));
+        var tasksToday = await (await riderClient.GetAsync("/api/v1/riders/me/tasks/today")).Content.ReadFromJsonAsync<MyTasksTodayResponse>();
+        var runId = tasksToday!.DeliveryRunId!.Value;
+
+        await riderClient.PostAsJsonAsync("/api/v1/riders/me/location", new LocationPingRequest(27.70m, 85.30m, null, DateTimeOffset.UtcNow.AddMinutes(-2)));
+        await riderClient.PostAsJsonAsync("/api/v1/riders/me/location", new LocationPingRequest(27.72m, 85.32m, null, DateTimeOffset.UtcNow));
+
+        var response = await client.GetAsync($"/api/v1/riders/runs/{runId}/breadcrumbs");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var breadcrumbs = await response.Content.ReadFromJsonAsync<List<RiderLocationResponse>>();
+        Assert.Equal(2, breadcrumbs!.Count);
+        Assert.Equal(27.70m, breadcrumbs[0].Latitude);
+        Assert.Equal(27.72m, breadcrumbs[1].Latitude);
+    }
+
+    [Fact]
+    public async Task GetRunBreadcrumbs_RunFromAnotherOrganization_Returns404()
+    {
+        var clientA = _factory.CreateClient();
+        var orgA = await RegisterOrgAsync(clientA, "breadcrumbs-iso-a");
+        clientA.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", orgA.AccessToken);
+        var (originBranchIdA, destinationBranchIdA, serviceTypeIdA) = await SeedBranchesAsync(clientA);
+        var merchantIdA = await CreateMerchantAsync(clientA);
+        var suffixA = Guid.NewGuid().ToString("N");
+        var riderEmailA = $"rider-{suffixA}@example.com";
+        await clientA.PostAsJsonAsync("/api/v1/riders", new CreateRiderRequest(
+            riderEmailA, "P@ssw0rd123!", "Org A Rider", null, $"LIC-{suffixA[..10]}", originBranchIdA, RiderRoleType.PickupRider));
+        var shipmentA = await (await clientA.PostAsJsonAsync("/api/v1/shipments", ValidShipmentRequest(merchantIdA, originBranchIdA, destinationBranchIdA, serviceTypeIdA))).Content.ReadFromJsonAsync<ShipmentResponse>();
+        var riderClientA = _factory.CreateClient();
+        var loginA = await riderClientA.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest(riderEmailA, "P@ssw0rd123!"));
+        var riderAuthA = await loginA.Content.ReadFromJsonAsync<AuthResult>();
+        riderClientA.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", riderAuthA!.AccessToken);
+        var riderRecordA = await (await riderClientA.GetAsync("/api/v1/riders/me")).Content.ReadFromJsonAsync<RiderResponse>();
+        await clientA.PostAsJsonAsync("/api/v1/riders/tasks", new AssignDeliveryTaskRequest(riderRecordA!.Id, shipmentA!.Id, DeliveryTaskType.Pickup));
+        var tasksTodayA = await (await riderClientA.GetAsync("/api/v1/riders/me/tasks/today")).Content.ReadFromJsonAsync<MyTasksTodayResponse>();
+        var runIdA = tasksTodayA!.DeliveryRunId!.Value;
+
+        var clientB = _factory.CreateClient();
+        var orgB = await RegisterOrgAsync(clientB, "breadcrumbs-iso-b");
+        clientB.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", orgB.AccessToken);
+
+        var response = await clientB.GetAsync($"/api/v1/riders/runs/{runIdA}/breadcrumbs");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetRunBreadcrumbs_UnknownRunId_Returns404()
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "breadcrumbs-unknown");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+
+        var response = await client.GetAsync($"/api/v1/riders/runs/{Guid.NewGuid()}/breadcrumbs");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
     // Invites, accepts, and logs in a user under roleName scoped to the given branchId — same
     // invite/accept-invite/login chain as OrganizationSettingsEndpointsTests.InviteAcceptAndLoginAsync,
     // adapted to take an explicit branchId (that test's version always creates a fresh branch, but
