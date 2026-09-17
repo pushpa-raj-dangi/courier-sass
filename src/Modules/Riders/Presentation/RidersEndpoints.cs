@@ -64,6 +64,10 @@ public static class RidersEndpoints
             return recorded ? Results.NoContent() : Results.NotFound();
         });
 
+        riders.MapGet("/branches/{branchId:guid}/locations", async (Guid branchId, RiderService service, HttpContext httpContext) =>
+            await HandleAsync(() => service.GetBranchLocationsAsync(branchId, httpContext.User, httpContext.RequestAborted)))
+            .RequirePermission("rider.location.read");
+
         riders.MapGet("/{id:guid}", async (Guid id, RiderService service, HttpContext httpContext) =>
         {
             var result = await service.GetByIdAsync(id, httpContext.RequestAborted);

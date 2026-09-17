@@ -4,11 +4,14 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Courier.Branches.Application;
 using Courier.Branches.Domain;
+using Courier.Events.Domain;
 using Courier.Geography.Application;
 using Courier.Geography.Infrastructure;
 using Courier.Identity.Application;
+using Courier.Identity.Presentation;
 using Courier.Manifests.Application;
 using Courier.Merchants.Application;
+using Courier.Persistence;
 using Courier.Pricing.Application;
 using Courier.Pricing.Domain;
 using Courier.Riders.Application;
@@ -16,6 +19,8 @@ using Courier.Riders.Domain;
 using Courier.Shipments.Application;
 using Courier.Shipments.Domain;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace Courier.Api.Tests;
@@ -483,5 +488,117 @@ public class RidersEndpointsTests : IClassFixture<WebApplicationFactory<Program>
             new LocationPingRequest(27.7172m, 85.3240m, null, DateTimeOffset.UtcNow));
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetBranchLocations_AfterPing_ReturnsLatestPositionForActiveRider()
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "branch-locations");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (originBranchId, _, _) = await SeedBranchesAsync(client);
+        var suffix = Guid.NewGuid().ToString("N");
+        var riderEmail = $"rider-{suffix}@example.com";
+        var createResponse = await client.PostAsJsonAsync("/api/v1/riders", new CreateRiderRequest(
+            riderEmail, "P@ssw0rd123!", "Branch Map Rider", null, $"LIC-{suffix[..10]}", originBranchId, RiderRoleType.PickupRider));
+        var createdRider = await createResponse.Content.ReadFromJsonAsync<RiderResponse>();
+
+        var riderClient = _factory.CreateClient();
+        var loginResponse = await riderClient.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest(riderEmail, "P@ssw0rd123!"));
+        var riderAuth = await loginResponse.Content.ReadFromJsonAsync<AuthResult>();
+        riderClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", riderAuth!.AccessToken);
+        await riderClient.PostAsJsonAsync("/api/v1/riders/me/location", new LocationPingRequest(27.7172m, 85.3240m, 10m, DateTimeOffset.UtcNow));
+
+        var response = await client.GetAsync($"/api/v1/riders/branches/{originBranchId}/locations");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var locations = await response.Content.ReadFromJsonAsync<List<RiderLocationResponse>>();
+        var location = Assert.Single(locations!, l => l.RiderId == createdRider!.Id);
+        Assert.Equal(27.7172m, location.Latitude);
+    }
+
+    [Fact]
+    public async Task GetBranchLocations_OrgBBranch_Returns400()
+    {
+        var clientA = _factory.CreateClient();
+        var orgA = await RegisterOrgAsync(clientA, "branch-locations-iso-a");
+        clientA.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", orgA.AccessToken);
+        var (branchIdA, _, _) = await SeedBranchesAsync(clientA);
+
+        var clientB = _factory.CreateClient();
+        var orgB = await RegisterOrgAsync(clientB, "branch-locations-iso-b");
+        clientB.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", orgB.AccessToken);
+
+        var response = await clientB.GetAsync($"/api/v1/riders/branches/{branchIdA}/locations");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetBranchLocations_RoleWithoutPermission_Returns403()
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "branch-locations-perm");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (originBranchId, _, _) = await SeedBranchesAsync(client);
+        // SortingStaff holds neither rider.read nor rider.location.read (AdditionalRoleSeeds.cs) —
+        // the negative case for the RBAC fix in Task 2.
+        var token = await InviteAcceptAndLoginForBranchAsync(client, "SortingStaff", originBranchId);
+        var sortingStaffClient = _factory.CreateClient();
+        sortingStaffClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await sortingStaffClient.GetAsync($"/api/v1/riders/branches/{originBranchId}/locations");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetBranchLocations_BranchManager_NowHasAccess()
+    {
+        // Proves Task 2's RBAC fix actually took effect end-to-end, not just declared in the seed array.
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "branch-locations-bm");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (originBranchId, _, _) = await SeedBranchesAsync(client);
+        var token = await InviteAcceptAndLoginForBranchAsync(client, "BranchManager", originBranchId);
+        var branchManagerClient = _factory.CreateClient();
+        branchManagerClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await branchManagerClient.GetAsync($"/api/v1/riders/branches/{originBranchId}/locations");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    // Invites, accepts, and logs in a user under roleName scoped to the given branchId — same
+    // invite/accept-invite/login chain as OrganizationSettingsEndpointsTests.InviteAcceptAndLoginAsync,
+    // adapted to take an explicit branchId (that test's version always creates a fresh branch, but
+    // branch-scope tests here need the invited user scoped to the SAME branch as the rider/location
+    // under test).
+    private async Task<string> InviteAcceptAndLoginForBranchAsync(HttpClient ownerClient, string roleName, Guid branchId)
+    {
+        var roles = await (await ownerClient.GetAsync("/api/v1/roles")).Content.ReadFromJsonAsync<List<RoleResponse>>();
+        var role = roles!.Single(r => r.Name == roleName);
+        var email = $"staff-{Guid.NewGuid():N}@example.com";
+        var password = "St@ffPassword1";
+
+        var inviteResponse = await ownerClient.PostAsJsonAsync("/api/v1/users/invite",
+            new InviteUserRequest(email, "Staff Person", null, role.Id, branchId, null));
+        inviteResponse.EnsureSuccessStatusCode();
+
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var outboxMessage = await dbContext.Set<OutboxMessage>().IgnoreQueryFilters()
+            .Where(m => m.EventType == "user.invited")
+            .OrderByDescending(m => m.CreatedAt)
+            .FirstAsync(m => m.Payload.Contains(email));
+        var payload = System.Text.Json.JsonDocument.Parse(outboxMessage.Payload).RootElement;
+        var inviteUrl = payload.GetProperty("InviteUrl").GetString()!;
+        var token = Uri.UnescapeDataString(inviteUrl.Split("token=")[1]);
+
+        var freshClient = _factory.CreateClient();
+        var acceptResponse = await freshClient.PostAsJsonAsync("/api/v1/auth/accept-invite", new AcceptInviteRequest(token, password));
+        acceptResponse.EnsureSuccessStatusCode();
+        var acceptResult = await acceptResponse.Content.ReadFromJsonAsync<AuthResult>();
+        return acceptResult!.AccessToken;
     }
 }

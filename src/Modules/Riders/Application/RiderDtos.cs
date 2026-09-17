@@ -18,6 +18,8 @@ public record RiderScanRequest(string Awb);
 
 public record LocationPingRequest(decimal Latitude, decimal Longitude, decimal? AccuracyMeters, DateTimeOffset RecordedAt);
 
+public record RiderLocationResponse(Guid RiderId, decimal Latitude, decimal Longitude, decimal? AccuracyMeters, DateTimeOffset RecordedAt);
+
 public record RecordFailedAttemptRequest(Guid ShipmentId, DeliveryAttemptReason Reason, string? Notes, decimal? Latitude, decimal? Longitude, bool CustomerContacted, string? NextAction);
 
 public enum PodFileKind { Signature, Photo }

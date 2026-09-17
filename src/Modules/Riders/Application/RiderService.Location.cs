@@ -44,4 +44,49 @@ public partial class RiderService
         await _dbContext.SaveChangesAsync(cancellationToken);
         return true;
     }
+
+    // Per-rider latest-ping lookup — deliberately NOT a GroupBy: EF Core/Npgsql does not reliably
+    // translate "GroupBy then OrderBy().First() per group" to SQL (CodService.Reads.cs hit the
+    // same class of problem and resolved it by materializing a bounded set client-side; here the
+    // bounded set is "riders at one branch," a small dispatch-sized number, so N small indexed
+    // per-rider queries is simpler and provably correct). Sequential awaits on the shared
+    // DbContext, same reasoning as GetMyTasksTodayAsync.
+    public async Task<List<RiderLocationResponse>> GetBranchLocationsAsync(Guid branchId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
+    {
+        await CheckBranchAccessAsync(actingUser, "rider.location.read", branchId, cancellationToken);
+
+        // branchId comes straight from the route here, not from an already tenant-scoped domain
+        // entity (unlike CheckBranchAccessAsync's other call sites in this file) — an AllBranches
+        // caller (e.g. OrganizationOwner) would otherwise sail through CheckBranchAccessAsync for
+        // ANY branchId, including one from a different tenant, and simply see an empty result
+        // instead of a rejection. Same fix BranchDashboardService.GetAsync applies for the
+        // identical shape of gap: GetZoneInfoAsync returns null both when the branch doesn't
+        // exist and when it belongs to another tenant (Branch's ambient OrganizationId query
+        // filter excludes it either way).
+        if (await _branchLookupService.GetZoneInfoAsync(branchId, cancellationToken) is null)
+        {
+            throw new RiderValidationException("Branch is outside your branch access for permission 'rider.location.read'.");
+        }
+
+        // Scoped by BaseBranchId, matching RiderReportingLookupService.GetBranchRiderTaskLoadAsync's
+        // established convention for "riders at this branch" — not the active run's branch.
+        var riderIds = await _dbContext.Set<Rider>().AsNoTracking()
+            .Where(r => r.BaseBranchId == branchId && r.IsActive)
+            .Select(r => r.Id)
+            .ToListAsync(cancellationToken);
+
+        var results = new List<RiderLocationResponse>();
+        foreach (var riderId in riderIds)
+        {
+            var latest = await _dbContext.Set<RiderLocationPing>().AsNoTracking()
+                .Where(p => p.RiderId == riderId)
+                .OrderByDescending(p => p.RecordedAt)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (latest is not null)
+            {
+                results.Add(new RiderLocationResponse(riderId, latest.Latitude, latest.Longitude, latest.AccuracyMeters, latest.RecordedAt));
+            }
+        }
+        return results;
+    }
 }
