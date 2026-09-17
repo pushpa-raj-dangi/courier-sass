@@ -19,7 +19,7 @@ public class RiderLocationPingRetentionJobTests
     {
         using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
         var (riderId, organizationId) = await SetupRiderAsync(dbContext);
-        var oldPing = new RiderLocationPing { Id = Guid.NewGuid(), RiderId = riderId, Latitude = 27.7m, Longitude = 85.3m, RecordedAt = DateTimeOffset.UtcNow.AddDays(-31) };
+        var oldPing = new RiderLocationPing { Id = Guid.NewGuid(), RiderId = riderId, Latitude = 27.7m, Longitude = 85.3m, RecordedAt = DateTimeOffset.UtcNow, ReceivedAt = DateTimeOffset.UtcNow.AddDays(-31) };
         dbContext.Set<RiderLocationPing>().Add(oldPing);
         await dbContext.SaveChangesAsync();
         var job = new RiderLocationPingRetentionJob(dbContext);
@@ -35,7 +35,7 @@ public class RiderLocationPingRetentionJobTests
     {
         using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
         var (riderId, organizationId) = await SetupRiderAsync(dbContext);
-        var recentPing = new RiderLocationPing { Id = Guid.NewGuid(), RiderId = riderId, Latitude = 27.7m, Longitude = 85.3m, RecordedAt = DateTimeOffset.UtcNow.AddDays(-1) };
+        var recentPing = new RiderLocationPing { Id = Guid.NewGuid(), RiderId = riderId, Latitude = 27.7m, Longitude = 85.3m, RecordedAt = DateTimeOffset.UtcNow, ReceivedAt = DateTimeOffset.UtcNow.AddDays(-1) };
         dbContext.Set<RiderLocationPing>().Add(recentPing);
         await dbContext.SaveChangesAsync();
         var job = new RiderLocationPingRetentionJob(dbContext);

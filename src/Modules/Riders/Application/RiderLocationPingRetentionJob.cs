@@ -20,16 +20,11 @@ public class RiderLocationPingRetentionJob
     public async Task RunAsync(CancellationToken cancellationToken = default)
     {
         var cutoff = DateTimeOffset.UtcNow - RetentionWindow;
-        var expiredPings = await _dbContext.Set<RiderLocationPing>()
-            .Where(p => p.RecordedAt < cutoff)
-            .ToListAsync(cancellationToken);
-
-        if (expiredPings.Count == 0)
-        {
-            return;
-        }
-
-        _dbContext.Set<RiderLocationPing>().RemoveRange(expiredPings);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        // Filtered by ReceivedAt (server-anchored), not RecordedAt (client-reported) — a rider
+        // device's clock skew must never affect what gets pruned. A single DELETE via
+        // ExecuteDeleteAsync, no materialization of the expired set into the change tracker.
+        await _dbContext.Set<RiderLocationPing>()
+            .Where(p => p.ReceivedAt < cutoff)
+            .ExecuteDeleteAsync(cancellationToken);
     }
 }

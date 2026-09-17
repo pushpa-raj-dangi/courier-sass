@@ -9,6 +9,7 @@ export interface RiderLocation {
   longitude: number;
   accuracyMeters: number | null;
   recordedAt: string;
+  receivedAt: string;
 }
 
 const POLL_INTERVAL_MS = 20_000;

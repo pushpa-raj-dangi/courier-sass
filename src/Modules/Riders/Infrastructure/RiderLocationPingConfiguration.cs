@@ -17,9 +17,12 @@ public class RiderLocationPingConfiguration : IEntityTypeConfiguration<RiderLoca
 
         // Covers RiderService.Location.cs's per-rider "latest ping" lookup (Task 3).
         builder.HasIndex(p => new { p.RiderId, p.RecordedAt });
-        // Covers the breadcrumb-by-run read (Task 3) and the retention job's age-based delete (Task 4).
+        // Covers the breadcrumb-by-run read (Task 3).
         builder.HasIndex(p => p.DeliveryRunId);
-        builder.HasIndex(p => p.RecordedAt);
+        // Covers the retention job's age-based delete, now filtered by the server-anchored
+        // ReceivedAt rather than the client-reported RecordedAt (finding: client clock skew must
+        // not affect what gets pruned).
+        builder.HasIndex(p => p.ReceivedAt);
 
         builder.HasOne<Rider>().WithMany().HasForeignKey(p => p.RiderId).OnDelete(DeleteBehavior.Cascade);
         // SetNull, not Cascade: DeliveryRun rows are never deleted anywhere in this codebase today,

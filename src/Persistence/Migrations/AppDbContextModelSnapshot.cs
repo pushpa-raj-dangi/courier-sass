@@ -3328,6 +3328,9 @@ namespace Persistence.Migrations
                         .HasPrecision(9, 6)
                         .HasColumnType("numeric(9,6)");
 
+                    b.Property<DateTimeOffset>("ReceivedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTimeOffset>("RecordedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -3338,7 +3341,7 @@ namespace Persistence.Migrations
 
                     b.HasIndex("DeliveryRunId");
 
-                    b.HasIndex("RecordedAt");
+                    b.HasIndex("ReceivedAt");
 
                     b.HasIndex("RiderId", "RecordedAt");
 

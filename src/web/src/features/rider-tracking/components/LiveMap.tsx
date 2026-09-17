@@ -8,8 +8,8 @@ import type { RiderLocation } from "@/features/rider-tracking/hooks/useRiderLoca
 
 const DEFAULT_CENTER: [number, number] = [27.7172, 85.324]; // Kathmandu — used only when no rider has reported yet.
 
-function minutesAgo(recordedAt: string): number {
-  return Math.max(0, Math.round((Date.now() - new Date(recordedAt).getTime()) / 60_000));
+function minutesAgo(receivedAt: string): number {
+  return Math.max(0, Math.round((Date.now() - new Date(receivedAt).getTime()) / 60_000));
 }
 
 export function LiveMap({ locations, riderLicenseById }: { locations: RiderLocation[]; riderLicenseById: Map<string, string> }) {
@@ -35,7 +35,7 @@ export function LiveMap({ locations, riderLicenseById }: { locations: RiderLocat
         <Marker key={location.riderId} position={[location.latitude, location.longitude]}>
           <Popup>
             <div>{riderLicenseById.get(location.riderId) ?? "Unknown rider"}</div>
-            <div>Last seen {minutesAgo(location.recordedAt)}m ago</div>
+            <div>Last seen {minutesAgo(location.receivedAt)}m ago</div>
           </Popup>
         </Marker>
       ))}

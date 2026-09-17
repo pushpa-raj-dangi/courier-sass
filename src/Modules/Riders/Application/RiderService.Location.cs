@@ -24,6 +24,22 @@ public partial class RiderService
             return false;
         }
 
+        // Reject out-of-range coordinates/accuracy before they ever reach the database — the
+        // numeric(9,6) column would otherwise throw an unhandled Postgres overflow exception on a
+        // value like latitude: 1000, surfacing as a 500 instead of an actionable 400.
+        if (request.Latitude is < -90 or > 90)
+        {
+            throw new RiderValidationException("Latitude must be between -90 and 90.");
+        }
+        if (request.Longitude is < -180 or > 180)
+        {
+            throw new RiderValidationException("Longitude must be between -180 and 180.");
+        }
+        if (request.AccuracyMeters is < 0)
+        {
+            throw new RiderValidationException("AccuracyMeters must not be negative.");
+        }
+
         // Same find-today's-Active-run lookup GetMyTasksTodayAsync already uses — a ping made
         // before the rider's first task of the day is assigned simply has no run yet.
         var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.Date);
@@ -38,7 +54,8 @@ public partial class RiderService
             Latitude = request.Latitude,
             Longitude = request.Longitude,
             AccuracyMeters = request.AccuracyMeters,
-            RecordedAt = request.RecordedAt
+            RecordedAt = request.RecordedAt,
+            ReceivedAt = DateTimeOffset.UtcNow
         };
         _dbContext.Set<RiderLocationPing>().Add(ping);
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -84,7 +101,7 @@ public partial class RiderService
                 .FirstOrDefaultAsync(cancellationToken);
             if (latest is not null)
             {
-                results.Add(new RiderLocationResponse(riderId, latest.Latitude, latest.Longitude, latest.AccuracyMeters, latest.RecordedAt));
+                results.Add(new RiderLocationResponse(riderId, latest.Latitude, latest.Longitude, latest.AccuracyMeters, latest.RecordedAt, latest.ReceivedAt));
             }
         }
         return results;
@@ -120,6 +137,6 @@ public partial class RiderService
             .OrderBy(p => p.RecordedAt)
             .ToListAsync(cancellationToken);
 
-        return pings.Select(p => new RiderLocationResponse(p.RiderId, p.Latitude, p.Longitude, p.AccuracyMeters, p.RecordedAt)).ToList();
+        return pings.Select(p => new RiderLocationResponse(p.RiderId, p.Latitude, p.Longitude, p.AccuracyMeters, p.RecordedAt, p.ReceivedAt)).ToList();
     }
 }
