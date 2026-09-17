@@ -491,6 +491,31 @@ public class RidersEndpointsTests : IClassFixture<WebApplicationFactory<Program>
     }
 
     [Fact]
+    public async Task PostLocation_LatitudeOutOfRange_Returns400()
+    {
+        // Latitude 1000 exceeds the numeric(9,6) column's 3-integer-digit range — without
+        // server-side validation this would surface as an unhandled 500 from Postgres, not a 400.
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "location-ping-invalid");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (originBranchId, _, _) = await SeedBranchesAsync(client);
+        var suffix = Guid.NewGuid().ToString("N");
+        var riderEmail = $"rider-{suffix}@example.com";
+        await client.PostAsJsonAsync("/api/v1/riders", new CreateRiderRequest(
+            riderEmail, "P@ssw0rd123!", "Bad Coord Rider", null, $"LIC-{suffix[..10]}", originBranchId, RiderRoleType.PickupRider));
+
+        var riderClient = _factory.CreateClient();
+        var loginResponse = await riderClient.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest(riderEmail, "P@ssw0rd123!"));
+        var riderAuth = await loginResponse.Content.ReadFromJsonAsync<AuthResult>();
+        riderClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", riderAuth!.AccessToken);
+
+        var response = await riderClient.PostAsJsonAsync("/api/v1/riders/me/location",
+            new LocationPingRequest(1000m, 85.3240m, 12.5m, DateTimeOffset.UtcNow));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
     public async Task GetBranchLocations_AfterPing_ReturnsLatestPositionForActiveRider()
     {
         var client = _factory.CreateClient();
@@ -570,6 +595,24 @@ public class RidersEndpointsTests : IClassFixture<WebApplicationFactory<Program>
     }
 
     [Fact]
+    public async Task GetBranchLocations_Dispatcher_NowHasAccess()
+    {
+        // Same shape as GetBranchLocations_BranchManager_NowHasAccess above, proving the
+        // rider.location.read RBAC fix also took effect end-to-end for Dispatcher.
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "branch-locations-dispatcher");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (originBranchId, _, _) = await SeedBranchesAsync(client);
+        var token = await InviteAcceptAndLoginForBranchAsync(client, "Dispatcher", originBranchId);
+        var dispatcherClient = _factory.CreateClient();
+        dispatcherClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await dispatcherClient.GetAsync($"/api/v1/riders/branches/{originBranchId}/locations");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
     public async Task GetRunBreadcrumbs_TwoPingsSameRun_ReturnsBothOrderedByTime()
     {
         var client = _factory.CreateClient();
@@ -605,6 +648,42 @@ public class RidersEndpointsTests : IClassFixture<WebApplicationFactory<Program>
         Assert.Equal(2, breadcrumbs!.Count);
         Assert.Equal(27.70m, breadcrumbs[0].Latitude);
         Assert.Equal(27.72m, breadcrumbs[1].Latitude);
+    }
+
+    [Fact]
+    public async Task GetRunBreadcrumbs_RoleWithoutPermission_Returns403()
+    {
+        // Mirrors GetBranchLocations_RoleWithoutPermission_Returns403's shape, targeting the
+        // breadcrumbs endpoint instead. SortingStaff holds neither rider.read nor
+        // rider.location.read (AdditionalRoleSeeds.cs).
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "breadcrumbs-perm");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (originBranchId, destinationBranchId, serviceTypeId) = await SeedBranchesAsync(client);
+        var merchantId = await CreateMerchantAsync(client);
+        var suffix = Guid.NewGuid().ToString("N");
+        var riderEmail = $"rider-{suffix}@example.com";
+        await client.PostAsJsonAsync("/api/v1/riders", new CreateRiderRequest(
+            riderEmail, "P@ssw0rd123!", "Perm Breadcrumb Rider", null, $"LIC-{suffix[..10]}", originBranchId, RiderRoleType.PickupRider));
+        var shipment = await (await client.PostAsJsonAsync("/api/v1/shipments", ValidShipmentRequest(merchantId, originBranchId, destinationBranchId, serviceTypeId))).Content.ReadFromJsonAsync<ShipmentResponse>();
+
+        var riderClient = _factory.CreateClient();
+        var loginResponse = await riderClient.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest(riderEmail, "P@ssw0rd123!"));
+        var riderAuth = await loginResponse.Content.ReadFromJsonAsync<AuthResult>();
+        riderClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", riderAuth!.AccessToken);
+
+        var riderRecord = await (await riderClient.GetAsync("/api/v1/riders/me")).Content.ReadFromJsonAsync<RiderResponse>();
+        await client.PostAsJsonAsync("/api/v1/riders/tasks", new AssignDeliveryTaskRequest(riderRecord!.Id, shipment!.Id, DeliveryTaskType.Pickup));
+        var tasksToday = await (await riderClient.GetAsync("/api/v1/riders/me/tasks/today")).Content.ReadFromJsonAsync<MyTasksTodayResponse>();
+        var runId = tasksToday!.DeliveryRunId!.Value;
+
+        var token = await InviteAcceptAndLoginForBranchAsync(client, "SortingStaff", originBranchId);
+        var sortingStaffClient = _factory.CreateClient();
+        sortingStaffClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await sortingStaffClient.GetAsync($"/api/v1/riders/runs/{runId}/breadcrumbs");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     [Fact]

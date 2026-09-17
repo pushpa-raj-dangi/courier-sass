@@ -21,7 +21,7 @@ public static class AdditionalRoleSeeds
             "shipment.create", "shipment.read", "shipment.update", "shipment.cancel", "shipment.assign",
             "shipment.scan", "shipment.sort", "shipment.transfer", "delivery.assign",
             "manifest.read", "manifest.create", "manifest.seal", "manifest.dispatch", "manifest.receive", "manifest.close",
-            "rider.read", "rider.assign", "ndr.read", "ndr.manage", "ndr.resolve", "rto.read", "rto.manage",
+            "rider.read", "rider.location.read", "rider.assign", "ndr.read", "ndr.manage", "ndr.resolve", "rto.read", "rto.manage",
             "branch.read", "zone.read", "report.read"
         },
         // docs/RBAC.md §4's exact BranchManager example, plus a deliberate RBAC fix (this design's
