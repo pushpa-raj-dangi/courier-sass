@@ -208,6 +208,7 @@ builder.Services.AddScoped<PlatformJobsService>();
 builder.Services.AddScoped<PlatformQueuesService>();
 builder.Services.AddScoped<IImpersonationTokenService, ImpersonationTokenService>();
 builder.Services.AddScoped<ImpersonationService>();
+builder.Services.AddSingleton<IPlatformSettingsCache, PlatformSettingsCache>();
 
 builder.Services.Configure<BillingOptions>(builder.Configuration.GetSection("Billing"));
 builder.Services.Configure<EsewaOptions>(builder.Configuration.GetSection("Esewa"));
