@@ -107,15 +107,42 @@ EF Core migration: `AddPlatformSettings` — creates both tables, seeds
 `src/Modules/Platform/Infrastructure/Configuration/`:
 
 * **`PlatformSettingsConfigurationSource` / `PlatformSettingsConfigurationProvider`** —
-  `IConfigurationProvider` that, on `Load()`, queries all `IsOverridden = true` rows (via a
-  scoped `IServiceScopeFactory`, since config loading happens outside a request scope) and
-  sets each `ConfigPath` in the provider's data dictionary, decrypting `IsSecret` values first.
-  Registered in `Program.cs` via `builder.Configuration.Add(new PlatformSettingsConfigurationSource(...))`
-  **after** `AddJsonFile("appsettings.json")`/`AddJsonFile("appsettings.{env}.json")`/
+  **non-secret values only.** `WebApplicationBuilder.Configuration` is a `ConfigurationManager`,
+  which runs a newly-`Add()`ed source's `Load()` synchronously, immediately, as part of the
+  `builder.Configuration.Add(...)` call itself — this happens before a single
+  `builder.Services.Add...()` line has resolved anything, i.e. **no DI container exists yet**.
+  So `Load()` cannot resolve `IDataProtectionProvider` (itself DI-registered,
+  `Program.cs:245-248`, backed by `PersistKeysToDbContext<AppDbContext>` which needs a working
+  `AppDbContext`) — decrypting inside `Load()` is not possible. `Load()` instead opens its own
+  plain `NpgsqlConnection` (connection string captured at construction from
+  `builder.Configuration.GetConnectionString("Postgres")`, the same string `AddDbContext` uses)
+  and runs a raw `SELECT "Key", "Value", "IsOverridden" FROM "PlatformSettings" ps JOIN
+  "PlatformSettingDefinitions" d ON ps."Key" = d."Key" WHERE ps."IsOverridden" AND NOT
+  d."IsSecret"` — only non-secret `ConfigPath`s are ever set into `IConfiguration` this way.
+  Must also tolerate the table not existing yet: on a brand-new database, migrations
+  (`Program.cs:293-297`) run *after* `builder.Build()`, i.e. after this provider's first
+  `Load()` already ran — catch Npgsql error code `42P01` (undefined_table) and treat it as "no
+  overrides yet" rather than crashing startup. Registered via
+  `builder.Configuration.Add(new PlatformSettingsConfigurationSource(...))` **after**
+  `AddJsonFile("appsettings.json")`/`AddJsonFile("appsettings.{env}.json")`/
   `AddEnvironmentVariables()`, so DB values win when `IsOverridden = true`, matching the
   fallback chain in §4. Exposes `Reload()`, which re-runs `Load()` and fires .NET's built-in
-  configuration change-token — this is the same mechanism `IOptionsMonitor<T>` already listens
-  to, so no custom pub/sub-to-options wiring is needed on the consumer side.
+  configuration change-token — the same mechanism `IOptionsMonitor<T>` already listens to.
+* **Secret values (`Esewa:SecretKey`, `Khalti:SecretKey`, `Jwt:SigningKey`) never flow through
+  `IConfiguration` at all** — they're layered in one step later, via a small
+  `IPostConfigureOptions<TOptions>` per affected options type (`EsewaOptions`, `KhaltiOptions`,
+  `JwtOptions`, `MerchantJwtOptions`), registered the normal DI way
+  (`builder.Services.ConfigureOptions<PostConfigureEsewaSecrets>()` etc). `IPostConfigureOptions<T>`
+  runs lazily, inside `IOptionsFactory<T>`, only when something actually resolves
+  `IOptionsMonitor<T>.CurrentValue` — always inside a fully-built DI container, so
+  `IDataProtectionProvider` (and a scoped read of the encrypted `PlatformSetting.Value` row) is
+  safely available there. It overwrites just the one secret property after the standard
+  `Configure<T>(section)` binding already populated everything else from `IConfiguration`. The
+  same `Reload()` call that refreshes non-secret fields also invalidates
+  `IOptionsMonitor<T>.CurrentValue`'s cache (it's the same underlying change token), so
+  `Configure` + `PostConfigure` both re-run together — one reload signal correctly refreshes
+  secret and non-secret fields of the same options object in lockstep, with no separate
+  cache-invalidation path needed for secrets.
 * **`PlatformSettingsChangeListener`** — a `BackgroundService` subscribed to Redis channel
   `platform-settings:changed` via `IConnectionMultiplexer.GetSubscriber()` (already registered
   as a singleton, `Program.cs:125-126`; used elsewhere only for `GetDatabase()` —
@@ -167,17 +194,28 @@ Checked each of the 14 keys' actual consumers before assuming a blanket "swap ev
   `UserManagementService.cs:233`) — these become live automatically once the provider is
   registered. **No consumer code changes needed for these.**
 * **`EsewaOptions`, `KhaltiOptions`, `BillingOptions`** are bound via `Configure<T>()` and
-  injected as `IOptions<T>` (snapshotted once per DI resolution scope, not live). Consumers
-  swap `IOptions<T>` → `IOptionsMonitor<T>` and `.Value` → `.CurrentValue`.
+  injected as `IOptions<T>` (snapshotted once per DI resolution scope, not live). All three
+  consumers (`EsewaGatewayClient`, `KhaltiGatewayClient`, `SubscriptionService`,
+  `InvoiceGenerationJob`) swap `IOptions<T>` → `IOptionsMonitor<T>` and `.Value` →
+  `.CurrentValue`. `EsewaOptions.SecretKey` and `KhaltiOptions.SecretKey` additionally need the
+  `IPostConfigureOptions<T>` secret-decrypt step described above — the other fields on those two
+  classes (`ProductCode`/`FormUrl`/`StatusCheckUrl`, `InitiateUrl`/`LookupUrl`/`WebsiteUrl`) are
+  plain `IConfiguration`-bound like `BillingOptions.GraceDays`.
 * **`JwtOptions` needs a real fix, not just a swap.** `Program.cs:271` currently builds
   `TokenValidationParameters.IssuerSigningKey` **once**, at startup, directly from
   `jwtSection["SigningKey"]` — a plain string capture, nothing live about it at all. Naively
   rotating the DB-backed key would desync signing (new tokens signed with the new key) from
   validation (still checking against the old fixed key) and break auth entirely, not just log
-  everyone out as intended. Fix: set
-  `TokenValidationParameters.IssuerSigningKeyResolver = (token, secToken, kid, parameters) =>
-  new[] { new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptionsMonitor.CurrentValue.SigningKey)) }`
-  so validation reads the live value per-request. There is only **one** `AddJwtBearer` scheme
+  everyone out as intended. Fix: replace the `AddJwtBearer(options => {...})` static configure
+  block with `builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+  .Configure<IOptionsMonitor<JwtOptions>>((options, jwtMonitor) => { ...
+  options.TokenValidationParameters.IssuerSigningKeyResolver = (token, secToken, kid, parameters) =>
+  new[] { new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtMonitor.CurrentValue.SigningKey)) }; })`
+  — the generic `Configure<TDep>` overload lets ASP.NET Core inject `IOptionsMonitor<JwtOptions>`
+  into the configure delegate (resolved once, from the root provider, when `JwtBearerOptions` is
+  built), giving the resolver closure a live monitor reference despite the closure itself having
+  no per-request `HttpContext`/DI scope to pull one from. So validation reads the live value per
+  request. There is only **one** `AddJwtBearer` scheme
   in this codebase (`Program.cs:259-277`) — staff, platform, impersonation, and merchant tokens
   all validate against it (`PlatformJwtTokenService.cs`'s own comment confirms: *"same signing
   key means all three tracks validate against the one AddJwtBearer() scheme already
@@ -233,9 +271,12 @@ components used here don't exist in the repo yet (`tabs.tsx` does; `alert-dialog
 * **Unit** — `PlatformSettingsService`: type validation per `ValueType`, confirmation-phrase
   enforcement, encrypt/decrypt round-trip, fallback-to-appsettings resolution when
   `IsOverridden = false`.
-* **Integration** — `PlatformSettingsConfigurationProvider`: DB value overrides appsettings
-  value; `Reload()` after a simulated Redis message updates an `IOptionsMonitor<T>.CurrentValue`
-  observed by a test consumer; JWT `IssuerSigningKeyResolver` validates a token signed with a
+* **Integration** — `PlatformSettingsConfigurationProvider`: non-secret DB value overrides
+  appsettings value; `Load()` against a database where the `PlatformSettings` table doesn't
+  exist yet returns cleanly instead of throwing (fresh-install boot order); `Reload()` after a
+  simulated Redis message updates an `IOptionsMonitor<T>.CurrentValue` observed by a test
+  consumer, for both a non-secret field (via the provider) and a secret field (via
+  `IPostConfigureOptions<T>`); JWT `IssuerSigningKeyResolver` validates a token signed with a
   rotated key and rejects one signed with the stale key.
 * **API** — `.RequireSuperAdmin()` authorization checks on all three endpoints (a tenant/org
   JWT gets 403); validation error
