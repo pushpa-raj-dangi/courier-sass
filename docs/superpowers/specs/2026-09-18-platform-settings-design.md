@@ -23,9 +23,9 @@ smaller table, not an extension of that one.
 
 ## 2. Goals
 
-A user holding `platform.settings.read` / `platform.settings.update` gets a **Settings** page
-under `/platform/settings` (SuperAdmin only, alongside Organizations/Plans/Jobs) that can view
-and edit, live, without a restart:
+A SuperAdmin gets a **Settings** page under `/platform/settings` (alongside
+Organizations/Plans/Jobs, same `.RequireSuperAdmin()` gate as every other Platform screen) that
+can view and edit, live, without a restart:
 
 1. **Payment gateways** — eSewa (`ProductCode`, `SecretKey`, `FormUrl`, `StatusCheckUrl`),
    Khalti (`SecretKey`, `InitiateUrl`, `LookupUrl`, `WebsiteUrl`).
@@ -117,9 +117,19 @@ EF Core migration: `AddPlatformSettings` — creates both tables, seeds
   configuration change-token — this is the same mechanism `IOptionsMonitor<T>` already listens
   to, so no custom pub/sub-to-options wiring is needed on the consumer side.
 * **`PlatformSettingsChangeListener`** — a `BackgroundService` subscribed to Redis channel
-  `platform-settings:changed`. On message, resolves the registered
-  `PlatformSettingsConfigurationProvider` instance from `IConfigurationRoot.Providers` and
-  calls `Reload()`.
+  `platform-settings:changed` via `IConnectionMultiplexer.GetSubscriber()` (already registered
+  as a singleton, `Program.cs:125-126`; used elsewhere only for `GetDatabase()` —
+  `RedisRateLimiter.cs` — so this is the **first pub/sub usage in the codebase**, called out
+  explicitly rather than presented as an established pattern). On message, resolves the
+  registered `PlatformSettingsConfigurationProvider` instance from `IConfigurationRoot.Providers`
+  and calls `Reload()`. Because Redis pub/sub has no delivery guarantee (a message published
+  while a process is briefly disconnected is simply lost), the same `BackgroundService` also
+  calls `Reload()` unconditionally on a 5-minute timer as defense-in-depth, so a missed message
+  self-heals within 5 minutes instead of silently drifting until the next unrelated deploy.
+  RabbitMQ (`src/Modules/Events/Infrastructure/RabbitMqEventPublisher.cs`) was considered and
+  rejected for this signal: it implements a durable outbox pattern for tenant-facing domain
+  events (CLAUDE.md §26) with poll-interval latency — the wrong shape for an ephemeral,
+  low-latency, at-most-effort cache-invalidation ping.
 * **`Application/PlatformSettingsService.cs`** — `GetAllAsync()` (grouped by category, secret
   values masked), `UpdateAsync(key, value, confirmationPhrase?, userId)`:
   1. Look up `PlatformSettingDefinition`; 404 if unknown key.
@@ -127,15 +137,26 @@ EF Core migration: `AddPlatformSettings` — creates both tables, seeds
   3. If `Definition.RequiresConfirmation`, require `confirmationPhrase == "REVOKE ALL SESSIONS"`
      (checked server-side — the API contract enforces this even if called directly, not just
      the UI) or reject with a 400.
-  4. Encrypt via `IDataProtector` (purpose string `"PlatformSettings.Secrets"`) when
-     `Definition.IsSecret`.
+  4. Encrypt via `IDataProtector` when `Definition.IsSecret`. ASP.NET Core's Data Protection
+     API is already registered in this codebase (`Program.cs:245-248`,
+     `AddDataProtection().PersistKeysToDbContext<AppDbContext>()`) with a real precedent to
+     copy — `src/Modules/Webhooks/Infrastructure/DataProtectionSecretProtector.cs` wraps
+     `IDataProtectionProvider.CreateProtector("Webhooks.Secret")` behind a small
+     `ISecretProtector` interface. This spec reuses the exact same idiom with its own purpose
+     string (`"PlatformSettings.Secrets"`) — no new infrastructure, no new registration.
   5. Upsert `PlatformSetting`, write the audit record (`Before`/`After` = `"[REDACTED]"` for
      secrets, per CLAUDE.md's sensitive-data-masking rule), publish to Redis, `Reload()`
      locally so the same process sees its own change immediately.
   `ResetAsync(key, userId)` — sets `IsOverridden = false`, same audit/publish/reload path.
-* **`Presentation/PlatformSettingsEndpoints.cs`** — `GET /api/platform/settings`,
-  `PUT /api/platform/settings/{key}`, `POST /api/platform/settings/{key}/reset`. Same
-  SuperAdmin-only authorization pattern as `PlatformPlansEndpoints.cs`.
+  Audit calls use the existing `IAuditLogger.LogAsync(AuditEntry entry, ...)`
+  (`src/Modules/Audit/Application/IAuditLogger.cs`) with `OrganizationId: null` and
+  `IsCrossTenantAction: true` — there is no organization involved in a platform-wide setting,
+  matching how `OrganizationLifecycleService` already calls it for other cross-tenant actions.
+* **`Presentation/PlatformSettingsEndpoints.cs`** — `GET /api/v1/platform/settings`,
+  `PUT /api/v1/platform/settings/{key}`, `POST /api/v1/platform/settings/{key}/reset`,
+  matching the `/api/v1/platform/...` route prefix every sibling Platform endpoint group uses
+  (`PlatformPlansEndpoints.cs` maps `/api/v1/platform/plans`). Same `.RequireSuperAdmin()`
+  authorization pattern.
 
 **Consumer changes — three real cases, not six:**
 
@@ -156,14 +177,28 @@ Checked each of the 14 keys' actual consumers before assuming a blanket "swap ev
   everyone out as intended. Fix: set
   `TokenValidationParameters.IssuerSigningKeyResolver = (token, secToken, kid, parameters) =>
   new[] { new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptionsMonitor.CurrentValue.SigningKey)) }`
-  so validation reads the live value per-request. Token *issuance* (wherever `AuthService`
-  signs a new JWT) swaps `IOptions<JwtOptions>` → `IOptionsMonitor<JwtOptions>` the same as
-  Esewa/Khalti. `MerchantJwtOptions` (bound to the same `"Jwt"` section,
-  `Program.cs:139`) needs the identical resolver fix wherever merchant tokens are validated.
+  so validation reads the live value per-request. There is only **one** `AddJwtBearer` scheme
+  in this codebase (`Program.cs:259-277`) — staff, platform, impersonation, and merchant tokens
+  all validate against it (`PlatformJwtTokenService.cs`'s own comment confirms: *"same signing
+  key means all three tracks validate against the one AddJwtBearer() scheme already
+  registered"*), so this one resolver fix covers all token types. Token *issuance* swaps
+  `IOptions<T>` → `IOptionsMonitor<T>` in the four services that sign tokens:
+  `src/Modules/Identity/Infrastructure/JwtTokenService.cs`,
+  `src/Modules/Platform/Infrastructure/PlatformJwtTokenService.cs`,
+  `src/Modules/Platform/Infrastructure/ImpersonationTokenService.cs` (all three
+  `IOptions<JwtOptions>`), and `src/Modules/Merchants/Infrastructure/MerchantJwtTokenService.cs`
+  (`IOptions<MerchantJwtOptions>`, bound to the same `"Jwt"` config section at `Program.cs:139`).
 
 **Security:**
-* New permissions `platform.settings.read`, `platform.settings.update`, SuperAdmin-role-only,
-  enforced identically to existing Platform endpoints.
+* **Authorization is `.RequireSuperAdmin()`, not a permission string.** This codebase's
+  tenant-level RBAC (`shipment.create`, etc., CLAUDE.md §6) is a separate system that does not
+  extend to the Platform module — every existing Platform endpoint
+  (`src/SharedKernel/RequireSuperAdminFilter.cs`, applied via the `.RequireSuperAdmin()`
+  extension) gates on `User.IsSuperAdmin()` alone, with no granular permission grid. This spec
+  originally proposed `platform.settings.read`/`platform.settings.update` permissions; that
+  does not match any existing pattern in the codebase (no `Permissions` catalog or
+  role-permission seed table exists for Platform) and is corrected here: the new endpoints use
+  `.RequireSuperAdmin()`, identical to `PlatformPlansEndpoints.cs` and every sibling.
 * Secret values are write-only from the API's perspective — `GET` never returns a decryptable
   value, only a masked placeholder (e.g. last 4 chars) and `IsOverridden`/`UpdatedAt`/
   `UpdatedByUserId`. There is no "reveal" endpoint.
@@ -171,10 +206,17 @@ Checked each of the 14 keys' actual consumers before assuming a blanket "swap ev
 ## 6. Frontend
 
 `src/web/src/features/platform-settings/` + `src/web/src/app/platform/settings/page.tsx`,
-following the `platform-plans` feature's structure:
+following the `platform-plans` feature's structure. Every backend call goes through a Next.js
+route-handler proxy (never direct from the browser to the API), matching every existing
+Platform screen — new `src/web/src/app/api/platform/settings/route.ts` (GET, via
+`platformApiFetch`) and `src/web/src/app/api/platform/settings/[key]/route.ts` (PUT) +
+`src/web/src/app/api/platform/settings/[key]/reset/route.ts` (POST). `PlatformNav.tsx`'s
+`links` array gets a new `{ href: "/platform/settings", label: "Settings" }` entry. Two shadcn
+components used here don't exist in the repo yet (`tabs.tsx` does; `alert-dialog.tsx` and
+`switch.tsx` don't) and must be added via `npx shadcn add alert-dialog switch` first.
 
-* `hooks/usePlatformSettings.ts` (TanStack Query) — fetch grouped-by-category list; mutation
-  hooks for update/reset with cache invalidation.
+* `hooks/usePlatformSettings.ts` (TanStack Query via `clientFetch`, calling the proxy route) —
+  fetch grouped-by-category list; mutation hooks for update/reset with cache invalidation.
 * Page renders four tabs (shadcn `Tabs`) — Payment Gateways, Notifications, Security, Branding
   & Flags — each field as shadcn `Input`/`Switch` sized to `ValueType`, with a per-field
   "Save" (optimistic mutation) and "Reset to default" action. Secret fields render masked with
@@ -195,7 +237,8 @@ following the `platform-plans` feature's structure:
   value; `Reload()` after a simulated Redis message updates an `IOptionsMonitor<T>.CurrentValue`
   observed by a test consumer; JWT `IssuerSigningKeyResolver` validates a token signed with a
   rotated key and rejects one signed with the stale key.
-* **API** — permission/authorization checks on all three endpoints; validation error
+* **API** — `.RequireSuperAdmin()` authorization checks on all three endpoints (a tenant/org
+  JWT gets 403); validation error
   contracts; audit record written with redacted `Before`/`After` for a secret key.
 
 ## 8. Rollout
