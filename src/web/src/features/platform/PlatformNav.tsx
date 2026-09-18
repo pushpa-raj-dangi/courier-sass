@@ -14,6 +14,7 @@ const links = [
   { href: "/platform/audit-logs", label: "Audit Logs" },
   { href: "/platform/jobs", label: "Jobs" },
   { href: "/platform/queues", label: "Queues" },
+  { href: "/platform/settings", label: "Settings" },
 ];
 
 export function PlatformNav() {
