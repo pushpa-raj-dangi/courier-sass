@@ -83,4 +83,42 @@ describe("NavMain", () => {
     await waitFor(() => expect(screen.getByText("Dashboard")).toBeInTheDocument());
     expect(screen.queryByText("Audit Logs")).not.toBeInTheDocument();
   });
+
+  it("shows skeleton rows instead of nav items while the session is loading, then swaps in the real items", async () => {
+    let resolveFetch!: (value: unknown) => void;
+    global.fetch = vi.fn().mockReturnValue(
+      new Promise((resolve) => {
+        resolveFetch = resolve;
+      })
+    ) as unknown as typeof fetch;
+
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <SidebarProvider>
+          <NavMain />
+        </SidebarProvider>
+      </QueryClientProvider>
+    );
+
+    expect(screen.getAllByTestId("nav-item-skeleton").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Dashboard")).not.toBeInTheDocument();
+
+    resolveFetch({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        userId: "u1",
+        organizationId: "o1",
+        email: "a@b.com",
+        fullName: "A B",
+        permissions: ["report.read"],
+        hasAllBranchesScope: true,
+        branches: [],
+      }),
+    });
+
+    await waitFor(() => expect(screen.getByText("Dashboard")).toBeInTheDocument());
+    expect(screen.queryByTestId("nav-item-skeleton")).not.toBeInTheDocument();
+  });
 });

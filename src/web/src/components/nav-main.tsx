@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { usePermission } from "@/features/auth/hooks/usePermission";
+import { useSession } from "@/features/auth/hooks/useSession";
 import { NAV_ITEMS, type NavItem } from "@/lib/navigation/navItems";
 import {
   SidebarGroup,
@@ -10,19 +11,32 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSkeleton,
 } from "@/components/ui/sidebar";
+
+// How many rows to show before we know the session's real, permission-filtered list — a rough
+// average rather than NAV_ITEMS.length, since most roles see a subset of the full catalog.
+const NAV_SKELETON_ROWS = 7;
 
 // Flat links, not the block's original collapsible groups — no nav item in this app has
 // sub-items today, and CLAUDE.md's YAGNI guidance says not to build that structure speculatively.
 export function NavMain({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
+  const { isLoading } = useSession();
+
   return (
     <SidebarGroup>
       <SidebarGroupLabel>Platform</SidebarGroupLabel>
       <SidebarMenu>
-        {NAV_ITEMS.map((item) => (
-          <NavMainItem key={item.href} item={item} active={pathname === item.href} onNavigate={onNavigate} />
-        ))}
+        {isLoading
+          ? Array.from({ length: NAV_SKELETON_ROWS }).map((_, i) => (
+              <SidebarMenuItem key={i}>
+                <SidebarMenuSkeleton showIcon data-testid="nav-item-skeleton" />
+              </SidebarMenuItem>
+            ))
+          : NAV_ITEMS.map((item) => (
+              <NavMainItem key={item.href} item={item} active={pathname === item.href} onNavigate={onNavigate} />
+            ))}
       </SidebarMenu>
     </SidebarGroup>
   );

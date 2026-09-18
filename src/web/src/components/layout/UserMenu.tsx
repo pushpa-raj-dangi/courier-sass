@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { ChevronDown, LogOut } from "lucide-react";
 import { useSession } from "@/features/auth/hooks/useSession";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,11 +28,20 @@ function initials(fullName: string): string {
 // a shorter, honest one.
 export function UserMenu() {
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, isLoading } = useSession();
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
     router.push("/login");
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-2 py-1 pl-1 pr-2" data-testid="user-menu-skeleton">
+        <Skeleton className="h-8 w-8 shrink-0 rounded-full" />
+        <Skeleton className="hidden h-4 w-24 sm:block" />
+      </div>
+    );
   }
 
   if (!session) {
