@@ -19,6 +19,23 @@ describe("clientFetch", () => {
     expect(global.fetch).toHaveBeenCalledWith("/api/example", undefined);
   });
 
+  it("returns undefined for a 204 No Content response without parsing a body", async () => {
+    // A 204 has no body to parse — calling .json() on it throws "Unexpected end of JSON
+    // input", which must never happen here (this masked a real backend success as a
+    // client-side failure for platform-settings' PUT/reset endpoints).
+    const json = vi.fn().mockRejectedValue(new Error("Unexpected end of JSON input"));
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
+      status: 204,
+      json,
+    });
+
+    const result = await clientFetch<void>("/api/example", { method: "POST" });
+
+    expect(result).toBeUndefined();
+    expect(json).not.toHaveBeenCalled();
+  });
+
   it("throws SessionExpiredError on a 401", async () => {
     (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       ok: false,

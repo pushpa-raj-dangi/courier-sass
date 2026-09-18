@@ -32,5 +32,8 @@ export async function clientFetch<T>(path: string, init?: RequestInit): Promise<
     }
     throw new Error(bodyText ?? `Request to ${path} failed with ${response.status}`);
   }
+  if (response.status === 204) {
+    return undefined as T;
+  }
   return response.json();
 }

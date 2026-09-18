@@ -9,6 +9,9 @@ export async function PUT(request: Request, { params }: { params: { key: string 
       headers: { "Content-Type": "application/json" },
       body: requestBody,
     });
+    if (response.status === 204) {
+      return new NextResponse(null, { status: 204 });
+    }
     const body = await response.json().catch(() => null);
     return NextResponse.json(body, { status: response.status });
   } catch {
