@@ -8,7 +8,7 @@ namespace Courier.Merchants.Tests;
 
 public class MerchantJwtTokenServiceTests
 {
-    private static MerchantJwtTokenService CreateService() => new(Options.Create(new MerchantJwtOptions
+    private static MerchantJwtTokenService CreateService() => new(new StaticOptionsMonitor<MerchantJwtOptions>(new MerchantJwtOptions
     {
         SigningKey = "merchant-tests-signing-key-at-least-32-bytes!",
         Issuer = "courier-tests",

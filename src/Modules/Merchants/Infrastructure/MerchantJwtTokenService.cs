@@ -9,15 +9,16 @@ namespace Courier.Merchants.Infrastructure;
 
 public class MerchantJwtTokenService : IMerchantJwtTokenService
 {
-    private readonly MerchantJwtOptions _options;
+    private readonly IOptionsMonitor<MerchantJwtOptions> _optionsMonitor;
 
-    public MerchantJwtTokenService(IOptions<MerchantJwtOptions> options)
+    public MerchantJwtTokenService(IOptionsMonitor<MerchantJwtOptions> optionsMonitor)
     {
-        _options = options.Value;
+        _optionsMonitor = optionsMonitor;
     }
 
     public string IssueAccessToken(Guid merchantUserId, Guid merchantId, Guid organizationId, string email)
     {
+        var options = _optionsMonitor.CurrentValue;
         var claims = new[]
         {
             new Claim("sub", merchantUserId.ToString()),
@@ -26,14 +27,14 @@ public class MerchantJwtTokenService : IMerchantJwtTokenService
             new Claim("email", email)
         };
 
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.SigningKey));
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(options.SigningKey));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
         var token = new JwtSecurityToken(
-            issuer: _options.Issuer,
-            audience: _options.Audience,
+            issuer: options.Issuer,
+            audience: options.Audience,
             claims: claims,
-            expires: DateTime.UtcNow.AddMinutes(_options.AccessTokenMinutes),
+            expires: DateTime.UtcNow.AddMinutes(options.AccessTokenMinutes),
             signingCredentials: credentials);
 
         return new JwtSecurityTokenHandler().WriteToken(token);

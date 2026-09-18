@@ -11,7 +11,7 @@ public class JwtTokenServiceTests
     [Fact]
     public void IssueAccessToken_IncludesExpectedClaims()
     {
-        var options = Options.Create(new JwtOptions
+        var options = new StaticOptionsMonitor<JwtOptions>(new JwtOptions
         {
             SigningKey = "unit-test-signing-key-at-least-32-bytes-long!",
             Issuer = "courier-tests",

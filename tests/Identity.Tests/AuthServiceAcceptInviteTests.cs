@@ -48,7 +48,7 @@ public class AuthServiceAcceptInviteTests
 
     private static AuthService CreateService(AppDbContext dbContext)
     {
-        var jwtOptions = Options.Create(new JwtOptions
+        var jwtOptions = new StaticOptionsMonitor<JwtOptions>(new JwtOptions
         {
             SigningKey = "identity-tests-signing-key-at-least-32-bytes!",
             Issuer = "courier-tests",

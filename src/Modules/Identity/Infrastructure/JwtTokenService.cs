@@ -9,15 +9,16 @@ namespace Courier.Identity.Infrastructure;
 
 public class JwtTokenService : IJwtTokenService
 {
-    private readonly JwtOptions _options;
+    private readonly IOptionsMonitor<JwtOptions> _optionsMonitor;
 
-    public JwtTokenService(IOptions<JwtOptions> options)
+    public JwtTokenService(IOptionsMonitor<JwtOptions> optionsMonitor)
     {
-        _options = options.Value;
+        _optionsMonitor = optionsMonitor;
     }
 
     public string IssueAccessToken(Guid userId, Guid organizationId, string email)
     {
+        var options = _optionsMonitor.CurrentValue;
         var claims = new[]
         {
             new Claim("sub", userId.ToString()),
@@ -25,14 +26,14 @@ public class JwtTokenService : IJwtTokenService
             new Claim("email", email)
         };
 
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.SigningKey));
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(options.SigningKey));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
         var token = new JwtSecurityToken(
-            issuer: _options.Issuer,
-            audience: _options.Audience,
+            issuer: options.Issuer,
+            audience: options.Audience,
             claims: claims,
-            expires: DateTime.UtcNow.AddMinutes(_options.AccessTokenMinutes),
+            expires: DateTime.UtcNow.AddMinutes(options.AccessTokenMinutes),
             signingCredentials: credentials);
 
         return new JwtSecurityTokenHandler().WriteToken(token);

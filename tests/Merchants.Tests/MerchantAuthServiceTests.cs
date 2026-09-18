@@ -39,7 +39,7 @@ public class MerchantAuthServiceTests
 
     private static MerchantAuthService CreateService(TestDbContext dbContext, bool organizationActive = true)
     {
-        var jwtOptions = Options.Create(new MerchantJwtOptions
+        var jwtOptions = new StaticOptionsMonitor<MerchantJwtOptions>(new MerchantJwtOptions
         {
             SigningKey = "merchant-tests-signing-key-at-least-32-bytes!",
             Issuer = "courier-tests",

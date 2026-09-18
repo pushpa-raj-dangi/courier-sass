@@ -19,15 +19,16 @@ public class ImpersonationTokenService : IImpersonationTokenService
 {
     private static readonly TimeSpan ImpersonationLifetime = TimeSpan.FromMinutes(30);
 
-    private readonly JwtOptions _options;
+    private readonly IOptionsMonitor<JwtOptions> _optionsMonitor;
 
-    public ImpersonationTokenService(IOptions<JwtOptions> options)
+    public ImpersonationTokenService(IOptionsMonitor<JwtOptions> optionsMonitor)
     {
-        _options = options.Value;
+        _optionsMonitor = optionsMonitor;
     }
 
     public ImpersonationTokenIssued IssueImpersonationAccessToken(Guid targetUserId, Guid organizationId, string email, Guid impersonatingSuperAdminId)
     {
+        var options = _optionsMonitor.CurrentValue;
         var claims = new[]
         {
             new Claim("sub", targetUserId.ToString()),
@@ -38,11 +39,11 @@ public class ImpersonationTokenService : IImpersonationTokenService
         };
 
         var expiresAt = DateTimeOffset.UtcNow.Add(ImpersonationLifetime);
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.SigningKey));
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(options.SigningKey));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
         var token = new JwtSecurityToken(
-            issuer: _options.Issuer,
-            audience: _options.Audience,
+            issuer: options.Issuer,
+            audience: options.Audience,
             claims: claims,
             expires: expiresAt.UtcDateTime,
             signingCredentials: credentials);
