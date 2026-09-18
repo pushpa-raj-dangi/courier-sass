@@ -454,6 +454,7 @@ app.MapPlatformImpersonationEndpoints();
 app.MapPlatformAuditEndpoints();
 app.MapPlatformJobsEndpoints();
 app.MapPlatformQueuesEndpoints();
+app.MapPlatformSettingsEndpoints();
 
 app.MapGet("/health/ping", () => Results.Ok(new { status = "ok" })).WithTags("Health check");
 
