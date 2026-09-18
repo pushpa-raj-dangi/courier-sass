@@ -37,6 +37,7 @@ using Courier.Merchants.Presentation;
 using Courier.Persistence;
 using Courier.Platform.Application;
 using Courier.Platform.Infrastructure;
+using Courier.Platform.Infrastructure.Configuration;
 using Courier.Platform.Presentation;
 using Courier.Pricing.Application;
 using Courier.Pricing.Presentation;
@@ -53,12 +54,22 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
 using RabbitMQ.Client;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Layers non-secret DB-backed setting overrides on top of appsettings/env — added last, so it
+// wins on key conflicts. Must run before any builder.Services.Configure<T>(...) call below reads
+// these keys via builder.Configuration.GetSection(...). See spec §5 for why secrets can't flow
+// through this path.
+// ConfigurationManager implements IConfigurationBuilder.Add as an explicit interface member
+// (not callable directly on the ConfigurationManager type), hence the cast.
+((IConfigurationBuilder)builder.Configuration).Add(new PlatformSettingsConfigurationSource(builder.Configuration.GetConnectionString("Postgres")!));
+
 // writeToProviders: true — Serilog does not forward events to other ILoggerProvider instances
 // registered in DI by default. Without this, ILogger<T> calls (e.g.
 // ApiKeyRequestLoggingMiddleware, Task 13) would be invisible to any ILoggerProvider a test host
