@@ -24,6 +24,8 @@ using Courier.Pricing.Domain;
 using Courier.Webhooks.Domain;
 using Courier.Webhooks.Infrastructure;
 using Courier.Pricing.Infrastructure;
+using Courier.Platform.Domain;
+using Courier.Platform.Infrastructure;
 using Courier.Riders.Domain;
 using Courier.Riders.Infrastructure;
 using Courier.Shipments.Domain;
@@ -104,6 +106,8 @@ public class AppDbContext : DbContext, IDataProtectionKeyContext
     public DbSet<Subscription> Subscriptions => Set<Subscription>();
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<Payment> Payments => Set<Payment>();
+    public DbSet<PlatformSettingDefinition> PlatformSettingDefinitions => Set<PlatformSettingDefinition>();
+    public DbSet<PlatformSetting> PlatformSettings => Set<PlatformSetting>();
 
     // IDataProtectionKeyContext requires a settable property; the setter is never exercised at
     // runtime (PersistKeysToDbContext only ever reads via Set<DataProtectionKey>()) but is kept
@@ -179,6 +183,8 @@ public class AppDbContext : DbContext, IDataProtectionKeyContext
         modelBuilder.ApplyConfiguration(new Courier.Billing.Infrastructure.SubscriptionConfiguration());
         modelBuilder.ApplyConfiguration(new Courier.Billing.Infrastructure.InvoiceConfiguration());
         modelBuilder.ApplyConfiguration(new Courier.Billing.Infrastructure.PaymentConfiguration());
+        modelBuilder.ApplyConfiguration(new PlatformSettingDefinitionConfiguration());
+        modelBuilder.ApplyConfiguration(new PlatformSettingConfiguration());
 
         // Branch.OrganizationId -> Organizations FK lives here rather than in
         // BranchConfiguration (Branches module) because Branches deliberately has no project

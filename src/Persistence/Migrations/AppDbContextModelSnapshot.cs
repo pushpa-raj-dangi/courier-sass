@@ -2841,6 +2841,257 @@ namespace Persistence.Migrations
                     b.ToTable("NotificationTemplates", (string)null);
                 });
 
+            modelBuilder.Entity("Courier.Platform.Domain.PlatformSetting", b =>
+                {
+                    b.Property<string>("Key")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<bool>("IsOverridden")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UpdatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Value")
+                        .HasColumnType("text");
+
+                    b.HasKey("Key");
+
+                    b.ToTable("PlatformSettings", (string)null);
+                });
+
+            modelBuilder.Entity("Courier.Platform.Domain.PlatformSettingDefinition", b =>
+                {
+                    b.Property<string>("Key")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("ConfigPath")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<bool>("IsSecret")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("RequiresConfirmation")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("ValueType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("Key");
+
+                    b.ToTable("PlatformSettingDefinitions", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Key = "Esewa.ProductCode",
+                            Category = "PaymentGateway",
+                            ConfigPath = "Esewa:ProductCode",
+                            Description = "eSewa merchant product code.",
+                            IsSecret = false,
+                            RequiresConfirmation = false,
+                            ValueType = "String"
+                        },
+                        new
+                        {
+                            Key = "Esewa.SecretKey",
+                            Category = "PaymentGateway",
+                            ConfigPath = "Esewa:SecretKey",
+                            Description = "eSewa HMAC signing secret.",
+                            IsSecret = true,
+                            RequiresConfirmation = false,
+                            ValueType = "String"
+                        },
+                        new
+                        {
+                            Key = "Esewa.FormUrl",
+                            Category = "PaymentGateway",
+                            ConfigPath = "Esewa:FormUrl",
+                            Description = "eSewa checkout form endpoint.",
+                            IsSecret = false,
+                            RequiresConfirmation = false,
+                            ValueType = "String"
+                        },
+                        new
+                        {
+                            Key = "Esewa.StatusCheckUrl",
+                            Category = "PaymentGateway",
+                            ConfigPath = "Esewa:StatusCheckUrl",
+                            Description = "eSewa server-to-server status check endpoint.",
+                            IsSecret = false,
+                            RequiresConfirmation = false,
+                            ValueType = "String"
+                        },
+                        new
+                        {
+                            Key = "Khalti.SecretKey",
+                            Category = "PaymentGateway",
+                            ConfigPath = "Khalti:SecretKey",
+                            Description = "Khalti live secret key.",
+                            IsSecret = true,
+                            RequiresConfirmation = false,
+                            ValueType = "String"
+                        },
+                        new
+                        {
+                            Key = "Khalti.InitiateUrl",
+                            Category = "PaymentGateway",
+                            ConfigPath = "Khalti:InitiateUrl",
+                            Description = "Khalti payment initiate endpoint.",
+                            IsSecret = false,
+                            RequiresConfirmation = false,
+                            ValueType = "String"
+                        },
+                        new
+                        {
+                            Key = "Khalti.LookupUrl",
+                            Category = "PaymentGateway",
+                            ConfigPath = "Khalti:LookupUrl",
+                            Description = "Khalti payment lookup endpoint.",
+                            IsSecret = false,
+                            RequiresConfirmation = false,
+                            ValueType = "String"
+                        },
+                        new
+                        {
+                            Key = "Khalti.WebsiteUrl",
+                            Category = "PaymentGateway",
+                            ConfigPath = "Khalti:WebsiteUrl",
+                            Description = "Website URL Khalti associates with this integration.",
+                            IsSecret = false,
+                            RequiresConfirmation = false,
+                            ValueType = "String"
+                        },
+                        new
+                        {
+                            Key = "Smtp.Host",
+                            Category = "Notifications",
+                            ConfigPath = "Smtp:Host",
+                            Description = "SMTP server host.",
+                            IsSecret = false,
+                            RequiresConfirmation = false,
+                            ValueType = "String"
+                        },
+                        new
+                        {
+                            Key = "Smtp.Port",
+                            Category = "Notifications",
+                            ConfigPath = "Smtp:Port",
+                            Description = "SMTP server port.",
+                            IsSecret = false,
+                            RequiresConfirmation = false,
+                            ValueType = "Int"
+                        },
+                        new
+                        {
+                            Key = "Smtp.From",
+                            Category = "Notifications",
+                            ConfigPath = "Smtp:From",
+                            Description = "From address for outgoing email.",
+                            IsSecret = false,
+                            RequiresConfirmation = false,
+                            ValueType = "String"
+                        },
+                        new
+                        {
+                            Key = "Jwt.SigningKey",
+                            Category = "Security",
+                            ConfigPath = "Jwt:SigningKey",
+                            Description = "JWT signing key. Rotating this logs out every user platform-wide.",
+                            IsSecret = true,
+                            RequiresConfirmation = true,
+                            ValueType = "String"
+                        },
+                        new
+                        {
+                            Key = "Jwt.Issuer",
+                            Category = "Security",
+                            ConfigPath = "Jwt:Issuer",
+                            Description = "JWT issuer claim.",
+                            IsSecret = false,
+                            RequiresConfirmation = false,
+                            ValueType = "String"
+                        },
+                        new
+                        {
+                            Key = "Jwt.Audience",
+                            Category = "Security",
+                            ConfigPath = "Jwt:Audience",
+                            Description = "JWT audience claim.",
+                            IsSecret = false,
+                            RequiresConfirmation = false,
+                            ValueType = "String"
+                        },
+                        new
+                        {
+                            Key = "Jwt.AccessTokenMinutes",
+                            Category = "Security",
+                            ConfigPath = "Jwt:AccessTokenMinutes",
+                            Description = "Access token lifetime, in minutes.",
+                            IsSecret = false,
+                            RequiresConfirmation = false,
+                            ValueType = "Int"
+                        },
+                        new
+                        {
+                            Key = "RateLimiting.ApiKeyRequestsPerMinute",
+                            Category = "Security",
+                            ConfigPath = "RateLimiting:ApiKeyRequestsPerMinute",
+                            Description = "Per-API-key request limit per minute.",
+                            IsSecret = false,
+                            RequiresConfirmation = false,
+                            ValueType = "Int"
+                        },
+                        new
+                        {
+                            Key = "RateLimiting.PublicTrackingRequestsPerMinute",
+                            Category = "Security",
+                            ConfigPath = "RateLimiting:PublicTrackingRequestsPerMinute",
+                            Description = "Per-IP public tracking request limit per minute.",
+                            IsSecret = false,
+                            RequiresConfirmation = false,
+                            ValueType = "Int"
+                        },
+                        new
+                        {
+                            Key = "Frontend.BaseUrl",
+                            Category = "Branding",
+                            ConfigPath = "Frontend:BaseUrl",
+                            Description = "Base URL used to build links in outgoing emails/notifications.",
+                            IsSecret = false,
+                            RequiresConfirmation = false,
+                            ValueType = "String"
+                        },
+                        new
+                        {
+                            Key = "Billing.GraceDays",
+                            Category = "Branding",
+                            ConfigPath = "Billing:GraceDays",
+                            Description = "Days after an invoice's due date before an organization is suspended.",
+                            IsSecret = false,
+                            RequiresConfirmation = false,
+                            ValueType = "Int"
+                        });
+                });
+
             modelBuilder.Entity("Courier.Pricing.Domain.AdditionalCharge", b =>
                 {
                     b.Property<Guid>("Id")
@@ -4282,6 +4533,15 @@ namespace Persistence.Migrations
                     b.HasOne("Courier.Identity.Domain.Organization", null)
                         .WithMany()
                         .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Courier.Platform.Domain.PlatformSetting", b =>
+                {
+                    b.HasOne("Courier.Platform.Domain.PlatformSettingDefinition", null)
+                        .WithMany()
+                        .HasForeignKey("Key")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
