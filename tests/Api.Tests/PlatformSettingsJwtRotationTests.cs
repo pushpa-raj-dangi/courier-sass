@@ -1,10 +1,8 @@
-using System.Collections.Generic;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.Configuration;
 using Xunit;
 
 namespace Courier.Api.Tests;
@@ -14,25 +12,22 @@ namespace Courier.Api.Tests;
 // with the NEW one — same-process, since PlatformSettingsService.UpdateAsync calls
 // PlatformSettingsReloader.ReloadAsync() synchronously before returning (no Redis round-trip
 // needed for THIS process to observe its own change), so this test is deterministic.
+//
+// Known gap (deliberately out of scope here): this test performs a REAL rotation of the shared
+// Jwt.SigningKey and broadcasts on the real, shared `platform-settings:changed` Redis channel
+// (PlatformSettingsChangeListener.ChannelName is a hardcoded const, not configurable). It does
+// NOT isolate that broadcast from other concurrently-running WebApplicationFactory hosts in this
+// suite, so a concurrent run could see another host's cache reload mid-test. The assertions below
+// don't depend on that reload, since this process's own cache update happens synchronously inside
+// PlatformSettingsService.UpdateAsync/ResetAsync — but cross-test-host interference remains a
+// known, separately-tracked risk, not something fixed by this test.
 public class PlatformSettingsJwtRotationTests : IClassFixture<WebApplicationFactory<Program>>
 {
     private readonly WebApplicationFactory<Program> _factory;
 
     public PlatformSettingsJwtRotationTests(WebApplicationFactory<Program> factory)
     {
-        // This test performs a REAL rotation of Jwt.SigningKey (unlike PlatformSettingsEndpointsTests,
-        // which stops short of a real write). Every WebApplicationFactory in this suite shares one
-        // Redis container, and Redis PUBLISH/SUBSCRIBE is global to the server, so without a private
-        // channel name this factory's rotation would broadcast to every other test class's host
-        // (each running its own PlatformSettingsChangeListener) and invalidate THEIR already-issued
-        // bearer tokens mid-test. Pin this factory to a unique channel so the broadcast reaches only
-        // itself — the assertions below don't depend on it anyway, since the in-process cache reload
-        // happens synchronously inside PlatformSettingsService.UpdateAsync/ResetAsync.
-        _factory = factory.WithWebHostBuilder(builder => builder.ConfigureAppConfiguration((_, config) =>
-            config.AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["Platform:SettingsChannelName"] = $"platform-settings:changed:test-{Guid.NewGuid():N}",
-            })));
+        _factory = factory;
     }
 
     private async Task<string> LoginAsSuperAdminAsync(HttpClient client)
