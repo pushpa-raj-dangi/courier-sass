@@ -5,6 +5,7 @@ using Courier.Platform.Tests;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace Courier.Platform.Tests;
@@ -39,17 +40,47 @@ public class PlatformSettingsCacheTests
             dbContext.Set<PlatformSetting>().Add(new PlatformSetting { Key = key, Value = protector.Protect("s3cr3t"), IsOverridden = true, UpdatedAt = DateTime.UtcNow, UpdatedByUserId = Guid.NewGuid() });
             await dbContext.SaveChangesAsync();
 
-            var cache = new PlatformSettingsCache(scopeFactory);
-            await cache.RefreshAsync();
+            try
+            {
+                var cache = new PlatformSettingsCache(scopeFactory, NullLogger<PlatformSettingsCache>.Instance);
+                await cache.RefreshAsync();
 
-            Assert.Equal("s3cr3t", cache.TryGetSecret($"Test:{key}"));
+                Assert.Equal("s3cr3t", cache.TryGetSecret($"Test:{key}"));
+            }
+            finally
+            {
+                // This test's DataProtection provider is built fresh in-process (BuildScopeFactory's
+                // AddDataProtection() call has no PersistKeysToDbContext), so its key ring is
+                // throwaway and never persisted. Ciphertext protected with it can never be
+                // decrypted again — by this test run or the real app — so the row must not be
+                // left behind in the shared dev Postgres, or PlatformSettingsCache.RefreshAsync
+                // would hit it as permanently-undecryptable garbage on every future run.
+                await CleanupSettingAsync(dbContext, key);
+            }
         }
+    }
+
+    private static async Task CleanupSettingAsync(DbContext dbContext, string key)
+    {
+        var setting = await dbContext.Set<PlatformSetting>().FirstOrDefaultAsync(s => s.Key == key);
+        if (setting is not null)
+        {
+            dbContext.Remove(setting);
+        }
+
+        var definition = await dbContext.Set<PlatformSettingDefinition>().FirstOrDefaultAsync(d => d.Key == key);
+        if (definition is not null)
+        {
+            dbContext.Remove(definition);
+        }
+
+        await dbContext.SaveChangesAsync();
     }
 
     [Fact]
     public void TryGetSecret_NothingCachedYet_ReturnsNull()
     {
-        var cache = new PlatformSettingsCache(BuildScopeFactory());
+        var cache = new PlatformSettingsCache(BuildScopeFactory(), NullLogger<PlatformSettingsCache>.Instance);
 
         Assert.Null(cache.TryGetSecret("Esewa:SecretKey"));
     }

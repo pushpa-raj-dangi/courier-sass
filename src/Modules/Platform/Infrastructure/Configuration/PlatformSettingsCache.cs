@@ -2,6 +2,7 @@ using Courier.Platform.Domain;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Npgsql;
 
 namespace Courier.Platform.Infrastructure.Configuration;
@@ -13,11 +14,13 @@ namespace Courier.Platform.Infrastructure.Configuration;
 public class PlatformSettingsCache : IPlatformSettingsCache
 {
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly ILogger<PlatformSettingsCache> _logger;
     private volatile Dictionary<string, string> _secrets = new();
 
-    public PlatformSettingsCache(IServiceScopeFactory scopeFactory)
+    public PlatformSettingsCache(IServiceScopeFactory scopeFactory, ILogger<PlatformSettingsCache> logger)
     {
         _scopeFactory = scopeFactory;
+        _logger = logger;
     }
 
     public string? TryGetSecret(string configPath) => _secrets.TryGetValue(configPath, out var value) ? value : null;
@@ -41,9 +44,24 @@ public class PlatformSettingsCache : IPlatformSettingsCache
 
             foreach (var row in rows)
             {
-                if (row.Value is not null)
+                if (row.Value is null)
+                {
+                    continue;
+                }
+
+                try
                 {
                     next[row.ConfigPath] = protector.Unprotect(row.Value);
+                }
+                catch (Exception ex)
+                {
+                    // A single row with undecryptable ciphertext (e.g. protected under a key
+                    // ring this instance doesn't have, or corrupted data) must not abort the
+                    // whole refresh — that would crash the app at boot via
+                    // PlatformSettingsChangeListener's synchronous startup reload. Skip it and
+                    // keep processing the rest; the previous cached value (if any) for this
+                    // ConfigPath is simply not refreshed.
+                    _logger.LogWarning(ex, "Failed to decrypt platform setting secret for {ConfigPath}; skipping it in this refresh.", row.ConfigPath);
                 }
             }
         }
