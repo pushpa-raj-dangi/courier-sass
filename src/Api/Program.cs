@@ -209,6 +209,10 @@ builder.Services.AddScoped<PlatformQueuesService>();
 builder.Services.AddScoped<IImpersonationTokenService, ImpersonationTokenService>();
 builder.Services.AddScoped<ImpersonationService>();
 builder.Services.AddSingleton<IPlatformSettingsCache, PlatformSettingsCache>();
+builder.Services.ConfigureOptions<EsewaSecretPostConfigureOptions>();
+builder.Services.ConfigureOptions<KhaltiSecretPostConfigureOptions>();
+builder.Services.ConfigureOptions<JwtSecretPostConfigureOptions>();
+builder.Services.ConfigureOptions<MerchantJwtSecretPostConfigureOptions>();
 
 builder.Services.Configure<BillingOptions>(builder.Configuration.GetSection("Billing"));
 builder.Services.Configure<EsewaOptions>(builder.Configuration.GetSection("Esewa"));
