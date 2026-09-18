@@ -56,6 +56,7 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using RabbitMQ.Client;
 using Serilog;
@@ -271,7 +272,6 @@ builder.Services.AddScoped<WebhookRetryJob>();
 builder.Services.AddSingleton<IObjectStorage>(_ =>
     new LocalFileSystemObjectStorage(builder.Configuration["ObjectStorage:LocalRootPath"] ?? Path.Combine(AppContext.BaseDirectory, "storage")));
 
-var jwtSection = builder.Configuration.GetSection("Jwt");
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -281,19 +281,31 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         // audit logging, future endpoints) that reads HttpContext.User.FindFirst("sub")
         // directly. Disabling it keeps claims exactly as JwtTokenService issued them.
         options.MapInboundClaims = false;
+    })
+    .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>(AuthSchemes.ApiKey, _ => { });
+builder.Services.AddAuthorization();
+
+// IssuerSigningKeyResolver is invoked per token validation (unlike a plain IssuerSigningKey
+// assignment, captured once at startup) — the generic Configure<TDep> overload injects a live
+// IOptionsMonitor<JwtOptions> into this delegate (resolved once, from the root provider, when
+// JwtBearerOptions is built), so the resolver closure reads jwtMonitor.CurrentValue.SigningKey
+// fresh on every request. This is what makes rotating Jwt.SigningKey through the platform
+// settings UI (Task 8-12) actually take effect for validation, not just for newly-signed tokens.
+builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+    .Configure<IOptionsMonitor<JwtOptions>>((options, jwtMonitor) =>
+    {
         options.TokenValidationParameters = new TokenValidationParameters
         {
-            ValidIssuer = jwtSection["Issuer"],
-            ValidAudience = jwtSection["Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSection["SigningKey"]!)),
+            ValidIssuer = jwtMonitor.CurrentValue.Issuer,
+            ValidAudience = jwtMonitor.CurrentValue.Audience,
+            IssuerSigningKeyResolver = (token, securityToken, kid, parameters) =>
+                new SecurityKey[] { new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtMonitor.CurrentValue.SigningKey)) },
             ValidateIssuer = true,
             ValidateAudience = true,
             ValidateIssuerSigningKey = true,
             ValidateLifetime = true
         };
-    })
-    .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>(AuthSchemes.ApiKey, _ => { });
-builder.Services.AddAuthorization();
+    });
 
 builder.Services.AddOpenApi();
 
