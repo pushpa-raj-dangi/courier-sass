@@ -2,7 +2,6 @@ using Courier.Audit.Application;
 using Courier.Billing.Application;
 using Courier.Billing.Domain;
 using Courier.SharedKernel;
-using Microsoft.Extensions.Options;
 using Xunit;
 
 namespace Courier.Billing.Tests;
@@ -33,7 +32,7 @@ public class SubscriptionServiceTests
     }
 
     private static SubscriptionService CreateService(Courier.Persistence.AppDbContext dbContext, Courier.SharedKernel.ICurrentTenantProvider tenantProvider, FakeAuditLogger? auditLogger = null, int trialDays = 7) =>
-        new(dbContext, auditLogger ?? new FakeAuditLogger(), Options.Create(new BillingOptions { TrialDays = trialDays }), tenantProvider);
+        new(dbContext, auditLogger ?? new FakeAuditLogger(), new StaticOptionsMonitor<BillingOptions>(new BillingOptions { TrialDays = trialDays }), tenantProvider);
 
     private static async Task<Plan> SeedPlanAsync(Courier.Persistence.AppDbContext dbContext, int? maxBranches = null, decimal price = 0m)
     {

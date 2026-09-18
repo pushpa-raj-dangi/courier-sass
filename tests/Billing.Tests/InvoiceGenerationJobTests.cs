@@ -2,7 +2,6 @@ using Courier.Billing.Application;
 using Courier.Billing.Domain;
 using Courier.SharedKernel;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 using Xunit;
 
 namespace Courier.Billing.Tests;
@@ -24,7 +23,7 @@ public class InvoiceGenerationJobTests
         dbContext.Set<Subscription>().Add(subscription);
         await dbContext.SaveChangesAsync();
 
-        var job = new InvoiceGenerationJob(dbContext, Options.Create(new BillingOptions()));
+        var job = new InvoiceGenerationJob(dbContext, new StaticOptionsMonitor<BillingOptions>(new BillingOptions()));
         await job.RunAsync();
 
         var invoice = dbContext.Set<Invoice>().IgnoreQueryFilters().Single(i => i.SubscriptionId == subscription.Id);
@@ -47,7 +46,7 @@ public class InvoiceGenerationJobTests
         dbContext.Set<Subscription>().Add(subscription);
         await dbContext.SaveChangesAsync();
 
-        var job = new InvoiceGenerationJob(dbContext, Options.Create(new BillingOptions()));
+        var job = new InvoiceGenerationJob(dbContext, new StaticOptionsMonitor<BillingOptions>(new BillingOptions()));
         await job.RunAsync();
 
         Assert.False(dbContext.Set<Invoice>().IgnoreQueryFilters().Any(i => i.SubscriptionId == subscription.Id));
@@ -64,7 +63,7 @@ public class InvoiceGenerationJobTests
         dbContext.Set<Plan>().Add(plan);
         dbContext.Set<Subscription>().Add(subscription);
         await dbContext.SaveChangesAsync();
-        var job = new InvoiceGenerationJob(dbContext, Options.Create(new BillingOptions()));
+        var job = new InvoiceGenerationJob(dbContext, new StaticOptionsMonitor<BillingOptions>(new BillingOptions()));
         await job.RunAsync();
 
         // Second run: the cycle already advanced past "now" by the first run, so there is

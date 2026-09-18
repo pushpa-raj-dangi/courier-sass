@@ -10,12 +10,12 @@ namespace Courier.Billing.Application;
 public class InvoiceGenerationJob
 {
     private readonly DbContext _dbContext;
-    private readonly BillingOptions _options;
+    private readonly IOptionsMonitor<BillingOptions> _optionsMonitor;
 
-    public InvoiceGenerationJob(DbContext dbContext, IOptions<BillingOptions> options)
+    public InvoiceGenerationJob(DbContext dbContext, IOptionsMonitor<BillingOptions> optionsMonitor)
     {
         _dbContext = dbContext;
-        _options = options.Value;
+        _optionsMonitor = optionsMonitor;
     }
 
     public async Task RunAsync(CancellationToken cancellationToken = default)
@@ -65,7 +65,7 @@ public class InvoiceGenerationJob
                         CycleStart = cycleStart,
                         CycleEnd = cycleEnd,
                         Status = InvoiceStatus.Pending,
-                        DueAt = cycleEnd.AddDays(_options.GraceDays),
+                        DueAt = cycleEnd.AddDays(_optionsMonitor.CurrentValue.GraceDays),
                         CreatedAt = now
                     });
                 }

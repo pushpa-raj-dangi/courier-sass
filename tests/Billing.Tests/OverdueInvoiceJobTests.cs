@@ -4,7 +4,6 @@ using Courier.Billing.Domain;
 using Courier.Identity.Application;
 using Courier.SharedKernel;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 using Xunit;
 
 namespace Courier.Billing.Tests;
@@ -112,10 +111,10 @@ public class OverdueInvoiceJobTests
         });
         await dbContext.SaveChangesAsync();
 
-        var subscriptionService = new SubscriptionService(dbContext, new NoopAuditLogger(), Options.Create(new BillingOptions()), new FixedTenantProvider(organizationId));
+        var subscriptionService = new SubscriptionService(dbContext, new NoopAuditLogger(), new StaticOptionsMonitor<BillingOptions>(new BillingOptions()), new FixedTenantProvider(organizationId));
         await subscriptionService.AssignPlanAsync(organizationId, plan.Id, Guid.NewGuid());
 
-        var invoiceJob = new InvoiceGenerationJob(dbContext, Options.Create(new BillingOptions()));
+        var invoiceJob = new InvoiceGenerationJob(dbContext, new StaticOptionsMonitor<BillingOptions>(new BillingOptions()));
         await invoiceJob.RunAsync();
 
         Assert.False(dbContext.Set<Invoice>().IgnoreQueryFilters().Any(i => i.OrganizationId == organizationId));

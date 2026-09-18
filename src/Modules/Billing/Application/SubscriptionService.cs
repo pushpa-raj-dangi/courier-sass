@@ -13,14 +13,16 @@ public class SubscriptionService : IBillingLookupService
 {
     private readonly DbContext _dbContext;
     private readonly IAuditLogger _auditLogger;
-    private readonly BillingOptions _options;
+    private readonly IOptionsMonitor<BillingOptions> _optionsMonitor;
     private readonly ICurrentTenantProvider _currentTenantProvider;
 
-    public SubscriptionService(DbContext dbContext, IAuditLogger auditLogger, IOptions<BillingOptions> options, ICurrentTenantProvider currentTenantProvider)
+    private BillingOptions Options => _optionsMonitor.CurrentValue;
+
+    public SubscriptionService(DbContext dbContext, IAuditLogger auditLogger, IOptionsMonitor<BillingOptions> optionsMonitor, ICurrentTenantProvider currentTenantProvider)
     {
         _dbContext = dbContext;
         _auditLogger = auditLogger;
-        _options = options.Value;
+        _optionsMonitor = optionsMonitor;
         _currentTenantProvider = currentTenantProvider;
     }
 
@@ -95,7 +97,7 @@ public class SubscriptionService : IBillingLookupService
             OrganizationId = organizationId,
             PlanId = null,
             Status = SubscriptionStatus.Trial,
-            TrialEndsAt = now.AddDays(_options.TrialDays),
+            TrialEndsAt = now.AddDays(Options.TrialDays),
             CurrentCycleStart = now,
             CurrentCycleEnd = now.AddMonths(1),
             CreatedAt = now,
