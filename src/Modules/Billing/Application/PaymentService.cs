@@ -16,6 +16,13 @@ public class PaymentService
     private static readonly TimeSpan MinPendingAge = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan MaxPendingAge = TimeSpan.FromHours(24);
 
+    // A burst of abandoned checkouts (e.g. a gateway outage) could otherwise leave hundreds of
+    // payments stuck at Initiated at once, and this job would fire that many synchronous
+    // CheckStatusAsync calls at a live gateway back-to-back in a single run. Capping the batch
+    // bounds that blast radius; oldest-first ordering means the next 10-minute run picks up
+    // where this one left off rather than starving the oldest stuck payments.
+    private const int MaxPaymentsPerRun = 25;
+
     private readonly DbContext _dbContext;
     private readonly IEnumerable<IPaymentGatewayClient> _gatewayClients;
     private readonly IOrganizationLookupService _organizationLookupService;
@@ -129,6 +136,8 @@ public class PaymentService
 
         var stuckPayments = await _dbContext.Set<Payment>().IgnoreQueryFilters()
             .Where(p => p.Status == PaymentStatus.Initiated && p.GatewayReference != null && p.InitiatedAt <= freshCutoff)
+            .OrderBy(p => p.InitiatedAt)
+            .Take(MaxPaymentsPerRun)
             .ToListAsync(cancellationToken);
 
         foreach (var payment in stuckPayments)

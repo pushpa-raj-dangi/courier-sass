@@ -98,6 +98,26 @@ public class PaymentServiceTests
             => Task.FromResult(new GatewayVerificationResult(false, null, "{}"));
     }
 
+    // Used only by the batch-cap test below: unlike ReconciliationGatewayClient (scoped to one
+    // target payment), this records every payment id it was asked to check so the test can
+    // assert both "no more than the cap" and "oldest-first" without caring which specific
+    // payments those are.
+    private sealed class CallTrackingGatewayClient : IPaymentGatewayClient
+    {
+        private readonly List<Guid> _checkedPaymentIds = new();
+        public PaymentGateway Gateway { get; init; }
+        public IReadOnlyList<Guid> CheckedPaymentIds => _checkedPaymentIds;
+        public Task<GatewayInitiationResult> InitiateAsync(Guid paymentId, decimal amountNpr, string returnUrl, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+        public Task<GatewayVerificationResult> VerifyAsync(Guid paymentId, decimal expectedAmountNpr, string? expectedGatewayReference, IReadOnlyDictionary<string, string> callbackParameters, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+        public Task<GatewayVerificationResult> CheckStatusAsync(Guid paymentId, decimal expectedAmountNpr, string? expectedGatewayReference, CancellationToken cancellationToken = default)
+        {
+            _checkedPaymentIds.Add(paymentId);
+            return Task.FromResult(new GatewayVerificationResult(false, null, "{\"status\":\"PENDING\"}"));
+        }
+    }
+
     private sealed class FakeOrganizationLookupService : IOrganizationLookupService
     {
         public Task<OrganizationRecord?> GetAsync(Guid organizationId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
@@ -387,5 +407,50 @@ public class PaymentServiceTests
         await service.ReconcilePendingAsync();
 
         Assert.Equal(PaymentStatus.Failed, dbContext.Set<Payment>().Single(p => p.Id == payment.Id).Status);
+    }
+
+    [Fact]
+    public async Task ReconcilePendingAsync_MoreStuckPaymentsThanBatchCap_ChecksOldestFirstUpToCap()
+    {
+        using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
+        const int seededCount = 30;
+        const int batchCap = 25;
+        // Dated years in the past (not just hours, like every other test in this file) so these
+        // rows are guaranteed to sort before any real stray Initiated payment that might already
+        // be sitting in the shared dev database (see the class-level comment on
+        // ReconciliationGatewayClient) — otherwise this test's exact-count/exact-order assertions
+        // below would be at the mercy of however much unrelated stray data happens to exist.
+        var seeded = new List<Payment>();
+        var createdIds = new List<Guid>();
+        for (var i = 0; i < seededCount; i++)
+        {
+            // One organization per payment (Subscriptions has a unique index per OrganizationId) —
+            // distinct InitiatedAt per payment (oldest = i=0) so oldest-first ordering is unambiguous.
+            var (subscription, invoice, payment) = await SeedStuckPaymentAsync(dbContext, Guid.NewGuid(), DateTimeOffset.UtcNow.AddYears(-5).AddSeconds(-i));
+            seeded.Add(payment);
+            createdIds.Add(payment.Id);
+        }
+        try
+        {
+            var gatewayClient = new CallTrackingGatewayClient { Gateway = PaymentGateway.Esewa };
+            var service = new PaymentService(dbContext, new IPaymentGatewayClient[] { gatewayClient }, new FakeOrganizationLookupService());
+
+            await service.ReconcilePendingAsync();
+
+            Assert.Equal(batchCap, gatewayClient.CheckedPaymentIds.Count);
+            var expectedOldestFirst = seeded.OrderBy(p => p.InitiatedAt).Take(batchCap).Select(p => p.Id);
+            Assert.Equal(expectedOldestFirst, gatewayClient.CheckedPaymentIds);
+        }
+        finally
+        {
+            // This test alone seeds 30 rows straight into the shared dev database with no
+            // automatic teardown (this file's established convention, see TestDbContextFactory) —
+            // left behind, they'd both accumulate indefinitely across repeated local test runs
+            // and get swept up by the real Hangfire reconciliation job hitting the live gateway.
+            // Every other test in this file seeds only one payment and accepts that cost; this
+            // one seeds 30, so it cleans up after itself.
+            dbContext.Set<Payment>().RemoveRange(dbContext.Set<Payment>().Where(p => createdIds.Contains(p.Id)));
+            await dbContext.SaveChangesAsync();
+        }
     }
 }
