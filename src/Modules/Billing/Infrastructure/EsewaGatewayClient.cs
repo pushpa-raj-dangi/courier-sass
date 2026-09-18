@@ -15,14 +15,16 @@ namespace Courier.Billing.Infrastructure;
 // client-side redirect can be replayed/forged).
 public class EsewaGatewayClient : IPaymentGatewayClient
 {
-    private readonly EsewaOptions _options;
+    private readonly IOptionsMonitor<EsewaOptions> _optionsMonitor;
     private readonly HttpClient _httpClient;
+
+    private EsewaOptions Options => _optionsMonitor.CurrentValue;
 
     public PaymentGateway Gateway => PaymentGateway.Esewa;
 
-    public EsewaGatewayClient(IOptions<EsewaOptions> options, IHttpClientFactory httpClientFactory)
+    public EsewaGatewayClient(IOptionsMonitor<EsewaOptions> optionsMonitor, IHttpClientFactory httpClientFactory)
     {
-        _options = options.Value;
+        _optionsMonitor = optionsMonitor;
         _httpClient = httpClientFactory.CreateClient("Esewa");
     }
 
@@ -31,7 +33,7 @@ public class EsewaGatewayClient : IPaymentGatewayClient
         var totalAmount = amountNpr.ToString("F2");
         var transactionUuid = paymentId.ToString();
         var signedFieldNames = "total_amount,transaction_uuid,product_code";
-        var signature = SignFields(($"total_amount={totalAmount},transaction_uuid={transactionUuid},product_code={_options.ProductCode}"));
+        var signature = SignFields(($"total_amount={totalAmount},transaction_uuid={transactionUuid},product_code={Options.ProductCode}"));
 
         var fields = new Dictionary<string, string>
         {
@@ -39,7 +41,7 @@ public class EsewaGatewayClient : IPaymentGatewayClient
             ["tax_amount"] = "0",
             ["total_amount"] = totalAmount,
             ["transaction_uuid"] = transactionUuid,
-            ["product_code"] = _options.ProductCode,
+            ["product_code"] = Options.ProductCode,
             ["product_service_charge"] = "0",
             ["product_delivery_charge"] = "0",
             ["success_url"] = returnUrl,
@@ -51,7 +53,7 @@ public class EsewaGatewayClient : IPaymentGatewayClient
         // eSewa's own transaction_uuid is always paymentId.ToString() — that's exactly what we
         // persist as GatewayReference so VerifyAsync's binding check below has a persisted value
         // to compare against, same as Khalti's opaque pidx.
-        return Task.FromResult(new GatewayInitiationResult(new GatewayCheckoutInfo(_options.FormUrl, fields), transactionUuid));
+        return Task.FromResult(new GatewayInitiationResult(new GatewayCheckoutInfo(Options.FormUrl, fields), transactionUuid));
     }
 
     public async Task<GatewayVerificationResult> VerifyAsync(Guid paymentId, decimal expectedAmountNpr, string? expectedGatewayReference, IReadOnlyDictionary<string, string> callbackParameters, CancellationToken cancellationToken = default)
@@ -141,7 +143,7 @@ public class EsewaGatewayClient : IPaymentGatewayClient
 
     private async Task<(bool Succeeded, string? RefId, string Body)> CallStatusCheckApiAsync(string transactionUuid, string totalAmount, CancellationToken cancellationToken)
     {
-        var statusUrl = $"{_options.StatusCheckUrl}?product_code={Uri.EscapeDataString(_options.ProductCode)}&total_amount={Uri.EscapeDataString(totalAmount)}&transaction_uuid={Uri.EscapeDataString(transactionUuid)}";
+        var statusUrl = $"{Options.StatusCheckUrl}?product_code={Uri.EscapeDataString(Options.ProductCode)}&total_amount={Uri.EscapeDataString(totalAmount)}&transaction_uuid={Uri.EscapeDataString(transactionUuid)}";
         var response = await _httpClient.GetAsync(statusUrl, cancellationToken);
         var body = await response.Content.ReadAsStringAsync(cancellationToken);
         if (!response.IsSuccessStatusCode)
@@ -167,7 +169,7 @@ public class EsewaGatewayClient : IPaymentGatewayClient
 
     private string SignFields(string message)
     {
-        var keyBytes = Encoding.UTF8.GetBytes(_options.SecretKey);
+        var keyBytes = Encoding.UTF8.GetBytes(Options.SecretKey);
         var messageBytes = Encoding.UTF8.GetBytes(message);
         var hash = new HMACSHA256(keyBytes).ComputeHash(messageBytes);
         return Convert.ToBase64String(hash);

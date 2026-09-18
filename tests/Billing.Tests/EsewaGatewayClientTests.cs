@@ -71,7 +71,7 @@ public class EsewaGatewayClientTests
     public async Task InitiateAsync_ReturnsSignedFormFields()
     {
         var httpClientFactory = new StubHttpClientFactory(new StubHandler("{}"));
-        var client = new EsewaGatewayClient(Microsoft.Extensions.Options.Options.Create(Options()), httpClientFactory);
+        var client = new EsewaGatewayClient(new StaticOptionsMonitor<EsewaOptions>(Options()), httpClientFactory);
 
         var paymentId = Guid.NewGuid();
         var result = await client.InitiateAsync(paymentId, 2000m, "https://example.test/return");
@@ -90,7 +90,7 @@ public class EsewaGatewayClientTests
         var callbackParameters = new Dictionary<string, string> { ["data"] = encodedData };
 
         var httpClientFactory = new StubHttpClientFactory(new StubHandler("{\"status\":\"COMPLETE\"}"));
-        var client = new EsewaGatewayClient(Microsoft.Extensions.Options.Options.Create(options), httpClientFactory);
+        var client = new EsewaGatewayClient(new StaticOptionsMonitor<EsewaOptions>(options), httpClientFactory);
 
         var result = await client.VerifyAsync(paymentId, 2000m, paymentId.ToString(), callbackParameters);
 
@@ -112,7 +112,7 @@ public class EsewaGatewayClientTests
         var callbackParameters = new Dictionary<string, string> { ["data"] = encodedData };
 
         var httpClientFactory = new StubHttpClientFactory(new StubHandler("{\"status\":\"COMPLETE\"}"));
-        var client = new EsewaGatewayClient(Microsoft.Extensions.Options.Options.Create(options), httpClientFactory);
+        var client = new EsewaGatewayClient(new StaticOptionsMonitor<EsewaOptions>(options), httpClientFactory);
 
         var result = await client.VerifyAsync(paymentId, 10.00m, paymentId.ToString(), callbackParameters);
 
@@ -131,7 +131,7 @@ public class EsewaGatewayClientTests
         // ThrowingHandler proves VerifyAsync short-circuits on signature mismatch instead of
         // proceeding to the server-to-server status-check call.
         var httpClientFactory = new StubHttpClientFactory(new ThrowingHandler());
-        var client = new EsewaGatewayClient(Microsoft.Extensions.Options.Options.Create(options), httpClientFactory);
+        var client = new EsewaGatewayClient(new StaticOptionsMonitor<EsewaOptions>(options), httpClientFactory);
 
         var result = await client.VerifyAsync(paymentId, 2000m, paymentId.ToString(), callbackParameters);
 
@@ -149,7 +149,7 @@ public class EsewaGatewayClientTests
         // Signature is valid, but the server-to-server status-check reports the transaction is
         // still pending — VerifyAsync must not treat a valid signature alone as success.
         var httpClientFactory = new StubHttpClientFactory(new StubHandler("{\"status\":\"PENDING\"}"));
-        var client = new EsewaGatewayClient(Microsoft.Extensions.Options.Options.Create(options), httpClientFactory);
+        var client = new EsewaGatewayClient(new StaticOptionsMonitor<EsewaOptions>(options), httpClientFactory);
 
         var result = await client.VerifyAsync(paymentId, 2000m, paymentId.ToString(), callbackParameters);
 
@@ -168,7 +168,7 @@ public class EsewaGatewayClientTests
         // confirmed is expected to cost NPR 50000.00 — must fail before ever hitting the
         // server-to-server status-check call.
         var httpClientFactory = new StubHttpClientFactory(new ThrowingHandler());
-        var client = new EsewaGatewayClient(Microsoft.Extensions.Options.Options.Create(options), httpClientFactory);
+        var client = new EsewaGatewayClient(new StaticOptionsMonitor<EsewaOptions>(options), httpClientFactory);
 
         var result = await client.VerifyAsync(paymentId, 50000m, paymentId.ToString(), callbackParameters);
 
@@ -186,7 +186,7 @@ public class EsewaGatewayClientTests
         var callbackParameters = new Dictionary<string, string> { ["data"] = Convert.ToBase64String(Encoding.UTF8.GetBytes(payload)) };
 
         var httpClientFactory = new StubHttpClientFactory(new ThrowingHandler());
-        var client = new EsewaGatewayClient(Microsoft.Extensions.Options.Options.Create(options), httpClientFactory);
+        var client = new EsewaGatewayClient(new StaticOptionsMonitor<EsewaOptions>(options), httpClientFactory);
 
         var result = await client.VerifyAsync(paymentId, 2000m, paymentId.ToString(), callbackParameters);
 
@@ -201,7 +201,7 @@ public class EsewaGatewayClientTests
         // No browser callback data at all — reconciliation only ever has the persisted
         // GatewayReference (== transaction_uuid) and the payment's own expected amount.
         var httpClientFactory = new StubHttpClientFactory(new StubHandler("{\"status\":\"COMPLETE\",\"ref_id\":\"REF789\"}"));
-        var client = new EsewaGatewayClient(Microsoft.Extensions.Options.Options.Create(options), httpClientFactory);
+        var client = new EsewaGatewayClient(new StaticOptionsMonitor<EsewaOptions>(options), httpClientFactory);
 
         var result = await client.CheckStatusAsync(paymentId, 2000m, paymentId.ToString());
 
@@ -215,7 +215,7 @@ public class EsewaGatewayClientTests
         var paymentId = Guid.NewGuid();
         var options = Options();
         var httpClientFactory = new StubHttpClientFactory(new StubHandler("{\"status\":\"PENDING\"}"));
-        var client = new EsewaGatewayClient(Microsoft.Extensions.Options.Options.Create(options), httpClientFactory);
+        var client = new EsewaGatewayClient(new StaticOptionsMonitor<EsewaOptions>(options), httpClientFactory);
 
         var result = await client.CheckStatusAsync(paymentId, 2000m, paymentId.ToString());
 
@@ -228,7 +228,7 @@ public class EsewaGatewayClientTests
         var paymentId = Guid.NewGuid();
         var options = Options();
         var httpClientFactory = new StubHttpClientFactory(new StubHandler("not json at all"));
-        var client = new EsewaGatewayClient(Microsoft.Extensions.Options.Options.Create(options), httpClientFactory);
+        var client = new EsewaGatewayClient(new StaticOptionsMonitor<EsewaOptions>(options), httpClientFactory);
 
         var result = await client.CheckStatusAsync(paymentId, 2000m, paymentId.ToString());
 
@@ -243,7 +243,7 @@ public class EsewaGatewayClientTests
         var callbackParameters = new Dictionary<string, string> { ["data"] = "not-valid-base64!!!" };
 
         var httpClientFactory = new StubHttpClientFactory(new ThrowingHandler());
-        var client = new EsewaGatewayClient(Microsoft.Extensions.Options.Options.Create(options), httpClientFactory);
+        var client = new EsewaGatewayClient(new StaticOptionsMonitor<EsewaOptions>(options), httpClientFactory);
 
         var result = await client.VerifyAsync(paymentId, 2000m, paymentId.ToString(), callbackParameters);
 

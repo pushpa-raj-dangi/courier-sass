@@ -13,14 +13,16 @@ namespace Courier.Billing.Infrastructure;
 // look up, never trusted for the actual paid/not-paid determination.
 public class KhaltiGatewayClient : IPaymentGatewayClient
 {
-    private readonly KhaltiOptions _options;
+    private readonly IOptionsMonitor<KhaltiOptions> _optionsMonitor;
     private readonly HttpClient _httpClient;
+
+    private KhaltiOptions Options => _optionsMonitor.CurrentValue;
 
     public PaymentGateway Gateway => PaymentGateway.Khalti;
 
-    public KhaltiGatewayClient(IOptions<KhaltiOptions> options, IHttpClientFactory httpClientFactory)
+    public KhaltiGatewayClient(IOptionsMonitor<KhaltiOptions> optionsMonitor, IHttpClientFactory httpClientFactory)
     {
-        _options = options.Value;
+        _optionsMonitor = optionsMonitor;
         _httpClient = httpClientFactory.CreateClient("Khalti");
     }
 
@@ -30,17 +32,17 @@ public class KhaltiGatewayClient : IPaymentGatewayClient
         var requestBody = new
         {
             return_url = returnUrl,
-            website_url = _options.WebsiteUrl,
+            website_url = Options.WebsiteUrl,
             amount = amountPaisa,
             purchase_order_id = paymentId.ToString(),
             purchase_order_name = $"Subscription invoice {paymentId}"
         };
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, _options.InitiateUrl)
+        using var request = new HttpRequestMessage(HttpMethod.Post, Options.InitiateUrl)
         {
             Content = JsonContent.Create(requestBody)
         };
-        request.Headers.Authorization = new AuthenticationHeaderValue("Key", _options.SecretKey);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Key", Options.SecretKey);
 
         var response = await _httpClient.SendAsync(request, cancellationToken);
         var body = await response.Content.ReadAsStringAsync(cancellationToken);
@@ -86,11 +88,11 @@ public class KhaltiGatewayClient : IPaymentGatewayClient
         }
         var pidx = expectedGatewayReference;
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, _options.LookupUrl)
+        using var request = new HttpRequestMessage(HttpMethod.Post, Options.LookupUrl)
         {
             Content = JsonContent.Create(new { pidx })
         };
-        request.Headers.Authorization = new AuthenticationHeaderValue("Key", _options.SecretKey);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Key", Options.SecretKey);
 
         var response = await _httpClient.SendAsync(request, cancellationToken);
         var body = await response.Content.ReadAsStringAsync(cancellationToken);

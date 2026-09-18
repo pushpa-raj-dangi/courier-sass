@@ -35,7 +35,7 @@ public class KhaltiGatewayClientTests
     public async Task InitiateAsync_ReturnsPaymentUrlFromResponse()
     {
         var httpClientFactory = new StubHttpClientFactory(new StubHandler(JsonSerializer.Serialize(new { pidx = "abc123", payment_url = "https://pay.khalti.com/abc123", expires_at = "2026-09-08T00:00:00Z", expires_in = 1800 })));
-        var client = new KhaltiGatewayClient(Microsoft.Extensions.Options.Options.Create(Options()), httpClientFactory);
+        var client = new KhaltiGatewayClient(new StaticOptionsMonitor<KhaltiOptions>(Options()), httpClientFactory);
 
         var result = await client.InitiateAsync(Guid.NewGuid(), 2000m, "https://example.test/return");
 
@@ -48,7 +48,7 @@ public class KhaltiGatewayClientTests
     public async Task VerifyAsync_CompletedStatusAndMatchingAmountAndReference_Succeeds()
     {
         var httpClientFactory = new StubHttpClientFactory(new StubHandler(JsonSerializer.Serialize(new { pidx = "abc123", status = "Completed", transaction_id = "TXN456", total_amount = 200000 })));
-        var client = new KhaltiGatewayClient(Microsoft.Extensions.Options.Options.Create(Options()), httpClientFactory);
+        var client = new KhaltiGatewayClient(new StaticOptionsMonitor<KhaltiOptions>(Options()), httpClientFactory);
 
         var result = await client.VerifyAsync(Guid.NewGuid(), 2000m, "abc123", new Dictionary<string, string> { ["pidx"] = "abc123" });
 
@@ -60,7 +60,7 @@ public class KhaltiGatewayClientTests
     public async Task VerifyAsync_PendingStatus_Fails()
     {
         var httpClientFactory = new StubHttpClientFactory(new StubHandler(JsonSerializer.Serialize(new { pidx = "abc123", status = "Pending", total_amount = 200000 })));
-        var client = new KhaltiGatewayClient(Microsoft.Extensions.Options.Options.Create(Options()), httpClientFactory);
+        var client = new KhaltiGatewayClient(new StaticOptionsMonitor<KhaltiOptions>(Options()), httpClientFactory);
 
         var result = await client.VerifyAsync(Guid.NewGuid(), 2000m, "abc123", new Dictionary<string, string> { ["pidx"] = "abc123" });
 
@@ -73,7 +73,7 @@ public class KhaltiGatewayClientTests
         // No "status" property at all — the pre-fix GetProperty("status") call would throw
         // KeyNotFoundException here instead of returning a controlled failure result.
         var httpClientFactory = new StubHttpClientFactory(new StubHandler(JsonSerializer.Serialize(new { pidx = "abc123", total_amount = 200000 })));
-        var client = new KhaltiGatewayClient(Microsoft.Extensions.Options.Options.Create(Options()), httpClientFactory);
+        var client = new KhaltiGatewayClient(new StaticOptionsMonitor<KhaltiOptions>(Options()), httpClientFactory);
 
         var result = await client.VerifyAsync(Guid.NewGuid(), 2000m, "abc123", new Dictionary<string, string> { ["pidx"] = "abc123" });
 
@@ -88,7 +88,7 @@ public class KhaltiGatewayClientTests
     public async Task VerifyAsync_PidxDoesNotMatchExpectedGatewayReference_FailsWithoutCallingLookup()
     {
         var httpClientFactory = new StubHttpClientFactory(new ThrowingHandler());
-        var client = new KhaltiGatewayClient(Microsoft.Extensions.Options.Options.Create(Options()), httpClientFactory);
+        var client = new KhaltiGatewayClient(new StaticOptionsMonitor<KhaltiOptions>(Options()), httpClientFactory);
 
         var result = await client.VerifyAsync(Guid.NewGuid(), 2000m, "expected-pidx-for-this-payment", new Dictionary<string, string> { ["pidx"] = "some-other-payments-pidx" });
 
@@ -101,7 +101,7 @@ public class KhaltiGatewayClientTests
         // No callbackParameters dict at all — reconciliation only ever has the persisted
         // GatewayReference (pidx) and the payment's own expected amount.
         var httpClientFactory = new StubHttpClientFactory(new StubHandler(JsonSerializer.Serialize(new { pidx = "abc123", status = "Completed", transaction_id = "TXN456", total_amount = 200000 })));
-        var client = new KhaltiGatewayClient(Microsoft.Extensions.Options.Options.Create(Options()), httpClientFactory);
+        var client = new KhaltiGatewayClient(new StaticOptionsMonitor<KhaltiOptions>(Options()), httpClientFactory);
 
         var result = await client.CheckStatusAsync(Guid.NewGuid(), 2000m, "abc123");
 
@@ -113,7 +113,7 @@ public class KhaltiGatewayClientTests
     public async Task CheckStatusAsync_NoGatewayReference_FailsWithoutCallingLookup()
     {
         var httpClientFactory = new StubHttpClientFactory(new ThrowingHandler());
-        var client = new KhaltiGatewayClient(Microsoft.Extensions.Options.Options.Create(Options()), httpClientFactory);
+        var client = new KhaltiGatewayClient(new StaticOptionsMonitor<KhaltiOptions>(Options()), httpClientFactory);
 
         var result = await client.CheckStatusAsync(Guid.NewGuid(), 2000m, null);
 
@@ -129,7 +129,7 @@ public class KhaltiGatewayClientTests
         // Lookup reports total_amount = 50000 paisa (NPR 500.00), but the payment being confirmed
         // is expected to cost NPR 2000.00 (200000 paisa).
         var httpClientFactory = new StubHttpClientFactory(new StubHandler(JsonSerializer.Serialize(new { pidx = "abc123", status = "Completed", transaction_id = "TXN456", total_amount = 50000 })));
-        var client = new KhaltiGatewayClient(Microsoft.Extensions.Options.Options.Create(Options()), httpClientFactory);
+        var client = new KhaltiGatewayClient(new StaticOptionsMonitor<KhaltiOptions>(Options()), httpClientFactory);
 
         var result = await client.VerifyAsync(Guid.NewGuid(), 2000m, "abc123", new Dictionary<string, string> { ["pidx"] = "abc123" });
 
