@@ -147,7 +147,7 @@ public class PlatformSettingsServiceTests
     [Fact]
     public async Task ResetAsync_PreviouslyOverriddenKey_ClearsOverride()
     {
-        var (service, _) = BuildService();
+        var (service, auditLogger) = BuildService();
         const string key = "Frontend.BaseUrl";
 
         try
@@ -160,11 +160,41 @@ public class PlatformSettingsServiceTests
             var setting = all.Single(s => s.Key == key);
             Assert.False(setting.IsOverridden);
             Assert.Null(setting.DisplayValue);
+
+            var entry = auditLogger.Entries.Single(e => e.Action == "platform_setting.reset" && e.EntityId == key);
+            Assert.Equal("https://example.test", entry.Before);
+            Assert.Null(entry.After);
         }
         finally
         {
             // Belt-and-braces: guarantees the key is unoverridden even if an assertion above
             // throws before the explicit ResetAsync call runs.
+            await service.ResetAsync(key, Guid.NewGuid());
+        }
+    }
+
+    [Fact]
+    public async Task ResetAsync_SecretKey_RedactsBeforeValueInAudit()
+    {
+        var (service, auditLogger) = BuildService();
+        const string key = "Esewa.SecretKey";
+
+        try
+        {
+            await service.UpdateAsync(key, "super-secret-value", null, Guid.NewGuid());
+
+            await service.ResetAsync(key, Guid.NewGuid());
+            var all = await service.GetAllAsync();
+
+            var setting = all.Single(s => s.Key == key);
+            Assert.False(setting.IsOverridden);
+
+            var entry = auditLogger.Entries.Single(e => e.Action == "platform_setting.reset" && e.EntityId == key);
+            Assert.Equal("[REDACTED]", entry.Before);
+            Assert.Null(entry.After);
+        }
+        finally
+        {
             await service.ResetAsync(key, Guid.NewGuid());
         }
     }

@@ -126,6 +126,10 @@ public class PlatformSettingsService
             return;
         }
 
+        var definition = await _dbContext.Set<PlatformSettingDefinition>().FirstOrDefaultAsync(d => d.Key == key, cancellationToken)
+            ?? throw new PlatformSettingsValidationException($"Unknown setting key '{key}'.");
+        var previousValue = setting.Value;
+
         setting.IsOverridden = false;
         setting.Value = null;
         setting.UpdatedAt = DateTime.UtcNow;
@@ -134,6 +138,8 @@ public class PlatformSettingsService
 
         await _auditLogger.LogAsync(new AuditEntry(
             null, actingUserId, "platform_setting.reset", "PlatformSetting", key,
+            Before: definition.IsSecret ? "[REDACTED]" : previousValue,
+            After: null,
             IsCrossTenantAction: true), cancellationToken);
 
         await PlatformSettingsReloader.ReloadAsync(_configuration, _cache, cancellationToken);
