@@ -15,7 +15,7 @@ const PATH_D = "M14,12 C46,26 18,50 56,66 C82,80 -6,96 10,124 C24,146 32,164 52,
 // palette variant (light- or dark-mode token) that clears 3:1 against auth-panel's
 // hsl(230 55% 25%) — verified with the dataviz skill's contrast validator — reused
 // rather than invented, per the same hue family as the status it stands in for.
-const TONE_COLOR: Record<AuthLifecycleTone, string> = {
+export const TONE_COLOR: Record<AuthLifecycleTone, string> = {
   neutral: "hsl(234.3 13.2% 68.8%)", // --status-created, dark-mode variant
   motion: "hsl(35.3 71.2% 42.2%)", // --status-in-transit, light-mode variant
   highlight: "hsl(38.0 78.9% 57.3%)", // --status-out-for-delivery
