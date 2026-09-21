@@ -47,9 +47,39 @@
       "headline": "Every parcel, accounted for.",
       "description": "Scan-driven custody, hub transfers, delivery attempts and COD settlement — one system that always knows where a parcel is and who has it."
     },
+    "register": {
+      "headline": "Set up your organization.",
+      "description": "Branches, riders, merchants, and COD — one system for your whole courier operation, ready in minutes.",
+      "switchPrompt": "Already have an account?",
+      "switchLabel": "Sign in",
+      "title": "Create your organization",
+      "formDescription": "Set up your courier operation. You’ll be its owner.",
+      "organizationName": "Organization name",
+      "organizationSlug": "Organization slug",
+      "slugHint": "Lowercase letters, numbers and hyphens.",
+      "slugPlaceholder": "e.g. kathmandu-express",
+      "ownerFullName": "Your full name",
+      "email": "Email",
+      "password": "Password",
+      "passwordHint": "At least 8 characters.",
+      "confirmPassword": "Confirm password",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password",
+      "submit": "Create organization",
+      "submitting": "Creating organization...",
+      "failed": "Registration failed.",
+      "footnote": "Invite your team and assign roles and branch access after setup."
+    },
     "validation": {
       "emailInvalid": "Enter a valid email address.",
-      "passwordRequired": "Password is required."
+      "passwordRequired": "Password is required.",
+      "organizationNameMin": "Organization name must be at least 2 characters.",
+      "slugMin": "Slug must be at least 2 characters.",
+      "slugFormat": "Use lowercase letters, numbers, and hyphens only.",
+      "fullNameRequired": "Enter your full name.",
+      "passwordMin": "Password must be at least 8 characters.",
+      "confirmRequired": "Confirm your password.",
+      "passwordsMismatch": "Passwords don't match."
     }
   },
   "settings": {

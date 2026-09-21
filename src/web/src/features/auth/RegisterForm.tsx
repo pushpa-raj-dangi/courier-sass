@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowRight } from "lucide-react";
@@ -9,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { FieldError } from "@/components/ui/field-error";
-import { registerSchema, type RegisterFormValues } from "@/features/auth/schema";
+import { registerSchema, type RegisterErrorKey, type RegisterFormValues } from "@/features/auth/schema";
 import { cn } from "@/lib/utils";
 import {
   AuthFormHeader,
@@ -30,6 +31,8 @@ function slugify(value: string) {
 
 export function RegisterForm() {
   const router = useRouter();
+  const t = useTranslations("auth.register");
+  const tv = useTranslations("auth.validation");
   const [serverError, setServerError] = useState<string | null>(null);
   const { shown: showPassword, toggle: togglePassword } = usePasswordVisibility();
   const [slugTouched, setSlugTouched] = useState(false);
@@ -40,6 +43,9 @@ export function RegisterForm() {
     getValues,
     formState: { errors, isSubmitting },
   } = useForm<RegisterFormValues>({ resolver: zodResolver(registerSchema) });
+
+  // registerSchema messages are catalog keys; translate at display time.
+  const fieldError = (message?: string) => (message ? tv(message as RegisterErrorKey) : undefined);
 
   function onOrganizationNameChange(event: React.ChangeEvent<HTMLInputElement>) {
     if (!slugTouched) {
@@ -60,7 +66,7 @@ export function RegisterForm() {
     });
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
-      setServerError(body.error ?? "Registration failed.");
+      setServerError(body.error ?? t("failed"));
       return;
     }
     router.push("/dashboard");
@@ -69,16 +75,16 @@ export function RegisterForm() {
   return (
     <div className="w-full max-w-[28rem]">
       <AuthFormHeader
-        title="Create your organization"
-        description="Set up your courier operation. You’ll be its owner."
+        title={t("title")}
+        description={t("formDescription")}
       />
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
         <div className="grid gap-x-3 gap-y-3 sm:grid-cols-2">
           <Field
             id="organizationName"
-            label="Organization name"
-            error={errors.organizationName?.message}
+            label={t("organizationName")}
+            error={fieldError(errors.organizationName?.message)}
             className="sm:col-span-2"
           >
             {(a11y) => (
@@ -92,15 +98,15 @@ export function RegisterForm() {
           </Field>
           <Field
             id="organizationSlug"
-            label="Organization slug"
-            hint="Lowercase letters, numbers and hyphens."
-            error={errors.organizationSlug?.message}
+            label={t("organizationSlug")}
+            hint={t("slugHint")}
+            error={fieldError(errors.organizationSlug?.message)}
             className="sm:col-span-2"
           >
             {(a11y) => (
               <Input
                 {...a11y}
-                placeholder="e.g. kathmandu-express"
+                placeholder={t("slugPlaceholder")}
                 autoCapitalize="none"
                 spellCheck={false}
                 className={cn(inputClass, "font-mono")}
@@ -111,12 +117,12 @@ export function RegisterForm() {
 
           <div className="border-t border-border sm:col-span-2" aria-hidden="true" />
 
-          <Field id="ownerFullName" label="Your full name" error={errors.ownerFullName?.message}>
+          <Field id="ownerFullName" label={t("ownerFullName")} error={fieldError(errors.ownerFullName?.message)}>
             {(a11y) => (
               <Input {...a11y} autoComplete="name" className={inputClass} {...register("ownerFullName")} />
             )}
           </Field>
-          <Field id="ownerEmail" label="Email" error={errors.ownerEmail?.message}>
+          <Field id="ownerEmail" label={t("email")} error={fieldError(errors.ownerEmail?.message)}>
             {(a11y) => (
               <Input
                 {...a11y}
@@ -129,9 +135,9 @@ export function RegisterForm() {
           </Field>
           <Field
             id="ownerPassword"
-            label="Password"
-            hint="At least 8 characters."
-            error={errors.ownerPassword?.message}
+            label={t("password")}
+            hint={t("passwordHint")}
+            error={fieldError(errors.ownerPassword?.message)}
           >
             {(a11y) => (
               <div className="relative">
@@ -142,11 +148,16 @@ export function RegisterForm() {
                   className={cn(inputClass, "pr-10")}
                   {...register("ownerPassword")}
                 />
-                <PasswordToggle shown={showPassword} onToggle={togglePassword} />
+                <PasswordToggle
+                  shown={showPassword}
+                  onToggle={togglePassword}
+                  showLabel={t("showPassword")}
+                  hideLabel={t("hidePassword")}
+                />
               </div>
             )}
           </Field>
-          <Field id="confirmPassword" label="Confirm password" error={errors.confirmPassword?.message}>
+          <Field id="confirmPassword" label={t("confirmPassword")} error={fieldError(errors.confirmPassword?.message)}>
             {(a11y) => (
               <Input
                 {...a11y}
@@ -165,11 +176,11 @@ export function RegisterForm() {
             {isSubmitting ? (
               <>
                 <Spinner className="h-4 w-4" />
-                Creating organization...
+                {t("submitting")}
               </>
             ) : (
               <>
-                Create organization
+                {t("submit")}
                 <ArrowRight
                   className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
                   strokeWidth={2}
@@ -178,7 +189,7 @@ export function RegisterForm() {
             )}
           </Button>
           <p className="text-xs text-muted-foreground">
-            Invite your team and assign roles and branch access after setup.
+            {t("footnote")}
           </p>
         </div>
       </form>

@@ -7,20 +7,31 @@ export const loginSchema = z.object({
 
 export type LoginFormValues = z.infer<typeof loginSchema>;
 
+// registerSchema messages are catalog keys under auth.validation; translated at display time.
+export type RegisterErrorKey =
+  | "organizationNameMin"
+  | "slugMin"
+  | "slugFormat"
+  | "fullNameRequired"
+  | "emailInvalid"
+  | "passwordMin"
+  | "confirmRequired"
+  | "passwordsMismatch";
+
 export const registerSchema = z
   .object({
-    organizationName: z.string().min(2, "Organization name must be at least 2 characters."),
+    organizationName: z.string().min(2, "organizationNameMin"),
     organizationSlug: z
       .string()
-      .min(2, "Slug must be at least 2 characters.")
-      .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "Use lowercase letters, numbers, and hyphens only."),
-    ownerFullName: z.string().min(2, "Enter your full name."),
-    ownerEmail: z.string().email("Enter a valid email address."),
-    ownerPassword: z.string().min(8, "Password must be at least 8 characters."),
-    confirmPassword: z.string().min(1, "Confirm your password."),
+      .min(2, "slugMin")
+      .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "slugFormat"),
+    ownerFullName: z.string().min(2, "fullNameRequired"),
+    ownerEmail: z.string().email("emailInvalid"),
+    ownerPassword: z.string().min(8, "passwordMin"),
+    confirmPassword: z.string().min(1, "confirmRequired"),
   })
   .refine((values) => values.ownerPassword === values.confirmPassword, {
-    message: "Passwords don't match.",
+    message: "passwordsMismatch",
     path: ["confirmPassword"],
   });
 
