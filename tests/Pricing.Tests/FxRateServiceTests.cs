@@ -59,6 +59,65 @@ public class FxRateServiceTests
         Assert.Equal("fx_rate.recorded", entry.Action);
         Assert.Equal("FxRate", entry.EntityType);
         Assert.Equal(dto.Id.ToString(), entry.EntityId);
+        Assert.True(entry.IsCrossTenantAction);
+        Assert.NotNull(entry.After);
+        Assert.Contains("133.5", entry.After);
+    }
+
+    [Fact]
+    public async Task RecordAsync_MoreThanEightDecimals_RoundsToEightAndPersistsSameValue()
+    {
+        var (service, db, audit) = Create();
+
+        var dto = await service.RecordAsync(new RecordFxRateRequest("USD", "NPR", 133.1234567891m, null), Admin);
+
+        Assert.Equal(133.12345679m, dto.Rate);
+        Assert.Equal(133.12345679m, Assert.Single(db.Set<FxRate>()).Rate);
+        Assert.Contains("133.12345679", Assert.Single(audit.Entries).After);
+    }
+
+    [Fact]
+    public async Task RecordAsync_RateThatRoundsToZero_Throws()
+    {
+        var (service, db, _) = Create();
+
+        await Assert.ThrowsAsync<FxRateValidationException>(() =>
+            service.RecordAsync(new RecordFxRateRequest("USD", "NPR", 0.000000001m, null), Admin));
+
+        Assert.Empty(db.Set<FxRate>());
+    }
+
+    [Fact]
+    public async Task RecordAsync_RateAtOrAboveUpperBound_Throws()
+    {
+        var (service, db, _) = Create();
+
+        await Assert.ThrowsAsync<FxRateValidationException>(() =>
+            service.RecordAsync(new RecordFxRateRequest("USD", "NPR", 10_000_000_000m, null), Admin));
+
+        Assert.Empty(db.Set<FxRate>());
+    }
+
+    [Fact]
+    public async Task RecordAsync_LargestRepresentableRate_IsAccepted()
+    {
+        var (service, _, _) = Create();
+
+        var dto = await service.RecordAsync(new RecordFxRateRequest("USD", "NPR", 9_999_999_999.99999999m, null), Admin);
+
+        Assert.Equal(9_999_999_999.99999999m, dto.Rate);
+    }
+
+    [Fact]
+    public async Task GetLatestAsync_ReturnsDetachedEntity()
+    {
+        var (service, db, _) = Create();
+        await service.RecordAsync(new RecordFxRateRequest("USD", "NPR", 133m, null), Admin);
+        db.ChangeTracker.Clear();
+
+        var latest = await service.GetLatestAsync(Usd, CurrencyCode.Npr, null);
+
+        Assert.Equal(EntityState.Detached, db.Entry(latest!).State);
     }
 
     [Theory]

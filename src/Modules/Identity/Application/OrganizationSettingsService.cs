@@ -66,10 +66,12 @@ public class OrganizationSettingsService
         settings.ProfileUpdatedByUserId = actingUserId;
         await _dbContext.SaveChangesAsync(cancellationToken);
 
+        // Audit the resulting state, not the request: null locale/calendar mean "unchanged".
+        var after = new OrganizationProfileDto(settings.SupportEmail, settings.SupportPhone, settings.AddressLine, settings.LogoUrl, settings.TimeZoneId, settings.BusinessHours, settings.DefaultLocale, settings.CalendarPreference);
         await _auditLogger.LogAsync(new AuditEntry(organizationId, actingUserId, "organization.profile_updated", "OrganizationSettings", organizationId.ToString(),
-            Before: System.Text.Json.JsonSerializer.Serialize(before), After: System.Text.Json.JsonSerializer.Serialize(profile)), cancellationToken);
+            Before: System.Text.Json.JsonSerializer.Serialize(before), After: System.Text.Json.JsonSerializer.Serialize(after)), cancellationToken);
 
-        return new OrganizationProfileDto(settings.SupportEmail, settings.SupportPhone, settings.AddressLine, settings.LogoUrl, settings.TimeZoneId, settings.BusinessHours, settings.DefaultLocale, settings.CalendarPreference);
+        return after;
     }
 
     public async Task<SecurityPolicyDto> UpdateSecurityAsync(Guid organizationId, Guid actingUserId, SecurityPolicyDto policy, CancellationToken cancellationToken = default)

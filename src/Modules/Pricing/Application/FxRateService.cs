@@ -65,6 +65,13 @@ public class FxRateService : IFxConversionService
         {
             throw new FxRateValidationException("Rate must be greater than zero.");
         }
+        // Rate is stored as numeric(18,8): round here so entity, DTO, audit and DB all agree, and
+        // reject values the column cannot hold (rounds to zero, or overflows 10 integer digits).
+        var normalizedRate = Math.Round(request.Rate, 8, MidpointRounding.AwayFromZero);
+        if (normalizedRate <= 0m || normalizedRate >= 10_000_000_000m)
+        {
+            throw new FxRateValidationException("Rate must be at least 0.00000001 and less than 10,000,000,000.");
+        }
 
         var now = DateTimeOffset.UtcNow;
         var effectiveAt = (request.EffectiveAt ?? now).ToUniversalTime();
@@ -78,7 +85,7 @@ public class FxRateService : IFxConversionService
             Id = Guid.NewGuid(),
             FromCurrency = from.Value,
             ToCurrency = to.Value,
-            Rate = request.Rate,
+            Rate = normalizedRate,
             EffectiveAt = effectiveAt,
             Source = ManualSource,
             CreatedByUserId = actingUserId,
@@ -90,7 +97,7 @@ public class FxRateService : IFxConversionService
         var dto = ToDto(rate);
         await _auditLogger.LogAsync(new AuditEntry(
             null, actingUserId, "fx_rate.recorded", "FxRate", rate.Id.ToString(),
-            Before: null, After: JsonSerializer.Serialize(dto)), cancellationToken);
+            Before: null, After: JsonSerializer.Serialize(dto), IsCrossTenantAction: true), cancellationToken);
 
         return dto;
     }
@@ -99,6 +106,7 @@ public class FxRateService : IFxConversionService
     {
         var instant = (asOf ?? DateTimeOffset.UtcNow).ToUniversalTime();
         return await _dbContext.Set<FxRate>()
+            .AsNoTracking()
             .Where(r => r.FromCurrency == from.Value && r.ToCurrency == to.Value && r.EffectiveAt <= instant)
             .OrderByDescending(r => r.EffectiveAt)
             .ThenByDescending(r => r.CreatedAt)
@@ -120,7 +128,7 @@ public class FxRateService : IFxConversionService
     public async Task<PagedResult<FxRateDto>> ListAsync(string? from, string? to, int? page, int? pageSize, CancellationToken cancellationToken = default)
     {
         var (normalizedPage, normalizedPageSize) = PaginationDefaults.Normalize(page, pageSize);
-        var query = _dbContext.Set<FxRate>().AsQueryable();
+        var query = _dbContext.Set<FxRate>().AsNoTracking();
         if (CurrencyCode.TryParse(from, out var fromCode))
         {
             query = query.Where(r => r.FromCurrency == fromCode.Value);

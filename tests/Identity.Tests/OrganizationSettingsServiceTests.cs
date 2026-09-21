@@ -98,6 +98,26 @@ public class OrganizationSettingsServiceTests
         Assert.Equal("help@example.test", result.SupportEmail);
     }
 
+    [Fact]
+    public async Task UpdateProfileAsync_OmittedLocale_AuditAfterReflectsResultingState()
+    {
+        using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
+        var organization = NewOrganization(dbContext);
+        await dbContext.SaveChangesAsync();
+        var audit = new FakeAuditLogger();
+        var service = NewService(dbContext, audit);
+        await service.UpdateProfileAsync(organization.Id, Guid.NewGuid(),
+            new OrganizationProfileDto(null, null, null, null, "Asia/Kathmandu", null, "ne", "BikramSambat"));
+
+        await service.UpdateProfileAsync(organization.Id, Guid.NewGuid(),
+            new OrganizationProfileDto("help@example.test", null, null, null, "Asia/Kathmandu", null));
+
+        var last = audit.Entries.Last();
+        Assert.NotNull(last.After);
+        Assert.Contains("\"DefaultLocale\":\"ne\"", last.After);
+        Assert.Contains("\"CalendarPreference\":\"BikramSambat\"", last.After);
+    }
+
     [Theory]
     [InlineData("fr", "Gregorian")]
     [InlineData("EN", "Gregorian")]

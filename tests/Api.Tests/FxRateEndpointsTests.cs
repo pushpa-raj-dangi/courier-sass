@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Courier.Identity.Application;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
 
@@ -23,6 +24,39 @@ public class FxRateEndpointsTests : IClassFixture<WebApplicationFactory<Program>
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", body.GetProperty("accessToken").GetString()!);
         return client;
+    }
+
+    private async Task<HttpClient> TenantOwnerClientAsync()
+    {
+        var client = _factory.CreateClient();
+        var suffix = $"fx-{Guid.NewGuid():N}"[..16];
+        var registerRequest = new RegisterOrganizationRequest(
+            $"Fx Not Super Admin Org {suffix}", $"fx-{suffix}", $"owner-{suffix}@example.test", "P@ssw0rd123!", "Owner");
+        var registerResponse = await client.PostAsJsonAsync("/api/v1/auth/register", registerRequest);
+        registerResponse.EnsureSuccessStatusCode();
+        var registerBody = (await registerResponse.Content.ReadFromJsonAsync<AuthResult>())!;
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", registerBody.AccessToken);
+        return client;
+    }
+
+    [Fact]
+    public async Task List_TenantJwtNotSuperAdmin_Returns403()
+    {
+        var client = await TenantOwnerClientAsync();
+
+        var response = await client.GetAsync("/api/v1/platform/fx-rates");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Record_TenantJwtNotSuperAdmin_Returns403()
+    {
+        var client = await TenantOwnerClientAsync();
+
+        var response = await client.PostAsJsonAsync("/api/v1/platform/fx-rates", new { fromCurrency = "XTS", toCurrency = "NPR", rate = 133m });
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     [Fact]
