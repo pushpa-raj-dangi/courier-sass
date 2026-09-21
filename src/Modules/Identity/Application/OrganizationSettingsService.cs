@@ -34,6 +34,14 @@ public class OrganizationSettingsService
 
     // Guid-keyed, no ClaimsPrincipal: called from AuthService's login/refresh/invite-accept flows
     // (Task 4), which run before or entirely without a resolved acting-staff-user principal.
+    // Guid-keyed and permission-free on purpose: every signed-in staff user needs their
+    // organization's locale defaults (via /auth/me), not only those allowed to manage settings.
+    public async Task<OrganizationLocaleDto> GetLocaleAsync(Guid organizationId, CancellationToken cancellationToken = default)
+    {
+        var settings = await GetOrCreateAsync(organizationId, cancellationToken);
+        return new OrganizationLocaleDto(settings.DefaultLocale, settings.CalendarPreference, settings.TimeZoneId);
+    }
+
     public async Task<SecurityPolicyDto> GetSecurityPolicyAsync(Guid organizationId, CancellationToken cancellationToken = default)
     {
         var settings = await GetOrCreateAsync(organizationId, cancellationToken);

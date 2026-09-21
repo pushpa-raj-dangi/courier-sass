@@ -50,6 +50,33 @@ public class OrganizationSettingsServiceTests
         new(dbContext, new NullTenantProvider(), audit ?? new FakeAuditLogger(), new OrganizationAdminService(dbContext, new FakeAuditLogger()), new StubBranchLookupService(), new StubServiceTypeLookupService());
 
     [Fact]
+    public async Task GetLocaleAsync_NewRow_ReturnsDefaults()
+    {
+        using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
+        var organization = NewOrganization(dbContext);
+        await dbContext.SaveChangesAsync();
+
+        var locale = await NewService(dbContext).GetLocaleAsync(organization.Id);
+
+        Assert.Equal(new OrganizationLocaleDto("en", "Gregorian", "Asia/Kathmandu"), locale);
+    }
+
+    [Fact]
+    public async Task GetLocaleAsync_ReturnsSavedValues()
+    {
+        using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
+        var organization = NewOrganization(dbContext);
+        await dbContext.SaveChangesAsync();
+        var service = NewService(dbContext);
+        await service.UpdateProfileAsync(organization.Id, Guid.NewGuid(),
+            new OrganizationProfileDto(null, null, null, null, "Asia/Kathmandu", null, "ne", "BikramSambat"));
+
+        var locale = await service.GetLocaleAsync(organization.Id);
+
+        Assert.Equal(new OrganizationLocaleDto("ne", "BikramSambat", "Asia/Kathmandu"), locale);
+    }
+
+    [Fact]
     public async Task GetAsync_NewRow_DefaultsToEnglishGregorian()
     {
         using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());

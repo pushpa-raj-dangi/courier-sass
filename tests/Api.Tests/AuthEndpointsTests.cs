@@ -83,5 +83,9 @@ public class AuthEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
         Assert.Contains("shipment.create", me.Permissions);
         Assert.True(me.HasAllBranchesScope);
         Assert.Empty(me.Branches);
+        Assert.NotNull(me.Locale);
+        Assert.Equal("en", me.Locale!.DefaultLocale);
+        Assert.Equal("Gregorian", me.Locale.CalendarPreference);
+        Assert.Equal("Asia/Kathmandu", me.Locale.TimeZoneId);
     }
 }

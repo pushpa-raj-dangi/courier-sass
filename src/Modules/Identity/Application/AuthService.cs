@@ -398,6 +398,8 @@ public class AuthService
                 ub.ExpiresAt))
             .ToList();
 
-        return new MeResponse(user.Id, user.OrganizationId!.Value, organizationName, user.Email, user.FullName, permissions, hasAllBranchesScope, branches);
+        var locale = await _organizationSettingsService.GetLocaleAsync(user.OrganizationId!.Value, cancellationToken);
+
+        return new MeResponse(user.Id, user.OrganizationId!.Value, organizationName, user.Email, user.FullName, permissions, hasAllBranchesScope, branches, locale);
     }
 }
