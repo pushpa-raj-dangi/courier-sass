@@ -302,6 +302,26 @@
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
 }
 
+/* Scan-line sweep used by MockCard's ScanBar. Transform-only; static (full bar) under reduced motion. */
+@keyframes marketing-scan-sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}
+.marketing-scan-line {
+  animation: marketing-scan-sweep 2.8s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .marketing-scan-line {
+    animation: none;
+    transform: none;
+    width: 100%;
+  }
+}
+
 body {
   color: hsl(var(--foreground));
   background: hsl(var(--background));
