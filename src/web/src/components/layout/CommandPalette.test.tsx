@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { renderWithIntl } from "@/test/renderWithIntl";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { CommandPalette } from "./CommandPalette";
 import { useCommandPaletteStore } from "@/lib/store/commandPaletteStore";
@@ -34,7 +35,7 @@ function renderPalette(permissions: string[]) {
   }) as unknown as typeof fetch;
 
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
+  return renderWithIntl(
     <QueryClientProvider client={queryClient}>
       <CommandPalette />
     </QueryClientProvider>

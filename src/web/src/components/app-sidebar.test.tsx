@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
+import { renderWithIntl } from "@/test/renderWithIntl";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "./app-sidebar";
@@ -17,7 +18,7 @@ function renderAppSidebar() {
   ) as unknown as typeof fetch;
 
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  render(
+  renderWithIntl(
     <QueryClientProvider client={queryClient}>
       <SidebarProvider>
         <AppSidebar />

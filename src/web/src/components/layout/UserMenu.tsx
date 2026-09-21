@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { ChevronDown, LogOut } from "lucide-react";
 import { useSession } from "@/features/auth/hooks/useSession";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -27,6 +28,7 @@ function initials(fullName: string): string {
 // actually do today — dead menu items (Account/Billing/Notifications) were dropped in favor of
 // a shorter, honest one.
 export function UserMenu() {
+  const t = useTranslations("userMenu");
   const router = useRouter();
   const { data: session, isLoading } = useSession();
 
@@ -81,7 +83,7 @@ export function UserMenu() {
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={handleLogout} className="gap-2">
           <LogOut className="h-4 w-4" strokeWidth={2} />
-          Log out
+          {t("logOut")}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { usePathname } from "next/navigation";
 import { usePermission } from "@/features/auth/hooks/usePermission";
 import { useSession } from "@/features/auth/hooks/useSession";
@@ -21,12 +22,13 @@ const NAV_SKELETON_ROWS = 7;
 // Flat links, not the block's original collapsible groups — no nav item in this app has
 // sub-items today, and CLAUDE.md's YAGNI guidance says not to build that structure speculatively.
 export function NavMain({ onNavigate }: { onNavigate?: () => void }) {
+  const t = useTranslations("nav");
   const pathname = usePathname();
   const { isLoading } = useSession();
 
   return (
     <SidebarGroup>
-      <SidebarGroupLabel>Platform</SidebarGroupLabel>
+      <SidebarGroupLabel>{t("group")}</SidebarGroupLabel>
       <SidebarMenu>
         {isLoading
           ? Array.from({ length: NAV_SKELETON_ROWS }).map((_, i) => (
@@ -43,6 +45,7 @@ export function NavMain({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 function NavMainItem({ item, active, onNavigate }: { item: NavItem; active: boolean; onNavigate?: () => void }) {
+  const t = useTranslations("nav");
   const permissions = Array.isArray(item.permission) ? item.permission : [item.permission];
   const hasFirst = usePermission(permissions[0]);
   const hasSecond = usePermission(permissions[1] ?? permissions[0]);
@@ -51,12 +54,13 @@ function NavMainItem({ item, active, onNavigate }: { item: NavItem; active: bool
     return null;
   }
   const Icon = item.icon;
+  const label = t(item.labelKey);
   return (
     <SidebarMenuItem>
-      <SidebarMenuButton asChild isActive={active} tooltip={item.label}>
+      <SidebarMenuButton asChild isActive={active} tooltip={label}>
         <Link href={item.href} onClick={onNavigate}>
           <Icon strokeWidth={2} />
-          <span>{item.label}</span>
+          <span>{label}</span>
         </Link>
       </SidebarMenuButton>
     </SidebarMenuItem>

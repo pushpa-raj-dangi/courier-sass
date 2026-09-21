@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Plus, Package, Building2, Truck, AlertTriangle, Undo2 } from "lucide-react";
 import {
   CommandDialog,
@@ -127,17 +128,19 @@ function PageItem({
   query: string;
   onNavigate: (href: string) => void;
 }) {
+  const tNav = useTranslations("nav");
   const permissions = Array.isArray(item.permission) ? item.permission : [item.permission];
   const hasFirst = usePermission(permissions[0]);
   const hasSecond = usePermission(permissions[1] ?? permissions[0]);
-  if (!(hasFirst || hasSecond) || !matches(query, item.label)) {
+  const label = tNav(item.labelKey);
+  if (!(hasFirst || hasSecond) || !matches(query, label)) {
     return null;
   }
   const Icon = item.icon;
   return (
     <CommandItem value={`page-${item.href}`} onSelect={() => onNavigate(item.href)}>
       <Icon strokeWidth={2} />
-      <span>{item.label}</span>
+      <span>{label}</span>
     </CommandItem>
   );
 }
