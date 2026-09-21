@@ -1,0 +1,71 @@
+{
+  "common": {
+    "appName": "कुरियर प्लेटफर्म"
+  },
+  "nav": {
+    "group": "प्लेटफर्म",
+    "dashboard": "ड्यासबोर्ड",
+    "shipments": "ढुवानीहरू",
+    "branches": "शाखाहरू",
+    "manifests": "म्यानिफेस्टहरू",
+    "ndrs": "NDR",
+    "returnShipments": "फिर्ता ढुवानी",
+    "riders": "राइडरहरू",
+    "liveMap": "लाइभ नक्सा",
+    "myDeliveries": "मेरो डेलिभरी",
+    "cod": "COD",
+    "billing": "बिलिङ",
+    "auditLogs": "अडिट लग",
+    "admin": "प्रशासन"
+  },
+  "header": {
+    "searchPlaceholder": "खोज्नुहोस् वा आदेश टाइप गर्नुहोस्...",
+    "language": "भाषा"
+  },
+  "userMenu": {
+    "logOut": "लग आउट"
+  },
+  "language": {
+    "en": "English",
+    "ne": "नेपाली"
+  },
+  "auth": {
+    "login": {
+      "title": "साइन इन",
+      "description": "शाखा, ढुवानी र डेलिभरी व्यवस्थापन गर्नुहोस्।",
+      "email": "इमेल",
+      "password": "पासवर्ड",
+      "showPassword": "पासवर्ड देखाउनुहोस्",
+      "hidePassword": "पासवर्ड लुकाउनुहोस्",
+      "submit": "साइन इन",
+      "submitting": "साइन इन हुँदैछ...",
+      "failed": "लगइन असफल भयो।",
+      "newHere": "नयाँ हुनुहुन्छ?",
+      "createOrganization": "संस्था सिर्जना गर्नुहोस्"
+    },
+    "showcase": {
+      "headline": "हरेक पार्सल, हिसाबसहित।",
+      "description": "स्क्यानमा आधारित कस्टडी, हब ट्रान्सफर, डेलिभरी प्रयास र COD सेटलमेन्ट — पार्सल कहाँ छ र कससँग छ भन्ने सधैं थाहा हुने एउटै प्रणाली।",
+      "booked": "बुक भयो",
+      "bookedCaption": "उत्पत्ति शाखाको काउन्टरमा प्राप्त भयो।",
+      "inTransit": "ढुवानीमा",
+      "inTransitCaption": "हरेक हब ट्रान्सफरमा स्क्यान गरियो।",
+      "outForDelivery": "डेलिभरीका लागि निस्कियो",
+      "outForDeliveryCaption": "राइडरलाई खटाइयो, प्रयास दर्ता गरियो।",
+      "delivered": "डेलिभर भयो",
+      "deliveredCaption": "डेलिभरीको प्रमाण, COD मिलान भयो।"
+    },
+    "validation": {
+      "emailInvalid": "मान्य इमेल ठेगाना लेख्नुहोस्।",
+      "passwordRequired": "पासवर्ड आवश्यक छ।"
+    }
+  },
+  "settings": {
+    "profile": {
+      "locale": "भाषा",
+      "calendar": "पात्रो",
+      "calendarGregorian": "ग्रेगोरियन (ई.सं.)",
+      "calendarBikramSambat": "विक्रम सम्वत् (वि.सं.)"
+    }
+  }
+}

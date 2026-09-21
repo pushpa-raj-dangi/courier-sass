@@ -1,0 +1,71 @@
+{
+  "common": {
+    "appName": "Courier Platform"
+  },
+  "nav": {
+    "group": "Platform",
+    "dashboard": "Dashboard",
+    "shipments": "Shipments",
+    "branches": "Branches",
+    "manifests": "Manifests",
+    "ndrs": "NDRs",
+    "returnShipments": "Return Shipments",
+    "riders": "Riders",
+    "liveMap": "Live Map",
+    "myDeliveries": "My Deliveries",
+    "cod": "COD",
+    "billing": "Billing",
+    "auditLogs": "Audit Logs",
+    "admin": "Admin"
+  },
+  "header": {
+    "searchPlaceholder": "Search or type a command...",
+    "language": "Language"
+  },
+  "userMenu": {
+    "logOut": "Log out"
+  },
+  "language": {
+    "en": "English",
+    "ne": "नेपाली"
+  },
+  "auth": {
+    "login": {
+      "title": "Sign in",
+      "description": "Manage branches, shipments, and deliveries.",
+      "email": "Email",
+      "password": "Password",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password",
+      "submit": "Sign in",
+      "submitting": "Signing in...",
+      "failed": "Login failed.",
+      "newHere": "New here?",
+      "createOrganization": "Create an organization"
+    },
+    "showcase": {
+      "headline": "Every parcel, accounted for.",
+      "description": "Scan-driven custody, hub transfers, delivery attempts and COD settlement — one system that always knows where a parcel is and who has it.",
+      "booked": "Booked",
+      "bookedCaption": "Received at the origin branch counter.",
+      "inTransit": "In transit",
+      "inTransitCaption": "Scanned through every hub transfer.",
+      "outForDelivery": "Out for delivery",
+      "outForDeliveryCaption": "Assigned to a rider, attempt logged.",
+      "delivered": "Delivered",
+      "deliveredCaption": "Proof of delivery, COD reconciled."
+    },
+    "validation": {
+      "emailInvalid": "Enter a valid email address.",
+      "passwordRequired": "Password is required."
+    }
+  },
+  "settings": {
+    "profile": {
+      "locale": "Language",
+      "calendar": "Calendar",
+      "calendarGregorian": "Gregorian (AD)",
+      "calendarBikramSambat": "Bikram Sambat (BS)"
+    }
+  }
+}

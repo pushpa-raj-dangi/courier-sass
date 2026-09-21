@@ -108,7 +108,7 @@ const config: Config = {
         sm: "calc(var(--radius) - 4px)",
       },
       fontFamily: {
-        sans: ["var(--font-plex-sans)", "Arial", "Helvetica", "sans-serif"],
+        sans: ["var(--font-plex-sans)", "var(--font-devanagari)", "Arial", "Helvetica", "sans-serif"],
         mono: ["var(--font-plex-mono)", "monospace"],
         display: ["var(--font-space-grotesk)", "var(--font-plex-sans)", "sans-serif"],
       },
