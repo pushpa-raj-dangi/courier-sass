@@ -11,7 +11,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { FieldError } from "@/components/ui/field-error";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CALENDARS, LOCALES } from "@/i18n/config";
+import { CALENDARS, LOCALES, resolveCalendar, resolveLocale } from "@/i18n/config";
 import { useOrganizationSettings } from "@/features/admin/settings/hooks/useOrganizationSettings";
 import { useUpdateOrganizationProfile } from "@/features/admin/settings/hooks/useUpdateOrganizationProfile";
 import { organizationProfileSchema, type OrganizationProfileFormValues } from "@/features/admin/settings/schema";
@@ -26,6 +26,7 @@ export function OrganizationProfileForm() {
 
   const { register, handleSubmit, reset, control, formState: { errors, isSubmitting } } = useForm<OrganizationProfileFormValues>({
     resolver: zodResolver(organizationProfileSchema),
+    defaultValues: { defaultLocale: "en", calendarPreference: "Gregorian" },
   });
 
   useEffect(() => {
@@ -37,8 +38,8 @@ export function OrganizationProfileForm() {
         logoUrl: data.profile.logoUrl ?? "",
         timeZoneId: data.profile.timeZoneId,
         businessHours: data.profile.businessHours ?? "",
-        defaultLocale: (data.profile.defaultLocale as OrganizationProfileFormValues["defaultLocale"]) ?? "en",
-        calendarPreference: (data.profile.calendarPreference as OrganizationProfileFormValues["calendarPreference"]) ?? "Gregorian",
+        defaultLocale: resolveLocale(data.profile.defaultLocale),
+        calendarPreference: resolveCalendar(data.profile.calendarPreference),
       });
     }
   }, [data, reset]);
@@ -116,6 +117,7 @@ export function OrganizationProfileForm() {
             </Select>
           )}
         />
+        {errors.defaultLocale && <FieldError id="defaultLocale-error">{errors.defaultLocale.message}</FieldError>}
       </div>
       <div className="space-y-2">
         <Label htmlFor="calendarPreference">{t("calendar")}</Label>
@@ -137,6 +139,9 @@ export function OrganizationProfileForm() {
             </Select>
           )}
         />
+        {errors.calendarPreference && (
+          <FieldError id="calendarPreference-error">{errors.calendarPreference.message}</FieldError>
+        )}
       </div>
       <div className="space-y-2">
         <Label htmlFor="businessHours">Business Hours</Label>

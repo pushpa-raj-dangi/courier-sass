@@ -77,6 +77,28 @@ describe("OrganizationProfileForm", () => {
     }
   });
 
+  it("falls back to safe defaults when the server returns unsupported values, and still saves", async () => {
+    mutateAsync.mockClear();
+    const original = settingsData.profile;
+    settingsData.profile = { ...original, defaultLocale: "hi", calendarPreference: "Julian" };
+    try {
+      renderWithIntl(<OrganizationProfileForm />);
+
+      expect(await screen.findByRole("combobox", { name: "Language" })).toHaveTextContent("English");
+      expect(screen.getByRole("combobox", { name: "Calendar" })).toHaveTextContent("Gregorian (AD)");
+
+      fireEvent.click(screen.getByRole("button", { name: "Save Profile" }));
+
+      await waitFor(() =>
+        expect(mutateAsync).toHaveBeenCalledWith(
+          expect.objectContaining({ defaultLocale: "en", calendarPreference: "Gregorian" }),
+        ),
+      );
+    } finally {
+      settingsData.profile = original;
+    }
+  });
+
   it("submits the chosen language and calendar with the profile", async () => {
     mutateAsync.mockClear();
     renderWithIntl(<OrganizationProfileForm />);
