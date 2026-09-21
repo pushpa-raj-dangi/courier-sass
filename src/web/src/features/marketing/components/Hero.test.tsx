@@ -21,22 +21,24 @@ describe("Hero", () => {
     expect(screen.getByRole("link", { name: /go to dashboard/i })).toHaveAttribute("href", "/dashboard");
   });
 
-  it("links the secondary CTA to the walkthrough anchor", () => {
+  it("links the secondary CTA to the custody section anchor", () => {
     render(<Hero isAuthenticated={false} />);
-    expect(screen.getByRole("link", { name: "See how it works" })).toHaveAttribute("href", "#walkthrough");
+    expect(screen.getByRole("link", { name: "See how it works" })).toHaveAttribute("href", "#custody");
   });
 
   it("shows the real dashboard screenshot as the hero visual", () => {
     render(<Hero isAuthenticated={false} />);
-    expect(screen.getByRole("img", { name: dashboardScreenshot.alt })).toHaveAttribute(
-      "src",
-      dashboardScreenshot.src
-    );
+    expect(screen.getByRole("img", { name: dashboardScreenshot.alt })).toHaveAttribute("src", dashboardScreenshot.src);
   });
 
-  it("renders the decorative gradient orb and route-line graphic", () => {
+  it("layers labelled sample-data cards over the screenshot", () => {
     render(<Hero isAuthenticated={false} />);
-    expect(screen.getByTestId("hero-gradient-orb")).toHaveAttribute("aria-hidden", "true");
-    expect(screen.getByTestId("route-line-graphic")).toBeInTheDocument();
+    expect(screen.getAllByText("Sample data").length).toBeGreaterThanOrEqual(3);
+    expect(screen.getByText(/NPR 2,350/)).toBeInTheDocument();
+  });
+
+  it("renders the decorative grid background", () => {
+    render(<Hero isAuthenticated={false} />);
+    expect(screen.getByTestId("marketing-grid")).toHaveAttribute("aria-hidden", "true");
   });
 });
