@@ -17,4 +17,9 @@ describe("FinalCta", () => {
     render(<FinalCta isAuthenticated={false} />);
     expect(screen.getByRole("link", { name: /get started/i })).toHaveAttribute("href", "/register");
   });
+
+  it("offers a secondary Track a parcel link to /track", () => {
+    render(<FinalCta isAuthenticated={false} />);
+    expect(screen.getByRole("link", { name: "Track a parcel" })).toHaveAttribute("href", "/track");
+  });
 });

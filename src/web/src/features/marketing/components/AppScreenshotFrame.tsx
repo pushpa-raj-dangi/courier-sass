@@ -39,12 +39,12 @@ export function AppScreenshotFrame({
       whileHover={tiltEnabled ? { rotateX: 4, rotateY: -4, scale: 1.01 } : undefined}
       transition={{ type: "spring", stiffness: 220, damping: 18 }}
       style={{ transformPerspective: 900 }}
-      className={`relative overflow-hidden rounded-xl border border-marketing-border bg-marketing-bg-elevated shadow-[0_0_60px_-15px_hsl(var(--marketing-accent)/0.5)] ${className}`}
+      className={`relative overflow-hidden rounded-md border border-marketing-border bg-marketing-bg-elevated shadow-[8px_8px_0_0_hsl(var(--marketing-accent)/0.18)] ${className}`}
     >
       <div className="flex items-center gap-1.5 border-b border-marketing-border/60 px-4 py-3" aria-hidden="true">
-        <span className="h-2.5 w-2.5 rounded-full bg-marketing-border" />
-        <span className="h-2.5 w-2.5 rounded-full bg-marketing-border" />
-        <span className="h-2.5 w-2.5 rounded-full bg-marketing-border" />
+        <span className="h-2.5 w-2.5 rounded-sm bg-marketing-border" />
+        <span className="h-2.5 w-2.5 rounded-sm bg-marketing-border" />
+        <span className="h-2.5 w-2.5 rounded-sm bg-marketing-border" />
       </div>
       <Image
         src={src}

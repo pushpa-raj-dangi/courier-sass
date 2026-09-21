@@ -12,6 +12,12 @@ describe("ScreenShowcase", () => {
     }
   });
 
+  it("is checkpoint section 06 with a labelled h2", () => {
+    const { container } = render(<ScreenShowcase />);
+    expect(container.querySelector("section#screens")).toHaveAttribute("aria-labelledby", "screens-heading");
+    expect(screen.getByText("06 — Screens")).toBeInTheDocument();
+  });
+
   it("renders a section heading", () => {
     render(<ScreenShowcase />);
     expect(screen.getByRole("heading", { level: 2 })).toBeInTheDocument();
