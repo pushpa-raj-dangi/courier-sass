@@ -109,6 +109,37 @@ public class OrganizationSettingsEndpointsTests : IClassFixture<WebApplicationFa
     }
 
     [Fact]
+    public async Task PatchProfile_UnsupportedLocale_ReturnsBadRequestWithErrorContract()
+    {
+        var client = _factory.CreateClient();
+        var auth = await RegisterOrgAsync(client);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth.AccessToken);
+        var profile = new OrganizationProfileDto(null, null, null, null, "Asia/Kathmandu", null, "fr", null);
+
+        var response = await client.PatchAsJsonAsync("/api/v1/settings/organization/profile", profile);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        Assert.Equal("ORGANIZATION_SETTINGS_VALIDATION_FAILED", body.GetProperty("error").GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task PatchProfile_LocaleAndCalendar_PersistAndAreReturned()
+    {
+        var client = _factory.CreateClient();
+        var auth = await RegisterOrgAsync(client);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth.AccessToken);
+        var profile = new OrganizationProfileDto(null, null, null, null, "Asia/Kathmandu", null, "ne", "BikramSambat");
+
+        var patchResponse = await client.PatchAsJsonAsync("/api/v1/settings/organization/profile", profile);
+        Assert.Equal(HttpStatusCode.OK, patchResponse.StatusCode);
+
+        var body = await (await client.GetAsync("/api/v1/settings/organization")).Content.ReadFromJsonAsync<OrganizationSettingsDto>();
+        Assert.Equal("ne", body!.Profile.DefaultLocale);
+        Assert.Equal("BikramSambat", body.Profile.CalendarPreference);
+    }
+
+    [Fact]
     public async Task PatchProfile_OwnerToken_UpdatesAndPersists()
     {
         var client = _factory.CreateClient();

@@ -42,8 +42,17 @@ public class OrganizationSettingsService
 
     public async Task<OrganizationProfileDto> UpdateProfileAsync(Guid organizationId, Guid actingUserId, OrganizationProfileDto profile, CancellationToken cancellationToken = default)
     {
+        if (profile.DefaultLocale is not null && !OrganizationLocaleOptions.SupportedLocales.Contains(profile.DefaultLocale))
+        {
+            throw new OrganizationSettingsValidationException($"Locale must be one of: {string.Join(", ", OrganizationLocaleOptions.SupportedLocales)}.");
+        }
+        if (profile.CalendarPreference is not null && !OrganizationLocaleOptions.SupportedCalendars.Contains(profile.CalendarPreference))
+        {
+            throw new OrganizationSettingsValidationException($"Calendar must be one of: {string.Join(", ", OrganizationLocaleOptions.SupportedCalendars)}.");
+        }
+
         var settings = await GetOrCreateAsync(organizationId, cancellationToken);
-        var before = new OrganizationProfileDto(settings.SupportEmail, settings.SupportPhone, settings.AddressLine, settings.LogoUrl, settings.TimeZoneId, settings.BusinessHours);
+        var before = new OrganizationProfileDto(settings.SupportEmail, settings.SupportPhone, settings.AddressLine, settings.LogoUrl, settings.TimeZoneId, settings.BusinessHours, settings.DefaultLocale, settings.CalendarPreference);
 
         settings.SupportEmail = profile.SupportEmail;
         settings.SupportPhone = profile.SupportPhone;
@@ -51,6 +60,8 @@ public class OrganizationSettingsService
         settings.LogoUrl = profile.LogoUrl;
         settings.TimeZoneId = string.IsNullOrWhiteSpace(profile.TimeZoneId) ? "Asia/Kathmandu" : profile.TimeZoneId;
         settings.BusinessHours = profile.BusinessHours;
+        settings.DefaultLocale = profile.DefaultLocale ?? settings.DefaultLocale;
+        settings.CalendarPreference = profile.CalendarPreference ?? settings.CalendarPreference;
         settings.ProfileUpdatedAt = DateTimeOffset.UtcNow;
         settings.ProfileUpdatedByUserId = actingUserId;
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -58,7 +69,7 @@ public class OrganizationSettingsService
         await _auditLogger.LogAsync(new AuditEntry(organizationId, actingUserId, "organization.profile_updated", "OrganizationSettings", organizationId.ToString(),
             Before: System.Text.Json.JsonSerializer.Serialize(before), After: System.Text.Json.JsonSerializer.Serialize(profile)), cancellationToken);
 
-        return new OrganizationProfileDto(settings.SupportEmail, settings.SupportPhone, settings.AddressLine, settings.LogoUrl, settings.TimeZoneId, settings.BusinessHours);
+        return new OrganizationProfileDto(settings.SupportEmail, settings.SupportPhone, settings.AddressLine, settings.LogoUrl, settings.TimeZoneId, settings.BusinessHours, settings.DefaultLocale, settings.CalendarPreference);
     }
 
     public async Task<SecurityPolicyDto> UpdateSecurityAsync(Guid organizationId, Guid actingUserId, SecurityPolicyDto policy, CancellationToken cancellationToken = default)
@@ -139,7 +150,7 @@ public class OrganizationSettingsService
     }
 
     private static OrganizationSettingsDto ToDto(OrganizationSettings s) => new(
-        new OrganizationProfileDto(s.SupportEmail, s.SupportPhone, s.AddressLine, s.LogoUrl, s.TimeZoneId, s.BusinessHours),
+        new OrganizationProfileDto(s.SupportEmail, s.SupportPhone, s.AddressLine, s.LogoUrl, s.TimeZoneId, s.BusinessHours, s.DefaultLocale, s.CalendarPreference),
         new SecurityPolicyDto(s.RefreshTokenLifetimeDays, s.MinPasswordLength),
         new OperationalDefaultsDto(s.DefaultServiceTypeId, s.DefaultOriginBranchId));
 }

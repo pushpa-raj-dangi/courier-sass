@@ -1679,6 +1679,20 @@ namespace Persistence.Migrations
                     b.Property<string>("BusinessHours")
                         .HasColumnType("text");
 
+                    b.Property<string>("CalendarPreference")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("Gregorian");
+
+                    b.Property<string>("DefaultLocale")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasDefaultValue("en");
+
                     b.Property<Guid?>("DefaultOriginBranchId")
                         .HasColumnType("uuid");
 

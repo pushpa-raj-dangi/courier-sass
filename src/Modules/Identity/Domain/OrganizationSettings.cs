@@ -13,6 +13,8 @@ public class OrganizationSettings
     public string? AddressLine { get; set; }
     public string? LogoUrl { get; set; }
     public string TimeZoneId { get; set; } = "Asia/Kathmandu";
+    public string DefaultLocale { get; set; } = OrganizationLocaleOptions.DefaultLocale;
+    public string CalendarPreference { get; set; } = OrganizationLocaleOptions.DefaultCalendar;
     // Free text, mirrors Branch.OperatingHours — no structured-hours type exists in this codebase.
     public string? BusinessHours { get; set; }
     public DateTimeOffset? ProfileUpdatedAt { get; set; }

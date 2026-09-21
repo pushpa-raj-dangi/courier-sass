@@ -46,6 +46,79 @@ public class OrganizationSettingsServiceTests
         return organization;
     }
 
+    private static OrganizationSettingsService NewService(DbContext dbContext, FakeAuditLogger? audit = null) =>
+        new(dbContext, new NullTenantProvider(), audit ?? new FakeAuditLogger(), new OrganizationAdminService(dbContext, new FakeAuditLogger()), new StubBranchLookupService(), new StubServiceTypeLookupService());
+
+    [Fact]
+    public async Task GetAsync_NewRow_DefaultsToEnglishGregorian()
+    {
+        using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
+        var organization = NewOrganization(dbContext);
+        await dbContext.SaveChangesAsync();
+
+        var result = await NewService(dbContext).GetAsync(organization.Id);
+
+        Assert.Equal("en", result.Profile.DefaultLocale);
+        Assert.Equal("Gregorian", result.Profile.CalendarPreference);
+    }
+
+    [Fact]
+    public async Task UpdateProfileAsync_ValidLocaleAndCalendar_Persists()
+    {
+        using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
+        var organization = NewOrganization(dbContext);
+        await dbContext.SaveChangesAsync();
+        var service = NewService(dbContext);
+
+        var result = await service.UpdateProfileAsync(organization.Id, Guid.NewGuid(),
+            new OrganizationProfileDto(null, null, null, null, "Asia/Kathmandu", null, "ne", "BikramSambat"));
+
+        Assert.Equal("ne", result.DefaultLocale);
+        Assert.Equal("BikramSambat", result.CalendarPreference);
+        var persisted = dbContext.Set<OrganizationSettings>().IgnoreQueryFilters().Single(s => s.OrganizationId == organization.Id);
+        Assert.Equal("ne", persisted.DefaultLocale);
+        Assert.Equal("BikramSambat", persisted.CalendarPreference);
+    }
+
+    [Fact]
+    public async Task UpdateProfileAsync_NullLocaleAndCalendar_LeavesSavedValuesUnchanged()
+    {
+        using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
+        var organization = NewOrganization(dbContext);
+        await dbContext.SaveChangesAsync();
+        var service = NewService(dbContext);
+        await service.UpdateProfileAsync(organization.Id, Guid.NewGuid(),
+            new OrganizationProfileDto(null, null, null, null, "Asia/Kathmandu", null, "ne", "BikramSambat"));
+
+        var result = await service.UpdateProfileAsync(organization.Id, Guid.NewGuid(),
+            new OrganizationProfileDto("help@example.test", null, null, null, "Asia/Kathmandu", null));
+
+        Assert.Equal("ne", result.DefaultLocale);
+        Assert.Equal("BikramSambat", result.CalendarPreference);
+        Assert.Equal("help@example.test", result.SupportEmail);
+    }
+
+    [Theory]
+    [InlineData("fr", "Gregorian")]
+    [InlineData("EN", "Gregorian")]
+    [InlineData("en", "Julian")]
+    public async Task UpdateProfileAsync_UnsupportedLocaleOrCalendar_ThrowsAndPersistsNothing(string locale, string calendar)
+    {
+        using var dbContext = TestDbContextFactory.Create(new NullTenantProvider());
+        var organization = NewOrganization(dbContext);
+        await dbContext.SaveChangesAsync();
+        var audit = new FakeAuditLogger();
+        var service = NewService(dbContext, audit);
+
+        await Assert.ThrowsAsync<OrganizationSettingsValidationException>(() =>
+            service.UpdateProfileAsync(organization.Id, Guid.NewGuid(),
+                new OrganizationProfileDto("changed@example.test", null, null, null, "Asia/Kathmandu", null, locale, calendar)));
+
+        var persisted = await service.GetAsync(organization.Id);
+        Assert.Null(persisted.Profile.SupportEmail);
+        Assert.Empty(audit.Entries);
+    }
+
     [Fact]
     public async Task GetAsync_NoRowExists_CreatesRowWithDefaults()
     {
