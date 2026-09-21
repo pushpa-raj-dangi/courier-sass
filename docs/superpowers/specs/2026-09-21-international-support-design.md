@@ -32,11 +32,11 @@ Each step below gets its own plan and implementation cycle.
 
 ## 4. Foundation data model (Sub-project A)
 
-**Money.** `Money(decimal Amount, CurrencyCode Currency)` immutable value object; arithmetic only within the same currency (mismatch throws). `CurrencyCode` is validated ISO-4217. Every existing decimal amount gains a `*_currency` column backfilled to `NPR`; domestic behavior is unchanged.
+**Money.** `Money(decimal Amount, CurrencyCode Currency)` immutable value object; arithmetic only within the same currency (mismatch throws). `CurrencyCode` validates ISO-4217 *format* (three letters, normalized to upper case); a membership list is out of scope. **Existing persisted amounts are not migrated:** by decision, merchants are always charged in NPR and COD is domestic-only, so every existing decimal amount is NPR by invariant. `Money` is used by new international code (`CustomsDeclaration`, `PriceBreakdown`, carrier quotes), which stores an explicit amount and currency per field. *(Amended 2026-09-21: replaces the originally planned currency-column backfill across ~15 entities, which bought nothing and was the riskiest migration.)*
 
-**FX.** `FxRate(FromCurrency, ToCurrency, Rate, EffectiveAt, Source)`, append-only and versioned. Populated by a Hangfire job with manual entry as fallback; both go through one audited service. Every conversion records the `FxRate.Id` used; history is never recalculated.
+**FX.** `FxRate(FromCurrency, ToCurrency, Rate, EffectiveAt, Source)`, append-only and versioned. I0 ships **audited manual entry** (SuperAdmin) through one service; an automated feed (Hangfire job pulling from a configured source) is added in I5 once a rate source is chosen (open decision, e.g. Nepal Rastra Bank). Every conversion records the `FxRate.Id` used; history is never recalculated.
 
-**Tenant locale.** On `OrganizationSettings`: `BaseCurrency` (default NPR), `DefaultLocale` (`en`/`ne`), `TimeZone` (default `Asia/Kathmandu`), `CalendarPreference` (Gregorian/BS). Users may override locale and calendar.
+**Tenant locale.** On `OrganizationSettings`: `DefaultLocale` (`en`/`ne`) and `CalendarPreference` (`Gregorian`/`BikramSambat`) are added; `TimeZoneId` (default `Asia/Kathmandu`) already exists. `BaseCurrency` is dropped (NPR only, YAGNI). Users may override locale and calendar (I1).
 
 **Geography.** New `Country` (ISO-3166 alpha-2, names en/ne, `IsServiced`, default currency, calling code) and `CountryZone` (groups countries for pricing/reporting). Foreign addresses use an `InternationalAddress` value object (`Line1`, `Line2`, `City`, `Region`, `PostalCode`, `CountryCode`); the normalized Nepal chain is unchanged.
 
@@ -97,7 +97,7 @@ Quotes expire after a short window (e.g. 15 minutes). The server re-quotes at co
 
 | Step | Scope |
 |---|---|
-| I0 | Money and FX: `Money`, currency columns + NPR backfill, `FxRate`, FX job, tenant locale settings |
+| I0 | Money and FX: `Money`/`CurrencyCode`, append-only `FxRate` with audited manual entry and conversion service, tenant locale settings (`DefaultLocale`, `CalendarPreference`) |
 | I1 | i18n foundation: `next-intl`, formatting utilities, BS calendar, `en`+`ne` shell, locale-aware notification templates |
 | I2 | Countries and international address, service-list admin |
 | I3 | International module core: `Scope`/`Direction`, statuses, `InternationalLeg`, customs, gateway, permissions, audit |
@@ -127,7 +127,6 @@ I1, I2 and I3 may run in parallel once I0 is done.
 ## 11. Risks
 
 - DHL account/sandbox access needed before I6; manual adapter unblocks everything else.
-- Currency backfill touches many tables; I0 gets a full regression run.
 - Nepal export/import rules need business input; HS-code and restricted-goods data are seeded configuration, not hardcoded.
 - BS calendar accuracy; use a tested library with boundary-date tests.
 
