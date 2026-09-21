@@ -3,6 +3,8 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { CommandPalette } from "@/components/layout/CommandPalette";
 import { HeaderSearch } from "@/components/layout/HeaderSearch";
 import { ImpersonationBanner } from "@/components/layout/ImpersonationBanner";
+import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher";
+import { LocaleSync } from "@/components/layout/LocaleSync";
 import { ReauthDialog } from "@/components/layout/ReauthDialog";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { TrialStatusBanner } from "@/components/layout/TrialStatusBanner";
@@ -13,6 +15,7 @@ import { Separator } from "@/components/ui/separator";
 export function AppShell({ children }: { children: ReactNode }) {
   return (
     <SidebarProvider>
+      <LocaleSync />
       <AppSidebar />
       <SidebarInset>
         <ImpersonationBanner />
@@ -21,6 +24,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <SidebarTrigger className="h-9 w-9 rounded-lg border border-input" />
           <HeaderSearch />
           <div className="ml-auto flex items-center gap-3">
+            <LanguageSwitcher />
             <ThemeToggle />
             <Separator orientation="vertical" className="h-6" />
             <UserMenu />
