@@ -1,36 +1,43 @@
 import Link from "next/link";
 import { Package } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 import { LoginForm } from "@/features/auth/LoginForm";
 import { AuthShowcasePanel } from "@/components/auth/AuthShowcasePanel";
 import { MobileBrandLockup } from "@/components/auth/MobileBrandLockup";
+import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher";
 import type { AuthLifecycleStop } from "@/components/auth/AuthLifecycleGraphic";
 
-const STOPS: AuthLifecycleStop[] = [
-  { label: "Booked", caption: "Received at the origin branch counter.", tone: "neutral" },
-  { label: "In transit", caption: "Scanned through every hub transfer.", tone: "motion" },
-  { label: "Out for delivery", caption: "Assigned to a rider, attempt logged.", tone: "highlight" },
-  { label: "Delivered", caption: "Proof of delivery, COD reconciled.", tone: "success" },
-];
+export default async function LoginPage() {
+  const tCommon = await getTranslations("common");
+  const t = await getTranslations("auth");
+  const stops: AuthLifecycleStop[] = [
+    { label: t("showcase.booked"), caption: t("showcase.bookedCaption"), tone: "neutral" },
+    { label: t("showcase.inTransit"), caption: t("showcase.inTransitCaption"), tone: "motion" },
+    { label: t("showcase.outForDelivery"), caption: t("showcase.outForDeliveryCaption"), tone: "highlight" },
+    { label: t("showcase.delivered"), caption: t("showcase.deliveredCaption"), tone: "success" },
+  ];
 
-export default function LoginPage() {
   return (
-    <main className="grid min-h-screen lg:grid-cols-2">
+    <main className="relative grid min-h-screen lg:grid-cols-2">
       <AuthShowcasePanel
         icon={Package}
-        brand="Courier Platform"
-        headline="Every parcel, accounted for."
-        description="Scan-driven custody, hub transfers, delivery attempts and COD settlement — one system that always knows where a parcel is and who has it."
-        stops={STOPS}
+        brand={tCommon("appName")}
+        headline={t("showcase.headline")}
+        description={t("showcase.description")}
+        stops={stops}
       />
       <div className="flex flex-col items-center justify-center gap-6 bg-background p-4">
+        <div className="absolute right-4 top-4">
+          <LanguageSwitcher />
+        </div>
         <div className="flex flex-col items-center gap-2 lg:hidden">
-          <MobileBrandLockup icon={Package} brand="Courier Platform" />
+          <MobileBrandLockup icon={Package} brand={tCommon("appName")} />
         </div>
         <LoginForm />
         <p className="text-sm text-muted-foreground">
-          New here?{" "}
+          {t("login.newHere")}{" "}
           <Link href="/register" className="font-medium text-foreground underline-offset-4 hover:underline">
-            Create an organization
+            {t("login.createOrganization")}
           </Link>
         </p>
       </div>

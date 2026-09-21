@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Mail, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
@@ -14,6 +15,8 @@ import { loginSchema, type LoginFormValues } from "@/features/auth/schema";
 
 export function LoginForm() {
   const router = useRouter();
+  const t = useTranslations("auth.login");
+  const tv = useTranslations("auth.validation");
   const [serverError, setServerError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const {
@@ -31,7 +34,7 @@ export function LoginForm() {
     });
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
-      setServerError(body.error ?? "Login failed.");
+      setServerError(body.error ?? t("failed"));
       return;
     }
     router.push("/dashboard");
@@ -41,14 +44,14 @@ export function LoginForm() {
     <Card className="w-full max-w-md shadow-xl shadow-primary/5">
       <CardHeader className="space-y-1.5 pb-4">
         <CardTitle asChild className="font-display text-2xl">
-          <h1>Sign in</h1>
+          <h1>{t("title")}</h1>
         </CardTitle>
-        <CardDescription>Manage branches, shipments, and deliveries.</CardDescription>
+        <CardDescription>{t("description")}</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">{t("email")}</Label>
             <div className="relative">
               <Mail
                 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
@@ -65,11 +68,11 @@ export function LoginForm() {
               />
             </div>
             {errors.email && (
-              <FieldError id="email-error">{errors.email.message}</FieldError>
+              <FieldError id="email-error">{tv(errors.email.message as "emailInvalid" | "passwordRequired")}</FieldError>
             )}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">{t("password")}</Label>
             <div className="relative">
               <Lock
                 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
@@ -87,7 +90,7 @@ export function LoginForm() {
               <button
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
-                aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-label={showPassword ? t("hidePassword") : t("showPassword")}
                 className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               >
                 {showPassword ? (
@@ -98,14 +101,14 @@ export function LoginForm() {
               </button>
             </div>
             {errors.password && (
-              <FieldError id="password-error">{errors.password.message}</FieldError>
+              <FieldError id="password-error">{tv(errors.password.message as "emailInvalid" | "passwordRequired")}</FieldError>
             )}
           </div>
           {serverError && (
             <FieldError id="login-server-error">{serverError}</FieldError>
           )}
           <Button type="submit" size="lg" className="group w-full" disabled={isSubmitting}>
-            {isSubmitting ? "Signing in..." : "Sign in"}
+            {isSubmitting ? t("submitting") : t("submit")}
             {!isSubmitting && (
               <ArrowRight
                 className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
