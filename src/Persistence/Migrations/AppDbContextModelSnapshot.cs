@@ -2843,6 +2843,13 @@ namespace Persistence.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("Locale")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasDefaultValue("en");
+
                     b.Property<Guid>("OrganizationId")
                         .HasColumnType("uuid");
 
@@ -2850,7 +2857,7 @@ namespace Persistence.Migrations
 
                     b.HasIndex("OrganizationId");
 
-                    b.HasIndex("OrganizationId", "EventType", "Channel");
+                    b.HasIndex("OrganizationId", "EventType", "Channel", "Locale");
 
                     b.ToTable("NotificationTemplates", (string)null);
                 });

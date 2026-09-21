@@ -10,6 +10,7 @@ public class NotificationTemplate
     public Guid OrganizationId { get; set; }
     public required string EventType { get; set; }
     public NotificationChannel Channel { get; set; }
+    public string Locale { get; set; } = NotificationLocales.Default;
     public required string Body { get; set; }
     public bool IsActive { get; set; }
 }
