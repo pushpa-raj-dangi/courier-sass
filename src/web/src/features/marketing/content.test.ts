@@ -99,3 +99,32 @@ describe("marketing content data", () => {
     }
   });
 });
+
+import {
+  CUSTODY_CHAIN,
+  COD_STAGES,
+  NDR_STAGES,
+  RTO_STAGES,
+  MANIFEST_SAMPLE,
+} from "./content";
+
+describe("redesign content", () => {
+  it("models the 8-step shipment lifecycle with evidence types", () => {
+    expect(CUSTODY_CHAIN).toHaveLength(8);
+    expect(CUSTODY_CHAIN[0].evidence).toBe("booking");
+    expect(CUSTODY_CHAIN[7].evidence).toBe("proof");
+  });
+  it("matches the COD (7), NDR (6) and RTO (4) lifecycles from the spec", () => {
+    expect(COD_STAGES).toHaveLength(7);
+    expect(NDR_STAGES).toHaveLength(6);
+    expect(RTO_STAGES).toHaveLength(4);
+  });
+  it("keeps manifest sample indices inside the expected range", () => {
+    for (const index of MANIFEST_SAMPLE.missingIndices) {
+      expect(index).toBeLessThan(MANIFEST_SAMPLE.expected);
+    }
+  });
+  it("uses root-relative anchors so nav works from /pricing too", () => {
+    expect(NAV_LINKS.filter((l) => l.href.includes("#")).every((l) => l.href.startsWith("/#"))).toBe(true);
+  });
+});

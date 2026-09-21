@@ -6,9 +6,9 @@ export interface NavLink {
 }
 
 export const NAV_LINKS: NavLink[] = [
-  { href: "#features", label: "Features" },
+  { href: "/#custody", label: "How it works" },
+  { href: "/#cod", label: "COD" },
   { href: "/pricing", label: "Pricing" },
-  { href: "#how-it-works", label: "How it works" },
   { href: "/track", label: "Track a parcel" },
 ];
 
@@ -274,3 +274,107 @@ export const FOOTER_LINKS: NavLink[] = [
   { href: "/merchant-login", label: "Merchant sign in" },
   { href: "/track", label: "Track a parcel" },
 ];
+
+export type CustodyEvidence = "booking" | "scan" | "proof";
+
+export interface CustodyStep {
+  label: string;
+  holder: string;
+  evidence: CustodyEvidence;
+  evidenceLabel: string;
+}
+
+// The happy-path lifecycle from CLAUDE.md §10, annotated with the physical evidence behind each hop
+// (§12–13: a status change alone is never a physical transfer).
+export const CUSTODY_CHAIN: CustodyStep[] = [
+  { label: "Created", holder: "Counter or merchant", evidence: "booking", evidenceLabel: "BOOKING" },
+  { label: "Picked up", holder: "Pickup rider", evidence: "scan", evidenceLabel: "SCAN · PICKUP" },
+  { label: "At origin", holder: "Origin branch", evidence: "scan", evidenceLabel: "SCAN · RECEIVE" },
+  { label: "Sorted", holder: "Origin hub", evidence: "scan", evidenceLabel: "SCAN · SORT" },
+  { label: "In transit", holder: "Manifest driver", evidence: "scan", evidenceLabel: "SCAN · DISPATCH" },
+  { label: "At destination", holder: "Destination branch", evidence: "scan", evidenceLabel: "SCAN · RECEIVE" },
+  { label: "Out for delivery", holder: "Delivery rider", evidence: "scan", evidenceLabel: "SCAN · DELIVERY" },
+  { label: "Delivered", holder: "Recipient", evidence: "proof", evidenceLabel: "PROOF · POD" },
+];
+
+export interface PromiseItem {
+  numeral: string;
+  title: string;
+  body: string;
+}
+
+export const PROMISE_ITEMS: PromiseItem[] = [
+  { numeral: "01", title: "Custody, not just status", body: "A parcel only moves when a real scan says it did." },
+  {
+    numeral: "02",
+    title: "Every rupee traceable",
+    body: "COD from collection to merchant payout, with before and after on every adjustment.",
+  },
+  {
+    numeral: "03",
+    title: "Built for Nepal",
+    body: "Province, district, local level and ward drive delivery zones and rates.",
+  },
+];
+
+export const SCAN_OPERATIONS: string[] = [
+  "Receive",
+  "Sort",
+  "Dispatch",
+  "Transfer",
+  "Rider pickup",
+  "Rider delivery",
+  "RTO",
+];
+
+export const SCAN_CHECKS: string[] = [
+  "User permission",
+  "Branch access",
+  "Shipment state",
+  "Expected operation",
+  "Shipment custody",
+];
+
+export const COD_STAGES: string[] = [
+  "Expected",
+  "Collected",
+  "Rider deposited",
+  "Branch reconciled",
+  "Finance verified",
+  "Settlement created",
+  "Settled",
+];
+
+export const NDR_STAGES: string[] = [
+  "Open",
+  "Contacting",
+  "Customer confirmed",
+  "Reattempt scheduled",
+  "RTO requested",
+  "Resolved",
+];
+
+export const RTO_STAGES: string[] = ["RTO initiated", "RTO in transit", "RTO at origin", "RTO delivered"];
+
+export const DELIVERY_FAILURE_REASONS: string[] = [
+  "Customer unavailable",
+  "Phone unreachable",
+  "Wrong address",
+  "Customer refused",
+  "Cash unavailable",
+];
+
+export const PERMISSION_SCOPE_EXAMPLE = {
+  role: "Branch Manager",
+  branch: "Kathmandu Branch",
+  permissions: ["shipment.read", "shipment.assign", "shipment.scan"],
+} as const;
+
+// Fictional sample manifest — labelled "Sample data" everywhere it renders.
+export const MANIFEST_SAMPLE = {
+  code: "MNF-20260818-001",
+  from: "Kathmandu Hub",
+  to: "Pokhara Hub",
+  expected: 120,
+  missingIndices: [87],
+} as const;
