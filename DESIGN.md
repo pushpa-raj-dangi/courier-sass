@@ -156,6 +156,15 @@ Every marketing color was computed and verified against WCAG AA (4.5:1 text, 3:1
 
 **The Two-Room Rule.** Marketing and the ledger back-office never borrow each other's palette. A `--marketing-*` token never appears in `(staff)`/`merchant`/`platform`/`rider` surfaces, and the ledger's paper/ink/status tokens never appear on `/`. Shared type family and component primitives are the seam that keeps them one product; the color system is the seam that keeps them two distinct rooms.
 
+**Custody Thread (F14).** The marketing pages share one structural motif: a single vertical rail (`ThreadLayout`) runs beside the sections and each section is a numbered `Checkpoint` (Plex Mono numerals, `01`–`06`) on it — the page reads like a parcel's scan history. The rail's accent overlay is scroll-linked (`scaleY`), fully drawn under `prefers-reduced-motion`, and `aria-hidden`. Tokens are unchanged; the deltas are shape and type:
+
+- **Shape:** radii are `rounded-sm`/`rounded-md`/`rounded-lg` (4–8px), never `rounded-xl` or pills on marketing cards. Depth comes from hairline `--marketing-border` borders and a hard offset shadow (`shadow-[6px_6px_0_0_hsl(var(--marketing-accent)/0.18)]`), not blur or glow. No `backdrop-blur` on marketing surfaces.
+- **Type:** Space Grotesk display headings scale up to `clamp(2.75rem, 8vw, 6.5rem)` on the hero with tight tracking; IBM Plex Mono (`font-mono`) is reserved for AWBs, checkpoint numerals, stamps, and eyebrow labels (`MonoLabel`), always uppercase with `tracking-[0.14em]`.
+- **Diagrams:** explanatory graphics (custody chain, COD waterfall, manifest reconcile) are inline SVG generated from data and pure helpers in `features/marketing/lib/diagramMath.ts`; they are `aria-hidden` with an sr-only text equivalent inside a labelled `<figure>`, and use only `--marketing-*` and `--marketing-tone-*` colors. Color is never the only carrier of meaning (missing manifest cells are X-marked; nodes differ by fill).
+- **Mock cards:** `MockCard` shows fictional sample data and always carries a visible "Sample data" tag. Never fabricate metrics, customers, or testimonials.
+- **Motion:** transform/opacity only — thread scale, one-time `CountUp`, `Reveal`, and the CSS `.marketing-scan-line` sweep. Every one has a fully visible static fallback under `prefers-reduced-motion`.
+- **Shared surfaces:** `/`, `/pricing`, `/track`, and `/track/[awb]` use these primitives; the auth showcase panel receives only a mono sample-AWB stamp and the larger headline, staying on its fixed `--auth-panel-*` tokens.
+
 ## Typography
 
 **Display Font:** Space Grotesk (with IBM Plex Sans, sans-serif fallback)

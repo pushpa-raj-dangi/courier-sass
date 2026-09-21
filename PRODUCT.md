@@ -41,7 +41,8 @@ scope for design work, not just the back-office. Primary personas, per
   visitor to the public marketing landing page at `/` (Phase F13, shipped),
   evaluating whether to adopt the platform. A Persuade-mode surface, the one
   deliberate exception to Product Principle 4's back-office focus — see
-  `docs/FRONTEND-ROADMAP.md` Phase F13.
+  `docs/FRONTEND-ROADMAP.md` Phase F13. Marketing, `/pricing`, and public
+  `/track` share one visual language, the Custody Thread (Phase F14).
 - **SuperAdmin** — platform operator (not a tenant), provisions organizations
   and does platform support; never touches day-to-day courier operations.
 

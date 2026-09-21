@@ -1022,9 +1022,30 @@ end-to-end click of the theme toggle. No code change was needed or made
 for this; noted here so a future session hitting the same symptom in
 this browser profile knows to check for a stale service worker first.
 
+## Phase F14 — Marketing Visual Redesign ("Custody Thread")
+
+**Spec:** `docs/superpowers/specs/2026-09-21-marketing-visual-redesign-design.md` ·
+**Plan:** `docs/superpowers/plans/2026-09-21-marketing-visual-redesign.md`
+
+Second visual pass over the public surfaces, evolving (not replacing) Night
+Dispatch:
+
+- Editorial hero (fluid oversized headline, mono AWB metadata row, real
+  dashboard screenshot overlapped by three labelled sample-data cards).
+- Scroll-linked custody thread with numbered checkpoints 01–06: custody chain,
+  scan & manifest, COD ledger, exceptions (NDR/RTO), roles & branch scope,
+  screens.
+- Three inline-SVG diagrams driven by data and pure helpers
+  (`codBreakdown`, `reconcileManifest`).
+- `/pricing`, `/track`, `/track/[awb]` restyled with shared primitives; the
+  auth showcase panel gets a mono stamp.
+- No new dependencies; every animation has a reduced-motion static fallback.
+- Removed as superseded: `HowItWorks`, `FeatureGrid`, `ProductWalkthrough`,
+  `Credibility`, `RouteLineGraphic`.
+
 ## Later
 
-All frontend phases planned through F13 are complete. Any further frontend
+All frontend phases planned through F14 are complete. Any further frontend
 work (e.g. a UI for backend Phase 14 — route optimization, GPS, ETA, smart
 dispatch — once that backend phase exists) gets its own brainstorm → spec →
 plan cycle per this repo's standing workflow, same as every phase above.

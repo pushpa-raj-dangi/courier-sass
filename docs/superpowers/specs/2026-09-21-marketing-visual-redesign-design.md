@@ -19,7 +19,7 @@ dependencies, any invented brand name/logo/testimonial/metric.
 ## 2. Concept: the Custody Thread
 
 The product's core promise is a traceable chain of custody. The page itself
-expresses that: a single continuous SVG **thread** runs down the page and each
+expresses that: a single continuous vertical **thread** (a scroll-scaled rail) runs down the page and each
 section is a numbered **checkpoint** on it, like a parcel's scan history.
 Diagrams and UI mockups attach to checkpoints. The thread is functional
 (orientation + progress + section transition), not decoration.
@@ -33,12 +33,12 @@ Diagrams and UI mockups attach to checkpoints. The thread is functional
 - Three inline-SVG explanatory diagrams: custody chain, COD waterfall
   (2,500 collected − 150 fee = 2,350 merchant payable, per CLAUDE.md §22),
   manifest reconcile with one flagged missing shipment.
-- Section order on `/`: Hero → Promise strip → Custody chain → Scan & manifest →
-  COD ledger → NDR/RTO exceptions → Roles & branch scope → Screens → Final CTA.
-- Shared primitives: `Thread`, `Checkpoint`, `SectionShell`, `MonoLabel`,
-  `MockCard` in `features/marketing/components/`. `/pricing`, `/track`, and auth
-  surfaces consume them.
-- Thread draws with scroll (`useScroll`); scan-line sweep on mockups; one-time
+- Section order on `/`: Hero → Promise strip → checkpoints 01–06 (Custody chain, Scan &
+  manifest, COD ledger, NDR/RTO exceptions, Roles & branch scope, Screens) → Final CTA.
+- Shared primitives: `ThreadLayout`, `Checkpoint`, `SectionShell`, `MonoLabel`,
+  `MockCard` in `features/marketing/components/`. `/pricing` and `/track` consume the
+  shape/type language and `MonoLabel`/`MarketingGrid`.
+- The thread draws with scroll (`useScroll`); scan-line sweep on mockups; one-time
   count-up on numbers; hover micro-interactions on cards/links.
 - Every animation has a `prefers-reduced-motion` fallback that renders the
   complete static state.
@@ -59,8 +59,7 @@ Diagrams and UI mockups attach to checkpoints. The thread is functional
 - **Grain overlay:** retained as-is (`.marketing-grain-overlay`).
 - **Two-Room Rule:** `--marketing-*` tokens still never appear in staff /
   merchant / platform / rider surfaces. Auth pages keep their fixed
-  `--auth-panel` tokens and receive only the thread motif, type scale, and a
-  CSS mockup panel.
+  `--auth-panel` tokens and receive only a mono sample-AWB stamp and a larger headline.
 
 ## 5. Components
 
@@ -68,27 +67,31 @@ New (under `src/web/src/features/marketing/components/`):
 
 | Component | Purpose |
 |---|---|
-| `Thread` | Full-page SVG path; scroll-linked draw via `useScroll`/`useTransform`; static full path when reduced-motion. `aria-hidden`. |
-| `Checkpoint` | Numbered node (`01`–`09`, Plex Mono) anchored to the thread at a section; lights up when in view. |
+| `ThreadLayout` | Wraps the checkpoint sections with a vertical rail whose accent overlay is scaled by `useScroll`/`useTransform` (no measured path); fully drawn when reduced-motion. `aria-hidden`. |
+| `Checkpoint` | Numbered node (`01`–`06`, Plex Mono) anchored to the thread at a section; lights up when in view. |
 | `SectionShell` | Section wrapper: checkpoint, eyebrow, heading, background tone shift for transitions. Owns heading-level structure. |
 | `MonoLabel` | Small uppercase mono label/stamp. |
+| `Reveal`, `CountUp`, `StageList`, `MarketingGrid`, `PromiseStrip` | Scroll reveal; one-time count-up; vertical lifecycle rail; faint waybill grid background; three-claim strip between Hero and the thread. |
 | `MockCard` | CSS-built UI card (scan confirmation, COD strip, manifest count); fictional data, labelled "Sample data". |
-| `CustodyChainDiagram`, `CodWaterfallDiagram`, `ManifestReconcileDiagram` | Inline SVG diagrams with `role="img"` + accessible text alternative. |
+| `CustodyChainDiagram`, `CodWaterfallDiagram`, `ManifestReconcileDiagram` | Inline SVG diagrams inside a labelled `<figure>`; SVGs are `aria-hidden` and an sr-only text equivalent carries the content. |
 
-Reworked: `Hero`, `HowItWorks` (→ custody chain section), `FeatureGrid`
-(→ non-uniform layout across scan/COD/NDR/roles sections), `ScreenShowcase`,
-`Credibility`, `FinalCta`, `MarketingNav`, `MarketingFooter`, `PricingPlans`,
-`PricingFaq`. `RouteLineGraphic` and `LifecycleRail` are reused or removed if
-superseded (no dead code). `AppScreenshotFrame` is retained.
+Reworked: `Hero`, `ScreenShowcase`, `FinalCta`, `MarketingNav`, `MarketingFooter`,
+`PricingPlans`, `PricingFaq`, `AppScreenshotFrame`. Replaced by the five section components
+(`CustodySection`, `ScanSection`, `CodSection`, `ExceptionsSection`, `RolesSection`) and removed:
+`HowItWorks`, `FeatureGrid`, `ProductWalkthrough`, `Credibility`, `RouteLineGraphic`.
+`LifecycleRail` is retained (used by `/track/[awb]`).
 
-Other surfaces: `/track/[awb]` (uses `TrackingTimeline`) adopts `Thread`-style
-timeline treatment; auth pages get thread motif + `MockCard` panel.
+Other surfaces: `/track` and `/track/[awb]` (uses `TrackingTimeline`) adopt the shape/type
+language and square timeline nodes; `FinalCta` is standalone (also used by `/pricing`). Auth
+showcase panel gets only a mono sample-AWB stamp and a larger headline — `MockCard` uses
+`--marketing-*` tokens, which the Two-Room Rule keeps out of auth surfaces.
 
 ## 6. Motion & Performance
 
 - Framer Motion only (already a dependency). No new libraries.
-- Thread and count-up are client components; diagrams are static SVG (server
-  renderable). Below-fold motion components are code-split via `next/dynamic`.
+- Motion is confined to tiny client leaves (`ThreadLayout`, `Checkpoint`, `Reveal`,
+  `CountUp`); diagrams and sections are otherwise server-renderable. No `next/dynamic`
+  split was needed.
 - LCP element is the hero screenshot (`priority`, existing webp). No layout
   shift: mockups reserve dimensions; fonts already `next/font`.
 - Animate `transform`/`opacity`/`stroke-dashoffset` only.
@@ -133,9 +136,9 @@ unchanged: `getPrimaryCta` (`/register` or `/dashboard`), secondary anchors and
 
 ## 11. Risks
 
-- Scroll-linked thread across variable section heights → compute path from
-  measured checkpoints, not hardcoded coordinates; test at multiple widths.
-- Scope creep into auth surfaces → limit to motif/type/mockup panel; no changes
+- Scroll-linked thread across variable section heights → the rail is scroll-scaled, so it
+  is independent of section height; verify at multiple widths.
+- Scope creep into auth surfaces → limit to the mono stamp and headline scale; no changes
   to auth logic or `--auth-panel` tokens.
 - Diagram legibility on mobile → design diagrams with a vertical layout variant
   below `md`.
