@@ -108,6 +108,7 @@ public class AppDbContext : DbContext, IDataProtectionKeyContext
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<PlatformSettingDefinition> PlatformSettingDefinitions => Set<PlatformSettingDefinition>();
     public DbSet<PlatformSetting> PlatformSettings => Set<PlatformSetting>();
+    public DbSet<FxRate> FxRates => Set<FxRate>();
 
     // IDataProtectionKeyContext requires a settable property; the setter is never exercised at
     // runtime (PersistKeysToDbContext only ever reads via Set<DataProtectionKey>()) but is kept
@@ -150,6 +151,7 @@ public class AppDbContext : DbContext, IDataProtectionKeyContext
         modelBuilder.ApplyConfiguration(new RateCardConfiguration());
         modelBuilder.ApplyConfiguration(new ZoneRateConfiguration());
         modelBuilder.ApplyConfiguration(new AdditionalChargeConfiguration());
+        modelBuilder.ApplyConfiguration(new FxRateConfiguration());
         modelBuilder.ApplyConfiguration(new MerchantRateCardConfiguration());
         modelBuilder.ApplyConfiguration(new ShipmentConfiguration());
         modelBuilder.ApplyConfiguration(new ShipmentItemConfiguration());
