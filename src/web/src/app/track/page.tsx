@@ -43,7 +43,7 @@ export default function TrackPage() {
             >
               <Package className="h-5 w-5 text-marketing-accent-fg" strokeWidth={2} />
             </span>
-            <MonoLabel className="text-marketing-accent">Public tracking · No account needed</MonoLabel>
+            <MonoLabel className="bg-marketing-bg px-2 text-marketing-accent">Public tracking</MonoLabel>
             <h1 className="font-display text-[clamp(2.75rem,8vw,5rem)] font-semibold leading-[0.98] tracking-tight text-marketing-fg">
               Find your parcel
             </h1>

@@ -1043,6 +1043,13 @@ Dispatch:
 - Removed as superseded: `HowItWorks`, `FeatureGrid`, `ProductWalkthrough`,
   `Credibility`, `RouteLineGraphic`.
 
+*Verified (2026-09-21):* `npm run lint` and `npm run build` clean; full suite 640/642
+passing — the 2 failures were 5s timeouts in unrelated COD/reports sheet tests (present at
+baseline, pass when run alone). Visually confirmed in a browser: `/` (dark and light),
+`/pricing`, `/track`, `/login`; no horizontal overflow at 375px (measured in a 375px iframe).
+Not browser-verified: `/register`, `/track/[awb]` with live data, and `prefers-reduced-motion`
+(covered by unit tests only). Contrast used existing verified tokens only; no new colors.
+
 ## Later
 
 All frontend phases planned through F14 are complete. Any further frontend
