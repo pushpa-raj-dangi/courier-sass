@@ -30,7 +30,10 @@ export function AuthShowcasePanel({ icon: Icon, brand, headline, description, st
         {/* h2, not h1: the form's own CardTitle ("Sign in" etc.) is the page's real
             heading and renders even when this panel is hidden below `lg`, so the
             page keeps exactly one h1 regardless of viewport. */}
-        <h2 className="font-display text-3xl font-semibold leading-tight tracking-tight text-auth-panel-foreground xl:text-4xl">
+        <p className="mb-4 font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-auth-panel-foreground/70">
+          AWB NP2026-000000 · Sample
+        </p>
+        <h2 className="font-display text-3xl font-semibold leading-tight tracking-tight text-auth-panel-foreground xl:text-5xl">
           {headline}
         </h2>
         <p className="mt-4 text-sm leading-relaxed text-auth-panel-foreground/70">{description}</p>

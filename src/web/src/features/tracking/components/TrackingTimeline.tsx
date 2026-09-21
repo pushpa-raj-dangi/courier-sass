@@ -21,12 +21,12 @@ export function TrackingTimeline({ events }: { events: PublicTrackingEvent[] }) 
           <li key={`${event.status}-${event.timestamp}`} className="flex gap-4">
             <div className="flex flex-col items-center">
               <span
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm border"
                 style={{
                   borderColor: color,
                   backgroundColor: isCurrent ? color : "hsl(var(--marketing-bg-elevated))",
                   boxShadow: isCurrent
-                    ? `0 0 0 4px ${toneAlpha(meta.tone, 0.2)}, 0 0 24px -4px ${color}`
+                    ? `0 0 0 4px ${toneAlpha(meta.tone, 0.2)}`
                     : undefined,
                 }}
                 aria-hidden="true"
@@ -46,7 +46,7 @@ export function TrackingTimeline({ events }: { events: PublicTrackingEvent[] }) 
                 <span className="font-display text-sm font-semibold text-marketing-fg">{label}</span>
                 {event.location && <span className="text-sm text-marketing-muted-fg">{event.location}</span>}
               </div>
-              <p className="mt-1 text-xs text-marketing-muted-fg">
+              <p className="mt-1 font-mono text-xs text-marketing-muted-fg">
                 {format(parseISO(event.timestamp), "d MMM yyyy, h:mm a")}
               </p>
             </div>

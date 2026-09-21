@@ -22,7 +22,7 @@ export function TrackingSearchForm() {
   }
 
   return (
-    <div className="relative w-full max-w-sm overflow-hidden rounded-xl border border-marketing-border bg-marketing-bg-elevated p-6 shadow-[0_0_60px_-20px_hsl(var(--marketing-accent)/0.5)]">
+    <div className="relative w-full max-w-sm overflow-hidden rounded-md border border-marketing-border bg-marketing-bg-elevated p-6 shadow-[8px_8px_0_0_hsl(var(--marketing-accent)/0.18)]">
       <span
         aria-hidden="true"
         className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-marketing-accent/70 to-transparent"
@@ -56,7 +56,7 @@ export function TrackingSearchForm() {
         <button
           type="submit"
           disabled={isSubmitting}
-          className="group flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-marketing-accent px-6 text-sm font-medium text-marketing-accent-fg shadow-[0_0_40px_-10px_hsl(var(--marketing-accent)/0.7)] transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-marketing-accent focus-visible:ring-offset-2 focus-visible:ring-offset-marketing-bg disabled:pointer-events-none disabled:opacity-50"
+          className="group flex h-11 w-full items-center justify-center gap-2 rounded-md bg-marketing-accent px-6 text-sm font-medium text-marketing-accent-fg shadow-[4px_4px_0_0_hsl(var(--marketing-fg)/0.18)] transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-marketing-accent focus-visible:ring-offset-2 focus-visible:ring-offset-marketing-bg disabled:pointer-events-none disabled:opacity-50"
         >
           Track
           <ArrowRight

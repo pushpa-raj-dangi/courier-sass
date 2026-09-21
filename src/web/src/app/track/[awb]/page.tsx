@@ -20,7 +20,7 @@ const RAIL_STOPS = WALKTHROUGH_STOPS.map((stop) => ({ tone: stop.tone, label: st
 
 function EmptyState({ icon: Icon, message }: { icon: LucideIcon; message: string }) {
   return (
-    <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-marketing-border p-12 text-center">
+    <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-marketing-border p-12 text-center">
       <Icon className="h-8 w-8 text-marketing-muted-fg" strokeWidth={1.5} />
       <p className="text-sm text-marketing-muted-fg">{message}</p>
     </div>
@@ -66,7 +66,7 @@ export default function TrackingResultPage() {
         </header>
 
         <main className="mx-auto max-w-2xl px-4 py-12">
-          <p className="font-mono text-xs tracking-wide text-marketing-muted-fg">AWB {awb}</p>
+          <p className="font-mono text-xs uppercase tracking-[0.14em] text-marketing-muted-fg">AWB {awb}</p>
 
           {isLoading && (
             <div className="mt-4 space-y-3">
@@ -102,8 +102,8 @@ export default function TrackingResultPage() {
             <div className="mt-4">
               <div className="flex items-start gap-4">
                 <span
-                  className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full"
-                  style={{ backgroundColor: toneAlpha(meta.tone, 0.1), boxShadow: `0 0 40px -12px ${tone}` }}
+                  className="flex h-14 w-14 shrink-0 items-center justify-center rounded-md"
+                  style={{ backgroundColor: toneAlpha(meta.tone, 0.1), boxShadow: `4px 4px 0 0 ${toneAlpha(meta.tone, 0.25)}` }}
                   aria-hidden="true"
                 >
                   <Icon className="h-6 w-6" strokeWidth={2} style={{ color: tone }} />
