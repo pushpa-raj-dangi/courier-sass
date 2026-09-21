@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CALENDARS, LOCALES } from "@/i18n/config";
 
 export const organizationProfileSchema = z.object({
   supportEmail: z.string().email("Enter a valid email.").optional().or(z.literal("")),
@@ -7,6 +8,8 @@ export const organizationProfileSchema = z.object({
   logoUrl: z.string().optional().or(z.literal("")),
   timeZoneId: z.string().min(1, "Timezone is required."),
   businessHours: z.string().optional().or(z.literal("")),
+  defaultLocale: z.enum(LOCALES),
+  calendarPreference: z.enum(CALENDARS),
 });
 
 export type OrganizationProfileFormValues = z.infer<typeof organizationProfileSchema>;

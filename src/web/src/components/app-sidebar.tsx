@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import * as React from "react";
 import { Package } from "lucide-react";
 import { NavMain } from "@/components/nav-main";
@@ -21,6 +22,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 // organization's real name (falling back to the generic product name only until the session
 // loads), with BranchSwitcher (this app's real "which scope am I acting in" control) underneath.
 function SidebarBrand() {
+  const t = useTranslations("common");
   const { state } = useSidebar();
   const { data: session, isLoading } = useSession();
   return (
@@ -34,7 +36,7 @@ function SidebarBrand() {
             <Skeleton className="h-4 w-28" data-testid="sidebar-brand-skeleton" />
           ) : (
             <span className="truncate font-display text-base font-semibold tracking-tight">
-              {session?.organizationName ?? "Courier Platform"}
+              {session?.organizationName ?? t("appName")}
             </span>
           ))}
       </SidebarMenuItem>

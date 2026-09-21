@@ -10,6 +10,8 @@ const settingsData: OrganizationSettings = {
     logoUrl: null,
     timeZoneId: "Asia/Kathmandu",
     businessHours: "9:00 AM - 6:00 PM",
+    defaultLocale: "en",
+    calendarPreference: "Gregorian",
   },
   security: { refreshTokenLifetimeDays: 7, minPasswordLength: 8 },
   defaults: { defaultServiceTypeId: null, defaultOriginBranchId: null },

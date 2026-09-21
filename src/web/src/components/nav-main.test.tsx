@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
+import { renderWithIntl } from "@/test/renderWithIntl";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { NavMain } from "./nav-main";
@@ -8,7 +9,7 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/dashboard",
 }));
 
-function renderNavMain(permissions: string[]) {
+function renderNavMain(permissions: string[], locale?: "en" | "ne") {
   global.fetch = vi.fn().mockResolvedValue({
     ok: true,
     status: 200,
@@ -24,12 +25,13 @@ function renderNavMain(permissions: string[]) {
   }) as unknown as typeof fetch;
 
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
+  return renderWithIntl(
     <QueryClientProvider client={queryClient}>
       <SidebarProvider>
         <NavMain />
       </SidebarProvider>
-    </QueryClientProvider>
+    </QueryClientProvider>,
+    { locale }
   );
 }
 
@@ -77,6 +79,15 @@ describe("NavMain", () => {
     await waitFor(() => expect(screen.getByText("Audit Logs")).toBeInTheDocument());
   });
 
+  it("renders nav labels in Nepali", async () => {
+    renderNavMain(["report.read", "shipment.read"], "ne");
+
+    await waitFor(() => expect(screen.getByText("ड्यासबोर्ड")).toBeInTheDocument());
+    expect(screen.getByText("ढुवानीहरू")).toBeInTheDocument();
+    expect(screen.getByText("प्लेटफर्म")).toBeInTheDocument();
+    expect(screen.queryByText("Dashboard")).not.toBeInTheDocument();
+  });
+
   it("hides the Audit Logs entry when the session lacks audit.read", async () => {
     renderNavMain(["report.read"]);
 
@@ -93,7 +104,7 @@ describe("NavMain", () => {
     ) as unknown as typeof fetch;
 
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
+    renderWithIntl(
       <QueryClientProvider client={queryClient}>
         <SidebarProvider>
           <NavMain />

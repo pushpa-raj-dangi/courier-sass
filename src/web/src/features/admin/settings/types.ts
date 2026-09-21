@@ -5,6 +5,8 @@ export interface OrganizationProfile {
   logoUrl: string | null;
   timeZoneId: string;
   businessHours: string | null;
+  defaultLocale: string;
+  calendarPreference: string;
 }
 
 export interface SecurityPolicy {

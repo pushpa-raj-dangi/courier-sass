@@ -5,6 +5,8 @@ public sealed record SecurityPolicyDto(int RefreshTokenLifetimeDays, int MinPass
 public sealed record OperationalDefaultsDto(Guid? DefaultServiceTypeId, Guid? DefaultOriginBranchId);
 public sealed record OrganizationSettingsDto(OrganizationProfileDto Profile, SecurityPolicyDto Security, OperationalDefaultsDto Defaults);
 
+public sealed record OrganizationLocaleDto(string DefaultLocale, string CalendarPreference, string TimeZoneId);
+
 public class OrganizationSettingsValidationException : Exception
 {
     public OrganizationSettingsValidationException(string message) : base(message) { }

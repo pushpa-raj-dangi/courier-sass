@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowRight } from "lucide-react";
@@ -22,6 +23,8 @@ import {
 
 export function LoginForm() {
   const router = useRouter();
+  const t = useTranslations("auth.login");
+  const tv = useTranslations("auth.validation");
   const [serverError, setServerError] = useState<string | null>(null);
   const { shown: showPassword, toggle: togglePassword } = usePasswordVisibility();
   const {
@@ -29,6 +32,10 @@ export function LoginForm() {
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormValues>({ resolver: zodResolver(loginSchema) });
+
+  // loginSchema messages are catalog keys; translate at display time.
+  const fieldError = (message?: string) =>
+    message ? tv(message as "emailInvalid" | "passwordRequired") : undefined;
 
   async function onSubmit(values: LoginFormValues) {
     setServerError(null);
@@ -39,7 +46,7 @@ export function LoginForm() {
     });
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
-      setServerError(body.error ?? "Login failed.");
+      setServerError(body.error ?? t("failed"));
       return;
     }
     router.push("/dashboard");
@@ -47,11 +54,11 @@ export function LoginForm() {
 
   return (
     <div className="w-full max-w-sm">
-      <AuthFormHeader title="Sign in" description="Manage branches, shipments, and deliveries." />
+      <AuthFormHeader title={t("title")} description={t("description")} />
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
         <div className="space-y-3">
-          <Field id="email" label="Email" error={errors.email?.message}>
+          <Field id="email" label={t("email")} error={fieldError(errors.email?.message)}>
             {(a11y) => (
               <Input
                 {...a11y}
@@ -62,7 +69,7 @@ export function LoginForm() {
               />
             )}
           </Field>
-          <Field id="password" label="Password" error={errors.password?.message}>
+          <Field id="password" label={t("password")} error={fieldError(errors.password?.message)}>
             {(a11y) => (
               <div className="relative">
                 <Input
@@ -72,23 +79,28 @@ export function LoginForm() {
                   className={cn(authInputClass, "pr-10")}
                   {...register("password")}
                 />
-                <PasswordToggle shown={showPassword} onToggle={togglePassword} />
+                <PasswordToggle
+                  shown={showPassword}
+                  onToggle={togglePassword}
+                  showLabel={t("showPassword")}
+                  hideLabel={t("hidePassword")}
+                />
               </div>
             )}
           </Field>
         </div>
 
         <div className="space-y-3">
-          {serverError &&<FieldError id="login-server-error">{serverError}</FieldError>}
+          {serverError && <FieldError id="login-server-error">{serverError}</FieldError>}
           <Button type="submit" size="lg" className={authButtonClass} disabled={isSubmitting}>
             {isSubmitting ? (
               <>
                 <Spinner className="h-4 w-4" />
-                Signing in...
+                {t("submitting")}
               </>
             ) : (
               <>
-                Sign in
+                {t("submit")}
                 <ArrowRight
                   className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
                   strokeWidth={2}

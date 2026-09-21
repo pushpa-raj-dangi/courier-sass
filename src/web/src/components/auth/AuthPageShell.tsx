@@ -12,6 +12,8 @@ interface AuthPageShellProps {
   switchPrompt: string;
   switchLabel: string;
   switchHref: string;
+  /** Optional control rendered just before the cross-link, e.g. a language switcher. */
+  topAction?: ReactNode;
   children: ReactNode;
 }
 
@@ -28,6 +30,7 @@ export function AuthPageShell({
   switchPrompt,
   switchLabel,
   switchHref,
+  topAction,
   children,
 }: AuthPageShellProps) {
   return (
@@ -41,15 +44,18 @@ export function AuthPageShell({
             </span>
             <span className="font-display text-base font-semibold tracking-tight">{brand}</span>
           </div>
-          <p className="text-sm text-muted-foreground">
-            {switchPrompt}{" "}
-            <Link
-              href={switchHref}
-              className="rounded-sm font-medium text-foreground underline underline-offset-4 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-            >
-              {switchLabel}
-            </Link>
-          </p>
+          <div className="flex items-center gap-3">
+            {topAction}
+            <p className="text-sm text-muted-foreground">
+              {switchPrompt}{" "}
+              <Link
+                href={switchHref}
+                className="rounded-sm font-medium text-foreground underline underline-offset-4 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              >
+                {switchLabel}
+              </Link>
+            </p>
+          </div>
         </div>
         <div className="flex flex-1 items-center justify-center px-4 pb-8 pt-2 sm:px-8 lg:px-10">{children}</div>
       </div>

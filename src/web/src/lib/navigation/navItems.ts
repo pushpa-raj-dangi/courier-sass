@@ -15,9 +15,13 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+export type NavLabelKey =
+  | "dashboard" | "shipments" | "branches" | "manifests" | "ndrs" | "returnShipments"
+  | "riders" | "liveMap" | "myDeliveries" | "cod" | "billing" | "auditLogs" | "admin";
+
 export interface NavItem {
   href: string;
-  label: string;
+  labelKey: NavLabelKey;
   permission: string | string[];
   icon: LucideIcon;
 }
@@ -27,17 +31,17 @@ export interface NavItem {
 // point at routes that don't exist until their phase lands, which is fine — Link just 404s until
 // then, and the item is hidden entirely for any user lacking the permission regardless.
 export const NAV_ITEMS: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", permission: "report.read", icon: LayoutDashboard },
-  { href: "/shipments", label: "Shipments", permission: "shipment.read", icon: Package },
-  { href: "/branches", label: "Branches", permission: "branch.read", icon: Building2 },
-  { href: "/manifests", label: "Manifests", permission: "manifest.read", icon: Truck },
-  { href: "/ndrs", label: "NDRs", permission: "ndr.read", icon: AlertTriangle },
-  { href: "/return-shipments", label: "Return Shipments", permission: "rto.read", icon: Undo2 },
-  { href: "/riders", label: "Riders", permission: "rider.read", icon: Bike },
-  { href: "/riders/live-map", label: "Live Map", permission: "rider.location.read", icon: MapPin },
-  { href: "/rider/tasks", label: "My Deliveries", permission: "delivery.attempt", icon: ClipboardCheck },
-  { href: "/cod", label: "COD", permission: "cod.read", icon: Wallet },
-  { href: "/billing", label: "Billing", permission: "org.billing.manage", icon: CreditCard },
-  { href: "/audit-logs", label: "Audit Logs", permission: "audit.read", icon: History },
-  { href: "/admin", label: "Admin", permission: ["role.manage", "user.read"], icon: ShieldCheck },
+  { href: "/dashboard", labelKey: "dashboard", permission: "report.read", icon: LayoutDashboard },
+  { href: "/shipments", labelKey: "shipments", permission: "shipment.read", icon: Package },
+  { href: "/branches", labelKey: "branches", permission: "branch.read", icon: Building2 },
+  { href: "/manifests", labelKey: "manifests", permission: "manifest.read", icon: Truck },
+  { href: "/ndrs", labelKey: "ndrs", permission: "ndr.read", icon: AlertTriangle },
+  { href: "/return-shipments", labelKey: "returnShipments", permission: "rto.read", icon: Undo2 },
+  { href: "/riders", labelKey: "riders", permission: "rider.read", icon: Bike },
+  { href: "/riders/live-map", labelKey: "liveMap", permission: "rider.location.read", icon: MapPin },
+  { href: "/rider/tasks", labelKey: "myDeliveries", permission: "delivery.attempt", icon: ClipboardCheck },
+  { href: "/cod", labelKey: "cod", permission: "cod.read", icon: Wallet },
+  { href: "/billing", labelKey: "billing", permission: "org.billing.manage", icon: CreditCard },
+  { href: "/audit-logs", labelKey: "auditLogs", permission: "audit.read", icon: History },
+  { href: "/admin", labelKey: "admin", permission: ["role.manage", "user.read"], icon: ShieldCheck },
 ];

@@ -72,12 +72,22 @@ export function AuthFormHeader({ title, description }: { title: string; descript
 }
 
 /** Show/hide toggle overlaid on a password input; 32px target inside the 40px control. */
-export function PasswordToggle({ shown, onToggle }: { shown: boolean; onToggle: () => void }) {
+export function PasswordToggle({
+  shown,
+  onToggle,
+  showLabel = "Show password",
+  hideLabel = "Hide password",
+}: {
+  shown: boolean;
+  onToggle: () => void;
+  showLabel?: string;
+  hideLabel?: string;
+}) {
   return (
     <button
       type="button"
       onClick={onToggle}
-      aria-label={shown ? "Hide password" : "Show password"}
+      aria-label={shown ? hideLabel : showLabel}
       aria-pressed={shown}
       className="absolute right-1 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >

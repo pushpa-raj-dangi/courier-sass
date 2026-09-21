@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { screen, fireEvent, waitFor } from "@testing-library/react";
+import { renderWithIntl } from "@/test/renderWithIntl";
 import type { OrganizationSettings } from "@/features/admin/settings/types";
 
 const settingsData: OrganizationSettings = {
@@ -10,6 +11,8 @@ const settingsData: OrganizationSettings = {
     logoUrl: null,
     timeZoneId: "Asia/Kathmandu",
     businessHours: "9:00 AM - 6:00 PM",
+    defaultLocale: "en",
+    calendarPreference: "Gregorian",
   },
   security: { refreshTokenLifetimeDays: 7, minPasswordLength: 8 },
   defaults: { defaultServiceTypeId: null, defaultOriginBranchId: null },
@@ -28,7 +31,7 @@ import { OrganizationProfileForm } from "./OrganizationProfileForm";
 
 describe("OrganizationProfileForm", () => {
   it("loads the API profile values into the corresponding form fields", () => {
-    render(<OrganizationProfileForm />);
+    renderWithIntl(<OrganizationProfileForm />);
 
     expect(screen.getByLabelText("Support Email")).toHaveValue("support@example.test");
     expect(screen.getByLabelText("Support Phone")).toHaveValue("01-4444444");
@@ -39,7 +42,8 @@ describe("OrganizationProfileForm", () => {
   });
 
   it("coerces empty-string fields back to null when submitting", async () => {
-    render(<OrganizationProfileForm />);
+    mutateAsync.mockClear();
+    renderWithIntl(<OrganizationProfileForm />);
 
     // logoUrl arrives from the API as null, reset() maps it to "" in the form — submit must
     // coerce it back to null, not send an empty string to the backend.
@@ -55,6 +59,60 @@ describe("OrganizationProfileForm", () => {
       logoUrl: null,
       timeZoneId: "Asia/Kathmandu",
       businessHours: "9:00 AM - 6:00 PM",
+      defaultLocale: "en",
+      calendarPreference: "Gregorian",
     });
+  });
+
+  it("shows the saved language and calendar", async () => {
+    const original = settingsData.profile;
+    settingsData.profile = { ...original, defaultLocale: "ne", calendarPreference: "BikramSambat" };
+    try {
+      renderWithIntl(<OrganizationProfileForm />);
+
+      expect(await screen.findByRole("combobox", { name: "Language" })).toHaveTextContent("नेपाली");
+      expect(screen.getByRole("combobox", { name: "Calendar" })).toHaveTextContent("Bikram Sambat (BS)");
+    } finally {
+      settingsData.profile = original;
+    }
+  });
+
+  it("falls back to safe defaults when the server returns unsupported values, and still saves", async () => {
+    mutateAsync.mockClear();
+    const original = settingsData.profile;
+    settingsData.profile = { ...original, defaultLocale: "hi", calendarPreference: "Julian" };
+    try {
+      renderWithIntl(<OrganizationProfileForm />);
+
+      expect(await screen.findByRole("combobox", { name: "Language" })).toHaveTextContent("English");
+      expect(screen.getByRole("combobox", { name: "Calendar" })).toHaveTextContent("Gregorian (AD)");
+
+      fireEvent.click(screen.getByRole("button", { name: "Save Profile" }));
+
+      await waitFor(() =>
+        expect(mutateAsync).toHaveBeenCalledWith(
+          expect.objectContaining({ defaultLocale: "en", calendarPreference: "Gregorian" }),
+        ),
+      );
+    } finally {
+      settingsData.profile = original;
+    }
+  });
+
+  it("submits the chosen language and calendar with the profile", async () => {
+    mutateAsync.mockClear();
+    renderWithIntl(<OrganizationProfileForm />);
+
+    fireEvent.click(screen.getByLabelText("Language"));
+    fireEvent.click(screen.getByRole("option", { name: "नेपाली" }));
+    fireEvent.click(screen.getByLabelText("Calendar"));
+    fireEvent.click(screen.getByRole("option", { name: "Bikram Sambat (BS)" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save Profile" }));
+
+    await waitFor(() =>
+      expect(mutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({ defaultLocale: "ne", calendarPreference: "BikramSambat" }),
+      ),
+    );
   });
 });
