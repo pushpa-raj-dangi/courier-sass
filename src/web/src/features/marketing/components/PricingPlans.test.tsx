@@ -67,4 +67,10 @@ describe("PricingPlans", () => {
     render(<PricingPlans isAuthenticated={false} />);
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
   });
+
+  it("labels the section with a mono eyebrow and keeps plan cards square-cornered (no rounded-xl)", () => {
+    const { container } = render(<PricingPlans isAuthenticated={false} />);
+    expect(screen.getByText("Plans")).toBeInTheDocument();
+    expect(container.querySelector(".rounded-xl")).toBeNull();
+  });
 });
