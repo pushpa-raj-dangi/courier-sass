@@ -13,6 +13,12 @@ export interface MeBranchGrant {
   expiresAt: string | null;
 }
 
+export interface MeLocale {
+  defaultLocale: string;
+  calendarPreference: string;
+  timeZoneId: string;
+}
+
 export interface MeResponse {
   userId: string;
   organizationId: string;
@@ -22,6 +28,7 @@ export interface MeResponse {
   permissions: string[];
   hasAllBranchesScope: boolean;
   branches: MeBranchGrant[];
+  locale?: MeLocale;
 }
 
 export interface RegisterOrganizationInput {
