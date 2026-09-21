@@ -15,7 +15,7 @@ describe("useOrganizationSettings", () => {
       ok: true,
       status: 200,
       json: async () => ({
-        profile: { supportEmail: null, supportPhone: null, addressLine: null, logoUrl: null, timeZoneId: "Asia/Kathmandu", businessHours: null },
+        profile: { supportEmail: null, supportPhone: null, addressLine: null, logoUrl: null, timeZoneId: "Asia/Kathmandu", businessHours: null, defaultLocale: "en", calendarPreference: "Gregorian" },
         security: { refreshTokenLifetimeDays: 7, minPasswordLength: 8 },
         defaults: { defaultServiceTypeId: null, defaultOriginBranchId: null },
       }),
