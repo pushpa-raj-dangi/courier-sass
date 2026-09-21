@@ -1,11 +1,14 @@
 import { hasSession } from "@/lib/auth/session";
 import { MarketingNav } from "@/features/marketing/components/MarketingNav";
 import { Hero } from "@/features/marketing/components/Hero";
+import { PromiseStrip } from "@/features/marketing/components/PromiseStrip";
+import { ThreadLayout } from "@/features/marketing/components/ThreadLayout";
+import { CustodySection } from "@/features/marketing/components/CustodySection";
+import { ScanSection } from "@/features/marketing/components/ScanSection";
+import { CodSection } from "@/features/marketing/components/CodSection";
+import { ExceptionsSection } from "@/features/marketing/components/ExceptionsSection";
+import { RolesSection } from "@/features/marketing/components/RolesSection";
 import { ScreenShowcase } from "@/features/marketing/components/ScreenShowcase";
-import { FeatureGrid } from "@/features/marketing/components/FeatureGrid";
-import { HowItWorks } from "@/features/marketing/components/HowItWorks";
-import { ProductWalkthrough } from "@/features/marketing/components/ProductWalkthrough";
-import { Credibility } from "@/features/marketing/components/Credibility";
 import { FinalCta } from "@/features/marketing/components/FinalCta";
 import { MarketingFooter } from "@/features/marketing/components/MarketingFooter";
 
@@ -19,11 +22,15 @@ export default async function RootPage() {
         <MarketingNav isAuthenticated={isAuthenticated} />
         <main>
           <Hero isAuthenticated={isAuthenticated} />
-          <ScreenShowcase />
-          <HowItWorks />
-          <ProductWalkthrough />
-          <FeatureGrid />
-          <Credibility />
+          <PromiseStrip />
+          <ThreadLayout>
+            <CustodySection />
+            <ScanSection />
+            <CodSection />
+            <ExceptionsSection />
+            <RolesSection />
+            <ScreenShowcase />
+          </ThreadLayout>
           <FinalCta isAuthenticated={isAuthenticated} />
         </main>
         <MarketingFooter />

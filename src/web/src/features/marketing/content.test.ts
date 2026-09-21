@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   getPrimaryCta,
-  FEATURES,
-  HOW_IT_WORKS_STEPS,
   WALKTHROUGH_STOPS,
   CREDIBILITY_POINTS,
   FOOTER_LINKS,
@@ -23,19 +21,6 @@ describe("getPrimaryCta", () => {
 });
 
 describe("marketing content data", () => {
-  it("has exactly 6 features, all with an icon, title, and description", () => {
-    expect(FEATURES).toHaveLength(6);
-    for (const feature of FEATURES) {
-      expect(feature.icon).toBeDefined();
-      expect(feature.title.length).toBeGreaterThan(0);
-      expect(feature.description.length).toBeGreaterThan(0);
-    }
-  });
-
-  it("has exactly 4 how-it-works steps, numbered 01-04", () => {
-    expect(HOW_IT_WORKS_STEPS.map((s) => s.step)).toEqual(["01", "02", "03", "04"]);
-  });
-
   it("has exactly 4 walkthrough stops ending in Delivered", () => {
     expect(WALKTHROUGH_STOPS).toHaveLength(4);
     expect(WALKTHROUGH_STOPS[3].label).toBe("Delivered");

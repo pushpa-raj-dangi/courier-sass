@@ -1,5 +1,3 @@
-import { AlertTriangle, Building2, MapPinned, ScanLine, Truck, Wallet, type LucideIcon } from "lucide-react";
-
 export interface NavLink {
   href: string;
   label: string;
@@ -23,89 +21,7 @@ export function getPrimaryCta(isAuthenticated: boolean): CtaLink {
     : { href: "/register", label: "Get started" };
 }
 
-export interface MarketingFeature {
-  icon: LucideIcon;
-  title: string;
-  description: string;
-}
-
-export const FEATURES: MarketingFeature[] = [
-  {
-    icon: Building2,
-    title: "Multi-branch & role-based access",
-    description:
-      "Organizations, branches, and permission-based roles — every user scoped to exactly the branches and actions they're allowed.",
-  },
-  {
-    icon: ScanLine,
-    title: "Scan-driven custody",
-    description:
-      "Barcode and QR scanning for receive, sort, dispatch, and transfer — every custody change is a real scan, never an edit.",
-  },
-  {
-    icon: Truck,
-    title: "Manifests & hub transfers",
-    description:
-      "Sealed manifests move shipments branch to branch, with missing-shipment reconciliation on every receive.",
-  },
-  {
-    icon: Wallet,
-    title: "COD lifecycle & settlement",
-    description:
-      "Collection through rider deposit, branch reconciliation, and merchant settlement — every rupee traceable.",
-  },
-  {
-    icon: AlertTriangle,
-    title: "NDR & RTO management",
-    description: "Structured non-delivery follow-up and return-to-origin workflows, not a dead-end failed status.",
-  },
-  {
-    icon: MapPinned,
-    title: "Nepal-specific geography & pricing",
-    description:
-      "Province, District, Local Level, and Ward drive delivery zones and rate cards — never free-text addresses.",
-  },
-];
-
 export type WalkthroughTone = "neutral" | "motion" | "success";
-
-export interface HowItWorksStep {
-  step: string;
-  title: string;
-  description: string;
-  tone: WalkthroughTone;
-}
-
-// Tones mirror WALKTHROUGH_STOPS 1:1 (Book~Created, Scan & Sort~In Transit, Deliver &
-// Prove~Out for Delivery, Reconcile~Delivered) — the two sections describe the same
-// four-stage lifecycle, per the design spec's "synchronized with the four HowItWorks
-// steps" intent.
-export const HOW_IT_WORKS_STEPS: HowItWorksStep[] = [
-  {
-    step: "01",
-    title: "Book",
-    description: "A shipment is created with an AWB, sender, recipient, and declared value.",
-    tone: "neutral",
-  },
-  {
-    step: "02",
-    title: "Scan & sort",
-    description: "Origin branch receive, manifest, and hub-to-hub transfer — every step scanned.",
-    tone: "motion",
-  },
-  {
-    step: "03",
-    title: "Deliver & prove",
-    description: "Assigned to a rider, delivery attempted, proof of delivery captured.",
-    tone: "motion",
-  },
-  {
-    step: "04",
-    title: "Reconcile",
-    description: "COD collected, deposited, reconciled, and settled to the merchant.",
-    tone: "success",
-  },
-];
 
 export interface WalkthroughStop {
   label: string;
