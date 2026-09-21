@@ -13,6 +13,12 @@ file class FakeMerchantContactLookupService : IMerchantContactLookupService
     public Task<string?> GetContactEmailAsync(Guid organizationId, Guid merchantId, CancellationToken cancellationToken = default) => Task.FromResult(ContactEmail);
 }
 
+file class FakeOrganizationLocaleLookup : IOrganizationLocaleLookup
+{
+    public string Locale { get; set; } = "en";
+    public Task<string> GetDefaultLocaleAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult(Locale);
+}
+
 file class RecordingEmailChannel : INotificationChannel
 {
     public List<(string RecipientAddress, string Body)> Sent { get; } = new();
@@ -55,7 +61,7 @@ public class NotificationDispatchServiceTests
         await using var dbContext = CreateContext();
         var merchantLookup = new FakeMerchantContactLookupService { ContactEmail = "shipper@example.com" };
         var emailChannel = new RecordingEmailChannel();
-        var service = new NotificationDispatchService(dbContext, merchantLookup, new INotificationChannel[] { emailChannel });
+        var service = new NotificationDispatchService(dbContext, merchantLookup, new FakeOrganizationLocaleLookup(), new INotificationChannel[] { emailChannel });
         var organizationId = Guid.NewGuid();
         var shipmentId = Guid.NewGuid();
         var payload = System.Text.Json.JsonSerializer.Serialize(new { ShipmentId = shipmentId, MerchantId = Guid.NewGuid(), Awb = "ABC123" });
@@ -74,7 +80,7 @@ public class NotificationDispatchServiceTests
         await using var dbContext = CreateContext();
         var merchantLookup = new FakeMerchantContactLookupService { ContactEmail = null };
         var emailChannel = new RecordingEmailChannel();
-        var service = new NotificationDispatchService(dbContext, merchantLookup, new INotificationChannel[] { emailChannel });
+        var service = new NotificationDispatchService(dbContext, merchantLookup, new FakeOrganizationLocaleLookup(), new INotificationChannel[] { emailChannel });
         var payload = System.Text.Json.JsonSerializer.Serialize(new { ShipmentId = Guid.NewGuid(), MerchantId = Guid.NewGuid(), Awb = "ABC123" });
 
         await service.DispatchEventAsync(Guid.NewGuid(), "shipment.created", payload);
@@ -91,7 +97,7 @@ public class NotificationDispatchServiceTests
         await using var dbContext = CreateContext();
         var merchantLookup = new FakeMerchantContactLookupService { ContactEmail = "shipper@example.com" };
         var emailChannel = new RecordingEmailChannel { ShouldThrow = true };
-        var service = new NotificationDispatchService(dbContext, merchantLookup, new INotificationChannel[] { emailChannel });
+        var service = new NotificationDispatchService(dbContext, merchantLookup, new FakeOrganizationLocaleLookup(), new INotificationChannel[] { emailChannel });
         var payload = System.Text.Json.JsonSerializer.Serialize(new { ShipmentId = Guid.NewGuid(), MerchantId = Guid.NewGuid(), Awb = "ABC123" });
 
         await service.DispatchEventAsync(Guid.NewGuid(), "shipment.created", payload);
@@ -114,7 +120,7 @@ public class NotificationDispatchServiceTests
         await dbContext.SaveChangesAsync();
         var merchantLookup = new FakeMerchantContactLookupService { ContactEmail = "shipper@example.com" };
         var emailChannel = new RecordingEmailChannel();
-        var service = new NotificationDispatchService(dbContext, merchantLookup, new INotificationChannel[] { emailChannel });
+        var service = new NotificationDispatchService(dbContext, merchantLookup, new FakeOrganizationLocaleLookup(), new INotificationChannel[] { emailChannel });
         var payload = System.Text.Json.JsonSerializer.Serialize(new { ShipmentId = Guid.NewGuid(), MerchantId = Guid.NewGuid(), Awb = "XYZ789" });
 
         await service.DispatchEventAsync(organizationId, "shipment.created", payload);
@@ -135,7 +141,7 @@ public class NotificationDispatchServiceTests
         await dbContext.SaveChangesAsync();
         var merchantLookup = new FakeMerchantContactLookupService { ContactEmail = "shipper@example.com" };
         var emailChannel = new RecordingEmailChannel();
-        var service = new NotificationDispatchService(dbContext, merchantLookup, new INotificationChannel[] { emailChannel });
+        var service = new NotificationDispatchService(dbContext, merchantLookup, new FakeOrganizationLocaleLookup(), new INotificationChannel[] { emailChannel });
         var payload = System.Text.Json.JsonSerializer.Serialize(new { ShipmentId = Guid.NewGuid(), MerchantId = Guid.NewGuid(), Awb = "ABC123" });
 
         await service.DispatchEventAsync(Guid.NewGuid(), "shipment.created", payload);
@@ -149,7 +155,7 @@ public class NotificationDispatchServiceTests
         await using var dbContext = CreateContext();
         var merchantLookup = new FakeMerchantContactLookupService { ContactEmail = null }; // proves this isn't consulted
         var emailChannel = new RecordingEmailChannel();
-        var service = new NotificationDispatchService(dbContext, merchantLookup, new INotificationChannel[] { emailChannel });
+        var service = new NotificationDispatchService(dbContext, merchantLookup, new FakeOrganizationLocaleLookup(), new INotificationChannel[] { emailChannel });
         var payload = System.Text.Json.JsonSerializer.Serialize(new { RecipientEmail = "invitee@example.com", FullName = "New Person", OrganizationName = "Acme Courier", InviteUrl = "https://app.example.com/accept-invite?token=abc" });
 
         await service.DispatchEventAsync(Guid.NewGuid(), "user.invited", payload);
@@ -163,12 +169,75 @@ public class NotificationDispatchServiceTests
         await using var dbContext = CreateContext();
         var merchantLookup = new FakeMerchantContactLookupService { ContactEmail = "shipper@example.com" };
         var emailChannel = new RecordingEmailChannel();
-        var service = new NotificationDispatchService(dbContext, merchantLookup, new INotificationChannel[] { emailChannel });
+        var service = new NotificationDispatchService(dbContext, merchantLookup, new FakeOrganizationLocaleLookup(), new INotificationChannel[] { emailChannel });
         // No MerchantId at all in this payload — must not throw NotificationValidationException.
         var payload = System.Text.Json.JsonSerializer.Serialize(new { RecipientEmail = "invitee@example.com", FullName = "New Person", OrganizationName = "Acme Courier", InviteUrl = "https://app.example.com/accept-invite?token=abc" });
 
         await service.DispatchEventAsync(Guid.NewGuid(), "user.invited", payload);
 
         Assert.Single(emailChannel.Sent, s => s.RecipientAddress == "invitee@example.com");
+    }
+
+    [Fact]
+    public async Task DispatchEventAsync_NepaliTenant_SendsNepaliDefault()
+    {
+        await using var dbContext = CreateContext();
+        var emailChannel = new RecordingEmailChannel();
+        var service = new NotificationDispatchService(dbContext,
+            new FakeMerchantContactLookupService { ContactEmail = "shipper@example.com" },
+            new FakeOrganizationLocaleLookup { Locale = "ne" },
+            new INotificationChannel[] { emailChannel });
+        var payload = System.Text.Json.JsonSerializer.Serialize(new { MerchantId = Guid.NewGuid(), Awb = "AWB123" });
+
+        await service.DispatchEventAsync(Guid.NewGuid(), "shipment.created", payload);
+
+        NotificationDefaultTemplates.TryGetDefault("ne", "shipment.created", out var neBody);
+        Assert.Single(emailChannel.Sent);
+        Assert.Equal(neBody.Replace("{Awb}", "AWB123"), emailChannel.Sent[0].Body);
+    }
+
+    [Fact]
+    public async Task DispatchEventAsync_NepaliTenantWithNepaliOverride_UsesOverride()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        dbContext.Set<NotificationTemplate>().Add(new NotificationTemplate
+        {
+            Id = Guid.NewGuid(), OrganizationId = organizationId, EventType = "shipment.created",
+            Channel = NotificationChannel.Email, Locale = "ne", Body = "NE custom {Awb}", IsActive = true
+        });
+        await dbContext.SaveChangesAsync();
+        var emailChannel = new RecordingEmailChannel();
+        var service = new NotificationDispatchService(dbContext,
+            new FakeMerchantContactLookupService { ContactEmail = "shipper@example.com" },
+            new FakeOrganizationLocaleLookup { Locale = "ne" },
+            new INotificationChannel[] { emailChannel });
+
+        await service.DispatchEventAsync(organizationId, "shipment.created",
+            System.Text.Json.JsonSerializer.Serialize(new { MerchantId = Guid.NewGuid(), Awb = "A1" }));
+
+        Assert.Equal("NE custom A1", emailChannel.Sent.Single().Body);
+    }
+
+    [Fact]
+    public async Task DispatchEventAsync_OtherOrganizationsOverride_IsNotUsed()
+    {
+        await using var dbContext = CreateContext();
+        dbContext.Set<NotificationTemplate>().Add(new NotificationTemplate
+        {
+            Id = Guid.NewGuid(), OrganizationId = Guid.NewGuid(), EventType = "shipment.created",
+            Channel = NotificationChannel.Email, Locale = "en", Body = "LEAK {Awb}", IsActive = true
+        });
+        await dbContext.SaveChangesAsync();
+        var emailChannel = new RecordingEmailChannel();
+        var service = new NotificationDispatchService(dbContext,
+            new FakeMerchantContactLookupService { ContactEmail = "shipper@example.com" },
+            new FakeOrganizationLocaleLookup(),
+            new INotificationChannel[] { emailChannel });
+
+        await service.DispatchEventAsync(Guid.NewGuid(), "shipment.created",
+            System.Text.Json.JsonSerializer.Serialize(new { MerchantId = Guid.NewGuid(), Awb = "A1" }));
+
+        Assert.DoesNotContain("LEAK", emailChannel.Sent.Single().Body);
     }
 }

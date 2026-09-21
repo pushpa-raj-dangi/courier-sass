@@ -258,6 +258,7 @@ builder.Services.AddScoped<INotificationChannel, SmsNotificationChannel>();
 builder.Services.AddScoped<INotificationChannel, WhatsAppNotificationChannel>();
 builder.Services.AddScoped<INotificationChannel, PushNotificationChannel>();
 builder.Services.AddScoped<NotificationDispatchService>();
+builder.Services.AddScoped<Courier.Notifications.Application.IOrganizationLocaleLookup, Courier.Api.OrganizationLocaleLookupAdapter>();
 builder.Services.AddScoped<NotificationTemplateService>();
 builder.Services.AddHostedService<NotificationsConsumer>();
 // Keys persisted to Postgres (via AppDbContext) so the key ring survives container

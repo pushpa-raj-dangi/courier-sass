@@ -9,12 +9,14 @@ public class NotificationDispatchService
 {
     private readonly DbContext _dbContext;
     private readonly IMerchantContactLookupService _merchantContactLookupService;
+    private readonly IOrganizationLocaleLookup _organizationLocaleLookup;
     private readonly IEnumerable<INotificationChannel> _channels;
 
-    public NotificationDispatchService(DbContext dbContext, IMerchantContactLookupService merchantContactLookupService, IEnumerable<INotificationChannel> channels)
+    public NotificationDispatchService(DbContext dbContext, IMerchantContactLookupService merchantContactLookupService, IOrganizationLocaleLookup organizationLocaleLookup, IEnumerable<INotificationChannel> channels)
     {
         _dbContext = dbContext;
         _merchantContactLookupService = merchantContactLookupService;
+        _organizationLocaleLookup = organizationLocaleLookup;
         _channels = channels;
     }
 
@@ -24,7 +26,7 @@ public class NotificationDispatchService
     // Merchants' contact lookup (Global Constraints).
     public async Task DispatchEventAsync(Guid organizationId, string eventType, string payloadJson, CancellationToken cancellationToken = default)
     {
-        if (!NotificationDefaultTemplates.Email.TryGetValue(eventType, out var defaultBody))
+        if (!NotificationDefaultTemplates.IsKnownEvent(eventType))
         {
             // No default exists for this event type — nothing this phase wires should ever hit
             // this path, but a future event type added to Events without a matching template
@@ -63,11 +65,15 @@ public class NotificationDispatchService
         // organizationId filter below is what actually scopes this read; bypassing the ambient
         // filter doesn't weaken that, it only fixes the no-tenant-context caller (same bug shape
         // and fix as Webhooks.Infrastructure.WebhookDeliveryAttemptService.AttemptAsync).
-        var template = await _dbContext.Set<NotificationTemplate>().IgnoreQueryFilters()
+        var locale = NotificationLocales.Normalize(await _organizationLocaleLookup.GetDefaultLocaleAsync(organizationId, cancellationToken));
+        var overrides = await _dbContext.Set<NotificationTemplate>().IgnoreQueryFilters()
             .Where(t => t.OrganizationId == organizationId && t.EventType == eventType && t.Channel == NotificationChannel.Email && t.IsActive)
-            .Select(t => t.Body)
-            .FirstOrDefaultAsync(cancellationToken);
-        var body = Render(template ?? defaultBody, payload);
+            .Select(t => new { t.Locale, t.Body })
+            .ToListAsync(cancellationToken);
+        var bodiesByLocale = overrides
+            .GroupBy(t => t.Locale)
+            .ToDictionary(g => g.Key, g => g.First().Body);
+        var body = Render(NotificationTemplateResolver.Resolve(locale, eventType, bodiesByLocale)!, payload);
 
         if (recipientEmail is null)
         {
