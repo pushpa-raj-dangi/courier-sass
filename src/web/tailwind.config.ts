@@ -110,7 +110,7 @@ const config: Config = {
       fontFamily: {
         sans: ["var(--font-plex-sans)", "var(--font-devanagari)", "Arial", "Helvetica", "sans-serif"],
         mono: ["var(--font-plex-mono)", "monospace"],
-        display: ["var(--font-space-grotesk)", "var(--font-plex-sans)", "sans-serif"],
+        display: ["var(--font-space-grotesk)", "var(--font-plex-sans)", "var(--font-devanagari)", "sans-serif"],
       },
     },
   },

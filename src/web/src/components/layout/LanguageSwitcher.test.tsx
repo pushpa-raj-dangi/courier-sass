@@ -20,14 +20,23 @@ describe("LanguageSwitcher", () => {
     renderWithIntl(<LanguageSwitcher />);
     await userEvent.click(screen.getByRole("button", { name: "Language" }));
 
-    expect(await screen.findByRole("menuitem", { name: /English/ })).toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: /नेपाली/ })).toBeInTheDocument();
+    expect(await screen.findByRole("menuitemradio", { name: /English/ })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("menuitemradio", { name: /नेपाली/ })).toHaveAttribute("aria-checked", "false");
+  });
+
+  it("does nothing when the already-current language is chosen", async () => {
+    renderWithIntl(<LanguageSwitcher />);
+    await userEvent.click(screen.getByRole("button", { name: "Language" }));
+    await userEvent.click(await screen.findByRole("menuitemradio", { name: /English/ }));
+
+    expect(refresh).not.toHaveBeenCalled();
+    expect(readCookie("courier_locale")).toBeNull();
   });
 
   it("stores the chosen locale in the cookie and refreshes the route", async () => {
     renderWithIntl(<LanguageSwitcher />);
     await userEvent.click(screen.getByRole("button", { name: "Language" }));
-    await userEvent.click(await screen.findByRole("menuitem", { name: /नेपाली/ }));
+    await userEvent.click(await screen.findByRole("menuitemradio", { name: /नेपाली/ }));
 
     expect(readCookie("courier_locale")).toBe("ne");
     expect(refresh).toHaveBeenCalledTimes(1);

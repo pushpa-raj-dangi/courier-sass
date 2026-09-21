@@ -2,14 +2,16 @@
 
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { Check, Languages } from "lucide-react";
+import { Languages } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LOCALES, LOCALE_COOKIE, resolveLocale, type Locale } from "@/i18n/config";
+import { LOCALES, LOCALE_COOKIE, isLocale, resolveLocale } from "@/i18n/config";
 import { setPreferenceCookie } from "@/i18n/preferences";
 
 export function LanguageSwitcher() {
@@ -18,29 +20,29 @@ export function LanguageSwitcher() {
   const router = useRouter();
   const current = resolveLocale(useLocale());
 
-  function choose(locale: Locale) {
-    setPreferenceCookie(LOCALE_COOKIE, locale);
+  function choose(value: string) {
+    if (!isLocale(value) || value === current) {
+      return;
+    }
+    setPreferenceCookie(LOCALE_COOKIE, value);
     router.refresh();
   }
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label={t("language")}
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-input text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-        >
+        <Button variant="outline" size="icon" className="rounded-full" aria-label={t("language")}>
           <Languages className="h-4 w-4" strokeWidth={2} />
-        </button>
+        </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-40">
-        {LOCALES.map((locale) => (
-          <DropdownMenuItem key={locale} onSelect={() => choose(locale)} className="justify-between gap-3">
-            {tLanguage(locale)}
-            {locale === current && <Check className="h-4 w-4" strokeWidth={2} aria-hidden="true" />}
-          </DropdownMenuItem>
-        ))}
+        <DropdownMenuRadioGroup value={current} onValueChange={choose}>
+          {LOCALES.map((locale) => (
+            <DropdownMenuRadioItem key={locale} value={locale}>
+              {tLanguage(locale)}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );

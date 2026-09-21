@@ -46,6 +46,14 @@ describe("LocaleSync", () => {
     expect(refresh).toHaveBeenCalledTimes(1);
   });
 
+  it("survives a malformed locale cookie and re-seeds it from the tenant default", async () => {
+    document.cookie = "courier_locale=%E0%A4%A; Path=/";
+    mockSession({ defaultLocale: "ne", calendarPreference: "BikramSambat", timeZoneId: "Asia/Kathmandu" });
+    expect(() => renderSync()).not.toThrow();
+
+    await waitFor(() => expect(readCookie("courier_locale")).toBe("ne"));
+  });
+
   it("never overrides a preference the user already chose", async () => {
     document.cookie = "courier_locale=en; Path=/";
     document.cookie = "courier_calendar=Gregorian; Path=/";

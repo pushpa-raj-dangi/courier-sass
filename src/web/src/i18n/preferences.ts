@@ -10,7 +10,11 @@ export function readCookie(name: string): string | null {
   const prefix = `${name}=`;
   for (const part of document.cookie.split("; ")) {
     if (part.startsWith(prefix)) {
-      return decodeURIComponent(part.slice(prefix.length));
+      try {
+        return decodeURIComponent(part.slice(prefix.length));
+      } catch {
+        return null; // malformed percent-encoding: treat as absent so LocaleSync re-seeds it
+      }
     }
   }
   return null;

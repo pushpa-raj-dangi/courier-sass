@@ -19,7 +19,7 @@ vi.mock("@/features/search/hooks/useGlobalSearch", () => ({
   useGlobalSearch: (query: string) => useGlobalSearchMock(query),
 }));
 
-function renderPalette(permissions: string[]) {
+function renderPalette(permissions: string[], locale: "en" | "ne" = "en") {
   global.fetch = vi.fn().mockResolvedValue({
     ok: true,
     status: 200,
@@ -38,7 +38,8 @@ function renderPalette(permissions: string[]) {
   return renderWithIntl(
     <QueryClientProvider client={queryClient}>
       <CommandPalette />
-    </QueryClientProvider>
+    </QueryClientProvider>,
+    { locale },
   );
 }
 
@@ -59,6 +60,40 @@ describe("CommandPalette", () => {
     fireEvent.keyDown(window, { key: "k", ctrlKey: true });
 
     expect(await screen.findByPlaceholderText(/search or type a command/i)).toBeInTheDocument();
+  });
+
+  it("finds a page by its English name while in Nepali", async () => {
+    const user = userEvent.setup();
+    renderPalette(["report.read", "shipment.read"], "ne");
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+
+    const input = await screen.findByPlaceholderText("खोज्नुहोस् वा आदेश टाइप गर्नुहोस्...");
+    await user.type(input, "Shipments");
+
+    expect(await screen.findByText("ढुवानीहरू")).toBeInTheDocument();
+  });
+
+  it("finds a page by its URL slug while in Nepali", async () => {
+    const user = userEvent.setup();
+    renderPalette(["report.read", "shipment.read"], "ne");
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+
+    const input = await screen.findByPlaceholderText("खोज्नुहोस् वा आदेश टाइप गर्नुहोस्...");
+    await user.type(input, "/shipm");
+
+    expect(await screen.findByText("ढुवानीहरू")).toBeInTheDocument();
+  });
+
+  it("filters pages by the English name in English mode as before", async () => {
+    const user = userEvent.setup();
+    renderPalette(["report.read", "shipment.read"]);
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+
+    const input = await screen.findByPlaceholderText(/search or type a command/i);
+    await user.type(input, "Shipm");
+
+    expect(await screen.findByText("Shipments")).toBeInTheDocument();
+    expect(screen.queryByText("Dashboard")).not.toBeInTheDocument();
   });
 
   it("shows only Pages the session has permission for", async () => {

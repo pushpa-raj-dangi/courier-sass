@@ -1,4 +1,4 @@
-import type { CalendarPreference, Locale } from "@/i18n/config";
+import { DEFAULT_TIME_ZONE, type CalendarPreference, type Locale } from "@/i18n/config";
 import { BS_MONTHS_EN, BS_MONTHS_NE, toBsDate } from "./bsDate";
 
 export interface FormatContext {
@@ -22,6 +22,16 @@ export function formatNumber(value: number, locale: Locale): string {
   return new Intl.NumberFormat(locale).format(value);
 }
 
+// The tenant time zone is unvalidated free text on the backend; an unknown zone makes Intl throw.
+function safeTimeZone(timeZone: string): string {
+  try {
+    new Intl.DateTimeFormat("en", { timeZone });
+    return timeZone;
+  } catch {
+    return DEFAULT_TIME_ZONE;
+  }
+}
+
 function toDate(value: Date | string | number): Date {
   return value instanceof Date ? value : new Date(value);
 }
@@ -33,23 +43,25 @@ export function formatDate(value: Date | string | number, ctx: FormatContext, op
     return "";
   }
 
-  const time = options.withTime
-    ? new Intl.DateTimeFormat(ctx.locale, { timeZone: ctx.timeZone, hour: "numeric", minute: "2-digit" }).format(date)
-    : null;
+  const timeZone = safeTimeZone(ctx.timeZone);
 
   if (ctx.calendar === "BikramSambat") {
-    const bs = toBsDate(date, ctx.timeZone);
+    const bs = toBsDate(date, timeZone);
     if (bs) {
       const names = ctx.locale === "ne" ? BS_MONTHS_NE : BS_MONTHS_EN;
       const text = `${bs.day} ${names[bs.month - 1]} ${bs.year}`;
       const dated = ctx.locale === "ne" ? toDevanagariDigits(text) : text;
-      return time ? `${dated}, ${time}` : dated;
+      if (!options.withTime) {
+        return dated;
+      }
+      const time = new Intl.DateTimeFormat(ctx.locale, { timeZone, hour: "numeric", minute: "2-digit" }).format(date);
+      return `${dated}, ${time}`;
     }
     // Outside the BS conversion range: fall through to Gregorian rather than show nothing.
   }
 
   return new Intl.DateTimeFormat(ctx.locale, {
-    timeZone: ctx.timeZone,
+    timeZone,
     dateStyle: "medium",
     ...(options.withTime ? { timeStyle: "short" as const } : {}),
   }).format(date);

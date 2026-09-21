@@ -61,6 +61,28 @@ describe("formatDate", () => {
     expect(formatDate("garbage", { locale: "en", calendar: "Gregorian", timeZone: "UTC" })).toBe("");
   });
 
+  it("falls back to the default time zone when the tenant time zone is invalid (Gregorian)", () => {
+    const bad = { locale: "en", calendar: "Gregorian", timeZone: "Nepal Time" } as const;
+    expect(() => formatDate(instant, bad)).not.toThrow();
+    expect(formatDate(instant, bad)).toBe(formatDate(instant, { locale: "en", calendar: "Gregorian", ...kathmandu }));
+  });
+
+  it("falls back to the default time zone when the tenant time zone is invalid (Bikram Sambat)", () => {
+    const bad = { locale: "en", calendar: "BikramSambat", timeZone: "Nepal Time" } as const;
+    expect(() => formatDate(instant, bad)).not.toThrow();
+    expect(formatDate(instant, bad)).toBe("15 Baisakh 2080");
+  });
+
+  it("does not throw on an invalid time zone when a time is requested", () => {
+    for (const calendar of ["Gregorian", "BikramSambat"] as const) {
+      const bad = { locale: "en", calendar, timeZone: "Nepal Time" } as const;
+      expect(() => formatDate(instant, bad, { withTime: true })).not.toThrow();
+      expect(formatDate(instant, bad, { withTime: true })).toBe(
+        formatDate(instant, { locale: "en", calendar, ...kathmandu }, { withTime: true }),
+      );
+    }
+  });
+
   it("appends a time when asked", () => {
     const text = formatDate(instant, { locale: "en", calendar: "Gregorian", ...kathmandu }, { withTime: true });
     expect(text.replace(nbsp, " ")).toMatch(/^Apr 28, 2023.*1:45\s?AM$/);

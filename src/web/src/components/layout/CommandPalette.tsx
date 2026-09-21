@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/command";
 import { usePermission } from "@/features/auth/hooks/usePermission";
 import { useCommandPaletteStore } from "@/lib/store/commandPaletteStore";
+import enMessages from "../../../messages/en.json";
 import { NAV_ITEMS, type NavItem } from "@/lib/navigation/navItems";
 import { useGlobalSearch } from "@/features/search/hooks/useGlobalSearch";
 import { useShipmentPanelStore } from "@/features/shipments/store/shipmentPanelStore";
@@ -39,6 +40,7 @@ export function CommandPalette() {
   const setOpen = useCommandPaletteStore((s) => s.setOpen);
   const [query, setQuery] = useState("");
   const router = useRouter();
+  const tHeader = useTranslations("header");
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -74,7 +76,7 @@ export function CommandPalette() {
 
   return (
     <CommandDialog open={open} onOpenChange={setOpen} label="Search everything">
-      <CommandInput placeholder="Search or type a command..." value={query} onValueChange={setQuery} />
+      <CommandInput placeholder={tHeader("searchPlaceholder")} value={query} onValueChange={setQuery} />
       <CommandList>
         {/* Suppressed once entity search is active: the "isn't available yet" note below already
             explains why the list is empty, so cmdk's generic empty state would just repeat it. */}
@@ -133,7 +135,9 @@ function PageItem({
   const hasFirst = usePermission(permissions[0]);
   const hasSecond = usePermission(permissions[1] ?? permissions[0]);
   const label = tNav(item.labelKey);
-  if (!(hasFirst || hasSecond) || !matches(query, label)) {
+  // Also match the English label and the URL so English/slug searches work in Nepali mode.
+  const englishLabel = (enMessages.nav as Record<string, string>)[item.labelKey] ?? "";
+  if (!(hasFirst || hasSecond) || !matches(query, label, englishLabel, item.href)) {
     return null;
   }
   const Icon = item.icon;

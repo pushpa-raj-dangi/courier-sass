@@ -46,5 +46,8 @@ Plans: `docs/superpowers/plans/`.
 
 - Nepali strings are machine-drafted and need native-speaker review.
 - The command-palette quick-action labels remain English.
-- The formatters exist but are not yet adopted at the roughly 54 existing ad-hoc formatting sites.
+- The formatters exist but are not yet adopted at the roughly 54 files (about 90 call sites) that still format numbers and dates ad hoc.
+- The locale and calendar cookies are `Path=/`, so a staff user who picks Nepali also gets `<html lang="ne">` on screens that are still English (public tracking, marketing, and the merchant, rider and platform portals).
+- The root layout now reads cookies, which makes every route dynamically rendered, including `/track/{awb}`. If a CDN is ever put in front, HTML must vary on `courier_locale` and `courier_calendar`.
+- The first sign-in of a user with no cookie renders once in English before `LocaleSync` seeds the tenant default and refreshes.
 - The login-page switcher position and the cookie → server-render → refresh loop are covered by unit tests only; they still need a run in a real browser session.
