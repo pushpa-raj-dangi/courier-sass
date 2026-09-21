@@ -459,3 +459,10 @@ un-started future sub-projects of this phase.
 Any ambiguity discovered while implementing a later phase gets resolved the same way
 this batch was: added to `CLARIFICATIONS.md` with a stated resolution *before*
 writing the code that depends on the resolution, not decided ad hoc inline.
+
+## International Support
+
+Tracked separately in `docs/INTERNATIONAL.md`, with the design in
+`docs/superpowers/specs/2026-09-21-international-support-design.md` and the I0 plan in
+`docs/superpowers/plans/2026-09-21-international-i0-money-fx-locale.md`. I0 (money, FX rates,
+tenant locale) is complete; I1–I8 are planned.

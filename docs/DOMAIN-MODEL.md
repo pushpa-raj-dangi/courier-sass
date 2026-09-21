@@ -414,3 +414,10 @@ This summary is illustrative — the field lists above each entity are the actua
 contract; migrations should be generated from those, and any divergence discovered
 during implementation gets fixed here first (per `ROADMAP.md`'s cross-phase rule),
 not left implicit in code.
+
+## Money, FX and locale (international support, I0)
+
+- `Money` / `CurrencyCode` (SharedKernel): immutable amount + currency, same-currency arithmetic only.
+- `FxRate` (Pricing): platform-level, append-only conversion rate; not tenant-owned.
+- `OrganizationSettings.DefaultLocale` / `CalendarPreference`: per-tenant UI locale and calendar.
+- Existing persisted amounts are NPR by invariant. See `docs/INTERNATIONAL.md`.
