@@ -178,6 +178,8 @@ builder.Services.AddScoped<IBranchLookupService>(sp => sp.GetRequiredService<Bra
 builder.Services.AddScoped<RateCardService>();
 builder.Services.AddScoped<PricingService>();
 builder.Services.AddScoped<IServiceTypeLookupService>(sp => sp.GetRequiredService<PricingService>());
+builder.Services.AddScoped<FxRateService>();
+builder.Services.AddScoped<IFxConversionService>(sp => sp.GetRequiredService<FxRateService>());
 builder.Services.AddScoped<ReferenceDataService>();
 builder.Services.AddScoped<ShipmentService>();
 builder.Services.AddScoped<IShipmentTransitionService>(sp => sp.GetRequiredService<ShipmentService>());
@@ -433,6 +435,7 @@ app.MapMerchantStaffEndpoints();
 app.MapApiKeyEndpoints();
 app.MapMerchantKycEndpoints();
 app.MapPricingEndpoints();
+app.MapFxRateEndpoints();
 app.MapShipmentsEndpoints();
 app.MapPublicTrackingEndpoints();
 app.MapPickupsEndpoints();
