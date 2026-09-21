@@ -114,4 +114,45 @@ public class NotificationTemplateServiceTests
         var single = Assert.Single(result);
         Assert.Equal("This org's body", single.Body);
     }
+
+    [Fact]
+    public async Task UpsertAsync_UnsupportedLocale_ThrowsValidationException()
+    {
+        await using var dbContext = CreateContext();
+        var service = new NotificationTemplateService(dbContext, new FixedTenantProvider(Guid.NewGuid()), new FakeAuditLogger());
+
+        await Assert.ThrowsAsync<NotificationValidationException>(() =>
+            service.UpsertAsync(Guid.NewGuid(), "shipment.created", NotificationChannel.Email, "Body", true, "fr"));
+    }
+
+    [Fact]
+    public async Task UpsertAsync_NoLocale_StoresEnglish()
+    {
+        await using var dbContext = CreateContext();
+        var service = new NotificationTemplateService(dbContext, new FixedTenantProvider(Guid.NewGuid()), new FakeAuditLogger());
+
+        var dto = await service.UpsertAsync(Guid.NewGuid(), "shipment.created", NotificationChannel.Email, "Body", true);
+
+        Assert.Equal("en", dto.Locale);
+    }
+
+    [Fact]
+    public async Task UpsertAsync_SameEventDifferentLocales_KeepsSeparateRows_AndUpdatesInPlace()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var audit = new FakeAuditLogger();
+        var service = new NotificationTemplateService(dbContext, new FixedTenantProvider(organizationId), audit);
+        var user = Guid.NewGuid();
+
+        await service.UpsertAsync(user, "shipment.created", NotificationChannel.Email, "EN one", true, "en");
+        await service.UpsertAsync(user, "shipment.created", NotificationChannel.Email, "NE one", true, "ne");
+        await service.UpsertAsync(user, "shipment.created", NotificationChannel.Email, "NE two", true, "ne");
+
+        var rows = await service.ListAsync();
+        Assert.Equal(2, rows.Count);
+        Assert.Equal("NE two", rows.Single(r => r.Locale == "ne").Body);
+        Assert.Equal("EN one", rows.Single(r => r.Locale == "en").Body);
+        Assert.Contains("\"locale\":\"ne\"", audit.Entries.Last().After);
+    }
 }

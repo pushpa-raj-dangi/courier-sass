@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Routing;
 
 namespace Courier.Notifications.Presentation;
 
-public record UpsertNotificationTemplateRequest(string EventType, Courier.Notifications.Domain.NotificationChannel Channel, string Body, bool IsActive);
+public record UpsertNotificationTemplateRequest(string EventType, Courier.Notifications.Domain.NotificationChannel Channel, string Body, bool IsActive, string? Locale = null);
 
 public static class NotificationTemplatesEndpoints
 {
@@ -22,7 +22,7 @@ public static class NotificationTemplatesEndpoints
             var actingUserId = httpContext.User.GetUserId()!.Value;
             try
             {
-                return Results.Ok(await service.UpsertAsync(actingUserId, request.EventType, request.Channel, request.Body, request.IsActive, httpContext.RequestAborted));
+                return Results.Ok(await service.UpsertAsync(actingUserId, request.EventType, request.Channel, request.Body, request.IsActive, request.Locale, httpContext.RequestAborted));
             }
             catch (NotificationValidationException ex)
             {
