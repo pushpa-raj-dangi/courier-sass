@@ -466,4 +466,6 @@ Tracked separately in `docs/INTERNATIONAL.md`, with the design in
 `docs/superpowers/specs/2026-09-21-international-support-design.md` and the I0 plan in
 `docs/superpowers/plans/2026-09-21-international-i0-money-fx-locale.md`. I0 (money, FX rates,
 tenant locale) is implemented, but its DB-backed tests (Identity/Api) and both migrations still need
-a first run against Postgres; I1–I8 are planned.
+a first run against Postgres. I1a (frontend i18n foundation: en/ne catalogs, cookie-based locale,
+Bikram Sambat formatters, translated staff shell and login) is implemented, with Nepali strings
+still needing native review; I1b (notification-template locale) is planned, as are I2–I8.
