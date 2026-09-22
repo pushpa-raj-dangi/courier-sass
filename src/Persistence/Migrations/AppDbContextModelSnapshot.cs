@@ -893,6 +893,2488 @@ namespace Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Courier.Geography.Domain.Country", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CallingCode")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)");
+
+                    b.Property<Guid?>("CountryZoneId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DefaultCurrency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)");
+
+                    b.Property<bool>("IsServiced")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("IsoCode")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
+
+                    b.Property<string>("NameEn")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("NameNe")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CountryZoneId");
+
+                    b.HasIndex("IsoCode")
+                        .IsUnique();
+
+                    b.ToTable("Countries", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("63e2b662-8781-d910-5aa2-45b9aa097d5b"),
+                            CallingCode = "+977",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "NPR",
+                            IsServiced = false,
+                            IsoCode = "NP",
+                            NameEn = "Nepal",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("a8aaa329-8040-2bd3-1dc2-6916a3cf269e"),
+                            CallingCode = "+213",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "DZD",
+                            IsServiced = false,
+                            IsoCode = "DZ",
+                            NameEn = "Algeria",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("35a7aedb-5c0a-67b8-edf5-fd16ba3191d3"),
+                            CallingCode = "+244",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "AOA",
+                            IsServiced = false,
+                            IsoCode = "AO",
+                            NameEn = "Angola",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("fce982d7-1849-c309-0902-29aa7bd2dbb5"),
+                            CallingCode = "+229",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "XOF",
+                            IsServiced = false,
+                            IsoCode = "BJ",
+                            NameEn = "Benin",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("4d0ef229-3102-4dc3-8955-383df417f5ba"),
+                            CallingCode = "+267",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "BWP",
+                            IsServiced = false,
+                            IsoCode = "BW",
+                            NameEn = "Botswana",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("2481bca2-b5da-a778-514d-050f33ea3a60"),
+                            CallingCode = "+226",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "XOF",
+                            IsServiced = false,
+                            IsoCode = "BF",
+                            NameEn = "Burkina Faso",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("caaeb03c-a3a8-6377-6985-e78a1830a8e3"),
+                            CallingCode = "+257",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "BIF",
+                            IsServiced = false,
+                            IsoCode = "BI",
+                            NameEn = "Burundi",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("55b61b8d-ef2f-3ec3-f475-3bad1f1f16e5"),
+                            CallingCode = "+238",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "CVE",
+                            IsServiced = false,
+                            IsoCode = "CV",
+                            NameEn = "Cabo Verde",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("c2763cc6-40a1-f132-bbcc-20db6dd9b958"),
+                            CallingCode = "+237",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "XAF",
+                            IsServiced = false,
+                            IsoCode = "CM",
+                            NameEn = "Cameroon",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("561b4780-4fdb-4cd2-efbd-b3162029a420"),
+                            CallingCode = "+236",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "XAF",
+                            IsServiced = false,
+                            IsoCode = "CF",
+                            NameEn = "Central African Republic",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("aace5597-b240-52d8-067e-3cedaad5317d"),
+                            CallingCode = "+235",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "XAF",
+                            IsServiced = false,
+                            IsoCode = "TD",
+                            NameEn = "Chad",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("cff0d10d-ae7e-3e21-3e12-da615300efcf"),
+                            CallingCode = "+269",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "KMF",
+                            IsServiced = false,
+                            IsoCode = "KM",
+                            NameEn = "Comoros",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("ebcf1784-2454-990a-9974-98071e73f85f"),
+                            CallingCode = "+242",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "XAF",
+                            IsServiced = false,
+                            IsoCode = "CG",
+                            NameEn = "Congo",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("1d642f4e-f1aa-99ba-7413-aff38b183092"),
+                            CallingCode = "+243",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "CDF",
+                            IsServiced = false,
+                            IsoCode = "CD",
+                            NameEn = "Congo (DRC)",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("996e874b-29a0-0dec-e40a-f8ece2c4a1d2"),
+                            CallingCode = "+225",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "XOF",
+                            IsServiced = false,
+                            IsoCode = "CI",
+                            NameEn = "Côte d'Ivoire",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("1edc8aae-d115-5d7a-5cd9-0de49b24afc7"),
+                            CallingCode = "+253",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "DJF",
+                            IsServiced = false,
+                            IsoCode = "DJ",
+                            NameEn = "Djibouti",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("08db63bb-ef17-cf1d-e13c-56eb000ca3ea"),
+                            CallingCode = "+20",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "EGP",
+                            IsServiced = false,
+                            IsoCode = "EG",
+                            NameEn = "Egypt",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("0e38f413-8349-fdc9-322e-56ba4c577178"),
+                            CallingCode = "+240",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "XAF",
+                            IsServiced = false,
+                            IsoCode = "GQ",
+                            NameEn = "Equatorial Guinea",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("3d61ae0f-b7b7-37c1-46e4-d0e483da0dc7"),
+                            CallingCode = "+291",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "ERN",
+                            IsServiced = false,
+                            IsoCode = "ER",
+                            NameEn = "Eritrea",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("d68ddb23-36d5-916e-3174-b9c8602d05d0"),
+                            CallingCode = "+268",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "SZL",
+                            IsServiced = false,
+                            IsoCode = "SZ",
+                            NameEn = "Eswatini",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("cec15911-ed0f-d90a-bf07-3292e5fbccbe"),
+                            CallingCode = "+251",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "ETB",
+                            IsServiced = false,
+                            IsoCode = "ET",
+                            NameEn = "Ethiopia",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("0c578e28-5384-b7b7-8601-ac4eba96d05f"),
+                            CallingCode = "+241",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "XAF",
+                            IsServiced = false,
+                            IsoCode = "GA",
+                            NameEn = "Gabon",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("8a0465ac-900a-2af6-c59d-06759270a6a7"),
+                            CallingCode = "+220",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "GMD",
+                            IsServiced = false,
+                            IsoCode = "GM",
+                            NameEn = "Gambia",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("9be4ac7b-9a48-b1ee-74ff-7e35a3082f45"),
+                            CallingCode = "+233",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "GHS",
+                            IsServiced = false,
+                            IsoCode = "GH",
+                            NameEn = "Ghana",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("ebe31623-67e0-f071-692c-11670d65e85d"),
+                            CallingCode = "+224",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "GNF",
+                            IsServiced = false,
+                            IsoCode = "GN",
+                            NameEn = "Guinea",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("18c72ba1-6a7d-7aee-c88e-40f0827131a0"),
+                            CallingCode = "+245",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "XOF",
+                            IsServiced = false,
+                            IsoCode = "GW",
+                            NameEn = "Guinea-Bissau",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("e8c6a5f3-d74d-f88d-e723-d9bcd24b884d"),
+                            CallingCode = "+254",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "KES",
+                            IsServiced = false,
+                            IsoCode = "KE",
+                            NameEn = "Kenya",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("1435af32-e5f0-c9fd-a525-1fe794d25eeb"),
+                            CallingCode = "+266",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "LSL",
+                            IsServiced = false,
+                            IsoCode = "LS",
+                            NameEn = "Lesotho",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("0a3d9881-27e2-80d8-d387-04a659549c70"),
+                            CallingCode = "+231",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "LRD",
+                            IsServiced = false,
+                            IsoCode = "LR",
+                            NameEn = "Liberia",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("68650889-118b-c052-5d27-f7e915134ec8"),
+                            CallingCode = "+218",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "LYD",
+                            IsServiced = false,
+                            IsoCode = "LY",
+                            NameEn = "Libya",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("8d546a06-7895-05af-2479-2f9e5f008678"),
+                            CallingCode = "+261",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "MGA",
+                            IsServiced = false,
+                            IsoCode = "MG",
+                            NameEn = "Madagascar",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("886080a3-bbba-d795-3100-eafe1959accc"),
+                            CallingCode = "+265",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "MWK",
+                            IsServiced = false,
+                            IsoCode = "MW",
+                            NameEn = "Malawi",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("9386ab1c-72ce-f523-fe73-bb73464bc89a"),
+                            CallingCode = "+223",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "XOF",
+                            IsServiced = false,
+                            IsoCode = "ML",
+                            NameEn = "Mali",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("f99b39a2-47c4-5152-d2a0-0113bf10fff8"),
+                            CallingCode = "+222",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "MRU",
+                            IsServiced = false,
+                            IsoCode = "MR",
+                            NameEn = "Mauritania",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("80433e27-5e93-f97e-341c-4ebc9d0a1478"),
+                            CallingCode = "+230",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "MUR",
+                            IsServiced = false,
+                            IsoCode = "MU",
+                            NameEn = "Mauritius",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("31cfe679-366f-1ce8-7c6d-2bbd9b67606f"),
+                            CallingCode = "+212",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "MAD",
+                            IsServiced = false,
+                            IsoCode = "MA",
+                            NameEn = "Morocco",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("b1c8d9e9-b2c6-728d-d8f2-3942a7495d2c"),
+                            CallingCode = "+258",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "MZN",
+                            IsServiced = false,
+                            IsoCode = "MZ",
+                            NameEn = "Mozambique",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("7961a445-0dd5-587f-70eb-5f3731ba156b"),
+                            CallingCode = "+264",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "NAD",
+                            IsServiced = false,
+                            IsoCode = "NA",
+                            NameEn = "Namibia",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("1084bfb1-e8b9-2175-7112-256ce4b13988"),
+                            CallingCode = "+227",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "XOF",
+                            IsServiced = false,
+                            IsoCode = "NE",
+                            NameEn = "Niger",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("5fc498e3-5b45-28af-5eeb-c4ea06eef85b"),
+                            CallingCode = "+234",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "NGN",
+                            IsServiced = false,
+                            IsoCode = "NG",
+                            NameEn = "Nigeria",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("8c371be2-92ee-bb0b-0ba5-923236abbbb3"),
+                            CallingCode = "+250",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "RWF",
+                            IsServiced = false,
+                            IsoCode = "RW",
+                            NameEn = "Rwanda",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("cad24f9a-af4b-3170-33d8-c377ffc502ce"),
+                            CallingCode = "+239",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "STN",
+                            IsServiced = false,
+                            IsoCode = "ST",
+                            NameEn = "Sao Tome and Principe",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("4ca1b6d2-ec31-513b-ff09-aac9cac8e7f2"),
+                            CallingCode = "+221",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "XOF",
+                            IsServiced = false,
+                            IsoCode = "SN",
+                            NameEn = "Senegal",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("cf39e83d-d7ae-e0ed-fe89-3c863af4ece5"),
+                            CallingCode = "+248",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "SCR",
+                            IsServiced = false,
+                            IsoCode = "SC",
+                            NameEn = "Seychelles",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("81146724-b53f-8d47-45c1-06b1d485c654"),
+                            CallingCode = "+232",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "SLE",
+                            IsServiced = false,
+                            IsoCode = "SL",
+                            NameEn = "Sierra Leone",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("2092fe83-69a2-7b91-1034-4700383c6124"),
+                            CallingCode = "+252",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "SOS",
+                            IsServiced = false,
+                            IsoCode = "SO",
+                            NameEn = "Somalia",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("22364cff-fa3e-10ec-b99d-4ecd406f0f68"),
+                            CallingCode = "+27",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "ZAR",
+                            IsServiced = false,
+                            IsoCode = "ZA",
+                            NameEn = "South Africa",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("05b3615c-b33f-0000-99f3-792be9ab4cf1"),
+                            CallingCode = "+211",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "SSP",
+                            IsServiced = false,
+                            IsoCode = "SS",
+                            NameEn = "South Sudan",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("5a42ca0a-47ac-b34d-ffd6-650f721384b9"),
+                            CallingCode = "+249",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "SDG",
+                            IsServiced = false,
+                            IsoCode = "SD",
+                            NameEn = "Sudan",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("d1223fd6-3b40-f303-ca43-dbc0a9d21f0f"),
+                            CallingCode = "+255",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "TZS",
+                            IsServiced = false,
+                            IsoCode = "TZ",
+                            NameEn = "Tanzania",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("cfd2b321-306d-f0b1-9cda-9976c7602c94"),
+                            CallingCode = "+228",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "XOF",
+                            IsServiced = false,
+                            IsoCode = "TG",
+                            NameEn = "Togo",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("eee19161-7d88-9a5e-99b1-2f041fb5f0c7"),
+                            CallingCode = "+216",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "TND",
+                            IsServiced = false,
+                            IsoCode = "TN",
+                            NameEn = "Tunisia",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("47e7a334-76c8-58f4-1e25-4d1c79757ff1"),
+                            CallingCode = "+256",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "UGX",
+                            IsServiced = false,
+                            IsoCode = "UG",
+                            NameEn = "Uganda",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("35430acd-7b90-1523-ed89-66cc9456a196"),
+                            CallingCode = "+260",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "ZMW",
+                            IsServiced = false,
+                            IsoCode = "ZM",
+                            NameEn = "Zambia",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("10ccc8c2-8919-3ced-9052-821f797b4754"),
+                            CallingCode = "+263",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "ZWL",
+                            IsServiced = false,
+                            IsoCode = "ZW",
+                            NameEn = "Zimbabwe",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("1ab92a4b-1a3c-5084-38a1-636be16a2e42"),
+                            CallingCode = "+212",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "MAD",
+                            IsServiced = false,
+                            IsoCode = "EH",
+                            NameEn = "Western Sahara",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("177c8e7e-1250-9c80-dcd6-0c0eb33b1afc"),
+                            CallingCode = "+1",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "XCD",
+                            IsServiced = false,
+                            IsoCode = "AG",
+                            NameEn = "Antigua and Barbuda",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("debb9a0e-1a54-fa13-e35b-5cc0e36a313d"),
+                            CallingCode = "+54",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "ARS",
+                            IsServiced = false,
+                            IsoCode = "AR",
+                            NameEn = "Argentina",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("d9b3f727-4f26-4cb2-9b5d-5677b25e6d8f"),
+                            CallingCode = "+1",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "BSD",
+                            IsServiced = false,
+                            IsoCode = "BS",
+                            NameEn = "Bahamas",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("25573054-e457-9b99-7e7b-2dbc0d04f7b7"),
+                            CallingCode = "+1",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "BBD",
+                            IsServiced = false,
+                            IsoCode = "BB",
+                            NameEn = "Barbados",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("5ec9736a-5ff2-0733-14d4-690c508fc64b"),
+                            CallingCode = "+501",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "BZD",
+                            IsServiced = false,
+                            IsoCode = "BZ",
+                            NameEn = "Belize",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("ef8ba014-0fa8-87e6-f5eb-b9c6c087cfaa"),
+                            CallingCode = "+591",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "BOB",
+                            IsServiced = false,
+                            IsoCode = "BO",
+                            NameEn = "Bolivia",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("ce86419d-816e-a744-3fc7-f8483f5e5049"),
+                            CallingCode = "+55",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "BRL",
+                            IsServiced = false,
+                            IsoCode = "BR",
+                            NameEn = "Brazil",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("34aea2d0-62e4-3150-f323-5ebb126a1023"),
+                            CallingCode = "+1",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "CAD",
+                            IsServiced = false,
+                            IsoCode = "CA",
+                            NameEn = "Canada",
+                            NameNe = "क्यानाडा",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("fcde4753-4281-3113-da64-d55b2ec3ff52"),
+                            CallingCode = "+56",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "CLP",
+                            IsServiced = false,
+                            IsoCode = "CL",
+                            NameEn = "Chile",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("54c36044-884a-fd99-3a07-4129a2652305"),
+                            CallingCode = "+57",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "COP",
+                            IsServiced = false,
+                            IsoCode = "CO",
+                            NameEn = "Colombia",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("0bf3fba3-b9ad-6955-6f89-b6dc29dc150b"),
+                            CallingCode = "+506",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "CRC",
+                            IsServiced = false,
+                            IsoCode = "CR",
+                            NameEn = "Costa Rica",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("b90f911f-170b-b54b-832c-200bcb46ab78"),
+                            CallingCode = "+53",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "CUP",
+                            IsServiced = false,
+                            IsoCode = "CU",
+                            NameEn = "Cuba",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("d23b1c4c-1efb-6d00-7749-d756cba950e7"),
+                            CallingCode = "+1",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "XCD",
+                            IsServiced = false,
+                            IsoCode = "DM",
+                            NameEn = "Dominica",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("772a7d4b-c9cb-e9b7-252f-fcb05623b43f"),
+                            CallingCode = "+1",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "DOP",
+                            IsServiced = false,
+                            IsoCode = "DO",
+                            NameEn = "Dominican Republic",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("b6280603-e531-c79a-4dc1-5161a1292c1e"),
+                            CallingCode = "+593",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "USD",
+                            IsServiced = false,
+                            IsoCode = "EC",
+                            NameEn = "Ecuador",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("ebcca794-34a3-b9aa-ce1b-9f264c0b6e22"),
+                            CallingCode = "+503",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "USD",
+                            IsServiced = false,
+                            IsoCode = "SV",
+                            NameEn = "El Salvador",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("35f508e2-d577-5149-01eb-9dd519c8e0cf"),
+                            CallingCode = "+1",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "XCD",
+                            IsServiced = false,
+                            IsoCode = "GD",
+                            NameEn = "Grenada",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("77eb565f-2d42-2145-2bab-db867eb97eb3"),
+                            CallingCode = "+502",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "GTQ",
+                            IsServiced = false,
+                            IsoCode = "GT",
+                            NameEn = "Guatemala",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("fdcd6063-98fd-31ef-c95d-088225db832a"),
+                            CallingCode = "+592",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "GYD",
+                            IsServiced = false,
+                            IsoCode = "GY",
+                            NameEn = "Guyana",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("c8d5fe1c-625c-b384-3e25-cf96853c4266"),
+                            CallingCode = "+509",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "HTG",
+                            IsServiced = false,
+                            IsoCode = "HT",
+                            NameEn = "Haiti",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("f8f07802-d9f2-baa1-9a90-d72a4a908dd1"),
+                            CallingCode = "+504",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "HNL",
+                            IsServiced = false,
+                            IsoCode = "HN",
+                            NameEn = "Honduras",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("db03a56a-dda1-54fb-2025-c727815fb4a8"),
+                            CallingCode = "+1",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "JMD",
+                            IsServiced = false,
+                            IsoCode = "JM",
+                            NameEn = "Jamaica",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("7e038948-eeb8-1645-c841-982b8c0a7cea"),
+                            CallingCode = "+52",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "MXN",
+                            IsServiced = false,
+                            IsoCode = "MX",
+                            NameEn = "Mexico",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("ea3f33e4-851f-3268-f02e-fe8b0d31d586"),
+                            CallingCode = "+505",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "NIO",
+                            IsServiced = false,
+                            IsoCode = "NI",
+                            NameEn = "Nicaragua",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("8459d864-eb8b-2cf4-fce8-95ee7c8f7582"),
+                            CallingCode = "+507",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "PAB",
+                            IsServiced = false,
+                            IsoCode = "PA",
+                            NameEn = "Panama",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("e3fa2617-b198-f8df-821b-16b33e64e0d0"),
+                            CallingCode = "+595",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "PYG",
+                            IsServiced = false,
+                            IsoCode = "PY",
+                            NameEn = "Paraguay",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("b3f19e19-82c5-a5a2-11a0-191fc856602c"),
+                            CallingCode = "+51",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "PEN",
+                            IsServiced = false,
+                            IsoCode = "PE",
+                            NameEn = "Peru",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("1550f600-8226-dadf-37cd-88d458e9a5c3"),
+                            CallingCode = "+1",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "XCD",
+                            IsServiced = false,
+                            IsoCode = "KN",
+                            NameEn = "Saint Kitts and Nevis",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("7cfb85e6-a629-796c-bb60-bb278f42caaa"),
+                            CallingCode = "+1",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "XCD",
+                            IsServiced = false,
+                            IsoCode = "LC",
+                            NameEn = "Saint Lucia",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("b66d9b61-8449-2fd2-893d-bea37b42df68"),
+                            CallingCode = "+1",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "XCD",
+                            IsServiced = false,
+                            IsoCode = "VC",
+                            NameEn = "Saint Vincent and the Grenadines",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("96a5892a-2edb-d590-382e-39708ec4fb23"),
+                            CallingCode = "+597",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "SRD",
+                            IsServiced = false,
+                            IsoCode = "SR",
+                            NameEn = "Suriname",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("00a1115b-5909-9177-dc44-c4c29c7517e3"),
+                            CallingCode = "+1",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "TTD",
+                            IsServiced = false,
+                            IsoCode = "TT",
+                            NameEn = "Trinidad and Tobago",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("07153d8f-637b-3a09-1a5e-6643fdea8517"),
+                            CallingCode = "+1",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "USD",
+                            IsServiced = false,
+                            IsoCode = "US",
+                            NameEn = "United States",
+                            NameNe = "संयुक्त राज्य अमेरिका",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("26c82efd-7d88-4286-540a-79af83a01d04"),
+                            CallingCode = "+598",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "UYU",
+                            IsServiced = false,
+                            IsoCode = "UY",
+                            NameEn = "Uruguay",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("49468cc6-8b10-3666-3811-39ea7bd7790e"),
+                            CallingCode = "+58",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "VES",
+                            IsServiced = false,
+                            IsoCode = "VE",
+                            NameEn = "Venezuela",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("a236b513-2262-b9ba-18e3-80f7c68434cd"),
+                            CallingCode = "+93",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "AFN",
+                            IsServiced = false,
+                            IsoCode = "AF",
+                            NameEn = "Afghanistan",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("d0100525-a94a-9896-e1dd-6cbdde5d51d5"),
+                            CallingCode = "+374",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "AMD",
+                            IsServiced = false,
+                            IsoCode = "AM",
+                            NameEn = "Armenia",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("f5e37fbd-aa94-a478-67a2-be12e0daddba"),
+                            CallingCode = "+994",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "AZN",
+                            IsServiced = false,
+                            IsoCode = "AZ",
+                            NameEn = "Azerbaijan",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("ec665488-b66b-f8d8-d3df-a62dd1003f49"),
+                            CallingCode = "+973",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "BHD",
+                            IsServiced = false,
+                            IsoCode = "BH",
+                            NameEn = "Bahrain",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("70ddd0e7-ef1d-292a-8cb7-980a2096748d"),
+                            CallingCode = "+880",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "BDT",
+                            IsServiced = false,
+                            IsoCode = "BD",
+                            NameEn = "Bangladesh",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("1ebd5106-9143-de3b-2dee-aadafcb75e85"),
+                            CallingCode = "+975",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "BTN",
+                            IsServiced = false,
+                            IsoCode = "BT",
+                            NameEn = "Bhutan",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("75f17eab-19ee-7c4b-036b-6db49eb4e234"),
+                            CallingCode = "+673",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "BND",
+                            IsServiced = false,
+                            IsoCode = "BN",
+                            NameEn = "Brunei",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("8b6d80eb-d845-72a9-27a2-577c282ecfc7"),
+                            CallingCode = "+855",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "KHR",
+                            IsServiced = false,
+                            IsoCode = "KH",
+                            NameEn = "Cambodia",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("8459bcd8-8797-db94-ea41-6982d392e1cc"),
+                            CallingCode = "+86",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "CNY",
+                            IsServiced = false,
+                            IsoCode = "CN",
+                            NameEn = "China",
+                            NameNe = "चीन",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("ec8229ec-2cc2-7566-ce36-92ad7949b73c"),
+                            CallingCode = "+357",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "EUR",
+                            IsServiced = false,
+                            IsoCode = "CY",
+                            NameEn = "Cyprus",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("837568c1-6b40-1c79-c494-3e763ef33f42"),
+                            CallingCode = "+995",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "GEL",
+                            IsServiced = false,
+                            IsoCode = "GE",
+                            NameEn = "Georgia",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("c38ba693-1754-be55-e8bf-29861b1bf098"),
+                            CallingCode = "+91",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "INR",
+                            IsServiced = false,
+                            IsoCode = "IN",
+                            NameEn = "India",
+                            NameNe = "भारत",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("2eb26225-f1d4-2153-75a9-e6b9bc234a9c"),
+                            CallingCode = "+62",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "IDR",
+                            IsServiced = false,
+                            IsoCode = "ID",
+                            NameEn = "Indonesia",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("2bfa56bb-b9cf-1c51-dc86-1371ed3c2856"),
+                            CallingCode = "+98",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "IRR",
+                            IsServiced = false,
+                            IsoCode = "IR",
+                            NameEn = "Iran",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("28ddf7e5-a0cb-b945-c0c4-6aedd5cabd70"),
+                            CallingCode = "+964",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "IQD",
+                            IsServiced = false,
+                            IsoCode = "IQ",
+                            NameEn = "Iraq",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("335a91d0-2761-1312-398c-bd58d9a8462c"),
+                            CallingCode = "+972",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "ILS",
+                            IsServiced = false,
+                            IsoCode = "IL",
+                            NameEn = "Israel",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("cc681277-4fc1-a5c6-2a39-6292a4e480e3"),
+                            CallingCode = "+81",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "JPY",
+                            IsServiced = false,
+                            IsoCode = "JP",
+                            NameEn = "Japan",
+                            NameNe = "जापान",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("989438ca-b7bb-7761-a1b3-f7eb5387b868"),
+                            CallingCode = "+962",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "JOD",
+                            IsServiced = false,
+                            IsoCode = "JO",
+                            NameEn = "Jordan",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("ed1fc3dc-7514-7ad3-b076-e89c5ff9e9c6"),
+                            CallingCode = "+7",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "KZT",
+                            IsServiced = false,
+                            IsoCode = "KZ",
+                            NameEn = "Kazakhstan",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("708b0325-177d-4cc0-95e3-e4c1bb1199d3"),
+                            CallingCode = "+965",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "KWD",
+                            IsServiced = false,
+                            IsoCode = "KW",
+                            NameEn = "Kuwait",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("5a7a2499-df15-baa7-bc49-87d565b08412"),
+                            CallingCode = "+996",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "KGS",
+                            IsServiced = false,
+                            IsoCode = "KG",
+                            NameEn = "Kyrgyzstan",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("a32f94f2-5cfc-bf18-1808-11f28b768928"),
+                            CallingCode = "+856",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "LAK",
+                            IsServiced = false,
+                            IsoCode = "LA",
+                            NameEn = "Laos",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("2040541f-8ad9-4d5f-f1c5-e3d949c35972"),
+                            CallingCode = "+961",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "LBP",
+                            IsServiced = false,
+                            IsoCode = "LB",
+                            NameEn = "Lebanon",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("008b1f2a-3e92-7460-0e1c-dc2bb7f829e2"),
+                            CallingCode = "+60",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "MYR",
+                            IsServiced = false,
+                            IsoCode = "MY",
+                            NameEn = "Malaysia",
+                            NameNe = "मलेसिया",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("29ee28c7-18f6-af2e-72be-9c92310ee880"),
+                            CallingCode = "+960",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "MVR",
+                            IsServiced = false,
+                            IsoCode = "MV",
+                            NameEn = "Maldives",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("fb9f453e-1704-58af-7ef1-de66ec01fa36"),
+                            CallingCode = "+976",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "MNT",
+                            IsServiced = false,
+                            IsoCode = "MN",
+                            NameEn = "Mongolia",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("dc3fd13d-55e2-8587-63e3-858bd709d9a4"),
+                            CallingCode = "+95",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "MMK",
+                            IsServiced = false,
+                            IsoCode = "MM",
+                            NameEn = "Myanmar",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("36af8049-c377-c3ab-e508-81508aa33761"),
+                            CallingCode = "+850",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "KPW",
+                            IsServiced = false,
+                            IsoCode = "KP",
+                            NameEn = "North Korea",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("ba04e345-fce0-2b72-3c86-6eb13618b998"),
+                            CallingCode = "+968",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "OMR",
+                            IsServiced = false,
+                            IsoCode = "OM",
+                            NameEn = "Oman",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("e7036504-b342-e630-77ed-f3b46b013e2f"),
+                            CallingCode = "+92",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "PKR",
+                            IsServiced = false,
+                            IsoCode = "PK",
+                            NameEn = "Pakistan",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("ef3afae4-d389-d965-570d-741c08a28768"),
+                            CallingCode = "+970",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "ILS",
+                            IsServiced = false,
+                            IsoCode = "PS",
+                            NameEn = "Palestine",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("1de348c6-48a8-0620-dd82-2f8737555018"),
+                            CallingCode = "+63",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "PHP",
+                            IsServiced = false,
+                            IsoCode = "PH",
+                            NameEn = "Philippines",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("2ad89c66-cbe0-642b-cafe-25ccd25c7d8c"),
+                            CallingCode = "+974",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "QAR",
+                            IsServiced = false,
+                            IsoCode = "QA",
+                            NameEn = "Qatar",
+                            NameNe = "कतार",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("a519155f-f646-ae61-570c-d3c5f4cc6d10"),
+                            CallingCode = "+966",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "SAR",
+                            IsServiced = false,
+                            IsoCode = "SA",
+                            NameEn = "Saudi Arabia",
+                            NameNe = "साउदी अरब",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("dc8795ef-7550-75ca-f2d8-adfb5eb3893a"),
+                            CallingCode = "+65",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "SGD",
+                            IsServiced = false,
+                            IsoCode = "SG",
+                            NameEn = "Singapore",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("8cc6d4e4-6fca-5226-c823-442c034fb486"),
+                            CallingCode = "+82",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "KRW",
+                            IsServiced = false,
+                            IsoCode = "KR",
+                            NameEn = "South Korea",
+                            NameNe = "दक्षिण कोरिया",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("3adf9175-aff4-7cbc-c8b8-aea4716fdc96"),
+                            CallingCode = "+94",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "LKR",
+                            IsServiced = false,
+                            IsoCode = "LK",
+                            NameEn = "Sri Lanka",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("288d88be-d1df-2564-0759-ce09c9430b44"),
+                            CallingCode = "+963",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "SYP",
+                            IsServiced = false,
+                            IsoCode = "SY",
+                            NameEn = "Syria",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("39ff784c-1255-1199-39f2-5add520745f3"),
+                            CallingCode = "+886",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "TWD",
+                            IsServiced = false,
+                            IsoCode = "TW",
+                            NameEn = "Taiwan",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("88ed7508-d5e6-b0ed-df30-9861b8c8d0b4"),
+                            CallingCode = "+992",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "TJS",
+                            IsServiced = false,
+                            IsoCode = "TJ",
+                            NameEn = "Tajikistan",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("792f7d9d-6235-ba78-f467-c3cac0c13541"),
+                            CallingCode = "+66",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "THB",
+                            IsServiced = false,
+                            IsoCode = "TH",
+                            NameEn = "Thailand",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("573e5290-f03b-d79c-ba79-c956459c7f20"),
+                            CallingCode = "+670",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "USD",
+                            IsServiced = false,
+                            IsoCode = "TL",
+                            NameEn = "Timor-Leste",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("44be01e2-2f8c-9777-d38a-cf57889a6066"),
+                            CallingCode = "+90",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "TRY",
+                            IsServiced = false,
+                            IsoCode = "TR",
+                            NameEn = "Turkey",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("265ae725-4b89-70af-8d4d-ebb80f9d3350"),
+                            CallingCode = "+993",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "TMT",
+                            IsServiced = false,
+                            IsoCode = "TM",
+                            NameEn = "Turkmenistan",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("e886e144-f7d9-de6e-4616-09d481c74f27"),
+                            CallingCode = "+971",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "AED",
+                            IsServiced = false,
+                            IsoCode = "AE",
+                            NameEn = "United Arab Emirates",
+                            NameNe = "संयुक्त अरब इमिरेट्स",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("d31b6cb5-a0ff-cbfb-7741-0200707cc359"),
+                            CallingCode = "+998",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "UZS",
+                            IsServiced = false,
+                            IsoCode = "UZ",
+                            NameEn = "Uzbekistan",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("fffd2706-16f3-9a04-6dc9-9825ac09acb4"),
+                            CallingCode = "+84",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "VND",
+                            IsServiced = false,
+                            IsoCode = "VN",
+                            NameEn = "Vietnam",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("894d9721-3d43-337e-494a-5e2db6212841"),
+                            CallingCode = "+967",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "YER",
+                            IsServiced = false,
+                            IsoCode = "YE",
+                            NameEn = "Yemen",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("5fba589d-218e-b55a-f618-1e2536e0970c"),
+                            CallingCode = "+355",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "ALL",
+                            IsServiced = false,
+                            IsoCode = "AL",
+                            NameEn = "Albania",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("ec30ac53-9eff-6e3a-cc60-c39de65dba81"),
+                            CallingCode = "+376",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "EUR",
+                            IsServiced = false,
+                            IsoCode = "AD",
+                            NameEn = "Andorra",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("1266c2dc-b29b-414e-30d0-a3795fb1520d"),
+                            CallingCode = "+43",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "EUR",
+                            IsServiced = false,
+                            IsoCode = "AT",
+                            NameEn = "Austria",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("90bc51ba-2e9f-de72-2ef2-4e5b9c627966"),
+                            CallingCode = "+375",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "BYN",
+                            IsServiced = false,
+                            IsoCode = "BY",
+                            NameEn = "Belarus",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("9a8d2d9c-8394-97b8-1570-544505d72d0c"),
+                            CallingCode = "+32",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "EUR",
+                            IsServiced = false,
+                            IsoCode = "BE",
+                            NameEn = "Belgium",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("7455780b-7660-04bb-d257-bc677800d26b"),
+                            CallingCode = "+387",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "BAM",
+                            IsServiced = false,
+                            IsoCode = "BA",
+                            NameEn = "Bosnia and Herzegovina",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("9e96be80-c839-cb6d-8edf-3f560324776f"),
+                            CallingCode = "+359",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "BGN",
+                            IsServiced = false,
+                            IsoCode = "BG",
+                            NameEn = "Bulgaria",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("4bb25808-e970-026b-070a-75d7397c46f6"),
+                            CallingCode = "+385",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "EUR",
+                            IsServiced = false,
+                            IsoCode = "HR",
+                            NameEn = "Croatia",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("6d7aa961-3605-7e03-32e0-16722f7082f5"),
+                            CallingCode = "+420",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "CZK",
+                            IsServiced = false,
+                            IsoCode = "CZ",
+                            NameEn = "Czechia",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("3a385f6f-f1cc-a8cc-f203-6c772b59ef17"),
+                            CallingCode = "+45",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "DKK",
+                            IsServiced = false,
+                            IsoCode = "DK",
+                            NameEn = "Denmark",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("486906ae-aa54-6cce-b961-7e094a8ce7a8"),
+                            CallingCode = "+372",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "EUR",
+                            IsServiced = false,
+                            IsoCode = "EE",
+                            NameEn = "Estonia",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("48dc120c-4e72-afe3-edbb-9e336ee02245"),
+                            CallingCode = "+358",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "EUR",
+                            IsServiced = false,
+                            IsoCode = "FI",
+                            NameEn = "Finland",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("ef8b37fe-9d45-a5ab-ffb1-b6c2c8654d4c"),
+                            CallingCode = "+33",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "EUR",
+                            IsServiced = false,
+                            IsoCode = "FR",
+                            NameEn = "France",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("6ad9292b-41e4-c6dd-d908-ef7f4c4eb8e1"),
+                            CallingCode = "+49",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "EUR",
+                            IsServiced = false,
+                            IsoCode = "DE",
+                            NameEn = "Germany",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("4065723d-1a75-10c6-9880-fbc08a664b7c"),
+                            CallingCode = "+30",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "EUR",
+                            IsServiced = false,
+                            IsoCode = "GR",
+                            NameEn = "Greece",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("5915e0a5-9572-de30-8e02-440fbfd35c71"),
+                            CallingCode = "+36",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "HUF",
+                            IsServiced = false,
+                            IsoCode = "HU",
+                            NameEn = "Hungary",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("e2a83e16-527d-63a0-2adb-9a4ff79d8ecf"),
+                            CallingCode = "+354",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "ISK",
+                            IsServiced = false,
+                            IsoCode = "IS",
+                            NameEn = "Iceland",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("af66e46a-17d8-7d50-49a3-08bc18cf11b1"),
+                            CallingCode = "+353",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "EUR",
+                            IsServiced = false,
+                            IsoCode = "IE",
+                            NameEn = "Ireland",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("c40adfb8-73a5-6a04-be84-ad07d9b29918"),
+                            CallingCode = "+39",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "EUR",
+                            IsServiced = false,
+                            IsoCode = "IT",
+                            NameEn = "Italy",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("adae88a7-1a5d-979b-1e39-c91b92fac263"),
+                            CallingCode = "+383",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "EUR",
+                            IsServiced = false,
+                            IsoCode = "XK",
+                            NameEn = "Kosovo",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("1dab1a8f-d441-3365-0bae-71fdf5e60c2e"),
+                            CallingCode = "+371",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "EUR",
+                            IsServiced = false,
+                            IsoCode = "LV",
+                            NameEn = "Latvia",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("00fe3f3d-7b89-02c4-c162-0cf95ea7006c"),
+                            CallingCode = "+423",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "CHF",
+                            IsServiced = false,
+                            IsoCode = "LI",
+                            NameEn = "Liechtenstein",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("33622bd9-b1e2-1cd6-a643-ac6a0def4ba0"),
+                            CallingCode = "+370",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "EUR",
+                            IsServiced = false,
+                            IsoCode = "LT",
+                            NameEn = "Lithuania",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("2921b567-4d4a-6f51-0e18-4d9ba4d2179b"),
+                            CallingCode = "+352",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "EUR",
+                            IsServiced = false,
+                            IsoCode = "LU",
+                            NameEn = "Luxembourg",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("9df685a5-780f-5eb9-d047-7b4ff7de882f"),
+                            CallingCode = "+356",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "EUR",
+                            IsServiced = false,
+                            IsoCode = "MT",
+                            NameEn = "Malta",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("c52e07e7-a2d2-2279-b2c9-2ea599e58238"),
+                            CallingCode = "+373",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "MDL",
+                            IsServiced = false,
+                            IsoCode = "MD",
+                            NameEn = "Moldova",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("97d331ba-bb56-99ba-1ca4-ac4ab6e1b339"),
+                            CallingCode = "+377",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "EUR",
+                            IsServiced = false,
+                            IsoCode = "MC",
+                            NameEn = "Monaco",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("1fcbd07d-378e-f703-a43b-4ef1fc192cef"),
+                            CallingCode = "+382",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "EUR",
+                            IsServiced = false,
+                            IsoCode = "ME",
+                            NameEn = "Montenegro",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("24a2ea7b-60be-c4e2-73c6-aa5dda7b3649"),
+                            CallingCode = "+31",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "EUR",
+                            IsServiced = false,
+                            IsoCode = "NL",
+                            NameEn = "Netherlands",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("786795df-25db-d57a-9666-4a71dd3959bd"),
+                            CallingCode = "+389",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "MKD",
+                            IsServiced = false,
+                            IsoCode = "MK",
+                            NameEn = "North Macedonia",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("da5dc7f7-052d-f999-e788-4a92cd92a725"),
+                            CallingCode = "+47",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "NOK",
+                            IsServiced = false,
+                            IsoCode = "NO",
+                            NameEn = "Norway",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("9ac044d7-4016-36bd-dd6c-77b6dce65235"),
+                            CallingCode = "+48",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "PLN",
+                            IsServiced = false,
+                            IsoCode = "PL",
+                            NameEn = "Poland",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("b432ce5c-4332-5965-174f-e1fcb05dded3"),
+                            CallingCode = "+351",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "EUR",
+                            IsServiced = false,
+                            IsoCode = "PT",
+                            NameEn = "Portugal",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("1450f3dc-cd90-2f21-6815-e37450ea9e71"),
+                            CallingCode = "+40",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "RON",
+                            IsServiced = false,
+                            IsoCode = "RO",
+                            NameEn = "Romania",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("08146ea1-926e-a6e2-672e-dadc1d125b7d"),
+                            CallingCode = "+7",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "RUB",
+                            IsServiced = false,
+                            IsoCode = "RU",
+                            NameEn = "Russia",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("9366308a-af65-9018-57e6-642527b91bd1"),
+                            CallingCode = "+378",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "EUR",
+                            IsServiced = false,
+                            IsoCode = "SM",
+                            NameEn = "San Marino",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("ee335550-41e9-7778-789f-d28a9c2ee607"),
+                            CallingCode = "+381",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "RSD",
+                            IsServiced = false,
+                            IsoCode = "RS",
+                            NameEn = "Serbia",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("d621253c-5630-76aa-53fe-87955c9eed0e"),
+                            CallingCode = "+421",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "EUR",
+                            IsServiced = false,
+                            IsoCode = "SK",
+                            NameEn = "Slovakia",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("5576ade7-5c59-6de6-41f5-312583bc7843"),
+                            CallingCode = "+386",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "EUR",
+                            IsServiced = false,
+                            IsoCode = "SI",
+                            NameEn = "Slovenia",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("086c7dc5-c1e4-fc16-06b6-183dccf3f239"),
+                            CallingCode = "+34",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "EUR",
+                            IsServiced = false,
+                            IsoCode = "ES",
+                            NameEn = "Spain",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("e99f7b2f-6733-4d3e-5b72-68380245146c"),
+                            CallingCode = "+46",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "SEK",
+                            IsServiced = false,
+                            IsoCode = "SE",
+                            NameEn = "Sweden",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("0dda0eca-6ae9-9c25-5b9e-1ef9d70b2c18"),
+                            CallingCode = "+41",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "CHF",
+                            IsServiced = false,
+                            IsoCode = "CH",
+                            NameEn = "Switzerland",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("1025daa2-de1a-f6bf-accf-8d3a0b88543a"),
+                            CallingCode = "+380",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "UAH",
+                            IsServiced = false,
+                            IsoCode = "UA",
+                            NameEn = "Ukraine",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("72d8fbc0-15d6-8f6e-2a37-2edf7f31d7fc"),
+                            CallingCode = "+44",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "GBP",
+                            IsServiced = false,
+                            IsoCode = "GB",
+                            NameEn = "United Kingdom",
+                            NameNe = "संयुक्त अधिराज्य",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("3e5a6a5d-ac51-c2e0-3763-e85f145824b0"),
+                            CallingCode = "+379",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "EUR",
+                            IsServiced = false,
+                            IsoCode = "VA",
+                            NameEn = "Vatican City",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("f0ec006d-7c07-6e5b-87c4-31c14960559a"),
+                            CallingCode = "+61",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "AUD",
+                            IsServiced = false,
+                            IsoCode = "AU",
+                            NameEn = "Australia",
+                            NameNe = "अस्ट्रेलिया",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("40ac3688-f710-8a66-2582-4f122c3182fe"),
+                            CallingCode = "+679",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "FJD",
+                            IsServiced = false,
+                            IsoCode = "FJ",
+                            NameEn = "Fiji",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("7c1fdd81-122b-75a2-7f4a-168ec145b6f9"),
+                            CallingCode = "+686",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "AUD",
+                            IsServiced = false,
+                            IsoCode = "KI",
+                            NameEn = "Kiribati",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("83845085-9828-bcfe-df51-1a591a50cde5"),
+                            CallingCode = "+692",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "USD",
+                            IsServiced = false,
+                            IsoCode = "MH",
+                            NameEn = "Marshall Islands",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("a26bb51f-9a5d-a50b-ea6d-08c6d355f2e0"),
+                            CallingCode = "+691",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "USD",
+                            IsServiced = false,
+                            IsoCode = "FM",
+                            NameEn = "Micronesia",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("061d7d06-d9e1-b275-836b-f060bc6bf076"),
+                            CallingCode = "+674",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "AUD",
+                            IsServiced = false,
+                            IsoCode = "NR",
+                            NameEn = "Nauru",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("be45484a-b52a-d24e-ea03-8272e4797a7e"),
+                            CallingCode = "+64",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "NZD",
+                            IsServiced = false,
+                            IsoCode = "NZ",
+                            NameEn = "New Zealand",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("09f984a0-0745-59a2-fd69-9624cf8a53c8"),
+                            CallingCode = "+680",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "USD",
+                            IsServiced = false,
+                            IsoCode = "PW",
+                            NameEn = "Palau",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("210c381d-5e35-5b7f-c049-4857c4cee546"),
+                            CallingCode = "+675",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "PGK",
+                            IsServiced = false,
+                            IsoCode = "PG",
+                            NameEn = "Papua New Guinea",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("4a8e6b1e-23c5-c522-4af6-51eebcbd2e33"),
+                            CallingCode = "+685",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "WST",
+                            IsServiced = false,
+                            IsoCode = "WS",
+                            NameEn = "Samoa",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("bd067656-9241-ebad-5a3b-1ca2f3db5691"),
+                            CallingCode = "+677",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "SBD",
+                            IsServiced = false,
+                            IsoCode = "SB",
+                            NameEn = "Solomon Islands",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("8b575092-42cd-b200-90a4-1e9cc6deaf6e"),
+                            CallingCode = "+676",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "TOP",
+                            IsServiced = false,
+                            IsoCode = "TO",
+                            NameEn = "Tonga",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("49857150-0aaf-d920-d07d-9416ba8d8d44"),
+                            CallingCode = "+688",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "AUD",
+                            IsServiced = false,
+                            IsoCode = "TV",
+                            NameEn = "Tuvalu",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("0c06bf4a-cf1d-2f39-c76b-a0bd745c78bd"),
+                            CallingCode = "+678",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "VUV",
+                            IsServiced = false,
+                            IsoCode = "VU",
+                            NameEn = "Vanuatu",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("306b922c-e5c1-c907-3af3-9ee11dbb228f"),
+                            CallingCode = "+852",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "HKD",
+                            IsServiced = false,
+                            IsoCode = "HK",
+                            NameEn = "Hong Kong",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("9f839547-b6cd-78a1-61ab-e1fdc841bf90"),
+                            CallingCode = "+853",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "MOP",
+                            IsServiced = false,
+                            IsoCode = "MO",
+                            NameEn = "Macao",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("a722f1b3-6143-1371-e501-eb345f15ab0d"),
+                            CallingCode = "+1",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "USD",
+                            IsServiced = false,
+                            IsoCode = "PR",
+                            NameEn = "Puerto Rico",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("f0c72365-724e-59c0-2f00-463b7df44059"),
+                            CallingCode = "+299",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "DKK",
+                            IsServiced = false,
+                            IsoCode = "GL",
+                            NameEn = "Greenland",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("746fee9f-830d-d7c4-304a-4120709ab3b7"),
+                            CallingCode = "+1",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "BMD",
+                            IsServiced = false,
+                            IsoCode = "BM",
+                            NameEn = "Bermuda",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("76ee1b8a-4a08-2694-6d3f-37ff427bc8d2"),
+                            CallingCode = "+1",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "KYD",
+                            IsServiced = false,
+                            IsoCode = "KY",
+                            NameEn = "Cayman Islands",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("7e92a99e-ead4-514c-8760-9675713e7378"),
+                            CallingCode = "+350",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "GIP",
+                            IsServiced = false,
+                            IsoCode = "GI",
+                            NameEn = "Gibraltar",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("6ffa5d09-6318-9a4b-244d-1402b3ba3511"),
+                            CallingCode = "+44",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "GBP",
+                            IsServiced = false,
+                            IsoCode = "IM",
+                            NameEn = "Isle of Man",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("0c270779-e30e-3526-fbd4-d8872ca65a2b"),
+                            CallingCode = "+44",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "GBP",
+                            IsServiced = false,
+                            IsoCode = "JE",
+                            NameEn = "Jersey",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("f963e464-e7f0-c774-47de-b4aaf5575d18"),
+                            CallingCode = "+44",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "GBP",
+                            IsServiced = false,
+                            IsoCode = "GG",
+                            NameEn = "Guernsey",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("7eff86cb-a9b7-70d1-fb42-e51b7840ff08"),
+                            CallingCode = "+298",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "DKK",
+                            IsServiced = false,
+                            IsoCode = "FO",
+                            NameEn = "Faroe Islands",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("7835c9fc-0ed6-d264-5932-269da2f21c9e"),
+                            CallingCode = "+1",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "USD",
+                            IsServiced = false,
+                            IsoCode = "GU",
+                            NameEn = "Guam",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("b3b1fce0-8efc-57ab-d279-56d8f677d3e9"),
+                            CallingCode = "+1",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "USD",
+                            IsServiced = false,
+                            IsoCode = "AS",
+                            NameEn = "American Samoa",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("526b6faf-385f-b922-5e8e-ae746db18470"),
+                            CallingCode = "+1",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "USD",
+                            IsServiced = false,
+                            IsoCode = "VI",
+                            NameEn = "United States Virgin Islands",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("4fc88b92-5e32-37a2-dbee-76d0a4f2798f"),
+                            CallingCode = "+1",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "USD",
+                            IsServiced = false,
+                            IsoCode = "VG",
+                            NameEn = "British Virgin Islands",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("f0971a39-6d2d-1693-08fe-65ffdf58f917"),
+                            CallingCode = "+297",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "AWG",
+                            IsServiced = false,
+                            IsoCode = "AW",
+                            NameEn = "Aruba",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("eb872b56-b2b3-ade4-e106-0997fd16783d"),
+                            CallingCode = "+599",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "ANG",
+                            IsServiced = false,
+                            IsoCode = "CW",
+                            NameEn = "Curaçao",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("68bd68fd-3681-0203-f916-befaad194c30"),
+                            CallingCode = "+687",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "XPF",
+                            IsServiced = false,
+                            IsoCode = "NC",
+                            NameEn = "New Caledonia",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = new Guid("33ee3284-f7af-eb1f-f52e-bb2fc25ba10b"),
+                            CallingCode = "+689",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DefaultCurrency = "XPF",
+                            IsServiced = false,
+                            IsoCode = "PF",
+                            NameEn = "French Polynesia",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 22, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        });
+                });
+
+            modelBuilder.Entity("Courier.Geography.Domain.CountryZone", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("CountryZones", (string)null);
+                });
+
             modelBuilder.Entity("Courier.Geography.Domain.DeliveryZone", b =>
                 {
                     b.Property<Guid>("Id")
@@ -4286,6 +6768,14 @@ namespace Persistence.Migrations
                         .HasForeignKey("WardId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Courier.Geography.Domain.Country", b =>
+                {
+                    b.HasOne("Courier.Geography.Domain.CountryZone", null)
+                        .WithMany()
+                        .HasForeignKey("CountryZoneId")
+                        .OnDelete(DeleteBehavior.SetNull);
                 });
 
             modelBuilder.Entity("Courier.Geography.Domain.DeliveryZone", b =>

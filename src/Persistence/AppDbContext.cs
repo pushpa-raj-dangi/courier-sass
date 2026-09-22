@@ -62,6 +62,8 @@ public class AppDbContext : DbContext, IDataProtectionKeyContext
     public DbSet<Ward> Wards => Set<Ward>();
     public DbSet<Area> Areas => Set<Area>();
     public DbSet<DeliveryZone> DeliveryZones => Set<DeliveryZone>();
+    public DbSet<Country> Countries => Set<Country>();
+    public DbSet<CountryZone> CountryZones => Set<CountryZone>();
     public DbSet<Merchant> Merchants => Set<Merchant>();
     public DbSet<MerchantUser> MerchantUsers => Set<MerchantUser>();
     public DbSet<MerchantAddress> MerchantAddresses => Set<MerchantAddress>();
@@ -140,6 +142,8 @@ public class AppDbContext : DbContext, IDataProtectionKeyContext
         modelBuilder.ApplyConfiguration(new WardConfiguration());
         modelBuilder.ApplyConfiguration(new AreaConfiguration());
         modelBuilder.ApplyConfiguration(new DeliveryZoneConfiguration());
+        modelBuilder.ApplyConfiguration(new CountryZoneConfiguration());
+        modelBuilder.ApplyConfiguration(new CountryConfiguration());
         modelBuilder.ApplyConfiguration(new MerchantConfiguration());
         modelBuilder.ApplyConfiguration(new MerchantUserConfiguration());
         modelBuilder.ApplyConfiguration(new MerchantAddressConfiguration());
