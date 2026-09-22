@@ -56,6 +56,8 @@ public class NotificationDispatchService
             recipientEmail = await _merchantContactLookupService.GetContactEmailAsync(organizationId, merchantId, cancellationToken);
         }
 
+        var locale = NotificationLocales.Normalize(await _organizationLocaleLookup.GetDefaultLocaleAsync(organizationId, cancellationToken));
+
         // IgnoreQueryFilters() is required here, not optional: this method's real caller
         // (NotificationsConsumer) runs with no ICurrentTenantProvider context at all (a
         // background service, not an HTTP request), so the tenant query filter's
@@ -65,7 +67,6 @@ public class NotificationDispatchService
         // organizationId filter below is what actually scopes this read; bypassing the ambient
         // filter doesn't weaken that, it only fixes the no-tenant-context caller (same bug shape
         // and fix as Webhooks.Infrastructure.WebhookDeliveryAttemptService.AttemptAsync).
-        var locale = NotificationLocales.Normalize(await _organizationLocaleLookup.GetDefaultLocaleAsync(organizationId, cancellationToken));
         var overrides = await _dbContext.Set<NotificationTemplate>().IgnoreQueryFilters()
             .Where(t => t.OrganizationId == organizationId && t.EventType == eventType && t.Channel == NotificationChannel.Email && t.IsActive)
             .Select(t => new { t.Locale, t.Body })

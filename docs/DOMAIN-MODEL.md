@@ -344,11 +344,11 @@ OutboxMessage { Id, OrganizationId, EventType, Payload, CreatedAt, PublishedAt
 
 ```text
 NotificationTemplate { Id, OrganizationId, EventType, Channel (SMS|Email|WhatsApp|
-                         Push), Body, IsActive }
+                         Push), Locale, Body, IsActive }
                          # No rows are seeded anywhere — NotificationDispatchService falls back
                          # to a compiled-in default body when no active override row exists for
-                         # an (OrganizationId, EventType, Channel) combination, which is every
-                         # combination as of this phase. [C#12]
+                         # an (OrganizationId, EventType, Channel, Locale) combination, which is
+                         # every combination as of this phase. [C#12]
 
 NotificationLog { Id, OrganizationId, EventType, Channel, RecipientAddress (nullable), Status
                     (Sent|Logged|Failed|NoRecipient), SentAt, ProviderResponse }
@@ -420,4 +420,6 @@ not left implicit in code.
 - `Money` / `CurrencyCode` (SharedKernel): immutable amount + currency, same-currency arithmetic only.
 - `FxRate` (Pricing): platform-level, append-only conversion rate; not tenant-owned.
 - `OrganizationSettings.DefaultLocale` / `CalendarPreference`: per-tenant UI locale and calendar.
+- `NotificationTemplate.Locale` (I1b): per-locale org override, resolved with a four-step fallback
+  — org locale override -> compiled locale default -> org en override -> compiled en default.
 - Existing persisted amounts are NPR by invariant. See `docs/INTERNATIONAL.md`.
