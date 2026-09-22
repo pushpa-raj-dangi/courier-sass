@@ -472,4 +472,5 @@ foundation: en/ne catalogs, cookie-based locale, Bikram Sambat formatters, trans
 shell and login) is implemented, with Nepali strings still needing native review. I1b
 (notification-template locale: `NotificationTemplate.Locale`, Nepali default bodies, a
 tenant-default-locale fallback resolver, and the API/admin-panel surface) is implemented, with
-its Nepali default bodies also needing native review; I2–I8 are planned.
+its Nepali default bodies also needing native review. I2 (Country/CountryZone reference data,
+serviced-country toggle, `InternationalAddress` value object) is implemented; I3–I8 are planned.

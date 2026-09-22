@@ -422,4 +422,7 @@ not left implicit in code.
 - `OrganizationSettings.DefaultLocale` / `CalendarPreference`: per-tenant UI locale and calendar.
 - `NotificationTemplate.Locale` (I1b): per-locale org override, resolved with a four-step fallback
   — org locale override -> compiled locale default -> org en override -> compiled en default.
+- `Country` (Geography, platform-level, I2): ISO-3166 alpha-2 reference data, `IsServiced` toggle,
+  optional `CountryZone`. `InternationalAddress` (Geography, I2): format-validated foreign address
+  value object, no consumer yet.
 - Existing persisted amounts are NPR by invariant. See `docs/INTERNATIONAL.md`.

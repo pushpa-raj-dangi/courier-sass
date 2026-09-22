@@ -10,7 +10,7 @@ Plans: `docs/superpowers/plans/`.
 | I0 | Money, FX rates, tenant locale | Implemented — verified against Postgres on 2026-09-21 (full Api suite 294/294; 8 distinct tests are flaky only under full-suite parallel load, all passing in isolation) |
 | I1a | i18n foundation (frontend) | Implemented — Nepali strings are machine-drafted and need native review; the cookie → server-render → refresh loop has only been covered by unit tests, not a real browser session |
 | I1b | Notification-template locale | Implemented — Nepali default bodies are machine-drafted and need native review |
-| I2–I8 | See the design spec §8 | Planned |
+| I2 | Countries, country zones, international address | Implemented — seeds Nepal + UN member states + a handful of dependent territories (not the complete ISO-3166-1 list); every country starts unserviced; Nepali names filled in for a 12-country starter set |
 
 ## Money and currency (I0)
 
@@ -86,3 +86,31 @@ Plans: `docs/superpowers/plans/`.
 - `NotificationLog` does not record which locale a dispatched notification was rendered in.
 - The admin panel itself (labels, chrome) is not translated; only the template bodies it edits are
   locale-aware.
+
+## Countries and country zones (I2)
+
+- **Data.** `Country` (`Geography` module, platform-level, no `OrganizationId`) is seeded with
+  Nepal, every UN member state, Vatican City, Palestine, Kosovo, Taiwan, and a set of dependent
+  territories relevant to international shipping (Hong Kong, Macao, Puerto Rico, and others — see
+  `CountrySeedData`). Every row starts `IsServiced = false`; a SuperAdmin turns destinations on
+  individually at `/platform/countries`. There is no create/delete API — the row set is fixed to
+  the seed; more territories are added later via an additive migration if needed.
+- **Names.** `NameEn` is authoritative for every row. `NameNe` is filled in only for a 12-country
+  starter set (India, China, USA, UK, UAE, Qatar, Australia, Canada, Malaysia, South Korea, Saudi
+  Arabia, Japan); every other row falls back to `NameEn` in the UI.
+- **Country zones.** `CountryZone` ships empty; a SuperAdmin creates zones and assigns countries to
+  them at `/platform/countries`. No pricing or reporting consumes zones yet (I5).
+- **API.** `GET /api/v1/geography/countries` (serviced-only, dual-auth: staff `geography.read` or
+  merchant `merchant.geography.read`) is the read any address form will use from I3 onward.
+  `GET`/`PATCH /api/v1/platform/countries` and `GET`/`POST`/`PATCH /api/v1/platform/country-zones`
+  are SuperAdmin-only — no new permission constants were needed.
+- **`InternationalAddress`.** A format-validated value object (`Geography.Domain`) with no
+  consumer yet; I3 will embed it in the shipment recipient/sender when `Scope = International`.
+
+### Known limitations
+
+- The seed is not the complete ISO-3166-1 alpha-2 list — uninhabited/unshippable territories
+  (Antarctica, Bouvet Island, etc.) are excluded, and some inhabited dependent territories may be
+  missing. There is no way to add a missing country without a migration.
+- `InternationalAddress.CountryCode` is format-validated only; nothing yet checks it against a
+  real `Country` row or `IsServiced`.
