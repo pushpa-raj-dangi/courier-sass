@@ -7,7 +7,7 @@ Plans: `docs/superpowers/plans/`.
 
 | Step | Scope | State |
 |---|---|---|
-| I0 | Money, FX rates, tenant locale | Implemented — verified against Postgres on 2026-09-21 (full Api suite 290/290; four tests are flaky only under full-suite parallel load) |
+| I0 | Money, FX rates, tenant locale | Implemented — verified against Postgres on 2026-09-21 (full Api suite 294/294; 8 distinct tests are flaky only under full-suite parallel load, all passing in isolation) |
 | I1a | i18n foundation (frontend) | Implemented — Nepali strings are machine-drafted and need native review; the cookie → server-render → refresh loop has only been covered by unit tests, not a real browser session |
 | I1b | Notification-template locale | Implemented — Nepali default bodies are machine-drafted and need native review |
 | I2–I8 | See the design spec §8 | Planned |
@@ -66,9 +66,11 @@ Plans: `docs/superpowers/plans/`.
   gets English when a Nepali default exists.
 - **Storage.** `NotificationTemplate.Locale` (`en`/`ne`, default `en`) was added by migration
   `20260921143005_AddNotificationTemplateLocale` as an additive, backfilled column (existing rows
-  set to `en`); the uniqueness of an override is now `(OrganizationId, EventType, Channel, Locale)`.
-  Nepali compiled-in defaults exist for all five known event types alongside the existing English
-  ones (`NotificationDefaultTemplates`).
+  set to `en`); `(OrganizationId, EventType, Channel, Locale)` is the logical lookup key the upsert
+  path uses to find-or-update an override — it is a plain (non-unique) index, not a database
+  uniqueness constraint, so `NotificationDispatchService` still resolves defensively by taking the
+  first active row per locale. Nepali compiled-in defaults exist for all five known event types
+  alongside the existing English ones (`NotificationDefaultTemplates`).
 - **API.** `PUT /api/v1/settings/notification-templates` takes an optional `locale` field (defaults
   to `en` when omitted); an unsupported value returns 400 (`NOTIFICATION_TEMPLATE_VALIDATION_FAILED`).
   `GET /api/v1/settings/notification-templates` returns each override's `locale`. Both require
