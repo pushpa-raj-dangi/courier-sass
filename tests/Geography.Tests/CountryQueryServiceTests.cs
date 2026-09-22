@@ -80,7 +80,7 @@ public class CountryQueryServiceTests
         await dbContext.SaveChangesAsync();
         var service = new CountryQueryService(dbContext);
 
-        var result = await service.ListForAdminAsync(search: "IN", page: 1, pageSize: 10);
+        var result = await service.ListForAdminAsync(search: "india", page: 1, pageSize: 10);
 
         Assert.Equal("SAARC", Assert.Single(result.Items).CountryZoneName);
     }

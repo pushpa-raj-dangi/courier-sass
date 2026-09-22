@@ -28,15 +28,8 @@ public class CountryQueryService
         var query = _dbContext.Set<Country>().AsQueryable();
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var term = search.Trim().ToLower();
-            // A 2-letter term is treated as an exact (case-insensitive) ISO-3166-1 alpha-2 lookup
-            // rather than a name substring search: since most country names contain common
-            // 2-letter substrings (e.g. "in" appears in Argentina, Bahrain, Benin, China, Finland,
-            // India, Indonesia...), a Contains() match on NameEn for a 2-char term would return
-            // dozens of unrelated rows instead of the single country the user is looking up by code.
-            query = term.Length == 2
-                ? query.Where(c => c.IsoCode.ToLower() == term)
-                : query.Where(c => c.NameEn.ToLower().Contains(term) || (c.NameNe != null && c.NameNe.ToLower().Contains(term)));
+            var term = search.ToLower();
+            query = query.Where(c => c.IsoCode.ToLower().Contains(term) || c.NameEn.ToLower().Contains(term) || (c.NameNe != null && c.NameNe.ToLower().Contains(term)));
         }
 
         var total = await query.CountAsync(cancellationToken);
