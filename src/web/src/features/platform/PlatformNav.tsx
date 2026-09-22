@@ -10,6 +10,7 @@ const links = [
   { href: "/platform/dashboard", label: "Dashboard" },
   { href: "/platform/organizations", label: "Organizations" },
   { href: "/platform/plans", label: "Plans" },
+  { href: "/platform/countries", label: "Countries" },
   { href: "/platform/invoices", label: "Invoices" },
   { href: "/platform/audit-logs", label: "Audit Logs" },
   { href: "/platform/jobs", label: "Jobs" },

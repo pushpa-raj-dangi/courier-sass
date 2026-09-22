@@ -7,7 +7,7 @@ import type { CountryZone } from "@/features/platform-countries/types";
 export function useCreateCountryZone() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: { name: string; description?: string }) =>
+    mutationFn: (input: { name: string; description?: string | null }) =>
       clientFetch<CountryZone>("/api/platform/country-zones", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
