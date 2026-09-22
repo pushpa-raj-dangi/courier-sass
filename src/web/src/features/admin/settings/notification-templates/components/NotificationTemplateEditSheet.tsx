@@ -31,7 +31,7 @@ export function NotificationTemplateEditSheet() {
 
   useEffect(() => {
     if (panel.mode === "edit") {
-      const existing = templates?.find((t) => t.eventType === panel.eventType && t.channel === panel.channel);
+      const existing = templates?.find((t) => t.eventType === panel.eventType && t.channel === panel.channel && t.locale === panel.locale);
       reset({ body: existing?.body ?? "", isActive: existing?.isActive ?? true });
     }
   }, [panel, templates, reset]);
@@ -40,7 +40,7 @@ export function NotificationTemplateEditSheet() {
     if (panel.mode !== "edit") return;
     setServerError(null);
     try {
-      await upsert.mutateAsync({ eventType: panel.eventType, channel: panel.channel, body: values.body, isActive: values.isActive });
+      await upsert.mutateAsync({ eventType: panel.eventType, channel: panel.channel, locale: panel.locale, body: values.body, isActive: values.isActive });
       close();
     } catch (error) {
       setServerError(adminErrorMessage(error));
@@ -51,7 +51,7 @@ export function NotificationTemplateEditSheet() {
     <Sheet open={isOpen} onOpenChange={(open) => { if (!open) close(); }}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
         <SheetHeader>
-          <SheetTitle>{panel.mode === "edit" ? `${panel.eventType} — ${panel.channel}` : "Edit Template"}</SheetTitle>
+          <SheetTitle>{panel.mode === "edit" ? `${panel.eventType} — ${panel.channel} — ${panel.locale === "ne" ? "नेपाली" : "English"}` : "Edit Template"}</SheetTitle>
         </SheetHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4" noValidate>
           <div className="space-y-2">

@@ -5,7 +5,7 @@ import { DataTable, type ColumnDef, type PagedResult } from "@/components/data-t
 import { useNotificationTemplates } from "@/features/admin/settings/notification-templates/hooks/useNotificationTemplates";
 import { useNotificationTemplatePanelStore } from "@/features/admin/settings/notification-templates/store/notificationTemplatePanelStore";
 import { NotificationTemplateEditSheet } from "@/features/admin/settings/notification-templates/components/NotificationTemplateEditSheet";
-import type { NotificationChannel, NotificationTemplate } from "@/features/admin/settings/notification-templates/types";
+import type { NotificationChannel, NotificationLocale, NotificationTemplate } from "@/features/admin/settings/notification-templates/types";
 
 const EVENT_TYPES = ["shipment.created", "shipment.delivered", "shipment.ndr_created", "cod.collected", "user.invited"];
 // Restricted to Email: NotificationDispatchService only ever dispatches the Email channel today
@@ -14,9 +14,12 @@ const EVENT_TYPES = ["shipment.created", "shipment.delivered", "shipment.ndr_cre
 // channel back to this list only once NotificationDispatchService actually dispatches it.
 const CHANNELS: NotificationChannel[] = ["Email"];
 
+const LOCALES: { code: NotificationLocale; label: string }[] = [{ code: "en", label: "English" }, { code: "ne", label: "नेपाली" }];
+
 interface Row {
   eventType: string;
   channel: NotificationChannel;
+  locale: NotificationLocale;
   override: NotificationTemplate | null;
 }
 
@@ -25,15 +28,19 @@ export function NotificationTemplatesPanel() {
   const openEdit = useNotificationTemplatePanelStore((s) => s.openEdit);
 
   const rows: Row[] = EVENT_TYPES.flatMap((eventType) =>
-    CHANNELS.map((channel) => ({
-      eventType,
-      channel,
-      override: data?.find((t) => t.eventType === eventType && t.channel === channel) ?? null,
-    }))
+    CHANNELS.flatMap((channel) =>
+      LOCALES.map(({ code }) => ({
+        eventType,
+        channel,
+        locale: code,
+        override: data?.find((t) => t.eventType === eventType && t.channel === channel && t.locale === code) ?? null,
+      }))
+    )
   );
 
   const columns: ColumnDef<Row>[] = [
     { key: "eventType", header: "Event", render: (r) => r.eventType },
+    { key: "locale", header: "Language", render: (r) => LOCALES.find((l) => l.code === r.locale)!.label },
     {
       key: "status",
       header: "Status",
@@ -49,7 +56,7 @@ export function NotificationTemplatesPanel() {
       key: "actions",
       header: "",
       render: (r) => (
-        <button type="button" className="text-sm font-medium text-foreground hover:underline" onClick={() => openEdit(r.eventType, r.channel)}>
+        <button type="button" className="text-sm font-medium text-foreground hover:underline" onClick={() => openEdit(r.eventType, r.channel, r.locale)}>
           Edit
         </button>
       ),
@@ -66,7 +73,7 @@ export function NotificationTemplatesPanel() {
         isLoading={isLoading}
         emptyTitle="No notification event types configured"
         onPageChange={() => {}}
-        rowKey={(r) => `${r.eventType}-${r.channel}`}
+        rowKey={(r) => `${r.eventType}-${r.channel}-${r.locale}`}
       />
       <NotificationTemplateEditSheet />
     </div>

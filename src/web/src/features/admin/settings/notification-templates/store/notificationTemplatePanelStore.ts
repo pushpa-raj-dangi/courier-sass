@@ -1,11 +1,11 @@
 import { create } from "zustand";
-import type { NotificationChannel } from "@/features/admin/settings/notification-templates/types";
+import type { NotificationChannel, NotificationLocale } from "@/features/admin/settings/notification-templates/types";
 
-type Panel = { mode: "closed" } | { mode: "edit"; eventType: string; channel: NotificationChannel };
+type Panel = { mode: "closed" } | { mode: "edit"; eventType: string; channel: NotificationChannel; locale: NotificationLocale };
 
 interface NotificationTemplatePanelStore {
   panel: Panel;
-  openEdit: (eventType: string, channel: NotificationChannel) => void;
+  openEdit: (eventType: string, channel: NotificationChannel, locale: NotificationLocale) => void;
   close: () => void;
 }
 
@@ -13,6 +13,6 @@ interface NotificationTemplatePanelStore {
 // in the DataTable, list and detail live in separate components.
 export const useNotificationTemplatePanelStore = create<NotificationTemplatePanelStore>((set) => ({
   panel: { mode: "closed" },
-  openEdit: (eventType, channel) => set({ panel: { mode: "edit", eventType, channel } }),
+  openEdit: (eventType, channel, locale) => set({ panel: { mode: "edit", eventType, channel, locale } }),
   close: () => set({ panel: { mode: "closed" } }),
 }));
