@@ -232,6 +232,40 @@ public class NotificationsAndWebhooksEndToEndTests : IClassFixture<WebApplicatio
     }
 
     [Fact]
+    public async Task ShipmentCreated_ForNepaliTenant_SendsNepaliEmail()
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "email-ne");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var profileResponse = await client.PatchAsJsonAsync("/api/v1/settings/organization/profile", new { timeZoneId = "Asia/Kathmandu", defaultLocale = "ne" });
+        profileResponse.EnsureSuccessStatusCode();
+        var (originBranchId, destinationBranchId, serviceTypeId) = await SeedBranchesAsync(client);
+        var (merchantId, contactEmail, _, _) = await CreateMerchantAsync(client);
+
+        var createResponse = await client.PostAsJsonAsync("/api/v1/shipments", PlainShipmentRequest(merchantId, originBranchId, destinationBranchId, serviceTypeId));
+        createResponse.EnsureSuccessStatusCode();
+        var shipment = await createResponse.Content.ReadFromJsonAsync<ShipmentResponse>();
+
+        using var mailhogClient = new HttpClient();
+        var message = await PollMailhogForRecipientAsync(mailhogClient, contactEmail, TimeSpan.FromSeconds(30));
+
+        Assert.NotNull(message);
+        var bodyResponse = await mailhogClient.GetAsync($"http://localhost:8025/api/v1/messages/{message!.Value.GetProperty("ID").GetString()}");
+        var messageJson = await bodyResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var content = messageJson.GetProperty("Content");
+        var rawBody = content.GetProperty("Body").GetString()!;
+        // UTF-8 Nepali text is sent base64 transfer-encoded (the English default is not), so decode first.
+        if (content.GetProperty("Headers").TryGetProperty("Content-Transfer-Encoding", out var cte)
+            && cte.EnumerateArray().Any(v => string.Equals(v.GetString(), "base64", StringComparison.OrdinalIgnoreCase)))
+        {
+            rawBody = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(rawBody.Replace("\r", "").Replace("\n", "")));
+        }
+        Assert.Contains(shipment!.Awb, rawBody);
+        Assert.DoesNotContain("has been created and is being processed", rawBody);
+        Assert.Contains(rawBody, c => c >= 'ऀ' && c <= 'ॿ'); // Devanagari
+    }
+
+    [Fact]
     public async Task WebhookSubscription_ReceivesSignedEvent_ForcedFailureRetriesThenAppearsFailed_ThenReplaySucceeds()
     {
         var client = _factory.CreateClient();

@@ -138,6 +138,63 @@ public class NotificationTemplatesEndpointsTests : IClassFixture<WebApplicationF
         Assert.Contains(templates!, t => t.Body == "Second body");
     }
 
+    [Fact]
+    public async Task Put_WithNepaliLocale_ReturnsLocaleAndListShowsBothLocales()
+    {
+        var client = _factory.CreateClient();
+        var auth = await RegisterOrgAsync(client);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth.AccessToken);
+
+        var enResponse = await client.PutAsJsonAsync("/api/v1/settings/notification-templates", new { eventType = "shipment.created", channel = "Email", body = "EN {Awb}", isActive = true });
+        Assert.Equal(HttpStatusCode.OK, enResponse.StatusCode);
+        var enBody = await enResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("en", enBody.GetProperty("locale").GetString());
+
+        var neResponse = await client.PutAsJsonAsync("/api/v1/settings/notification-templates", new { eventType = "shipment.created", channel = "Email", body = "NE {Awb}", isActive = true, locale = "ne" });
+        Assert.Equal(HttpStatusCode.OK, neResponse.StatusCode);
+        var neBody = await neResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("ne", neBody.GetProperty("locale").GetString());
+
+        var listResponse = await client.GetAsync("/api/v1/settings/notification-templates");
+        var templates = await listResponse.Content.ReadFromJsonAsync<List<NotificationTemplateDto>>();
+        var rows = templates!.Where(t => t.EventType == "shipment.created" && t.Channel == NotificationChannel.Email).ToList();
+        Assert.Equal(2, rows.Count);
+        Assert.Contains(rows, t => t.Locale == "en" && t.Body == "EN {Awb}");
+        Assert.Contains(rows, t => t.Locale == "ne" && t.Body == "NE {Awb}");
+    }
+
+    [Fact]
+    public async Task Put_WithUnsupportedLocale_Returns400()
+    {
+        var client = _factory.CreateClient();
+        var auth = await RegisterOrgAsync(client);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth.AccessToken);
+
+        var response = await client.PutAsJsonAsync("/api/v1/settings/notification-templates", new { eventType = "shipment.created", channel = "Email", body = "FR {Awb}", isActive = true, locale = "fr" });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("NOTIFICATION_TEMPLATE_VALIDATION_FAILED", body.GetProperty("error").GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task Get_DoesNotReturnAnotherOrganizationsLocaleTemplates()
+    {
+        var clientA = _factory.CreateClient();
+        var orgA = await RegisterOrgAsync(clientA);
+        clientA.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", orgA.AccessToken);
+        var putResponse = await clientA.PutAsJsonAsync("/api/v1/settings/notification-templates", new { eventType = "shipment.created", channel = "Email", body = "NE only A {Awb}", isActive = true, locale = "ne" });
+        Assert.Equal(HttpStatusCode.OK, putResponse.StatusCode);
+
+        var clientB = _factory.CreateClient();
+        var orgB = await RegisterOrgAsync(clientB);
+        clientB.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", orgB.AccessToken);
+
+        var templates = await (await clientB.GetAsync("/api/v1/settings/notification-templates")).Content.ReadFromJsonAsync<List<NotificationTemplateDto>>();
+
+        Assert.Empty(templates!);
+    }
+
     // --- Finding 4: permission-403 and tenant-isolation coverage ---
 
     [Fact]
