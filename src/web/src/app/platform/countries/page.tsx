@@ -31,7 +31,16 @@ export default function PlatformCountriesPage() {
 
   const columns: ColumnDef<Country>[] = [
     { key: "isoCode", header: "Code", render: (c) => c.isoCode },
-    { key: "name", header: "Name", render: (c) => c.nameNe ?? c.nameEn },
+    {
+      key: "name",
+      header: "Name",
+      render: (c) => (
+        <div>
+          <div>{c.nameEn}</div>
+          {c.nameNe && <div className="text-xs text-muted-foreground">{c.nameNe}</div>}
+        </div>
+      ),
+    },
     { key: "currency", header: "Currency", render: (c) => c.defaultCurrency },
     {
       key: "zone",

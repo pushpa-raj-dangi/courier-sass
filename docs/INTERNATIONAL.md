@@ -11,6 +11,7 @@ Plans: `docs/superpowers/plans/`.
 | I1a | i18n foundation (frontend) | Implemented — Nepali strings are machine-drafted and need native review; the cookie → server-render → refresh loop has only been covered by unit tests, not a real browser session |
 | I1b | Notification-template locale | Implemented — Nepali default bodies are machine-drafted and need native review |
 | I2 | Countries, country zones, international address | Implemented — seeds Nepal + UN member states + a handful of dependent territories (not the complete ISO-3166-1 list); every country starts unserviced; Nepali names filled in for a 12-country starter set |
+| I3–I8 | See the design spec §8 | Planned |
 
 ## Money and currency (I0)
 
@@ -103,9 +104,18 @@ Plans: `docs/superpowers/plans/`.
 - **API.** `GET /api/v1/geography/countries` (serviced-only, dual-auth: staff `geography.read` or
   merchant `merchant.geography.read`) is the read any address form will use from I3 onward.
   `GET`/`PATCH /api/v1/platform/countries` and `GET`/`POST`/`PATCH /api/v1/platform/country-zones`
-  are SuperAdmin-only — no new permission constants were needed.
+  are SuperAdmin-only — no new permission constants were needed. Both `PATCH` routes are
+  full-replace, not merge-patch: `PATCH /platform/countries/{id}` always requires both
+  `isServiced` and `countryZoneId` in the body (omitting one resets it to `false`/`null`), and
+  `PATCH /platform/country-zones/{id}` always requires both `name` and `description`. The admin
+  UI always sends both; a future API caller must too.
 - **`InternationalAddress`.** A format-validated value object (`Geography.Domain`) with no
   consumer yet; I3 will embed it in the shipment recipient/sender when `Scope = International`.
+- **Why `docs/RBAC.md` and `docs/API-SPEC.md` weren't touched.** Neither document catalogs
+  platform-track/internal SuperAdmin routes at all: `API-SPEC.md` only documents the
+  merchant-facing API, and `RBAC.md` doesn't mention `RequireSuperAdmin` or any platform route.
+  This feature's platform endpoints are documented here in `INTERNATIONAL.md` instead, consistent
+  with how `FxRate`'s platform routes were handled in I0.
 
 ### Known limitations
 
