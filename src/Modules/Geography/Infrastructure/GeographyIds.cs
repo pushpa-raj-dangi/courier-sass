@@ -8,6 +8,8 @@ namespace Courier.Geography.Infrastructure;
 // Guid, so HasData rows stay stable across regenerated EF migrations.
 public static class GeographyIds
 {
+    public static Guid CountryId(string isoCode) => IdFor($"country:{isoCode}");
+
     public static Guid ProvinceId(string province) => IdFor($"province:{province}");
 
     public static Guid DistrictId(string province, string district) =>
