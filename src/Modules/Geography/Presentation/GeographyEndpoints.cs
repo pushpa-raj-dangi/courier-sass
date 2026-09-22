@@ -75,6 +75,15 @@ public static class GeographyEndpoints
             }
             return Results.Ok(await service.ListAreasAsync(wardId, cancellationToken));
         });
+
+        group.MapGet("/countries", async (CountryQueryService service, HttpContext httpContext, IPermissionChecker permissionChecker, IMerchantAuthorizationChecker merchantAuthorizationChecker, CancellationToken cancellationToken) =>
+        {
+            if (!await HasGeographyReadAccessAsync(httpContext, permissionChecker, merchantAuthorizationChecker, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+            return Results.Ok(await service.ListServicedAsync(cancellationToken));
+        });
     }
 
     private static async Task<bool> HasGeographyReadAccessAsync(HttpContext httpContext, IPermissionChecker permissionChecker, IMerchantAuthorizationChecker merchantAuthorizationChecker, CancellationToken cancellationToken)
