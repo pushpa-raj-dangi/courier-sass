@@ -7,9 +7,9 @@ Plans: `docs/superpowers/plans/`.
 
 | Step | Scope | State |
 |---|---|---|
-| I0 | Money, FX rates, tenant locale | Implemented — DB-backed tests (Identity/Api) and both migrations still need a first run against Postgres |
+| I0 | Money, FX rates, tenant locale | Implemented — verified against Postgres on 2026-09-21 (full Api suite 290/290; four tests are flaky only under full-suite parallel load) |
 | I1a | i18n foundation (frontend) | Implemented — Nepali strings are machine-drafted and need native review; the cookie → server-render → refresh loop has only been covered by unit tests, not a real browser session |
-| I1b | Notification-template locale | Planned |
+| I1b | Notification-template locale | Implemented — Nepali default bodies are machine-drafted and need native review |
 | I2–I8 | See the design spec §8 | Planned |
 
 ## Money and currency (I0)
@@ -51,3 +51,36 @@ Plans: `docs/superpowers/plans/`.
 - The root layout now reads cookies, which makes every route dynamically rendered, including `/track/{awb}`. If a CDN is ever put in front, HTML must vary on `courier_locale` and `courier_calendar`.
 - The first sign-in of a user with no cookie renders once in English before `LocaleSync` seeds the tenant default and refreshes.
 - The login-page switcher position and the cookie → server-render → refresh loop are covered by unit tests only; they still need a run in a real browser session.
+
+## Notification locale (I1b)
+
+- **Locale source.** A dispatched notification's locale is the recipient organization's
+  `OrganizationSettings.DefaultLocale` (I0), read at dispatch time via
+  `IOrganizationLocaleLookup.GetDefaultLocaleAsync` and normalized (unsupported/missing falls back
+  to `en`) by `NotificationLocales.Normalize`. There is no per-recipient locale — every notification
+  for a given event goes out in the tenant's one default language.
+- **Fallback order.** `NotificationTemplateResolver.Resolve` tries, in order: (1) the org's active
+  override in the resolved locale, (2) the compiled-in default body in the resolved locale, (3) the
+  org's active override in `en`, (4) the compiled-in default body in `en`. A locale-appropriate
+  compiled default deliberately beats an org's English override, so a Nepali tenant never silently
+  gets English when a Nepali default exists.
+- **Storage.** `NotificationTemplate.Locale` (`en`/`ne`, default `en`) was added by migration
+  `20260921143005_AddNotificationTemplateLocale` as an additive, backfilled column (existing rows
+  set to `en`); the uniqueness of an override is now `(OrganizationId, EventType, Channel, Locale)`.
+  Nepali compiled-in defaults exist for all five known event types alongside the existing English
+  ones (`NotificationDefaultTemplates`).
+- **API.** `PUT /api/v1/settings/notification-templates` takes an optional `locale` field (defaults
+  to `en` when omitted); an unsupported value returns 400 (`NOTIFICATION_TEMPLATE_VALIDATION_FAILED`).
+  `GET /api/v1/settings/notification-templates` returns each override's `locale`. Both require
+  `notification_template.manage` and are audited.
+- **Admin panel.** The notification templates panel shows one row per (event type, language) pair —
+  each event type doubled into an English row and a Nepali row — with its own "Using
+  default"/"Custom" status and its own edit Sheet.
+
+### Known limitations
+
+- No per-recipient locale: a notification always uses the tenant's single default locale, not an
+  individual customer's or merchant staff member's preference.
+- `NotificationLog` does not record which locale a dispatched notification was rendered in.
+- The admin panel itself (labels, chrome) is not translated; only the template bodies it edits are
+  locale-aware.
