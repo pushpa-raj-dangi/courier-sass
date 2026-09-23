@@ -46,8 +46,22 @@ file class RecordingGateway : IShipmentInternationalGateway
             DateTimeOffset.UtcNow));
     }
 
-    public Task<ShipmentResponse?> TransitionToCustomsPreparedAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) =>
-        throw new NotSupportedException();
+    public bool CustomsPreparedCalled { get; private set; }
+    public Task<ShipmentResponse?> TransitionToCustomsPreparedAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
+    {
+        CustomsPreparedCalled = true;
+        return Task.FromResult<ShipmentResponse?>(new ShipmentResponse(
+            shipmentId, "AWB-INTL-1", Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), null, null, null, ShipmentStatus.CustomsPrepared, Guid.NewGuid(),
+            1m, null, null, null, 5000m, 0m, false, 5000m, 0m, 0m, 5000m,
+            "R", "1", "L", "S", "2", "L", new List<ShipmentItemResponse>(), DateTimeOffset.UtcNow));
+    }
+}
+
+file class FixedItemLookup : IShipmentItemLookupService
+{
+    private readonly List<ShipmentItemRecord> _items;
+    public FixedItemLookup(List<ShipmentItemRecord> items) => _items = items;
+    public Task<IReadOnlyList<ShipmentItemRecord>> GetItemsAsync(Guid shipmentId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<ShipmentItemRecord>>(_items);
 }
 
 file class FixedCountryLookup : ICountryLookupService
@@ -92,7 +106,7 @@ public class InternationalShipmentServiceTests
         await using var dbContext = CreateContext();
         var organizationId = Guid.NewGuid();
         var gateway = new RecordingGateway();
-        var service = new InternationalShipmentService(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), gateway, new FixedCountryLookup("GB"));
+        var service = new InternationalShipmentService(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), gateway, new FixedCountryLookup("GB"), new FixedItemLookup(new()));
 
         var result = await service.CreateAsync(ValidRequest(), ActingUser());
 
@@ -113,10 +127,88 @@ public class InternationalShipmentServiceTests
     {
         await using var dbContext = CreateContext();
         var gateway = new RecordingGateway();
-        var service = new InternationalShipmentService(dbContext, new FixedTenantProvider(Guid.NewGuid()), new NoopAuditLogger(), gateway, new FixedCountryLookup());
+        var service = new InternationalShipmentService(dbContext, new FixedTenantProvider(Guid.NewGuid()), new NoopAuditLogger(), gateway, new FixedCountryLookup(), new FixedItemLookup(new()));
 
         await Assert.ThrowsAsync<InternationalShipmentValidationException>(() => service.CreateAsync(ValidRequest(), ActingUser()));
 
         Assert.Null(gateway.LastRequest);
+    }
+
+    [Fact]
+    public async Task UpdateCustomsAsync_ValidItems_CompletesDeclaration()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var gateway = new RecordingGateway();
+        var created = await new InternationalShipmentService(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), gateway, new FixedCountryLookup("GB"), new FixedItemLookup(new()))
+            .CreateAsync(ValidRequest(), ActingUser());
+
+        var itemId = Guid.NewGuid();
+        var itemLookup = new FixedItemLookup(new() { new ShipmentItemRecord(itemId, "Sample goods", 1, 5000m) });
+        var service = new InternationalShipmentService(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), gateway, new FixedCountryLookup("GB"), itemLookup);
+
+        var request = new UpdateCustomsRequest("Sample goods for testing", "NP", "Sample", "Ddu", null,
+            new List<CustomsItemRequest> { new(itemId, "HS1234", 5000m, "NPR") });
+
+        var result = await service.UpdateCustomsAsync(created.Shipment.Id, request, ActingUser());
+
+        Assert.NotNull(result);
+        Assert.True(result!.CustomsCompleted);
+        Assert.Equal("Sample goods for testing", result.ContentsDescription);
+
+        var storedItems = await dbContext.Set<CustomsItem>().Where(i => i.InternationalLegId == dbContext.Set<InternationalLeg>().Single(l => l.ShipmentId == created.Shipment.Id).Id).ToListAsync();
+        Assert.Single(storedItems);
+        Assert.Equal("HS1234", storedItems[0].HsCode);
+    }
+
+    [Fact]
+    public async Task UpdateCustomsAsync_ItemNotBelongingToShipment_Throws()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var gateway = new RecordingGateway();
+        var created = await new InternationalShipmentService(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), gateway, new FixedCountryLookup("GB"), new FixedItemLookup(new()))
+            .CreateAsync(ValidRequest(), ActingUser());
+
+        var itemLookup = new FixedItemLookup(new() { new ShipmentItemRecord(Guid.NewGuid(), "Sample goods", 1, 5000m) });
+        var service = new InternationalShipmentService(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), gateway, new FixedCountryLookup("GB"), itemLookup);
+
+        var request = new UpdateCustomsRequest("Desc", "NP", "Sample", "Ddu", null,
+            new List<CustomsItemRequest> { new(Guid.NewGuid(), "HS1234", 5000m, "NPR") });
+
+        await Assert.ThrowsAsync<InternationalShipmentValidationException>(() => service.UpdateCustomsAsync(created.Shipment.Id, request, ActingUser()));
+    }
+
+    [Fact]
+    public async Task PrepareCustomsAsync_BeforeCustomsCompleted_Throws()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var gateway = new RecordingGateway();
+        var itemLookup = new FixedItemLookup(new());
+        var service = new InternationalShipmentService(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), gateway, new FixedCountryLookup("GB"), itemLookup);
+        var created = await service.CreateAsync(ValidRequest(), ActingUser());
+
+        await Assert.ThrowsAsync<InternationalShipmentValidationException>(() => service.PrepareCustomsAsync(created.Shipment.Id, ActingUser()));
+        Assert.False(gateway.CustomsPreparedCalled);
+    }
+
+    [Fact]
+    public async Task PrepareCustomsAsync_AfterCustomsCompleted_CallsGateway()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var gateway = new RecordingGateway();
+        var itemId = Guid.NewGuid();
+        var itemLookup = new FixedItemLookup(new() { new ShipmentItemRecord(itemId, "Sample goods", 1, 5000m) });
+        var service = new InternationalShipmentService(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), gateway, new FixedCountryLookup("GB"), itemLookup);
+        var created = await service.CreateAsync(ValidRequest(), ActingUser());
+        await service.UpdateCustomsAsync(created.Shipment.Id, new UpdateCustomsRequest("Desc", "NP", "Sample", "Ddu", null,
+            new List<CustomsItemRequest> { new(itemId, "HS1234", 5000m, "NPR") }), ActingUser());
+
+        var result = await service.PrepareCustomsAsync(created.Shipment.Id, ActingUser());
+
+        Assert.NotNull(result);
+        Assert.True(gateway.CustomsPreparedCalled);
     }
 }
