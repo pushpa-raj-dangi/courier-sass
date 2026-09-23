@@ -32,6 +32,7 @@
     <ProjectReference Include="..\Persistence\Persistence.csproj" />
     <ProjectReference Include="..\Modules\Branches\Branches.csproj" />
     <ProjectReference Include="..\Modules\Geography\Geography.csproj" />
+    <ProjectReference Include="..\Modules\International\International.csproj" />
     <ProjectReference Include="..\Modules\Merchants\Merchants.csproj" />
     <ProjectReference Include="..\Modules\Pricing\Pricing.csproj" />
     <ProjectReference Include="..\Modules\Reports\Reports.csproj" />
