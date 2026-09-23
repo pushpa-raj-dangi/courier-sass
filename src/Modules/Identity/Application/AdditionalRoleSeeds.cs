@@ -22,7 +22,8 @@ public static class AdditionalRoleSeeds
             "shipment.scan", "shipment.sort", "shipment.transfer", "delivery.assign",
             "manifest.read", "manifest.create", "manifest.seal", "manifest.dispatch", "manifest.receive", "manifest.close",
             "rider.read", "rider.location.read", "rider.assign", "ndr.read", "ndr.manage", "ndr.resolve", "rto.read", "rto.manage",
-            "branch.read", "zone.read", "report.read"
+            "branch.read", "zone.read", "report.read",
+            "international.create", "international.read", "international.manage_customs"
         },
         // docs/RBAC.md §4's exact BranchManager example, plus a deliberate RBAC fix (this design's
         // spec §4.2): BranchManager never held rider.read at all before this — it's the realistic
@@ -59,7 +60,8 @@ public static class AdditionalRoleSeeds
         ["HubStaff"] = new[]
         {
             "manifest.read", "manifest.create", "manifest.seal", "manifest.dispatch", "manifest.receive", "manifest.close",
-            "shipment.scan", "shipment.sort", "branch.read"
+            "shipment.scan", "shipment.sort", "branch.read",
+            "international.create", "international.read", "international.manage_customs"
         },
     };
 }

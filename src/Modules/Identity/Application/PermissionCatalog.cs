@@ -64,6 +64,11 @@ public static class PermissionCatalog
         ("org.delete", "Delete an organization"),
         ("org.settings.manage", "Manage organization profile, security policy and operational defaults"),
         ("notification_template.manage", "Manage notification templates"),
+        ("international.create", "Create international shipments"),
+        ("international.read", "Read international shipments"),
+        ("international.manage_customs", "Manage international customs declarations"),
+        ("international.handoff", "Hand off international shipments to a carrier"),
+        ("international.receive", "Receive international shipments from a carrier"),
     };
 
     public static Guid IdFor(string key)

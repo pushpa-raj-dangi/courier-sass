@@ -4592,6 +4592,36 @@ namespace Persistence.Migrations
                             Id = new Guid("974a63bd-871c-1917-a8e9-9288f79bf8cf"),
                             Description = "Manage notification templates",
                             Key = "notification_template.manage"
+                        },
+                        new
+                        {
+                            Id = new Guid("dfd4fe0f-b9ee-e015-7c70-6329533eb2c9"),
+                            Description = "Create international shipments",
+                            Key = "international.create"
+                        },
+                        new
+                        {
+                            Id = new Guid("bb12e4e4-0141-ed75-a510-2a959cd66bdc"),
+                            Description = "Read international shipments",
+                            Key = "international.read"
+                        },
+                        new
+                        {
+                            Id = new Guid("bc08b9b0-966f-2ca3-7868-eb7d7c693b07"),
+                            Description = "Manage international customs declarations",
+                            Key = "international.manage_customs"
+                        },
+                        new
+                        {
+                            Id = new Guid("f51d0581-9f51-df22-bb52-1537b4839773"),
+                            Description = "Hand off international shipments to a carrier",
+                            Key = "international.handoff"
+                        },
+                        new
+                        {
+                            Id = new Guid("af904214-6ec5-b290-eb93-533850f77399"),
+                            Description = "Receive international shipments from a carrier",
+                            Key = "international.receive"
                         });
                 });
 
