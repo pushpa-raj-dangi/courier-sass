@@ -184,6 +184,8 @@ builder.Services.AddScoped<ReferenceDataService>();
 builder.Services.AddScoped<ShipmentService>();
 builder.Services.AddScoped<IShipmentTransitionService>(sp => sp.GetRequiredService<ShipmentService>());
 builder.Services.AddScoped<IShipmentTaskLookupService>(sp => sp.GetRequiredService<ShipmentService>());
+builder.Services.AddScoped<IShipmentInternationalGateway>(sp => sp.GetRequiredService<ShipmentService>());
+builder.Services.AddScoped<IShipmentItemLookupService>(sp => sp.GetRequiredService<ShipmentService>());
 builder.Services.AddScoped<PublicTrackingService>();
 builder.Services.AddScoped<PickupRequestService>();
 builder.Services.AddScoped<ManifestService>();

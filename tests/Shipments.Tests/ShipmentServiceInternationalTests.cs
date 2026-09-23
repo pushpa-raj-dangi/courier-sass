@@ -244,4 +244,25 @@ public class ShipmentServiceInternationalTests
         await Assert.ThrowsAsync<ShipmentValidationException>(() =>
             service.TransitionToCustomsPreparedAsync(domestic.Id, ActingUser(Guid.NewGuid())));
     }
+
+    [Fact]
+    public async Task GetItemsAsync_ReturnsItemsForShipment_EmptyForUnknownShipment()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        dbContext.Set<Organization>().Add(new Organization { Id = organizationId, Name = "Org", Slug = "testorg" });
+        var serviceTypeId = dbContext.Set<ServiceType>().First(s => s.Code == ServiceTypeCode.Standard).Id;
+        await dbContext.SaveChangesAsync();
+
+        var service = CreateService(dbContext, organizationId);
+        var created = await service.CreateShipmentShellAsync(
+            OutboundRequest(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), serviceTypeId), ActingUser(Guid.NewGuid()));
+
+        var items = await service.GetItemsAsync(created.Id);
+        Assert.Single(items);
+        Assert.Equal("Sample goods", items[0].Description);
+
+        var noItems = await service.GetItemsAsync(Guid.NewGuid());
+        Assert.Empty(noItems);
+    }
 }
