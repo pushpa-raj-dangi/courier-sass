@@ -32,6 +32,7 @@
     <Project Path="tests/Events.Tests/Events.Tests.csproj" />
     <Project Path="tests/Geography.Tests/Geography.Tests.csproj" />
     <Project Path="tests/Identity.Tests/Identity.Tests.csproj" />
+    <Project Path="tests/International.Tests/International.Tests.csproj" />
     <Project Path="tests/Manifests.Tests/Manifests.Tests.csproj" />
     <Project Path="tests/Merchants.Tests/Merchants.Tests.csproj" />
     <Project Path="tests/Notifications.Tests/Notifications.Tests.csproj" />
