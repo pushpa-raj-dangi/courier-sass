@@ -10,6 +10,6 @@ public partial class ShipmentService : IShipmentTaskLookupService
         var shipment = await _dbContext.Set<Shipment>().FirstOrDefaultAsync(s => s.Id == shipmentId, cancellationToken);
         return shipment is null ? null : new ShipmentTaskInfo(
             shipment.Awb, shipment.RecipientName, shipment.RecipientPhone,
-            shipment.RecipientAddressLine, shipment.RecipientWardNumber, shipment.CodAmount);
+            shipment.RecipientAddressLine, shipment.RecipientWardNumber ?? 0, shipment.CodAmount);
     }
 }

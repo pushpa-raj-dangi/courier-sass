@@ -17,5 +17,6 @@ public enum ShipmentEventType
     RtoInitiated,
     RtoInTransit,
     RtoAtOrigin,
-    RtoDelivered
+    RtoDelivered,
+    CustomsPrepared
 }

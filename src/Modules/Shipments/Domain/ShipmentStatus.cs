@@ -25,5 +25,6 @@ public enum ShipmentStatus
     RtoInitiated,
     RtoInTransit,
     RtoAtOrigin,
-    RtoDelivered
+    RtoDelivered,
+    CustomsPrepared
 }
