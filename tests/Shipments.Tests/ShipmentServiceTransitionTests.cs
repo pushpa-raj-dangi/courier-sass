@@ -335,4 +335,53 @@ public class ShipmentServiceTransitionTests
 
         await Assert.ThrowsAsync<ShipmentInvalidTransitionException>(() => service.CancelAsync(shipmentId, actingUser));
     }
+
+    [Fact]
+    public async Task AssignDeliveryToRiderAsync_OnOutboundInternationalShipment_Throws()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        dbContext.Set<Organization>().Add(new Organization { Id = organizationId, Name = "Org", Slug = "testorg" });
+        var serviceTypeId = dbContext.Set<ServiceType>().First(s => s.Code == ServiceTypeCode.Standard).Id;
+        var shipment = new Shipment
+        {
+            Id = Guid.NewGuid(), CreatedAt = DateTimeOffset.UtcNow, OrganizationId = organizationId, Awb = "INTL1",
+            MerchantId = Guid.NewGuid(), OriginBranchId = Guid.NewGuid(), DestinationBranchId = Guid.NewGuid(),
+            CurrentBranchId = Guid.NewGuid(), CurrentStatus = ShipmentStatus.AtDestinationBranch, ServiceTypeId = serviceTypeId, WeightKg = 1m,
+            Scope = ShipmentScope.International, Direction = ShipmentDirection.Outbound,
+            RecipientName = "R", RecipientPhone = "1", RecipientAddressLine = "L", SenderName = "S", SenderPhone = "2", SenderAddressLine = "L"
+        };
+        dbContext.Set<Shipment>().Add(shipment);
+        await dbContext.SaveChangesAsync();
+
+        var service = CreateService(dbContext, organizationId, new());
+
+        await Assert.ThrowsAsync<ShipmentInvalidTransitionException>(() =>
+            service.AssignDeliveryToRiderAsync(shipment.Id, Guid.NewGuid(), ActingUser(Guid.NewGuid())));
+    }
+
+    [Fact]
+    public async Task AssignDeliveryToRiderAsync_OnInboundInternationalShipment_StillWorks()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        dbContext.Set<Organization>().Add(new Organization { Id = organizationId, Name = "Org", Slug = "testorg" });
+        var serviceTypeId = dbContext.Set<ServiceType>().First(s => s.Code == ServiceTypeCode.Standard).Id;
+        var shipment = new Shipment
+        {
+            Id = Guid.NewGuid(), CreatedAt = DateTimeOffset.UtcNow, OrganizationId = organizationId, Awb = "INTL2",
+            MerchantId = Guid.NewGuid(), OriginBranchId = Guid.NewGuid(), DestinationBranchId = Guid.NewGuid(),
+            CurrentBranchId = Guid.NewGuid(), CurrentStatus = ShipmentStatus.AtDestinationBranch, ServiceTypeId = serviceTypeId, WeightKg = 1m,
+            Scope = ShipmentScope.International, Direction = ShipmentDirection.Inbound,
+            RecipientName = "R", RecipientPhone = "1", RecipientAddressLine = "L", SenderName = "S", SenderPhone = "2", SenderAddressLine = "L"
+        };
+        dbContext.Set<Shipment>().Add(shipment);
+        await dbContext.SaveChangesAsync();
+
+        var service = CreateService(dbContext, organizationId, new());
+
+        var result = await service.AssignDeliveryToRiderAsync(shipment.Id, Guid.NewGuid(), ActingUser(Guid.NewGuid()));
+
+        Assert.Equal(ShipmentStatus.OutForDelivery, result!.CurrentStatus);
+    }
 }
