@@ -155,18 +155,23 @@ Plans: `docs/superpowers/plans/`.
   before the gateway is ever called.
 - **COD guard.** The international creation request has no `CodAmount` field at all — COD on an
   international shipment is impossible to express, not merely rejected at runtime.
-- **`InternationalLeg`/`CustomsItem`** (new `International.Domain`, tenant-owned — carries
-  `OrganizationId` and the standard query filter, unlike `Country`/`FxRate`'s platform-level
-  reference data). `InternationalLeg` is one-to-one with `Shipment` by `ShipmentId`: contents
-  description, ISO alpha-2 country of origin, `CustomsPurpose` (`Gift`, `CommercialSale`,
-  `Sample`, `Return`, `Documents`, `Other`), `Incoterm` (`Ddu`, `Ddp`), an optional export licence
-  reference, `CustomsCompletedAt` (null until the declaration is completed), and the provisional
-  pricing fields below. `CustomsItem` is one row per the shipment's existing `ShipmentItem`
-  (`HsCode` + a `Money` customs value), written by `InternationalShipmentService.UpdateCustomsAsync`
-  — every call fully replaces the shipment's existing `CustomsItem` rows rather than merging.
-  `ShipmentItemId` is validated against the shipment's real items via the new
-  `Shipments.Application.IShipmentItemLookupService.GetItemsAsync`, not a DB-level FK (`CustomsItem`
-  lives in a different module's `DbSet`).
+- **`InternationalLeg`/`CustomsItem`** (new `International.Domain`, shipment-owned data, unlike
+  `Country`/`FxRate`'s platform-level reference data). `InternationalLeg` carries `OrganizationId`
+  and the standard tenant query filter directly. `CustomsItem` does **not** carry its own
+  `OrganizationId` or query filter — tenant isolation flows transitively through
+  `InternationalLegId -> InternationalLeg.OrganizationId` (`AppDbContext`, ~line 452), the same
+  pattern used for `ShipmentItem`/`ManifestShipment`. Any query against `CustomsItems` must go
+  through, or join to, `InternationalLeg` to get tenant isolation — a raw `CustomsItems.Where(...)`
+  with no `InternationalLeg` join would enumerate every tenant's rows. `InternationalLeg` is
+  one-to-one with `Shipment` by `ShipmentId`: contents description, ISO alpha-2 country of origin,
+  `CustomsPurpose` (`Gift`, `CommercialSale`, `Sample`, `Return`, `Documents`, `Other`), `Incoterm`
+  (`Ddu`, `Ddp`), an optional export licence reference, `CustomsCompletedAt` (null until the
+  declaration is completed), and the provisional pricing fields below. `CustomsItem` is one row per
+  the shipment's existing `ShipmentItem` (`HsCode` + a `Money` customs value), written by
+  `InternationalShipmentService.UpdateCustomsAsync` — every call fully replaces the shipment's
+  existing `CustomsItem` rows rather than merging. `ShipmentItemId` is validated against the
+  shipment's real items via the new `Shipments.Application.IShipmentItemLookupService.GetItemsAsync`,
+  not a DB-level FK (`CustomsItem` lives in a different module's `DbSet`).
 - **`CustomsPrepared` reachability.** One new `ShipmentStatus`/`ShipmentEventType` value,
   `CustomsPrepared`, appended at the end of both enums. `InternationalShipmentService.PrepareCustomsAsync`
   rejects the call (`400 INTERNATIONAL_SHIPMENT_VALIDATION_FAILED`) unless
@@ -181,17 +186,26 @@ Plans: `docs/superpowers/plans/`.
   also rejects `Scope = Domestic` shipments outright.
 - **API — four routes, all under `/api/v1/international/shipments`, staff-only (JWT + permission,
   organization-wide — no per-branch check):**
-  - `POST /` — `international.create`. Creates the shipment shell + empty `InternationalLeg` in one
-    `SaveChangesAsync`. Returns `201` with `{ shipment, leg }` (`InternationalShipmentDetailResponse`).
+  - `POST /` — `international.create`. Not a single atomic write:
+    `InternationalShipmentService.CreateAsync` calls
+    `IShipmentInternationalGateway.CreateShipmentShellAsync`
+    (`ShipmentService.International.cs`), which persists the `Shipment`/`ShipmentItem`s/creation
+    `ShipmentEvent` via its own `SaveChangesAsync` (~line 108, inside an AWB-collision retry loop),
+    then a second `SaveChangesAsync` (~line 123) for the audit entry and outbox event. Only after
+    that gateway call returns does `InternationalShipmentService.CreateAsync` build the
+    `InternationalLeg` and persist it with a third, separate `SaveChangesAsync` (~line 77 of
+    `InternationalShipmentService.cs`). See Known limitations below for what this means on partial
+    failure. Returns `201` with `{ shipment, leg }` (`InternationalShipmentDetailResponse`).
   - `GET /{id}` — `international.read`. Merged `Shipment` + `InternationalLeg`/`CustomsItem` detail,
     via `InternationalShipmentQueryService.GetAsync`. `404` if the shipment has no `InternationalLeg`
     row or isn't in the caller's tenant.
   - `PATCH /{id}/customs` — `international.manage_customs`. Full-replace customs declaration.
   - `POST /{id}/prepare-customs` — `international.manage_customs`. Triggers the `CustomsPrepared`
-    transition; `400 SHIPMENT_INVALID_TRANSITION` if the state guard fails (the design spec's §5
-    describes this as a `409` — the shipped endpoint returns it as `400`, matching every other
-    `ShipmentInvalidTransitionException` mapping in this codebase, e.g. `API-SPEC.md`'s error
-    envelope example), `400 INTERNATIONAL_SHIPMENT_VALIDATION_FAILED` if customs isn't complete yet.
+    transition; `InternationalEndpoints.cs` maps a thrown `ShipmentInvalidTransitionException` to
+    `400 SHIPMENT_INVALID_TRANSITION` via `Results.BadRequest` if the state guard fails, matching
+    every other `ShipmentInvalidTransitionException` mapping in this codebase (e.g. `API-SPEC.md`'s
+    error envelope example); `400 INTERNATIONAL_SHIPMENT_VALIDATION_FAILED` if customs isn't
+    complete yet.
 - **Cross-module contracts.** `International` never touches `Shipment`/`ShipmentItem`'s `DbSet`s
   directly. It goes through three narrow interfaces implemented by `Shipments.Application`:
   `IShipmentInternationalGateway` (`CreateShipmentShellAsync`, `TransitionToCustomsPreparedAsync`
@@ -202,12 +216,16 @@ Plans: `docs/superpowers/plans/`.
   without a second, module-crossing query). This follows the same precedent
   `Manifests`/`Ndr`/`Riders` already use for driving real `Shipment` transitions.
 - **The `Direction == Outbound` guard.** Nine `Shipments.Application.ShipmentService` methods each
-  gain a leading check (via a shared `GuardAgainstOutboundInternationalAsync` helper, or inlined for
-  the two bulk methods) that rejects the call with `ShipmentInvalidTransitionException` when
+  gain a leading check that rejects the call with `ShipmentInvalidTransitionException` when
   `shipment.Direction == ShipmentDirection.Outbound`: `AssignDeliveryToRiderAsync`,
   `CompleteDeliveryAsync`, `FailDeliveryAsync`, `TransitionToNdrCreatedAsync`,
   `ReattemptDeliveryAsync`, `InitiateRtoAsync`, `DispatchManyRtoAsync`, `ReceiveRtoAtOriginAsync`,
-  `ConfirmRtoDeliveredAsync`. This is deliberately keyed on **`Direction`, not `Scope`** — these are
+  `ConfirmRtoDeliveredAsync`. Eight of the nine call a shared `GuardAgainstOutboundInternationalAsync`
+  helper at the top of the method; only `DispatchManyRtoAsync` (the sole bulk method in this list —
+  `DispatchManyAsync`, the non-RTO bulk dispatch method, is not one of the nine and has no guard at
+  all) inlines the same `Direction == Outbound` check per-shipment inside its loop instead, since it
+  operates on a list of shipments rather than a single one. This is deliberately keyed on
+  **`Direction`, not `Scope`** — these are
   exactly the methods that would otherwise let an outbound international shipment skip
   `CustomsPrepared` and fall straight into domestic last-mile/NDR/RTO statuses. Every earlier
   shared status (`PickupAssigned` through `AtDestinationBranch`, dispatch, manifest receive) is
@@ -245,6 +263,15 @@ Plans: `docs/superpowers/plans/`.
   not just branches they're granted. This mirrors the existing domestic `POST /api/v1/shipments`
   precedent (which is also permission-only, not branch-scoped, at creation time), not a regression
   specific to I3.
+- Creating an international shipment is not atomic. `POST /` performs three separate
+  `SaveChangesAsync` calls across two services (the `Shipment`/`ShipmentItem`s/creation event in
+  `ShipmentService.International.cs`'s `CreateShipmentShellAsync`, then that same method's audit +
+  outbox `SaveChangesAsync`, then `InternationalShipmentService.CreateAsync`'s own
+  `SaveChangesAsync` for the `InternationalLeg`) rather than one transaction. A failure after the
+  shipment shell is committed but before the `InternationalLeg` is saved (e.g. a crash or DB error
+  between the two services) leaves a `Shipment` row with no corresponding `InternationalLeg` —
+  `GET /{id}` would then 404 for it even though the shipment exists, and there is no cleanup/retry
+  path for this in I3.
 - The `GET /{id}` response's embedded `shipment` object reuses the existing `ShipmentResponse` DTO
   unchanged — it does not expose `Scope`, `Direction`, or the foreign-side `City`/`Region`/
   `PostalCode`/`CountryCode` fields. Only `RecipientAddressLine`/`SenderAddressLine` (the `Line1`

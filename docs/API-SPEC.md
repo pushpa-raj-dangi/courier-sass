@@ -196,7 +196,11 @@ POST   /api/v1/international/shipments/{id}/prepare-customs   # trigger the Cust
   foreign is derived from `direction`, not sent explicitly), both parties' `addressLine` (reused as
   `Line1` for whichever side is foreign), `items[]` (`description`, `quantity`, `unitValue`), and
   `provisionalTotalChargeAmount`/`provisionalTotalChargeCurrency`. There is no `codAmount` field —
-  COD on an international shipment is unrepresentable, not merely rejected. Returns `201` with
+  COD on an international shipment is unrepresentable, not merely rejected. Creation is not one
+  atomic write: the shipment shell (`Shipment`/`ShipmentItem`s) is saved first via
+  `IShipmentInternationalGateway.CreateShipmentShellAsync`, and the `InternationalLeg` is saved
+  separately afterward by `InternationalShipmentService.CreateAsync` — see `INTERNATIONAL.md`'s
+  Known limitations for the partial-failure implication. Returns `201` with
   `InternationalShipmentDetailResponse` (`{ shipment, leg }`). Errors: `400
   INTERNATIONAL_SHIPMENT_VALIDATION_FAILED` (unserviced/unknown foreign country code) and `400
   SHIPMENT_VALIDATION_FAILED` (Nepal-chain or `InternationalAddress` shape failures from
