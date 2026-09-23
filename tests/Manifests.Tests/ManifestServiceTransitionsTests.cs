@@ -60,6 +60,8 @@ class TransitionsFakeShipmentTransitionService : IShipmentTransitionService
     public Task<ShipmentScanInfo?> GetScanInfoByAwbAsync(string awb, CancellationToken cancellationToken = default) =>
         Task.FromResult(ShipmentsById.Values.FirstOrDefault(s => s.Awb == awb));
 
+    public Task<ShipmentResponse?> GetResponseAsync(Guid shipmentId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
     public Task<ShipmentResponse?> SortAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
         var info = ShipmentsById[shipmentId];

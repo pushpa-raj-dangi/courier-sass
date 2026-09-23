@@ -75,6 +75,12 @@ public partial class ShipmentService
         return shipment is null ? null : ToScanInfo(shipment);
     }
 
+    public async Task<ShipmentResponse?> GetResponseAsync(Guid shipmentId, CancellationToken cancellationToken = default)
+    {
+        var shipment = await _dbContext.Set<Shipment>().FirstOrDefaultAsync(s => s.Id == shipmentId, cancellationToken);
+        return shipment is null ? null : await LoadResponseAsync(shipmentId, cancellationToken);
+    }
+
     public async Task<ShipmentScanInfo?> GetScanInfoByAwbAsync(string awb, CancellationToken cancellationToken = default)
     {
         var shipment = await _dbContext.Set<Shipment>().FirstOrDefaultAsync(s => s.Awb == awb, cancellationToken);
