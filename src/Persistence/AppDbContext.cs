@@ -8,6 +8,8 @@ using Courier.Geography.Domain;
 using Courier.Geography.Infrastructure;
 using Courier.Identity.Domain;
 using Courier.Identity.Infrastructure;
+using Courier.International.Domain;
+using Courier.International.Infrastructure;
 using Courier.Manifests.Domain;
 using Courier.Manifests.Infrastructure;
 using Courier.Merchants.Domain;
@@ -64,6 +66,8 @@ public class AppDbContext : DbContext, IDataProtectionKeyContext
     public DbSet<DeliveryZone> DeliveryZones => Set<DeliveryZone>();
     public DbSet<Country> Countries => Set<Country>();
     public DbSet<CountryZone> CountryZones => Set<CountryZone>();
+    public DbSet<InternationalLeg> InternationalLegs => Set<InternationalLeg>();
+    public DbSet<CustomsItem> CustomsItems => Set<CustomsItem>();
     public DbSet<Merchant> Merchants => Set<Merchant>();
     public DbSet<MerchantUser> MerchantUsers => Set<MerchantUser>();
     public DbSet<MerchantAddress> MerchantAddresses => Set<MerchantAddress>();
@@ -144,6 +148,8 @@ public class AppDbContext : DbContext, IDataProtectionKeyContext
         modelBuilder.ApplyConfiguration(new DeliveryZoneConfiguration());
         modelBuilder.ApplyConfiguration(new CountryZoneConfiguration());
         modelBuilder.ApplyConfiguration(new CountryConfiguration());
+        modelBuilder.ApplyConfiguration(new InternationalLegConfiguration());
+        modelBuilder.ApplyConfiguration(new CustomsItemConfiguration());
         modelBuilder.ApplyConfiguration(new MerchantConfiguration());
         modelBuilder.ApplyConfiguration(new MerchantUserConfiguration());
         modelBuilder.ApplyConfiguration(new MerchantAddressConfiguration());
@@ -300,6 +306,13 @@ public class AppDbContext : DbContext, IDataProtectionKeyContext
             .HasForeignKey(r => r.OrganizationId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // Same reasoning for InternationalLeg.OrganizationId: International has no project
+        // reference to Identity either.
+        modelBuilder.Entity<InternationalLeg>().HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(l => l.OrganizationId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         // Same reasoning for the six Cod entities below that carry their own OrganizationId: Cod
         // has no project reference to Identity. MerchantSettlementItem is excluded (no own
         // OrganizationId — see MerchantSettlementItemConfiguration).
@@ -370,6 +383,7 @@ public class AppDbContext : DbContext, IDataProtectionKeyContext
         modelBuilder.Entity<RateCard>().HasQueryFilter(rc => _currentTenantProvider.OrganizationId != null && rc.OrganizationId == _currentTenantProvider.OrganizationId);
         modelBuilder.Entity<MerchantRateCard>().HasQueryFilter(mrc => _currentTenantProvider.OrganizationId != null && mrc.OrganizationId == _currentTenantProvider.OrganizationId);
         modelBuilder.Entity<Shipment>().HasQueryFilter(s => _currentTenantProvider.OrganizationId != null && s.OrganizationId == _currentTenantProvider.OrganizationId);
+        modelBuilder.Entity<InternationalLeg>().HasQueryFilter(l => _currentTenantProvider.OrganizationId != null && l.OrganizationId == _currentTenantProvider.OrganizationId);
         modelBuilder.Entity<PickupRequest>().HasQueryFilter(p => _currentTenantProvider.OrganizationId != null && p.OrganizationId == _currentTenantProvider.OrganizationId);
         modelBuilder.Entity<Manifest>().HasQueryFilter(m => _currentTenantProvider.OrganizationId != null && m.OrganizationId == _currentTenantProvider.OrganizationId);
         modelBuilder.Entity<Rider>().HasQueryFilter(r => _currentTenantProvider.OrganizationId != null && r.OrganizationId == _currentTenantProvider.OrganizationId);
@@ -434,6 +448,10 @@ public class AppDbContext : DbContext, IDataProtectionKeyContext
         // No tenant filter on ManifestShipment/ShipmentTransfer: neither carries its own
         // OrganizationId — tenant isolation flows transitively through
         // ManifestId -> Manifest.OrganizationId (which does have a filter, above).
+
+        // No tenant filter on CustomsItem: no own OrganizationId — tenant isolation flows
+        // transitively through InternationalLegId -> InternationalLeg.OrganizationId (which does
+        // have a filter, above), same pattern as ShipmentItem/ManifestShipment.
 
         // No tenant filter on DeliveryRun/DeliveryTask: neither carries its own OrganizationId —
         // tenant isolation flows transitively through RiderId -> Rider.OrganizationId (which does
