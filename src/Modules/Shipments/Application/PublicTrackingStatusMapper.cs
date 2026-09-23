@@ -8,7 +8,7 @@ public static class PublicTrackingStatusMapper
     {
         ShipmentStatus.Created or ShipmentStatus.PickupAssigned => PublicTrackingStatus.Received,
         ShipmentStatus.PickedUp => PublicTrackingStatus.PickedUp,
-        ShipmentStatus.AtOriginBranch or ShipmentStatus.Sorted or ShipmentStatus.InTransit => PublicTrackingStatus.InTransit,
+        ShipmentStatus.AtOriginBranch or ShipmentStatus.Sorted or ShipmentStatus.InTransit or ShipmentStatus.CustomsPrepared => PublicTrackingStatus.InTransit,
         ShipmentStatus.AtDestinationBranch => PublicTrackingStatus.AtDestinationBranch,
         ShipmentStatus.OutForDelivery => PublicTrackingStatus.OutForDelivery,
         ShipmentStatus.Delivered => PublicTrackingStatus.Delivered,
