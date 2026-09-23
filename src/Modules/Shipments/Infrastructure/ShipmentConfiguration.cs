@@ -22,6 +22,14 @@ public class ShipmentConfiguration : IEntityTypeConfiguration<Shipment>
         builder.Property(s => s.SenderName).HasMaxLength(200).IsRequired();
         builder.Property(s => s.SenderPhone).HasMaxLength(30).IsRequired();
         builder.Property(s => s.SenderAddressLine).HasMaxLength(500).IsRequired();
+        builder.Property(s => s.RecipientCity).HasMaxLength(200);
+        builder.Property(s => s.RecipientRegion).HasMaxLength(200);
+        builder.Property(s => s.RecipientPostalCode).HasMaxLength(20);
+        builder.Property(s => s.RecipientCountryCode).HasMaxLength(2);
+        builder.Property(s => s.SenderCity).HasMaxLength(200);
+        builder.Property(s => s.SenderRegion).HasMaxLength(200);
+        builder.Property(s => s.SenderPostalCode).HasMaxLength(20);
+        builder.Property(s => s.SenderCountryCode).HasMaxLength(2);
 
         builder.Property(s => s.WeightKg).HasPrecision(10, 3);
         builder.Property(s => s.LengthCm).HasPrecision(10, 2);

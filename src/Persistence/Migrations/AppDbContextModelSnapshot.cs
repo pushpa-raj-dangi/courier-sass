@@ -6272,6 +6272,9 @@ namespace Persistence.Migrations
                     b.Property<Guid>("DestinationBranchId")
                         .HasColumnType("uuid");
 
+                    b.Property<int>("Direction")
+                        .HasColumnType("integer");
+
                     b.Property<decimal?>("HeightCm")
                         .HasPrecision(10, 2)
                         .HasColumnType("numeric(10,2)");
@@ -6302,10 +6305,18 @@ namespace Persistence.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
-                    b.Property<Guid>("RecipientDistrictId")
+                    b.Property<string>("RecipientCity")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("RecipientCountryCode")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
+
+                    b.Property<Guid?>("RecipientDistrictId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("RecipientLocalLevelId")
+                    b.Property<Guid?>("RecipientLocalLevelId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("RecipientName")
@@ -6318,10 +6329,21 @@ namespace Persistence.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)");
 
-                    b.Property<Guid>("RecipientProvinceId")
+                    b.Property<string>("RecipientPostalCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid?>("RecipientProvinceId")
                         .HasColumnType("uuid");
 
-                    b.Property<int>("RecipientWardNumber")
+                    b.Property<string>("RecipientRegion")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int?>("RecipientWardNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Scope")
                         .HasColumnType("integer");
 
                     b.Property<string>("SenderAddressLine")
@@ -6329,10 +6351,18 @@ namespace Persistence.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
-                    b.Property<Guid>("SenderDistrictId")
+                    b.Property<string>("SenderCity")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("SenderCountryCode")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
+
+                    b.Property<Guid?>("SenderDistrictId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("SenderLocalLevelId")
+                    b.Property<Guid?>("SenderLocalLevelId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("SenderName")
@@ -6345,10 +6375,18 @@ namespace Persistence.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)");
 
-                    b.Property<Guid>("SenderProvinceId")
+                    b.Property<string>("SenderPostalCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid?>("SenderProvinceId")
                         .HasColumnType("uuid");
 
-                    b.Property<int>("SenderWardNumber")
+                    b.Property<string>("SenderRegion")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int?>("SenderWardNumber")
                         .HasColumnType("integer");
 
                     b.Property<Guid>("ServiceTypeId")
@@ -7333,38 +7371,32 @@ namespace Persistence.Migrations
                     b.HasOne("Courier.Geography.Domain.District", null)
                         .WithMany()
                         .HasForeignKey("RecipientDistrictId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Courier.Geography.Domain.LocalLevel", null)
                         .WithMany()
                         .HasForeignKey("RecipientLocalLevelId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Courier.Geography.Domain.Province", null)
                         .WithMany()
                         .HasForeignKey("RecipientProvinceId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Courier.Geography.Domain.District", null)
                         .WithMany()
                         .HasForeignKey("SenderDistrictId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Courier.Geography.Domain.LocalLevel", null)
                         .WithMany()
                         .HasForeignKey("SenderLocalLevelId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Courier.Geography.Domain.Province", null)
                         .WithMany()
                         .HasForeignKey("SenderProvinceId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Courier.Pricing.Domain.ServiceType", null)
                         .WithMany()
