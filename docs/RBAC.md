@@ -92,11 +92,19 @@ role.manage
 audit.read
 
 org.billing.manage          org.ownership.transfer   org.delete
+org.settings.manage
+
+notification_template.manage
+
+international.create        international.read      international.manage_customs
+international.handoff       international.receive
 ```
 
 `ndr.*`, `rto.*`, `manifest.*`, `merchant.kyc.review`, `pricing.*`, `role.manage`,
-`org.*` extend the exact list in CLAUDE.md §6 — that list was illustrative
-("Examples:"), this is the concrete v1 catalog the code checks against.
+`org.*`, `international.*` extend the exact list in CLAUDE.md §6 — that list was
+illustrative ("Examples:"), this is the concrete v1 catalog the code checks against.
+`international.handoff`/`international.receive` are seeded now but unused until I4 wires
+the carrier handoff/receive scans that consume them.
 
 ## 4. Illustrative Role → Permission Coverage
 
@@ -120,6 +128,10 @@ table — but indicative of intent:
   the application-service query level, not just the permission catalog, since a
   Merchant is not a courier-org staff member and has no `UserBranch` concept at all.
 * **Auditor**: `*.read` + `audit.read` across the org, no write permissions anywhere.
+* **OperationsManager** and **HubStaff** (I3): both additionally hold `international.create`,
+  `international.read`, and `international.manage_customs` — the two existing roles whose
+  descriptions already cover outbound/inbound branch operations. Neither holds
+  `international.handoff`/`international.receive` (unused until I4).
 
 ## 5. Merchant/MerchantStaff Authorization Model
 

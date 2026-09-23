@@ -11,7 +11,8 @@ Plans: `docs/superpowers/plans/`.
 | I1a | i18n foundation (frontend) | Implemented — Nepali strings are machine-drafted and need native review; the cookie → server-render → refresh loop has only been covered by unit tests, not a real browser session |
 | I1b | Notification-template locale | Implemented — Nepali default bodies are machine-drafted and need native review |
 | I2 | Countries, country zones, international address | Implemented — seeds Nepal + UN member states + a handful of dependent territories (not the complete ISO-3166-1 list); every country starts unserviced; Nepali names filled in for a 12-country starter set |
-| I3–I8 | See the design spec §8 | Planned |
+| I3 | International module core | Implemented — see below |
+| I4–I8 | See the design spec §8 | Planned |
 
 ## Money and currency (I0)
 
@@ -124,3 +125,128 @@ Plans: `docs/superpowers/plans/`.
   missing. There is no way to add a missing country without a migration.
 - `InternationalAddress.CountryCode` is format-validated only; nothing yet checks it against a
   real `Country` row or `IsServiced`.
+
+## International module core (I3)
+
+- **`Scope`/`Direction`.** `Shipment` (`Shipments.Domain`) gains two enums, both set once at
+  creation and never changed afterward: `Scope` (`Domestic`, `International` — default
+  `Domestic`) and `Direction` (`Domestic`, `Outbound`, `Inbound` — default `Domestic`). Every
+  pre-I3 row defaults to `Domestic`/`Domestic` via the migration, so existing domestic shipments
+  and the existing domestic creation path are unaffected.
+- **Address columns.** `RecipientProvinceId`/`RecipientDistrictId`/`RecipientLocalLevelId`/
+  `RecipientWardNumber` and the equivalent `Sender*` fields are now nullable. New nullable columns
+  `RecipientCity`/`RecipientRegion`/`RecipientPostalCode`/`RecipientCountryCode` (and the
+  equivalent `Sender*`) hold the foreign-side address. `RecipientAddressLine`/`SenderAddressLine`
+  (existing columns) are reused as `InternationalAddress.Line1` for whichever side is foreign —
+  there is no separate `Line1` column. Which side is foreign is determined by `Direction`:
+  `Outbound` → the recipient is foreign (sender stays Nepal); `Inbound` → the sender is foreign
+  (recipient stays Nepal). `Shipments.Application.ShipmentAddressValidator` enforces this: the
+  Nepal-side party must have a full, valid province/district/local-level/ward chain (checked via
+  `IGeographyLookupService.IsValidHierarchyAsync`, same as a domestic shipment), and the
+  foreign-side party's `AddressLine`/`City`/`CountryCode` must parse as a valid
+  `InternationalAddress` (`Geography.Domain`). Note: only `Line1`/`City`/`CountryCode` are passed
+  into `InternationalAddress.Create` for validation — the `Region`/`PostalCode` columns are stored
+  but not themselves format-checked.
+- **Country service check.** Before creating the shell, `InternationalShipmentService.CreateAsync`
+  (`International.Application`) resolves the foreign-side `CountryCode` and calls the new
+  `Geography.Application.ICountryLookupService.IsServicedAsync` (I2's first consumer of
+  `Country.IsServiced`). A missing/unserviced country returns `400
+  INTERNATIONAL_SHIPMENT_VALIDATION_FAILED` ("Destination country is not currently serviced.")
+  before the gateway is ever called.
+- **COD guard.** The international creation request has no `CodAmount` field at all — COD on an
+  international shipment is impossible to express, not merely rejected at runtime.
+- **`InternationalLeg`/`CustomsItem`** (new `International.Domain`, tenant-owned — carries
+  `OrganizationId` and the standard query filter, unlike `Country`/`FxRate`'s platform-level
+  reference data). `InternationalLeg` is one-to-one with `Shipment` by `ShipmentId`: contents
+  description, ISO alpha-2 country of origin, `CustomsPurpose` (`Gift`, `CommercialSale`,
+  `Sample`, `Return`, `Documents`, `Other`), `Incoterm` (`Ddu`, `Ddp`), an optional export licence
+  reference, `CustomsCompletedAt` (null until the declaration is completed), and the provisional
+  pricing fields below. `CustomsItem` is one row per the shipment's existing `ShipmentItem`
+  (`HsCode` + a `Money` customs value), written by `InternationalShipmentService.UpdateCustomsAsync`
+  — every call fully replaces the shipment's existing `CustomsItem` rows rather than merging.
+  `ShipmentItemId` is validated against the shipment's real items via the new
+  `Shipments.Application.IShipmentItemLookupService.GetItemsAsync`, not a DB-level FK (`CustomsItem`
+  lives in a different module's `DbSet`).
+- **`CustomsPrepared` reachability.** One new `ShipmentStatus`/`ShipmentEventType` value,
+  `CustomsPrepared`, appended at the end of both enums. `InternationalShipmentService.PrepareCustomsAsync`
+  rejects the call (`400 INTERNATIONAL_SHIPMENT_VALIDATION_FAILED`) unless
+  `InternationalLeg.CustomsCompletedAt` is set, then calls
+  `IShipmentInternationalGateway.TransitionToCustomsPreparedAsync`, which picks the expected
+  starting status dynamically: `Sorted` when `OriginBranchId == DestinationBranchId` (the common
+  case — a branch that handles exports locally, mirroring `Manifests.Application.ManifestService.CreateAsync`'s
+  hard rejection of `FromBranchId == ToBranchId`, so there is no manifest path from `Sorted` to
+  `AtDestinationBranch` in that case), or `AtDestinationBranch` when they differ (after the
+  existing, unmodified manifest dispatch/receive cycle). This is the one deliberate deviation from
+  every other transition method's single hardcoded `expectedFrom`. `TransitionToCustomsPreparedAsync`
+  also rejects `Scope = Domestic` shipments outright.
+- **API — four routes, all under `/api/v1/international/shipments`, staff-only (JWT + permission,
+  organization-wide — no per-branch check):**
+  - `POST /` — `international.create`. Creates the shipment shell + empty `InternationalLeg` in one
+    `SaveChangesAsync`. Returns `201` with `{ shipment, leg }` (`InternationalShipmentDetailResponse`).
+  - `GET /{id}` — `international.read`. Merged `Shipment` + `InternationalLeg`/`CustomsItem` detail,
+    via `InternationalShipmentQueryService.GetAsync`. `404` if the shipment has no `InternationalLeg`
+    row or isn't in the caller's tenant.
+  - `PATCH /{id}/customs` — `international.manage_customs`. Full-replace customs declaration.
+  - `POST /{id}/prepare-customs` — `international.manage_customs`. Triggers the `CustomsPrepared`
+    transition; `400 SHIPMENT_INVALID_TRANSITION` if the state guard fails (the design spec's §5
+    describes this as a `409` — the shipped endpoint returns it as `400`, matching every other
+    `ShipmentInvalidTransitionException` mapping in this codebase, e.g. `API-SPEC.md`'s error
+    envelope example), `400 INTERNATIONAL_SHIPMENT_VALIDATION_FAILED` if customs isn't complete yet.
+- **Cross-module contracts.** `International` never touches `Shipment`/`ShipmentItem`'s `DbSet`s
+  directly. It goes through three narrow interfaces implemented by `Shipments.Application`:
+  `IShipmentInternationalGateway` (`CreateShipmentShellAsync`, `TransitionToCustomsPreparedAsync`
+  — implemented by `ShipmentService` in `ShipmentService.International.cs`), `IShipmentItemLookupService`
+  (`GetItemsAsync`, a narrow read projection for building `CustomsItem` rows), and
+  `IShipmentTransitionService.GetResponseAsync` (a new method added to the existing transition
+  interface so `InternationalShipmentQueryService.GetAsync` can merge in the full shipment detail
+  without a second, module-crossing query). This follows the same precedent
+  `Manifests`/`Ndr`/`Riders` already use for driving real `Shipment` transitions.
+- **The `Direction == Outbound` guard.** Nine `Shipments.Application.ShipmentService` methods each
+  gain a leading check (via a shared `GuardAgainstOutboundInternationalAsync` helper, or inlined for
+  the two bulk methods) that rejects the call with `ShipmentInvalidTransitionException` when
+  `shipment.Direction == ShipmentDirection.Outbound`: `AssignDeliveryToRiderAsync`,
+  `CompleteDeliveryAsync`, `FailDeliveryAsync`, `TransitionToNdrCreatedAsync`,
+  `ReattemptDeliveryAsync`, `InitiateRtoAsync`, `DispatchManyRtoAsync`, `ReceiveRtoAtOriginAsync`,
+  `ConfirmRtoDeliveredAsync`. This is deliberately keyed on **`Direction`, not `Scope`** — these are
+  exactly the methods that would otherwise let an outbound international shipment skip
+  `CustomsPrepared` and fall straight into domestic last-mile/NDR/RTO statuses. Every earlier
+  shared status (`PickupAssigned` through `AtDestinationBranch`, dispatch, manifest receive) is
+  **not** guarded, because both `Outbound` and (once I4 ships `ReceivedFromCarrier`) `Inbound`
+  shipments legitimately pass through those unchanged. `Inbound` is deliberately **not** guarded on
+  the nine methods above either: an inbound shipment's last mile (from `AtDestinationBranch`
+  onward) is supposed to use these same domestic methods unchanged once I4 lets it reach that
+  status — in I3 this is simply unreachable for `Inbound`, since nothing yet drives an inbound
+  shipment to `AtDestinationBranch`.
+- **`ProvisionalTotalCharge`/`IsProvisionalPricing`.** No real pricing engine runs for international
+  shipments (I5 doesn't exist yet). `InternationalLeg.ProvisionalTotalChargeAmount`/`Currency` is a
+  staff-entered `Money` figure supplied on the create request, and `IsProvisionalPricing` is always
+  `true` in this plan. `Shipment.DeliveryCharge`/`TotalCharge` are set to this same provisional
+  amount (with `InsuranceCharge`/`OtherCharges` at zero) so existing shipment-charge fields aren't
+  left blank, but nothing about them is a real carrier-cost-based quote. I5 replaces this with a
+  real `PriceBreakdown`; this plan does not define how existing I3-era provisional shipments get
+  reconciled once I5 ships.
+
+### Known limitations
+
+- No carrier integration: no carrier port/adapters, no handoff/receive scans, no tracking ingest.
+  Every I3 shipment is a manually-entered shell.
+- No real pricing: `ProvisionalTotalCharge` is staff-entered, not computed from any rate card, FX
+  conversion, or carrier quote.
+- No frontend and no merchant-facing API — the four routes above are staff-only and have no UI.
+- `Inbound` shipments cannot progress past `Created` in this plan. `AssignPickupToRiderAsync`
+  through `ReceiveAtDestinationAsync` are unguarded and would technically accept an `Inbound`
+  shipment, but nothing in I3 creates the carrier-side event that would legitimately start that
+  chain for an inbound parcel (that's I4's `ReceivedFromCarrier`), so in practice every `Inbound`
+  shipment created today just sits at `Created`.
+- None of the four `/api/v1/international/shipments*` routes enforce per-branch scope — unlike the
+  scan/manifest operations documented in `BRANCH-OPERATIONS.md`, `international.*` is checked
+  organization-wide only (`RequirePermission`, no `CheckBranchAccessAsync` call anywhere in this
+  path). A user holding `international.create` can create a shell against any branch in the org,
+  not just branches they're granted. This mirrors the existing domestic `POST /api/v1/shipments`
+  precedent (which is also permission-only, not branch-scoped, at creation time), not a regression
+  specific to I3.
+- The `GET /{id}` response's embedded `shipment` object reuses the existing `ShipmentResponse` DTO
+  unchanged — it does not expose `Scope`, `Direction`, or the foreign-side `City`/`Region`/
+  `PostalCode`/`CountryCode` fields. Only `RecipientAddressLine`/`SenderAddressLine` (the `Line1`
+  reused column) are visible for the foreign party today; a caller must already know which side is
+  foreign (from the request they sent) to interpret the response correctly.

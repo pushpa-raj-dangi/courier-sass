@@ -115,9 +115,11 @@ typeof(JsonStringEnumConverter))]`, added Frontend Phase F11 — `CLARIFICATIONS
 before that it followed the raw-integer wire format most other enums in this codebase
 still use, unless individually opted in): `Received, PickedUp, InTransit,
 AtDestinationBranch, OutForDelivery, Delivered, DeliveryAttemptUnsuccessful, Cancelled`.
-This is a coarser, public-safe mapping of the real 16-value internal `ShipmentStatus`,
-not the illustrative CLAUDE.md §24 status list verbatim (`PublicTrackingStatusMapper.Map`,
-`CLARIFICATIONS.md` #13 for the three mapping corrections made during implementation).
+This is a coarser, public-safe mapping of the real 17-value internal `ShipmentStatus`
+(16 before I3 added `CustomsPrepared`, which `PublicTrackingStatusMapper.Map` buckets into
+`InTransit` alongside `AtOriginBranch`/`Sorted`), not the illustrative CLAUDE.md §24 status
+list verbatim (`PublicTrackingStatusMapper.Map`, `CLARIFICATIONS.md` #13 for the three
+mapping corrections made during implementation).
 `location`, when present, is a city/hub-level branch name only. Consecutive internal
 events that map to the same public status (e.g. `AtOriginBranch` then `Sorted`, both
 `InTransit`) collapse into a single `events[]` entry.
@@ -171,3 +173,50 @@ endpoint — e.g. `POST /api/v1/manifests/{id}/receive` requires `manifest.recei
 the manifest's `ToBranchId`. Full internal endpoint catalog is enumerated per-module
 as each module is implemented (`ROADMAP.md`), not upfront here, to avoid the
 catalog drifting from what's actually built.
+
+## 7. International Shipments API (I3)
+
+Staff-only (JWT + permission), not part of the Merchant API catalog in §3 — merchant-facing
+international booking is I7. Unlike most other internal routes in this catalog, none of the four
+routes below enforce a per-branch scope check (`RBAC.md` §3); `international.*` is a plain
+organization-wide permission check.
+
+```http
+POST   /api/v1/international/shipments                       # create an international shipment shell + InternationalLeg
+GET    /api/v1/international/shipments/{id}                  # merged Shipment + InternationalLeg + CustomsItem detail
+PATCH  /api/v1/international/shipments/{id}/customs           # full-replace the customs declaration
+POST   /api/v1/international/shipments/{id}/prepare-customs   # trigger the CustomsPrepared transition
+```
+
+* **`POST /`** — `international.create`. Body (`CreateInternationalShipmentRequest`): `merchantId`,
+  `direction` (`Outbound`|`Inbound`), `originBranchId`, `destinationBranchId`, `serviceTypeId`,
+  `weightKg`/`lengthCm`/`widthCm`/`heightCm`, `recipientName`/`recipientPhone` and
+  `senderName`/`senderPhone`, the Nepal-side party's `provinceId`/`districtId`/`localLevelId`/
+  `wardNumber`, the foreign-side party's `city`/`region`/`postalCode`/`countryCode` (which party is
+  foreign is derived from `direction`, not sent explicitly), both parties' `addressLine` (reused as
+  `Line1` for whichever side is foreign), `items[]` (`description`, `quantity`, `unitValue`), and
+  `provisionalTotalChargeAmount`/`provisionalTotalChargeCurrency`. There is no `codAmount` field —
+  COD on an international shipment is unrepresentable, not merely rejected. Returns `201` with
+  `InternationalShipmentDetailResponse` (`{ shipment, leg }`). Errors: `400
+  INTERNATIONAL_SHIPMENT_VALIDATION_FAILED` (unserviced/unknown foreign country code) and `400
+  SHIPMENT_VALIDATION_FAILED` (Nepal-chain or `InternationalAddress` shape failures from
+  `ShipmentAddressValidator`, or an empty `items[]`).
+* **`GET /{id}`** — `international.read`. Returns the merged detail response; `404` if the shipment
+  has no `InternationalLeg` (not an I3 international shipment) or isn't in the caller's tenant. Note:
+  the embedded `shipment` object is the existing `ShipmentResponse` shape unchanged — it does not
+  carry `scope`/`direction` or the foreign-side `city`/`region`/`postalCode`/`countryCode` fields
+  (see `docs/INTERNATIONAL.md`'s Known limitations).
+* **`PATCH /{id}/customs`** — `international.manage_customs`. Full-replace body
+  (`UpdateCustomsRequest`): `contentsDescription`, `countryOfOrigin`, `purpose` (`Gift`|
+  `CommercialSale`|`Sample`|`Return`|`Documents`|`Other`), `incoterm` (`Ddu`|`Ddp`),
+  `exportLicenceReference` (nullable), `items[]` (`shipmentItemId`, `hsCode`,
+  `customsValueAmount`, `customsValueCurrency` — one entry required per the shipment's existing
+  `ShipmentItem`s; replaces every prior `CustomsItem` row for the shipment). Sets
+  `CustomsCompletedAt`, which gates `prepare-customs` below. `404` if no matching shipment/leg;
+  `400 INTERNATIONAL_SHIPMENT_VALIDATION_FAILED` for an unknown `purpose`/`incoterm`, an empty
+  `items[]`, or an item not belonging to the shipment.
+* **`POST /{id}/prepare-customs`** — `international.manage_customs`. Triggers the `CustomsPrepared`
+  transition (`SHIPMENT-LIFECYCLE.md`'s `CUSTOMS_PREPARED` subsection). `404` if not found; `400
+  INTERNATIONAL_SHIPMENT_VALIDATION_FAILED` if `CustomsCompletedAt` is still null; `400
+  SHIPMENT_INVALID_TRANSITION` if the shipment isn't currently in the expected `Sorted`
+  (same-branch)/`AtDestinationBranch` (different-branch) status.

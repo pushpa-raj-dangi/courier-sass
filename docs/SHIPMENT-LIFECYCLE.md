@@ -80,10 +80,37 @@ earlier draft of the state diagram showed one.
 | RTO_INITIATED | RTO_IN_TRANSIT | Manifest dispatch (return leg) |
 | RTO_IN_TRANSIT | RTO_AT_ORIGIN | Manifest receive at origin |
 | RTO_AT_ORIGIN | RTO_DELIVERED | Merchant confirmation |
+| SORTED | CUSTOMS_PREPARED | Customs declaration completed (international, same-branch: `OriginBranchId == DestinationBranchId`) |
+| AT_DESTINATION_BRANCH | CUSTOMS_PREPARED | Customs declaration completed (international, different-branch) |
 
 Any transition not in this table is rejected server-side with a validation error; the
 attempted transition and rejection reason are still logged for diagnosis, but no
 `ShipmentEvent`/status change is written.
+
+### `CUSTOMS_PREPARED` (International, I3)
+
+Only reachable for `Scope = International` shipments (`International.Application.InternationalShipmentService.PrepareCustomsAsync`,
+gated on `InternationalLeg.CustomsCompletedAt` being set), via `Shipments.Application.IShipmentInternationalGateway.TransitionToCustomsPreparedAsync`.
+Its expected starting status is chosen dynamically rather than being a single hardcoded value,
+because — unlike every other transition in this document — outbound international shipments can
+legitimately reach `CustomsPrepared` from two different places depending on branch topology:
+
+- From `SORTED`, when the shipment's `OriginBranchId == DestinationBranchId` — the common case of a
+  branch that handles exports locally. There is no manifest path between `SORTED` and
+  `AT_DESTINATION_BRANCH` in that case (`Manifests.Application.ManifestService.CreateAsync` hard-rejects
+  a manifest with `FromBranchId == ToBranchId`), so `CUSTOMS_PREPARED` is the direct next step.
+- From `AT_DESTINATION_BRANCH`, when the origin and destination branches differ — after the
+  existing, unmodified manifest dispatch/receive cycle has moved the shipment there.
+
+`CUSTOMS_PREPARED` is currently terminal-for-now: no I3 code transitions a shipment out of it. I4
+is expected to add what comes after (`HandedToCarrier` and the remaining carrier-leg statuses from
+the parent international design spec). Separately, nine last-mile/NDR/RTO methods
+(`AssignDeliveryToRiderAsync`, `CompleteDeliveryAsync`, `FailDeliveryAsync`,
+`TransitionToNdrCreatedAsync`, `ReattemptDeliveryAsync`, `InitiateRtoAsync`, `DispatchManyRtoAsync`,
+`ReceiveRtoAtOriginAsync`, `ConfirmRtoDeliveredAsync`) reject any shipment with `Direction ==
+Outbound` outright, so an outbound international shipment cannot skip `CUSTOMS_PREPARED` and fall
+into a domestic last-mile/NDR/RTO status. See `docs/INTERNATIONAL.md`'s "International module core
+(I3)" section for the full guard rationale (it is keyed on `Direction`, not `Scope`).
 
 ## 4. `ShipmentEvent` (CLAUDE.md §11)
 

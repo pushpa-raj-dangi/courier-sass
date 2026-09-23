@@ -125,9 +125,12 @@ Shipment { Id (internal UUID), Awb (business identifier, unique per (Organizatio
            CurrentCustodianUserId (nullable), CurrentCustodianRiderId (nullable — always
              null until Phase 8 introduces Rider; kept as a real column now so Phase 8
              needs no migration to add it),
+           Scope (Domestic|International, default Domestic), Direction (Domestic|Outbound|
+             Inbound, default Domestic) — both set once at creation, never changed
+             afterward (International module, I3; see docs/INTERNATIONAL.md),
            CurrentStatus (Created|PickupAssigned|PickedUp|AtOriginBranch|Sorted|InTransit|
              AtDestinationBranch|OutForDelivery|Delivered|Cancelled — NDR/RTO states added
-             Phase 9), ServiceTypeId,
+             Phase 9, CustomsPrepared added I3), ServiceTypeId,
            WeightKg, LengthCm (nullable), WidthCm (nullable), HeightCm (nullable),
            DeclaredValue (= sum of ShipmentItem.Quantity*UnitValue, server-computed),
            CodAmount, WantsInsurance,
@@ -137,11 +140,23 @@ Shipment { Id (internal UUID), Awb (business identifier, unique per (Organizatio
              # pre-discount Subtotal; TotalCharge is the actual post-discount amount, so the
              # three charge fields will not sum to TotalCharge when a merchant discount
              # applied (expected, not a bug — every component stays individually traceable
-             # per CLAUDE.md §23)
-           RecipientName, RecipientPhone, RecipientProvinceId, RecipientDistrictId,
-             RecipientLocalLevelId, RecipientWardNumber, RecipientAddressLine,
-           SenderName, SenderPhone, SenderProvinceId, SenderDistrictId, SenderLocalLevelId,
-             SenderWardNumber, SenderAddressLine }
+             # per CLAUDE.md §23). For an I3 international shipment, DeliveryCharge/
+             # TotalCharge instead hold InternationalLeg's staff-entered
+             # ProvisionalTotalChargeAmount (InsuranceCharge/OtherCharges stay zero) — not
+             # a real quote, see InternationalLeg below.
+           RecipientName, RecipientPhone, RecipientProvinceId (nullable, I3),
+             RecipientDistrictId (nullable, I3), RecipientLocalLevelId (nullable, I3),
+             RecipientWardNumber (nullable, I3), RecipientAddressLine (reused as
+             InternationalAddress.Line1 when Recipient is the foreign side, I3),
+             RecipientCity, RecipientRegion, RecipientPostalCode, RecipientCountryCode
+             (all nullable, I3 — populated only when Recipient is the foreign side, i.e.
+             Direction = Outbound),
+           SenderName, SenderPhone, SenderProvinceId (nullable, I3), SenderDistrictId
+             (nullable, I3), SenderLocalLevelId (nullable, I3), SenderWardNumber
+             (nullable, I3), SenderAddressLine (reused as InternationalAddress.Line1 when
+             Sender is the foreign side, I3),
+             SenderCity, SenderRegion, SenderPostalCode, SenderCountryCode (all nullable,
+             I3 — populated only when Sender is the foreign side, i.e. Direction = Inbound) }
 
 ShipmentItem { Id, ShipmentId, Description, Quantity, UnitValue }
 
@@ -175,7 +190,41 @@ type+id pair.
 
 **RecipientAddress/SenderAddress** are structured geography FKs (Province/District/
 LocalLevel/WardNumber + AddressLine), the identical shape `Branch`/`MerchantAddress` already
-use — not the single free-text field an earlier draft of this section implied.
+use for a domestic party — not the single free-text field an earlier draft of this section
+implied. As of I3, the geography FKs are nullable and a second, parallel set of nullable
+`InternationalAddress`-shaped columns exists for whichever party is foreign on an
+international shipment (see the `Shipment` field list above and
+`Shipments.Application.ShipmentAddressValidator`, which enforces exactly one shape is
+populated per party depending on `Scope`/`Direction`).
+
+## International — `OrganizationId` present
+
+```text
+InternationalLeg { Id, OrganizationId, ShipmentId (unique — one-to-one with Shipment),
+                    ContentsDescription, CountryOfOrigin (ISO alpha-2),
+                    Purpose (Gift|CommercialSale|Sample|Return|Documents|Other),
+                    Incoterm (Ddu|Ddp), ExportLicenceReference (nullable),
+                    CustomsCompletedAt (nullable — null until
+                    InternationalShipmentService.UpdateCustomsAsync completes the
+                    declaration; gates the CustomsPrepared transition),
+                    ProvisionalTotalChargeAmount, ProvisionalTotalChargeCurrency,
+                    IsProvisionalPricing (always true in I3 — I5 replaces this with a
+                    real PriceBreakdown) }
+
+CustomsItem { Id, InternationalLegId, ShipmentItemId (validated against the shipment's
+              real items via Shipments.Application.IShipmentItemLookupService, not a
+              DB-level FK — CustomsItem and ShipmentItem live in different modules'
+              DbSets), HsCode, CustomsValueAmount, CustomsValueCurrency }
+              # One row per the shipment's existing ShipmentItem, written by
+              # InternationalShipmentService.UpdateCustomsAsync, which fully replaces the
+              # shipment's existing CustomsItem rows on every call (full-replace, not
+              # merge-patch).
+```
+
+Both entities are new in the `International` module (I3). See `docs/INTERNATIONAL.md`'s
+"International module core (I3)" section for the full cross-module contract
+(`IShipmentInternationalGateway`, `IShipmentItemLookupService`, `ICountryLookupService`) and
+guard rules, and `SHIPMENT-LIFECYCLE.md` for the `CustomsPrepared` transition.
 
 ## Scanning & Manifests — `OrganizationId` present
 
@@ -405,6 +454,7 @@ Shipment 1─* ShipmentEvent
 Shipment 1─* DeliveryAttempt 1─(0..1)─ DeliveryProof
 Shipment 1─(0..1)─ NDR 1─(0..1)─ ReturnShipment
 Shipment 1─(0..1)─ CODCollection 1─(0..1)─ MerchantSettlementItem *─1 MerchantSettlement
+Shipment 1─(0..1)─ InternationalLeg 1─* CustomsItem
 Manifest 1─* ManifestShipment *─1 Shipment
 Manifest 1─* ShipmentTransfer *─1 Shipment
 Rider 1─* DeliveryTask *─1 Shipment
@@ -415,7 +465,7 @@ contract; migrations should be generated from those, and any divergence discover
 during implementation gets fixed here first (per `ROADMAP.md`'s cross-phase rule),
 not left implicit in code.
 
-## Money, FX and locale (international support, I0)
+## Money, FX and locale (international support, I0–I3)
 
 - `Money` / `CurrencyCode` (SharedKernel): immutable amount + currency, same-currency arithmetic only.
 - `FxRate` (Pricing): platform-level, append-only conversion rate; not tenant-owned.
@@ -424,5 +474,8 @@ not left implicit in code.
   — org locale override -> compiled locale default -> org en override -> compiled en default.
 - `Country` (Geography, platform-level, I2): ISO-3166 alpha-2 reference data, `IsServiced` toggle,
   optional `CountryZone`. `InternationalAddress` (Geography, I2): format-validated foreign address
-  value object, no consumer yet.
+  value object; I3 is its first consumer (via `ShipmentAddressValidator` and the new
+  `ICountryLookupService`).
+- `Shipment.Scope`/`Direction`, `InternationalLeg`, `CustomsItem` (I3): see the `Shipment` entity
+  and the "International" section above.
 - Existing persisted amounts are NPR by invariant. See `docs/INTERNATIONAL.md`.
