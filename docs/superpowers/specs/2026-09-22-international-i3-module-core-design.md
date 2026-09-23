@@ -147,11 +147,21 @@ when `Scope = International`). `TransitionToCustomsPreparedAsync` reuses the exi
 dynamically (`Sorted` when `OriginBranchId == DestinationBranchId`, else `AtDestinationBranch`) —
 the one deliberate deviation from every other transition method's single hardcoded `expectedFrom`.
 
+**`Geography.Application`** gains `ICountryLookupService` (same cross-module-lookup shape as the
+existing `IGeographyLookupService`/`IBranchLookupService`): `Task<bool> IsServicedAsync(string isoCode, CancellationToken)`,
+implemented against `Country` (`IsoCode` match, `IsServiced == true`). This is the parent spec §9
+enforcement point ("`Country.IsServiced` enforced server-side for sanctioned/unserviced
+destinations") — I2 built `Country`/`IsServiced` and the admin screen to toggle it, but nothing
+consumed it yet ("no consumer" was I2's own stated known limitation). I3 is the first consumer.
+
 **New `International.Application`:**
-- `InternationalShipmentService.CreateAsync` — calls `IShipmentInternationalGateway.CreateShipmentShellAsync`,
-  then creates `InternationalLeg` (customs fields empty, `ProvisionalTotalChargeAmount` from the
-  request, `IsProvisionalPricing = true`) in the same `DbContext` instance (both modules share one
-  `DbContext` in this modular monolith, so both writes commit in one `SaveChangesAsync`/transaction).
+- `InternationalShipmentService.CreateAsync` — validates the foreign-side `InternationalAddress.CountryCode`
+  against `ICountryLookupService.IsServicedAsync` first (400 `INTERNATIONAL_SHIPMENT_VALIDATION_FAILED`,
+  message "Destination country is not currently serviced." if false or unknown), then calls
+  `IShipmentInternationalGateway.CreateShipmentShellAsync`, then creates `InternationalLeg`
+  (customs fields empty, `ProvisionalTotalChargeAmount` from the request, `IsProvisionalPricing = true`)
+  in the same `DbContext` instance (both modules share one `DbContext` in this modular monolith, so
+  both writes commit in one `SaveChangesAsync`/transaction).
 - `InternationalShipmentService.UpdateCustomsAsync` — validates and persists `CustomsDeclaration`
   fields plus per-item `CustomsItem` rows (one per the shipment's existing `ShipmentItem`s, looked
   up via a new narrow `IShipmentItemLookupService` read-only projection — `International` does not
@@ -193,6 +203,8 @@ the `shipment.sorted`/`shipment.received_at_origin` naming convention already us
 
 - COD rejected on `Scope = International` at shell creation (`CodAmount` isn't even a field on the
   international creation request — there is no way to set it, which is the enforcement).
+- Foreign-side `CountryCode` rejected at shell creation unless `Country.IsServiced` (via the new
+  `ICountryLookupService`) — parent spec §9.
 - **The guard is on `Direction`, not `Scope`, and applies to exactly one cluster of methods.**
   `PickupAssigned`/`PickedUp`/`AtOriginBranch`/`Sorted`/dispatch/`InTransit`/receive-at-destination
   are shared statuses that both `Outbound` and (once I4 ships `ReceivedFromCarrier`) `Inbound`
