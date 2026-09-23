@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Courier.Geography.Application;
 
-public class CountryQueryService
+public class CountryQueryService : ICountryLookupService
 {
     private readonly DbContext _dbContext;
 
@@ -47,5 +47,11 @@ public class CountryQueryService
                 c.CountryZoneId.HasValue ? zoneNames.GetValueOrDefault(c.CountryZoneId.Value) : null))
             .ToList();
         return new PagedResult<CountryDto>(items, normalizedPage, normalizedPageSize, total);
+    }
+
+    public async Task<bool> IsServicedAsync(string isoCode, CancellationToken cancellationToken = default)
+    {
+        var normalized = isoCode.ToUpperInvariant();
+        return await _dbContext.Set<Country>().AnyAsync(c => c.IsoCode == normalized && c.IsServiced, cancellationToken);
     }
 }

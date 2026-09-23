@@ -243,6 +243,7 @@ builder.Services.AddScoped<GeographyQueryService>();
 builder.Services.AddScoped<IGeographyLookupService>(sp => sp.GetRequiredService<GeographyQueryService>());
 builder.Services.AddScoped<DeliveryZoneService>();
 builder.Services.AddScoped<CountryQueryService>();
+builder.Services.AddScoped<ICountryLookupService>(sp => sp.GetRequiredService<CountryQueryService>());
 builder.Services.AddScoped<CountryAdminService>();
 builder.Services.AddScoped<CountryZoneService>();
 builder.Services.AddScoped<IMerchantPasswordHasher, MerchantPasswordHasherAdapter>();

@@ -84,4 +84,21 @@ public class CountryQueryServiceTests
 
         Assert.Equal("SAARC", Assert.Single(result.Items).CountryZoneName);
     }
+
+    [Fact]
+    public async Task IsServicedAsync_TrueOnlyForServicedCountry_CaseInsensitive()
+    {
+        await using var dbContext = CreateSeededContext();
+        var service = new CountryQueryService(dbContext);
+
+        Assert.False(await service.IsServicedAsync("IN"));
+
+        var india = await dbContext.Set<Country>().SingleAsync(c => c.IsoCode == "IN");
+        india.IsServiced = true;
+        await dbContext.SaveChangesAsync();
+
+        Assert.True(await service.IsServicedAsync("IN"));
+        Assert.True(await service.IsServicedAsync("in"));
+        Assert.False(await service.IsServicedAsync("ZZ"));
+    }
 }
