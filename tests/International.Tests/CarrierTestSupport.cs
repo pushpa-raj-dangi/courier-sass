@@ -169,6 +169,14 @@ internal sealed class TestCarrierProvider : ICarrierProvider
         Map.TryGetValue(carrierStatusCode, out var targets) ? (direction == ShipmentDirection.Outbound ? targets.Outbound : targets.Inbound) : null;
 }
 
+internal sealed class RecordingJobScheduler : ICarrierJobScheduler
+{
+    public int ProcessingEnqueued { get; private set; }
+    public List<(Guid OrganizationId, Guid BookingId)> Polls { get; } = new();
+    public void EnqueueProcessing() => ProcessingEnqueued++;
+    public void EnqueuePoll(Guid organizationId, Guid bookingId) => Polls.Add((organizationId, bookingId));
+}
+
 internal sealed class InMemoryObjectStorage : IObjectStorage
 {
     public Dictionary<string, (byte[] Content, string ContentType)> Objects { get; } = new();

@@ -63,7 +63,19 @@ internal class RecordingGateway : IShipmentInternationalGateway
 
     // I4 — replaced with recording versions in Task 5 and Task 13; not exercised by this file's
     // tests today.
-    public Task<CarrierStatusApplyResult> ApplyCarrierStatusAsync(Guid shipmentId, ShipmentStatus targetStatus, DateTimeOffset occurredAt, CarrierEventReference reference, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    public List<(Guid ShipmentId, ShipmentStatus Target, DateTimeOffset OccurredAt, CarrierEventReference Reference)> CarrierApplies { get; } = new();
+    public CarrierStatusApplyResult ApplyResult { get; set; } = CarrierStatusApplyResult.Applied;
+    public Exception? ApplyException { get; set; }
+
+    public Task<CarrierStatusApplyResult> ApplyCarrierStatusAsync(Guid shipmentId, ShipmentStatus targetStatus, DateTimeOffset occurredAt, CarrierEventReference reference, CancellationToken cancellationToken = default)
+    {
+        CarrierApplies.Add((shipmentId, targetStatus, occurredAt, reference));
+        if (ApplyException is not null)
+        {
+            throw ApplyException;
+        }
+        return Task.FromResult(ApplyResult);
+    }
     public Task<ShipmentResponse?> OverrideInternationalStatusAsync(Guid shipmentId, ShipmentStatus targetStatus, string reason, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     public Task<ShipmentResponse?> HandToCarrierAsync(Guid shipmentId, CarrierHandoffReference reference, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     public Task<ShipmentResponse?> ReceiveFromCarrierAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();

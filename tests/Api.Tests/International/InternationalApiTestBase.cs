@@ -8,6 +8,7 @@ using Courier.Geography.Infrastructure;
 using Courier.Identity.Application;
 using Courier.Identity.Domain;
 using Courier.International.Application;
+using Courier.International.Domain;
 using Courier.Merchants.Application;
 using Courier.Persistence;
 using Courier.Pricing.Application;
@@ -274,5 +275,37 @@ public abstract class InternationalApiTestBase
         var prepare = await org.Client.PostAsync($"/api/v1/international/shipments/{created.Shipment.Id}/prepare-customs", null);
         Assert.Equal(HttpStatusCode.OK, prepare.StatusCode);
         return created;
+    }
+
+    // Runs the processor directly, then waits until none of this carrier account's events is
+    // still Pending/Processing (the host's own Hangfire server may claim some first — the atomic
+    // claim makes that safe).
+    protected async Task ProcessCarrierEventsAsync(Guid carrierAccountId)
+    {
+        using (var scope = Factory.Services.CreateScope())
+        {
+            await scope.ServiceProvider.GetRequiredService<CarrierEventProcessorJob>().RunAsync();
+        }
+        var deadline = DateTime.UtcNow.AddSeconds(15);
+        while (true)
+        {
+            using var scope = Factory.Services.CreateScope();
+            var open = await scope.ServiceProvider.GetRequiredService<AppDbContext>().Set<CarrierTrackingEvent>().IgnoreQueryFilters()
+                .CountAsync(e => e.CarrierAccountId == carrierAccountId
+                    && (e.ProcessingStatus == CarrierEventProcessingStatus.Pending || e.ProcessingStatus == CarrierEventProcessingStatus.Processing));
+            if (open == 0)
+            {
+                return;
+            }
+            Assert.True(DateTime.UtcNow < deadline, "Carrier events were not processed in time.");
+            await Task.Delay(200);
+        }
+    }
+
+    protected async Task<ShipmentStatus> ShipmentStatusAsync(Guid shipmentId)
+    {
+        using var scope = Factory.Services.CreateScope();
+        return await scope.ServiceProvider.GetRequiredService<AppDbContext>().Set<Shipment>().IgnoreQueryFilters()
+            .Where(s => s.Id == shipmentId).Select(s => s.CurrentStatus).SingleAsync();
     }
 }

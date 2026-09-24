@@ -257,6 +257,12 @@ builder.Services.AddScoped<Courier.International.Application.Carriers.ICarrierPr
 builder.Services.AddScoped<Courier.International.Application.Carriers.ICarrierProviderRegistry, Courier.International.Application.Carriers.CarrierProviderRegistry>();
 builder.Services.AddScoped<Courier.International.Application.Carriers.ICarrierSecretProtector, Courier.International.Infrastructure.Carriers.DataProtectionCarrierSecretProtector>();
 builder.Services.AddScoped<Courier.International.Application.CarrierAccountService>();
+builder.Services.AddScoped<Courier.International.Application.Carriers.ICarrierJobScheduler, Courier.International.Infrastructure.Carriers.HangfireCarrierJobScheduler>();
+builder.Services.AddScoped<Courier.International.Application.CarrierTrackingEventWriter>();
+builder.Services.AddScoped<Courier.International.Application.CarrierEventApplier>();
+builder.Services.AddScoped<Courier.International.Application.CarrierEventProcessorJob>();
+builder.Services.AddScoped<Courier.International.Application.CarrierBookingPoller>();
+builder.Services.AddScoped<Courier.International.Application.CarrierTrackingPollJob>();
 builder.Services.AddScoped<IMerchantPasswordHasher, MerchantPasswordHasherAdapter>();
 builder.Services.AddScoped<IMerchantJwtTokenService, MerchantJwtTokenService>();
 builder.Services.AddScoped<IMerchantAuthorizationChecker, MerchantAuthorizationChecker>();
@@ -502,6 +508,8 @@ RecurringJob.AddOrUpdate<OverdueInvoiceJob>("billing-overdue-invoice-suspension"
 RecurringJob.AddOrUpdate<TrialExpiryJob>("billing-trial-expiry", job => job.RunAsync(CancellationToken.None), "0 3 * * *");
 RecurringJob.AddOrUpdate<PaymentReconciliationJob>("billing-payment-reconciliation", job => job.RunAsync(CancellationToken.None), "*/10 * * * *");
 RecurringJob.AddOrUpdate<Courier.Riders.Application.RiderLocationPingRetentionJob>("rider-location-ping-retention", job => job.RunAsync(CancellationToken.None), "0 4 * * *");
+RecurringJob.AddOrUpdate<Courier.International.Application.CarrierEventProcessorJob>("carrier-event-processor", job => job.RunAsync(CancellationToken.None), "*/30 * * * * *");
+RecurringJob.AddOrUpdate<Courier.International.Application.CarrierTrackingPollJob>("carrier-tracking-poll", job => job.RunAsync(CancellationToken.None), "*/15 * * * *");
 
 app.Run();
 
