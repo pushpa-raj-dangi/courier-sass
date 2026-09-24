@@ -200,7 +200,8 @@ populated per party depending on `Scope`/`Direction`).
 ## International — `OrganizationId` present
 
 ```text
-InternationalLeg { Id, OrganizationId, ShipmentId (unique — one-to-one with Shipment),
+InternationalLeg { Id, OrganizationId, ShipmentId (unique — one-to-one with Shipment;
+                    FK -> Shipments, Restrict),
                     ContentsDescription, CountryOfOrigin (ISO alpha-2),
                     Purpose (Gift|CommercialSale|Sample|Return|Documents|Other),
                     Incoterm (Ddu|Ddp), ExportLicenceReference (nullable),
@@ -215,7 +216,7 @@ CustomsItem { Id, InternationalLegId, ShipmentItemId (validated against the ship
               real items via Shipments.Application.IShipmentItemLookupService, not a
               DB-level FK — CustomsItem and ShipmentItem live in different modules'
               DbSets), HsCode, CustomsValueAmount, CustomsValueCurrency }
-              # One row per the shipment's existing ShipmentItem, written by
+              # Exactly one row per the shipment's existing ShipmentItem, written by
               # InternationalShipmentService.UpdateCustomsAsync, which fully replaces the
               # shipment's existing CustomsItem rows on every call (full-replace, not
               # merge-patch).

@@ -179,7 +179,7 @@ consumed it yet ("no consumer" was I2's own stated known limitation). I3 is the 
 | `POST /api/v1/international/shipments` | `international.create`, branch-scoped to `OriginBranchId` (same `CheckBranchAccessAsync` pattern as existing shipment creation) | Body: `direction`, `originBranchId`, `destinationBranchId`, domestic-side Nepal address, foreign-side `InternationalAddress` fields, items, `provisionalTotalCharge` (amount + currency). 400 `INTERNATIONAL_SHIPMENT_VALIDATION_FAILED` on address-shape/COD-guard violations. |
 | `GET /api/v1/international/shipments/{id}` | `international.read`, branch-scoped | Merged `Shipment` + `InternationalLeg` + `CustomsItem` detail |
 | `PATCH /api/v1/international/shipments/{id}/customs` | `international.manage_customs`, branch-scoped | Full-replace body (contents, HS codes/customs values per item, country of origin, purpose, incoterm, licence ref) |
-| `POST /api/v1/international/shipments/{id}/prepare-customs` | `international.manage_customs`, branch-scoped | Triggers the `CustomsPrepared` transition; 409 `SHIPMENT_INVALID_TRANSITION` if the state guard fails, 400 if customs isn't complete |
+| `POST /api/v1/international/shipments/{id}/prepare-customs` | `international.manage_customs`, branch-scoped | Triggers the `CustomsPrepared` transition; 400 `SHIPMENT_INVALID_TRANSITION` if the state guard fails (ruling: 400, matching every other `ShipmentInvalidTransitionException` mapping in the codebase — not 409), 400 if customs isn't complete |
 
 All four require an active organization context and enforce tenant isolation the same way every
 other `Shipments`/`Manifests` endpoint does (cross-tenant ID manipulation returns 404, not 403,

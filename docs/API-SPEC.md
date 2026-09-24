@@ -177,9 +177,12 @@ catalog drifting from what's actually built.
 ## 7. International Shipments API (I3)
 
 Staff-only (JWT + permission), not part of the Merchant API catalog in §3 — merchant-facing
-international booking is I7. Unlike most other internal routes in this catalog, none of the four
-routes below enforce a per-branch scope check (`RBAC.md` §3); `international.*` is a plain
-organization-wide permission check.
+international booking is I7. All four routes check the `international.*` permission (`403` if
+missing) **and** branch scope (`RBAC.md` §3): `POST` requires access to `originBranchId`; `GET`/
+`PATCH`/`prepare-customs` return `404` to a branch-restricted caller when the shipment touches none
+of their branches as origin, destination or current branch (same rule as `GET /api/v1/shipments`),
+and `prepare-customs` additionally requires access to the shipment's current branch (`400
+SHIPMENT_VALIDATION_FAILED`). Cross-tenant ids are `404`.
 
 ```http
 POST   /api/v1/international/shipments                       # create an international shipment shell + InternationalLeg
@@ -196,17 +199,21 @@ POST   /api/v1/international/shipments/{id}/prepare-customs   # trigger the Cust
   foreign is derived from `direction`, not sent explicitly), both parties' `addressLine` (reused as
   `Line1` for whichever side is foreign), `items[]` (`description`, `quantity`, `unitValue`), and
   `provisionalTotalChargeAmount`/`provisionalTotalChargeCurrency`. There is no `codAmount` field —
-  COD on an international shipment is unrepresentable, not merely rejected. Creation is not one
-  atomic write: the shipment shell (`Shipment`/`ShipmentItem`s) is saved first via
-  `IShipmentInternationalGateway.CreateShipmentShellAsync`, and the `InternationalLeg` is saved
-  separately afterward by `InternationalShipmentService.CreateAsync` — see `INTERNATIONAL.md`'s
-  Known limitations for the partial-failure implication. Returns `201` with
+  COD on an international shipment is unrepresentable, not merely rejected. Creation is one
+  transaction (shipment shell, items, creation event, audit, `shipment.created` outbox row and the
+  `InternationalLeg`): any failure leaves nothing behind. Any `city`/`region`/`postalCode`/
+  `countryCode` sent for the Nepal-side party is ignored (stored null). Returns `201` with
   `InternationalShipmentDetailResponse` (`{ shipment, leg }`). Errors: `400
-  INTERNATIONAL_SHIPMENT_VALIDATION_FAILED` (unserviced/unknown foreign country code) and `400
-  SHIPMENT_VALIDATION_FAILED` (Nepal-chain or `InternationalAddress` shape failures from
-  `ShipmentAddressValidator`, or an empty `items[]`).
-* **`GET /{id}`** — `international.read`. Returns the merged detail response; `404` if the shipment
-  has no `InternationalLeg` (not an I3 international shipment) or isn't in the caller's tenant. Note:
+  INTERNATIONAL_SHIPMENT_VALIDATION_FAILED` (`direction` not `Outbound`/`Inbound`, null/empty
+  `items[]`, `weightKg` ≤ 0, negative `provisionalTotalChargeAmount`, invalid currency code, foreign
+  `city`/`region` > 200 or `postalCode` > 20 chars, unserviced/unknown foreign country code) and `400
+  SHIPMENT_VALIDATION_FAILED` (merchant or either branch not in the caller's organization, origin
+  branch outside the caller's `international.create` branch scope, Nepal-chain or
+  `InternationalAddress` shape failures from `ShipmentAddressValidator`).
+* **`GET /{id}`** — `international.read`. Returns the merged detail response, including
+  `leg.customsItems[]` (`shipmentItemId`, `hsCode`, `customsValueAmount`, `customsValueCurrency`);
+  `404` if the shipment has no `InternationalLeg` (not an I3 international shipment), isn't in the
+  caller's tenant, or is outside the caller's branch visibility. Note:
   the embedded `shipment` object is the existing `ShipmentResponse` shape unchanged — it does not
   carry `scope`/`direction` or the foreign-side `city`/`region`/`postalCode`/`countryCode` fields
   (see `docs/INTERNATIONAL.md`'s Known limitations).
@@ -214,13 +221,20 @@ POST   /api/v1/international/shipments/{id}/prepare-customs   # trigger the Cust
   (`UpdateCustomsRequest`): `contentsDescription`, `countryOfOrigin`, `purpose` (`Gift`|
   `CommercialSale`|`Sample`|`Return`|`Documents`|`Other`), `incoterm` (`Ddu`|`Ddp`),
   `exportLicenceReference` (nullable), `items[]` (`shipmentItemId`, `hsCode`,
-  `customsValueAmount`, `customsValueCurrency` — one entry required per the shipment's existing
-  `ShipmentItem`s; replaces every prior `CustomsItem` row for the shipment). Sets
-  `CustomsCompletedAt`, which gates `prepare-customs` below. `404` if no matching shipment/leg;
-  `400 INTERNATIONAL_SHIPMENT_VALIDATION_FAILED` for an unknown `purpose`/`incoterm`, an empty
-  `items[]`, or an item not belonging to the shipment.
+  `customsValueAmount`, `customsValueCurrency` — exactly one entry per the shipment's existing
+  `ShipmentItem`s, no duplicates, no subset; replaces every prior `CustomsItem` row for the
+  shipment). Sets `CustomsCompletedAt`, which gates `prepare-customs` below. Response is the leg
+  including `customsItems[]`. `404` if no matching shipment/leg or outside branch visibility; `400
+  INTERNATIONAL_SHIPMENT_VALIDATION_FAILED` for an unknown `purpose`/`incoterm`, blank or > 1000-char
+  `contentsDescription`, `countryOfOrigin` not a known two-letter country, `exportLicenceReference`
+  > 200 chars, null/empty/duplicate/partial `items[]`, an item not belonging to the shipment, a
+  blank or > 20-char `hsCode`, a negative `customsValueAmount`, an invalid currency code, or when
+  the shipment has already reached `CustomsPrepared` (or any status outside `Created` …
+  `AtDestinationBranch`) — the declaration is frozen from then on. Audited with before/after.
 * **`POST /{id}/prepare-customs`** — `international.manage_customs`. Triggers the `CustomsPrepared`
-  transition (`SHIPMENT-LIFECYCLE.md`'s `CUSTOMS_PREPARED` subsection). `404` if not found; `400
-  INTERNATIONAL_SHIPMENT_VALIDATION_FAILED` if `CustomsCompletedAt` is still null; `400
+  transition (`SHIPMENT-LIFECYCLE.md`'s `CUSTOMS_PREPARED` subsection). `404` if not found or
+  outside branch visibility; `400 INTERNATIONAL_SHIPMENT_VALIDATION_FAILED` if `CustomsCompletedAt`
+  is still null; `400 SHIPMENT_VALIDATION_FAILED` if the caller lacks branch access to the
+  shipment's current branch; `400
   SHIPMENT_INVALID_TRANSITION` if the shipment isn't currently in the expected `Sorted`
   (same-branch)/`AtDestinationBranch` (different-branch) status.
