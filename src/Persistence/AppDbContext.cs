@@ -68,6 +68,9 @@ public class AppDbContext : DbContext, IDataProtectionKeyContext
     public DbSet<CountryZone> CountryZones => Set<CountryZone>();
     public DbSet<InternationalLeg> InternationalLegs => Set<InternationalLeg>();
     public DbSet<CustomsItem> CustomsItems => Set<CustomsItem>();
+    public DbSet<CarrierAccount> CarrierAccounts => Set<CarrierAccount>();
+    public DbSet<CarrierBooking> CarrierBookings => Set<CarrierBooking>();
+    public DbSet<CarrierTrackingEvent> CarrierTrackingEvents => Set<CarrierTrackingEvent>();
     public DbSet<Merchant> Merchants => Set<Merchant>();
     public DbSet<MerchantUser> MerchantUsers => Set<MerchantUser>();
     public DbSet<MerchantAddress> MerchantAddresses => Set<MerchantAddress>();
@@ -150,6 +153,9 @@ public class AppDbContext : DbContext, IDataProtectionKeyContext
         modelBuilder.ApplyConfiguration(new CountryConfiguration());
         modelBuilder.ApplyConfiguration(new InternationalLegConfiguration());
         modelBuilder.ApplyConfiguration(new CustomsItemConfiguration());
+        modelBuilder.ApplyConfiguration(new CarrierAccountConfiguration());
+        modelBuilder.ApplyConfiguration(new CarrierBookingConfiguration());
+        modelBuilder.ApplyConfiguration(new CarrierTrackingEventConfiguration());
         modelBuilder.ApplyConfiguration(new MerchantConfiguration());
         modelBuilder.ApplyConfiguration(new MerchantUserConfiguration());
         modelBuilder.ApplyConfiguration(new MerchantAddressConfiguration());
@@ -322,6 +328,21 @@ public class AppDbContext : DbContext, IDataProtectionKeyContext
             .HasForeignKey(l => l.ShipmentId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // Same reasoning for the three I4 carrier tables: International has no project reference
+        // to Identity.
+        modelBuilder.Entity<CarrierAccount>().HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(a => a.OrganizationId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<CarrierBooking>().HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(b => b.OrganizationId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<CarrierTrackingEvent>().HasOne<Organization>()
+            .WithMany()
+            .HasForeignKey(e => e.OrganizationId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         // Same reasoning for the six Cod entities below that carry their own OrganizationId: Cod
         // has no project reference to Identity. MerchantSettlementItem is excluded (no own
         // OrganizationId — see MerchantSettlementItemConfiguration).
@@ -393,6 +414,9 @@ public class AppDbContext : DbContext, IDataProtectionKeyContext
         modelBuilder.Entity<MerchantRateCard>().HasQueryFilter(mrc => _currentTenantProvider.OrganizationId != null && mrc.OrganizationId == _currentTenantProvider.OrganizationId);
         modelBuilder.Entity<Shipment>().HasQueryFilter(s => _currentTenantProvider.OrganizationId != null && s.OrganizationId == _currentTenantProvider.OrganizationId);
         modelBuilder.Entity<InternationalLeg>().HasQueryFilter(l => _currentTenantProvider.OrganizationId != null && l.OrganizationId == _currentTenantProvider.OrganizationId);
+        modelBuilder.Entity<CarrierAccount>().HasQueryFilter(a => _currentTenantProvider.OrganizationId != null && a.OrganizationId == _currentTenantProvider.OrganizationId);
+        modelBuilder.Entity<CarrierBooking>().HasQueryFilter(b => _currentTenantProvider.OrganizationId != null && b.OrganizationId == _currentTenantProvider.OrganizationId);
+        modelBuilder.Entity<CarrierTrackingEvent>().HasQueryFilter(e => _currentTenantProvider.OrganizationId != null && e.OrganizationId == _currentTenantProvider.OrganizationId);
         modelBuilder.Entity<PickupRequest>().HasQueryFilter(p => _currentTenantProvider.OrganizationId != null && p.OrganizationId == _currentTenantProvider.OrganizationId);
         modelBuilder.Entity<Manifest>().HasQueryFilter(m => _currentTenantProvider.OrganizationId != null && m.OrganizationId == _currentTenantProvider.OrganizationId);
         modelBuilder.Entity<Rider>().HasQueryFilter(r => _currentTenantProvider.OrganizationId != null && r.OrganizationId == _currentTenantProvider.OrganizationId);

@@ -22,113 +22,18 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
+using Courier.Api.Tests.International;
 
 namespace Courier.Api.Tests;
 
-public class InternationalShipmentsEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+public class InternationalShipmentsEndpointsTests : InternationalApiTestBase, IClassFixture<WebApplicationFactory<Program>>
 {
     private readonly WebApplicationFactory<Program> _factory;
 
-    private static readonly Guid KathmanduProvinceId = GeographyIds.ProvinceId("Bagmati");
-    private static readonly Guid KathmanduDistrictId = GeographyIds.DistrictId("Bagmati", "Kathmandu");
-    private static readonly Guid KathmanduLocalLevelId = GeographyIds.LocalLevelId("Bagmati", "Kathmandu", "Kathmandu Metropolitan City");
-    private const int KathmanduWardNumber = 1;
-
-    public InternationalShipmentsEndpointsTests(WebApplicationFactory<Program> factory)
+    public InternationalShipmentsEndpointsTests(WebApplicationFactory<Program> factory) : base(factory)
     {
         _factory = factory;
     }
-
-    private async Task<AuthResult> RegisterOrgAsync(HttpClient client, string label)
-    {
-        var suffix = $"{label}-{Guid.NewGuid():N}";
-        var request = new RegisterOrganizationRequest(
-            $"Intl Org {suffix}", $"intl-org-{suffix}", $"owner-{suffix}@example.com", "P@ssw0rd123!", "Owner Person");
-        var response = await client.PostAsJsonAsync("/api/v1/auth/register", request);
-        response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<AuthResult>())!;
-    }
-
-    private static CreateBranchRequest ValidBranchRequest(string code) => new(
-        code, $"Branch {code}", BranchType.Hub, KathmanduProvinceId, KathmanduDistrictId, KathmanduLocalLevelId, KathmanduWardNumber,
-        "New Road, Kathmandu", null, null, null, null, null, null);
-
-    private async Task<Guid> CreateBranchAsync(HttpClient client, string code)
-    {
-        var response = await client.PostAsJsonAsync("/api/v1/branches", ValidBranchRequest(code));
-        response.EnsureSuccessStatusCode();
-        var branch = await response.Content.ReadFromJsonAsync<BranchResponse>();
-        return branch!.Id;
-    }
-
-    private async Task<Guid> CreateMerchantAsync(HttpClient staffClient)
-    {
-        var response = await staffClient.PostAsJsonAsync("/api/v1/merchants", new CreateMerchantRequest(
-            "Shipper Pvt. Ltd.", "Shipper", "01-4444444", "shipper@example.com",
-            $"shipper-owner-{Guid.NewGuid():N}@example.com", "P@ssw0rd123!", "Owner",
-            KathmanduProvinceId, KathmanduDistrictId, KathmanduLocalLevelId, KathmanduWardNumber, "New Road, Kathmandu"));
-        response.EnsureSuccessStatusCode();
-        var merchant = await response.Content.ReadFromJsonAsync<MerchantResponse>();
-        return merchant!.Id;
-    }
-
-    // Country rows are platform-level singletons shared by the whole test suite and never reset
-    // between runs against the persistent courier-postgres-1 container (see
-    // CountriesGeographyEndpointTests.cs) — this marks the ISO code serviced (an idempotent,
-    // monotonic change) rather than asserting anything about its prior state.
-    private async Task MarkCountryServicedAsync(string isoCode)
-    {
-        using var scope = _factory.Services.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var country = await dbContext.Set<Country>().IgnoreQueryFilters().SingleAsync(c => c.IsoCode == isoCode);
-        country.IsServiced = true;
-        await dbContext.SaveChangesAsync();
-    }
-
-    private async Task<Guid> GetStandardServiceTypeIdAsync(HttpClient client)
-    {
-        var response = await client.GetAsync("/api/v1/service-types");
-        var serviceTypes = await response.Content.ReadFromJsonAsync<List<ServiceTypeResponse>>();
-        return serviceTypes!.Single(s => s.Code == ServiceTypeCode.Standard).Id;
-    }
-
-    private static object OutboundBody(Guid merchantId, Guid originBranchId, Guid destinationBranchId, Guid serviceTypeId, string recipientCountryCode) => new
-    {
-        merchantId,
-        direction = "Outbound",
-        originBranchId,
-        destinationBranchId,
-        serviceTypeId,
-        weightKg = 1m,
-        lengthCm = (decimal?)null,
-        widthCm = (decimal?)null,
-        heightCm = (decimal?)null,
-        recipientName = "Foreign Recipient",
-        recipientPhone = "9998887776",
-        recipientProvinceId = (Guid?)null,
-        recipientDistrictId = (Guid?)null,
-        recipientLocalLevelId = (Guid?)null,
-        recipientWardNumber = (int?)null,
-        recipientAddressLine = "221B Baker Street",
-        recipientCity = "London",
-        recipientRegion = (string?)null,
-        recipientPostalCode = "NW16XE",
-        recipientCountryCode,
-        senderName = "Local Sender",
-        senderPhone = "9811111111",
-        senderProvinceId = KathmanduProvinceId,
-        senderDistrictId = KathmanduDistrictId,
-        senderLocalLevelId = KathmanduLocalLevelId,
-        senderWardNumber = KathmanduWardNumber,
-        senderAddressLine = "Ward 1 Line",
-        senderCity = (string?)null,
-        senderRegion = (string?)null,
-        senderPostalCode = (string?)null,
-        senderCountryCode = (string?)null,
-        provisionalTotalChargeAmount = 5000m,
-        provisionalTotalChargeCurrency = "NPR",
-        items = new[] { new { description = "Sample goods", quantity = 1, unitValue = 5000m } }
-    };
 
     [Fact]
     public async Task CreateInternationalShipment_ServicedCountry_SameOriginAndDestination_ReachesCustomsPrepared()
@@ -245,99 +150,11 @@ public class InternationalShipmentsEndpointsTests : IClassFixture<WebApplication
 
     // ---- Final-review fix wave helpers --------------------------------------------------------
 
-    private static object CustomsBody(Guid itemId, string currency = "NPR", string contents = "Sample goods for testing") => new
-    {
-        contentsDescription = contents,
-        countryOfOrigin = "NP",
-        purpose = "Sample",
-        incoterm = "Ddu",
-        exportLicenceReference = (string?)null,
-        items = new[] { new { shipmentItemId = itemId, hsCode = "HS1234", customsValueAmount = 5000m, customsValueCurrency = currency } }
-    };
-
-    private sealed record OrgContext(HttpClient Client, AuthResult Auth, Guid BranchId, Guid MerchantId, Guid ServiceTypeId);
-
-    private async Task<OrgContext> SetUpOrgAsync(string label)
-    {
-        var client = _factory.CreateClient();
-        var auth = await RegisterOrgAsync(client, label);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth.AccessToken);
-        await MarkCountryServicedAsync("GB");
-        var branchId = await CreateBranchAsync(client, $"F-{Guid.NewGuid():N}"[..10]);
-        var merchantId = await CreateMerchantAsync(client);
-        var serviceTypeId = await GetStandardServiceTypeIdAsync(client);
-        return new OrgContext(client, auth, branchId, merchantId, serviceTypeId);
-    }
-
-    private async Task<InternationalShipmentDetailResponse> CreateOutboundAsync(OrgContext org, Guid? originBranchId = null, Guid? destinationBranchId = null)
-    {
-        var response = await org.Client.PostAsJsonAsync("/api/v1/international/shipments",
-            OutboundBody(org.MerchantId, originBranchId ?? org.BranchId, destinationBranchId ?? org.BranchId, org.ServiceTypeId, "GB"));
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        return (await response.Content.ReadFromJsonAsync<InternationalShipmentDetailResponse>())!;
-    }
-
-    // Same shortcut the happy-path test above uses: the physical pickup/receive/sort/manifest scans
-    // that would normally move a shipment to Sorted/AtDestinationBranch are other modules' routes
-    // (covered by their own suites), so the shipment row is positioned directly.
-    private async Task SetShipmentStateAsync(Guid shipmentId, ShipmentStatus status, Guid? currentBranchId)
-    {
-        using var scope = _factory.Services.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var shipment = await dbContext.Set<Shipment>().IgnoreQueryFilters().SingleAsync(s => s.Id == shipmentId);
-        shipment.CurrentStatus = status;
-        shipment.CurrentBranchId = currentBranchId;
-        await dbContext.SaveChangesAsync();
-    }
-
     private async Task<int> CountOrgShipmentsAsync(Guid organizationId)
     {
         using var scope = _factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         return await dbContext.Set<Shipment>().IgnoreQueryFilters().CountAsync(s => s.OrganizationId == organizationId);
-    }
-
-    // Same direct-seeding approach as BranchAuthorizationEndpointTests.SeedScopedUserTokenAsync
-    // (no invite-user-with-grants endpoint to drive this through): one custom role holding exactly
-    // permissionKeys, assigned with SpecificBranches scope to grantedBranchIds — or AllBranches
-    // when grantedBranchIds is null.
-    private async Task<HttpClient> SeedUserClientAsync(AuthResult owner, string[] permissionKeys, params Guid[]? grantedBranchIds)
-    {
-        using var scope = _factory.Services.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var jwtTokenService = scope.ServiceProvider.GetRequiredService<IJwtTokenService>();
-
-        var permissions = await dbContext.Set<Permission>().Where(p => permissionKeys.Contains(p.Key)).ToListAsync();
-        Assert.Equal(permissionKeys.Length, permissions.Count);
-        var role = new Role { Id = Guid.NewGuid(), OrganizationId = owner.OrganizationId, Name = $"IntlTestRole-{Guid.NewGuid():N}", IsSystemDefault = false };
-        foreach (var permission in permissions)
-        {
-            role.Permissions.Add(permission);
-        }
-        dbContext.Set<Role>().Add(role);
-
-        var userId = Guid.NewGuid();
-        var email = $"intl-user-{userId:N}@example.com";
-        dbContext.Set<User>().Add(new User { Id = userId, OrganizationId = owner.OrganizationId, Email = email, PasswordHash = "not-used-in-this-test", FullName = "Intl Test User" });
-        dbContext.Set<UserRole>().Add(new UserRole
-        {
-            Id = Guid.NewGuid(), UserId = userId, RoleId = role.Id, OrganizationId = owner.OrganizationId,
-            BranchScope = grantedBranchIds is null ? BranchScope.AllBranches : BranchScope.SpecificBranches,
-            AssignedAt = DateTimeOffset.UtcNow, AssignedByUserId = owner.UserId
-        });
-        foreach (var branchId in grantedBranchIds ?? Array.Empty<Guid>())
-        {
-            dbContext.Set<UserBranch>().Add(new UserBranch
-            {
-                Id = Guid.NewGuid(), UserId = userId, BranchId = branchId, OrganizationId = owner.OrganizationId,
-                GrantedAt = DateTimeOffset.UtcNow, GrantedByUserId = owner.UserId
-            });
-        }
-        await dbContext.SaveChangesAsync();
-
-        var client = _factory.CreateClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", jwtTokenService.IssueAccessToken(userId, owner.OrganizationId, email));
-        return client;
     }
 
     private static readonly string[] AllIntlPermissions = { "international.create", "international.read", "international.manage_customs" };
