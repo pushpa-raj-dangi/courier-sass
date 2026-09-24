@@ -8,6 +8,11 @@
 
   <ItemGroup>
     <PackageReference Include="Hangfire.Core" Version="1.8.24" />
+    <!-- Same version as Platform.csproj, which already references Npgsql directly (Infrastructure)
+         for Postgres-specific behavior. Used here (Application) to tell a genuine unique-index
+         race apart from any other DbUpdateException in CarrierTrackingEventWriter: see its
+         comment for why a raw type/SqlState check is preferred over a broader catch. -->
+    <PackageReference Include="Npgsql" Version="10.0.3" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.11" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.11" />
     <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="10.10.0" />

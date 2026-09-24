@@ -2,6 +2,7 @@ using Courier.International.Application.Carriers;
 using Courier.International.Domain;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Npgsql;
 
 namespace Courier.International.Application;
 
@@ -84,7 +85,10 @@ public class CarrierTrackingEventWriter
             await _dbContext.SaveChangesAsync(cancellationToken);
             return toInsert.Count;
         }
-        catch (DbUpdateException)
+        // Only a genuine unique-index race (the (CarrierAccountId, CarrierEventId) index) falls
+        // back to a one-row-at-a-time insert; anything else (a real data/constraint problem)
+        // rethrows instead of being silently swallowed batch-wide.
+        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
         {
             // Another source inserted one of these first — fall back to one row at a time.
             foreach (var row in toInsert)
@@ -100,14 +104,30 @@ public class CarrierTrackingEventWriter
                     await _dbContext.SaveChangesAsync(cancellationToken);
                     inserted++;
                 }
-                catch (DbUpdateException)
+                catch (DbUpdateException rowEx) when (IsUniqueViolation(rowEx))
                 {
+                    // Expected: this row really was a duplicate — silently drop it.
                     _dbContext.Entry(row).State = EntityState.Detached;
+                }
+                catch (DbUpdateException rowEx)
+                {
+                    // Unexpected: something other than a duplicate stopped this one row — drop it
+                    // (the batch already made progress on the others) but never silently.
+                    _dbContext.Entry(row).State = EntityState.Detached;
+                    _logger.LogError(rowEx, "Dropped carrier tracking event {CarrierEventId} for carrier account {CarrierAccountId}: {ExceptionType}.",
+                        row.CarrierEventId, account.Id, rowEx.GetType().Name);
                 }
             }
             return inserted;
         }
     }
+
+    // Postgres' unique_violation SqlState (23505) — the only DbUpdateException case the
+    // (CarrierAccountId, CarrierEventId) unique index can legitimately race on. Compared by
+    // SqlState (not just the exception type) so this only matches that specific constraint
+    // failure, not any other PostgresException a save could throw.
+    private static bool IsUniqueViolation(DbUpdateException ex) =>
+        ex.InnerException is PostgresException postgresException && postgresException.SqlState == PostgresErrorCodes.UniqueViolation;
 
     private static bool IsStorable(CarrierTrackingUpdate update) =>
         !string.IsNullOrWhiteSpace(update.CarrierAwb) && update.CarrierAwb.Trim().Length <= MaxAwbLength

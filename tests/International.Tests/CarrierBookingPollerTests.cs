@@ -80,4 +80,23 @@ public class CarrierBookingPollerTests
         Assert.Equal(new CarrierPollResult(true, 0), result);
         Assert.Empty(h.DbContext.Set<CarrierTrackingEvent>());
     }
+
+    // Ruling (task-11-brief override): the caller's own cancellation must propagate, not be
+    // swallowed as a carrier failure — even though TaskCanceledException is itself one of
+    // CarrierCallFailures.IsCarrierFailure's cases. The token is cancelled from inside the
+    // provider call itself (via OnGetTrackingCalled), simulating a real HTTP call observing the
+    // caller's own cancellation and throwing — not cancelled upfront, which would make the
+    // in-memory EF provider throw its own OperationCanceledException on an earlier, unrelated
+    // query before the poller ever reaches the provider.
+    [Fact]
+    public async Task PollAsync_CallerCancellation_PropagatesInsteadOfBeingSwallowed()
+    {
+        var h = CreateHarness();
+        var booking = await SeedAsync(h);
+        using var cts = new CancellationTokenSource();
+        h.Provider.TrackingException = new TaskCanceledException();
+        h.Provider.OnGetTrackingCalled = () => cts.Cancel();
+
+        await Assert.ThrowsAsync<TaskCanceledException>(() => h.Poller.PollAsync(booking.Id, cts.Token));
+    }
 }

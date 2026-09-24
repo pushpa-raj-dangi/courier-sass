@@ -29,6 +29,10 @@ public class CarrierEventApplier
 
     public async Task ApplyAsync(Guid eventId, CancellationToken cancellationToken)
     {
+        // A previous call in this scope may have failed its final save and left a dirty row
+        // tracked (e.g. a partially-applied Shipment from a thrown gateway call) — never let that
+        // poison this event's own save.
+        _dbContext.ChangeTracker.Clear();
         var evt = await _dbContext.Set<CarrierTrackingEvent>().FirstOrDefaultAsync(e => e.Id == eventId, cancellationToken);
         if (evt is null || evt.ProcessingStatus != CarrierEventProcessingStatus.Processing)
         {
@@ -111,6 +115,15 @@ public class CarrierEventApplier
                 CarrierStatusApplyResult.AlreadyAtStatus => new Outcome(CarrierEventProcessingStatus.Ignored, $"Shipment was already {mapped}.", booking.Id, mapped),
                 _ => new Outcome(CarrierEventProcessingStatus.Rejected, "Shipment not found.", booking.Id, mapped)
             };
+        }
+        catch (ShipmentConcurrencyException ex)
+        {
+            // A concurrent update raced this save (xmin mismatch) — not a real business-rule
+            // rejection, just a lost race. Retryable: goes back to Pending and counts toward
+            // MaxAttempts like any other transient failure, rather than being rejected forever.
+            // Must be caught before ShipmentValidationException, since it derives from
+            // ShipmentInvalidTransitionException which derives from it.
+            return new Outcome(CarrierEventProcessingStatus.Pending, ex.Message, booking.Id, mapped);
         }
         catch (ShipmentValidationException ex)
         {

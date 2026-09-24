@@ -86,3 +86,14 @@ public class ShipmentInvalidTransitionException : ShipmentValidationException
     public ShipmentStatus From { get; }
     public ShipmentStatus To { get; }
 }
+
+// Thrown when a save collides with a concurrent update to the same shipment (an xmin mismatch) —
+// not necessarily an invalid transition, just a race the caller lost. Derives from
+// ShipmentInvalidTransitionException so existing Presentation-layer mapping is unchanged, but a
+// caller that distinguishes retryable races from genuine business-rule violations (e.g.
+// CarrierEventApplier) can catch this type specifically, before the base type.
+public class ShipmentConcurrencyException : ShipmentInvalidTransitionException
+{
+    public ShipmentConcurrencyException(Guid shipmentId, ShipmentStatus from, ShipmentStatus to)
+        : base(shipmentId, from, to) { }
+}

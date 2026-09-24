@@ -105,6 +105,30 @@ public class CarrierEventProcessingTests : InternationalApiTestBase, IClassFixtu
         Assert.Equal(ShipmentStatus.HandedToCarrier, await ShipmentStatusAsync(shipmentId));
     }
 
+    // Fix round 1, finding 1: two overlapping RunAsync calls (separate DI scopes, as the recurring
+    // job and a per-insert enqueue would produce) must not double-apply or reject either event —
+    // the Postgres advisory lock in CarrierEventProcessorJob.RunAsync serializes them.
+    [Fact]
+    public async Task Processor_ConcurrentRuns_DoNotRejectEitherEventFromTheRace()
+    {
+        var (organizationId, shipmentId, accountId) = await SeedHandedOverAsync("concurrent", "CONC-AWB");
+        var now = DateTimeOffset.UtcNow;
+        var transit = await InsertPendingEventAsync(organizationId, accountId, "CONC-AWB", "IN_TRANSIT", now.AddHours(-3));
+        var delivered = await InsertPendingEventAsync(organizationId, accountId, "CONC-AWB", "DELIVERED", now.AddMinutes(-1));
+
+        using var scopeA = Factory.Services.CreateScope();
+        using var scopeB = Factory.Services.CreateScope();
+        await Task.WhenAll(
+            scopeA.ServiceProvider.GetRequiredService<CarrierEventProcessorJob>().RunAsync(),
+            scopeB.ServiceProvider.GetRequiredService<CarrierEventProcessorJob>().RunAsync());
+
+        await ProcessCarrierEventsAsync(accountId);
+
+        Assert.Equal(ShipmentStatus.DeliveredAbroad, await ShipmentStatusAsync(shipmentId));
+        Assert.NotEqual(CarrierEventProcessingStatus.Rejected, (await EventAsync(transit)).ProcessingStatus);
+        Assert.NotEqual(CarrierEventProcessingStatus.Rejected, (await EventAsync(delivered)).ProcessingStatus);
+    }
+
     [Fact]
     public async Task Processor_AppliedTransition_WritesACarrierShipmentEvent()
     {

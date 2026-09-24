@@ -174,4 +174,22 @@ public class CarrierEventApplierTests
         Assert.Empty(h.Gateway.CarrierApplies);
         Assert.Equal(CarrierEventProcessingStatus.Pending, (await ReloadAsync(h, evt.Id)).ProcessingStatus);
     }
+
+    // Fix round 1, finding 1(b): a ShipmentConcurrencyException (xmin race) must be retried, not
+    // rejected forever — unlike a genuine ShipmentInvalidTransitionException.
+    [Fact]
+    public async Task ConcurrencyException_ReturnsToPending_WithAttemptsIncremented()
+    {
+        var h = await CreateHarnessAsync();
+        await SeedBookedAsync(h, "AWB-1");
+        h.Gateway.ApplyException = new ShipmentConcurrencyException(Guid.NewGuid(), ShipmentStatus.HandedToCarrier, ShipmentStatus.InInternationalTransit);
+        var evt = await CarrierTestData.SeedEventAsync(h.DbContext, h.OrganizationId, h.Account.Id, "AWB-1", "TRANSIT", DateTimeOffset.UtcNow);
+
+        await h.Applier.ApplyAsync(evt.Id, CancellationToken.None);
+
+        var stored = await ReloadAsync(h, evt.Id);
+        Assert.Equal(CarrierEventProcessingStatus.Pending, stored.ProcessingStatus);
+        Assert.Equal(1, stored.ProcessingAttempts);
+        Assert.Null(stored.ProcessedAt);
+    }
 }

@@ -210,7 +210,10 @@ public partial class ShipmentService
         catch (DbUpdateConcurrencyException)
         {
             // Same race handling as TransitionAsync: another request moved the shipment first.
-            throw new ShipmentInvalidTransitionException(shipmentId, from, to);
+            // A distinct (but still ShipmentInvalidTransitionException-derived) type so a caller
+            // that retries concurrency races differently from real business-rule violations
+            // (CarrierEventApplier) can tell the two apart.
+            throw new ShipmentConcurrencyException(shipmentId, from, to);
         }
     }
 }

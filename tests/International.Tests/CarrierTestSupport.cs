@@ -119,6 +119,10 @@ internal sealed class TestCarrierProvider : ICarrierProvider
     public List<string> CancelledAwbs { get; } = new();
     public List<CarrierTrackingUpdate> TrackingUpdates { get; } = new();
     public Exception? TrackingException { get; set; }
+    // Fix round 1: lets a test simulate the caller's own token being cancelled at the exact moment
+    // the (real, network-based) provider call would observe it and throw — e.g. an HttpClient
+    // surfacing the caller's CancellationToken as a TaskCanceledException.
+    public Action? OnGetTrackingCalled { get; set; }
 
     public Task<CarrierBookingResult> BookAsync(CarrierBookingRequest request, CarrierCredentials credentials, string idempotencyKey, CancellationToken cancellationToken)
     {
@@ -140,6 +144,7 @@ internal sealed class TestCarrierProvider : ICarrierProvider
 
     public Task<IReadOnlyList<CarrierTrackingUpdate>> GetTrackingAsync(string carrierAwb, CarrierCredentials credentials, CancellationToken cancellationToken)
     {
+        OnGetTrackingCalled?.Invoke();
         if (TrackingException is not null)
         {
             throw TrackingException;
