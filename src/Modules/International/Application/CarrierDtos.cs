@@ -31,3 +31,12 @@ public record CarrierAccountResponse(
 
 // WebhookSecret is present only in the create/rotate response that generated it — shown once.
 public record CarrierAccountSecretResponse(CarrierAccountResponse Account, string? WebhookSecret);
+
+public record BookCarrierRequest(Guid CarrierAccountId, string? ServiceLevel, string? CarrierAwb);
+
+public record LinkInboundBookingRequest(Guid CarrierAccountId, string CarrierAwb, string? ServiceLevel);
+
+public record CarrierBookingResponse(
+    Guid Id, Guid CarrierAccountId, string CarrierCode, string CarrierAccountName, string Direction, string Status,
+    string? CarrierAwb, string? ServiceLevel, bool HasLabel, string? FailureReason,
+    DateTimeOffset? BookedAt, DateTimeOffset? CancelledAt, DateTimeOffset? CustodyStartedAt, DateTimeOffset CreatedAt);

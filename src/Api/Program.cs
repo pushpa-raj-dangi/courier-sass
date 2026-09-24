@@ -257,6 +257,7 @@ builder.Services.AddScoped<Courier.International.Application.Carriers.ICarrierPr
 builder.Services.AddScoped<Courier.International.Application.Carriers.ICarrierProviderRegistry, Courier.International.Application.Carriers.CarrierProviderRegistry>();
 builder.Services.AddScoped<Courier.International.Application.Carriers.ICarrierSecretProtector, Courier.International.Infrastructure.Carriers.DataProtectionCarrierSecretProtector>();
 builder.Services.AddScoped<Courier.International.Application.CarrierAccountService>();
+builder.Services.AddScoped<Courier.International.Application.CarrierBookingService>();
 builder.Services.AddScoped<Courier.International.Application.Carriers.ICarrierJobScheduler, Courier.International.Infrastructure.Carriers.HangfireCarrierJobScheduler>();
 builder.Services.AddScoped<Courier.International.Application.CarrierTrackingEventWriter>();
 builder.Services.AddScoped<Courier.International.Application.CarrierEventApplier>();

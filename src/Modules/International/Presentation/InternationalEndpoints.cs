@@ -79,5 +79,26 @@ public static class InternationalEndpoints
                 return Results.BadRequest(new { error = new { code = "SHIPMENT_VALIDATION_FAILED", message = ex.Message } });
             }
         }).RequirePermission("international.manage_customs");
+
+        group.MapPost("/{id:guid}/book", (Guid id, BookCarrierRequest request, CarrierBookingService service, HttpContext httpContext) =>
+            InternationalEndpointErrors.ExecuteAsync(async () =>
+            {
+                var result = await service.BookAsync(id, request, httpContext.Request.Headers["Idempotency-Key"].ToString(), httpContext.User, httpContext.RequestAborted);
+                return result is null ? Results.NotFound() : Results.Ok(result);
+            })).RequirePermission("international.book");
+
+        group.MapPost("/{id:guid}/booking/cancel", (Guid id, CarrierBookingService service, HttpContext httpContext) =>
+            InternationalEndpointErrors.ExecuteAsync(async () =>
+            {
+                var result = await service.CancelAsync(id, httpContext.User, httpContext.RequestAborted);
+                return result is null ? Results.NotFound() : Results.Ok(result);
+            })).RequirePermission("international.book");
+
+        group.MapPost("/{id:guid}/inbound-booking", (Guid id, LinkInboundBookingRequest request, CarrierBookingService service, HttpContext httpContext) =>
+            InternationalEndpointErrors.ExecuteAsync(async () =>
+            {
+                var result = await service.LinkInboundAsync(id, request, httpContext.User, httpContext.RequestAborted);
+                return result is null ? Results.NotFound() : Results.Ok(result);
+            })).RequirePermission("international.book");
     }
 }

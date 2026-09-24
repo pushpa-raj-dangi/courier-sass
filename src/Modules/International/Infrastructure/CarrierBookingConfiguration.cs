@@ -13,6 +13,7 @@ public class CarrierBookingConfiguration : IEntityTypeConfiguration<CarrierBooki
         builder.Property(b => b.CarrierAwb).HasMaxLength(100);
         builder.Property(b => b.ServiceLevel).HasMaxLength(100);
         builder.Property(b => b.LabelStorageKey).HasMaxLength(500);
+        builder.Property(b => b.LabelContentType).HasMaxLength(100);
         builder.Property(b => b.FailureReason).HasMaxLength(1000);
         builder.Property(b => b.RawResponse).HasColumnType("jsonb");
         builder.Property(b => b.IdempotencyKey).HasMaxLength(200).IsRequired();

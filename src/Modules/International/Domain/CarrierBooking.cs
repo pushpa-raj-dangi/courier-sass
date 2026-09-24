@@ -13,6 +13,7 @@ public class CarrierBooking
     public string? CarrierAwb { get; set; }
     public string? ServiceLevel { get; set; }
     public string? LabelStorageKey { get; set; }
+    public string? LabelContentType { get; set; }
     public CarrierBookingStatus Status { get; set; }
     public string? FailureReason { get; set; }
     // Valid JSON (jsonb) with known secret values masked — see CarrierPayloadSanitizer.

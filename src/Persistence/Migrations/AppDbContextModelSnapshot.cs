@@ -4934,6 +4934,10 @@ namespace Persistence.Migrations
                     b.Property<Guid>("InternationalLegId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("LabelContentType")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<string>("LabelStorageKey")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");

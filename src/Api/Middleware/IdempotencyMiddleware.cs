@@ -14,6 +14,7 @@ public class IdempotencyMiddleware
     private static readonly Regex RiderDeliveryFailPattern = new(@"^/api/v1/riders/[0-9a-fA-F-]{36}/delivery-attempts/fail$", RegexOptions.Compiled);
     private static readonly Regex RiderDeliveryCompletePattern = new(@"^/api/v1/riders/[0-9a-fA-F-]{36}/delivery-attempts/complete$", RegexOptions.Compiled);
     private static readonly Regex RiderPodUploadsPattern = new(@"^/api/v1/riders/[0-9a-fA-F-]{36}/pod-uploads$", RegexOptions.Compiled);
+    private static readonly Regex InternationalBookPattern = new(@"^/api/v1/international/shipments/[0-9a-fA-F-]{36}/book$", RegexOptions.Compiled);
 
     private enum RouteKind { None, MerchantWrite, RiderAction }
 
@@ -124,8 +125,10 @@ public class IdempotencyMiddleware
         {
             return RouteKind.MerchantWrite;
         }
+        // RiderAction = partitioned per staff user ("staff:{userId}"); also used for carrier booking.
         if (RiderScanPickupPattern.IsMatch(path) || RiderDeliveryFailPattern.IsMatch(path) ||
-            RiderDeliveryCompletePattern.IsMatch(path) || RiderPodUploadsPattern.IsMatch(path))
+            RiderDeliveryCompletePattern.IsMatch(path) || RiderPodUploadsPattern.IsMatch(path) ||
+            InternationalBookPattern.IsMatch(path))
         {
             return RouteKind.RiderAction;
         }
