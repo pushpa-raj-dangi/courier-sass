@@ -34,7 +34,7 @@ public static class InternationalEndpoints
 
         group.MapGet("/{id:guid}", async (Guid id, InternationalShipmentQueryService queryService, HttpContext httpContext) =>
         {
-            var result = await queryService.GetAsync(id, httpContext.RequestAborted);
+            var result = await queryService.GetAsync(id, httpContext.User, httpContext.RequestAborted);
             return result is null ? Results.NotFound() : Results.Ok(result);
         }).RequirePermission("international.read");
 

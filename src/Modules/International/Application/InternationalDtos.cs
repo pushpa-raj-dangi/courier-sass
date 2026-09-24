@@ -69,6 +69,9 @@ public record InternationalLegResponse(
     bool CustomsCompleted,
     decimal ProvisionalTotalChargeAmount,
     string ProvisionalTotalChargeCurrency,
-    bool IsProvisionalPricing);
+    bool IsProvisionalPricing,
+    IReadOnlyList<CustomsItemResponse> CustomsItems);
+
+public record CustomsItemResponse(Guid ShipmentItemId, string HsCode, decimal CustomsValueAmount, string CustomsValueCurrency);
 
 public record InternationalShipmentDetailResponse(ShipmentResponse Shipment, InternationalLegResponse Leg);
