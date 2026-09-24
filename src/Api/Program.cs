@@ -256,6 +256,7 @@ builder.Services.AddScoped<Courier.International.Application.InternationalShipme
 builder.Services.AddScoped<Courier.International.Application.Carriers.ICarrierProvider, Courier.International.Infrastructure.Carriers.ManualCarrierProvider>();
 builder.Services.AddScoped<Courier.International.Application.Carriers.ICarrierProviderRegistry, Courier.International.Application.Carriers.CarrierProviderRegistry>();
 builder.Services.AddScoped<Courier.International.Application.Carriers.ICarrierSecretProtector, Courier.International.Infrastructure.Carriers.DataProtectionCarrierSecretProtector>();
+builder.Services.AddScoped<Courier.International.Application.CarrierAccountService>();
 builder.Services.AddScoped<IMerchantPasswordHasher, MerchantPasswordHasherAdapter>();
 builder.Services.AddScoped<IMerchantJwtTokenService, MerchantJwtTokenService>();
 builder.Services.AddScoped<IMerchantAuthorizationChecker, MerchantAuthorizationChecker>();
@@ -458,6 +459,7 @@ app.MapPublicTrackingEndpoints();
 app.MapPickupsEndpoints();
 app.MapManifestsEndpoints();
 app.MapInternationalEndpoints();
+app.MapCarrierAccountEndpoints();
 app.MapRidersEndpoints();
 app.MapNdrEndpoints();
 app.MapCodEndpoints();
