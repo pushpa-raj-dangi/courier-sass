@@ -151,7 +151,9 @@ builder.Services.AddSingleton<IHangfireMonitor, HangfireMonitor>();
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 builder.Services.Configure<MerchantJwtOptions>(builder.Configuration.GetSection("Jwt"));
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<TenantScopeOverride>();
 builder.Services.AddScoped<ICurrentTenantProvider, HttpContextCurrentTenantProvider>();
+builder.Services.AddSingleton<ITenantScopeFactory, TenantScopeFactory>();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres")));
