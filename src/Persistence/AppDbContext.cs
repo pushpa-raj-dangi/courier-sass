@@ -312,6 +312,15 @@ public class AppDbContext : DbContext, IDataProtectionKeyContext
             .WithMany()
             .HasForeignKey(l => l.OrganizationId)
             .OnDelete(DeleteBehavior.Restrict);
+        // InternationalLeg.ShipmentId -> Shipments: wired centrally here because International has
+        // no reference to Shipments' EF model (only its Application interfaces). Unlike the
+        // ManifestShipment/DeliveryTask/NDR precedent (no FK), a leg is a strict one-to-one
+        // extension of its Shipment — created in the same transaction — so the DB should refuse an
+        // orphan leg. Restrict, not Cascade: shipments are never hard-deleted.
+        modelBuilder.Entity<InternationalLeg>().HasOne<Shipment>()
+            .WithMany()
+            .HasForeignKey(l => l.ShipmentId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         // Same reasoning for the six Cod entities below that carry their own OrganizationId: Cod
         // has no project reference to Identity. MerchantSettlementItem is excluded (no own
