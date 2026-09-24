@@ -28,6 +28,19 @@ public class PublicTrackingStatusMapperTests
         Assert.Equal(expected, PublicTrackingStatusMapper.Map(input));
     }
 
+    [Theory]
+    [InlineData(ShipmentStatus.HandedToCarrier, PublicTrackingStatus.InTransit)]
+    [InlineData(ShipmentStatus.InInternationalTransit, PublicTrackingStatus.InTransit)]
+    [InlineData(ShipmentStatus.CustomsClearance, PublicTrackingStatus.InTransit)]
+    [InlineData(ShipmentStatus.ReceivedFromCarrier, PublicTrackingStatus.InTransit)]
+    [InlineData(ShipmentStatus.CustomsHold, PublicTrackingStatus.InTransit)]
+    [InlineData(ShipmentStatus.InternationalException, PublicTrackingStatus.InTransit)]
+    [InlineData(ShipmentStatus.DeliveredAbroad, PublicTrackingStatus.Delivered)]
+    public void Map_InternationalCarrierStatuses_HidesExceptionsBehindInTransit(ShipmentStatus status, PublicTrackingStatus expected)
+    {
+        Assert.Equal(expected, PublicTrackingStatusMapper.Map(status));
+    }
+
     [Fact]
     public void Map_EveryDefinedShipmentStatus_HasAMapping()
     {

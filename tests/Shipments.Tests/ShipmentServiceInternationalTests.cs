@@ -464,6 +464,20 @@ public class ShipmentServiceInternationalTests
     // only the real AppDbContext's Shipment filter can prove GetItemsAsync's join through Shipment
     // hides another tenant's items (the InMemory TestDbContext above has no query filters at all).
     [Fact]
+    public async Task GetScanInfoAsync_ReturnsShipmentDirection()
+    {
+        var (dbContext, organizationId, serviceTypeId) = await SeedAsync();
+        await using var _ = dbContext;
+        var service = CreateService(dbContext, organizationId);
+        var created = await service.CreateShipmentShellAsync(
+            OutboundRequest(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), serviceTypeId), ActingUser(Guid.NewGuid()));
+
+        var info = await service.GetScanInfoAsync(created.Id);
+
+        Assert.Equal(ShipmentDirection.Outbound, info!.Direction);
+    }
+
+    [Fact]
     public async Task GetItemsAsync_AnotherTenantsShipment_ReturnsEmpty()
     {
         var tenantProvider = new MutableTenantProvider();

@@ -91,9 +91,10 @@ internal class FixedShipmentTransitionService : IShipmentTransitionService
     public Guid DestinationBranchId { get; set; } = Guid.NewGuid();
     public Guid? CurrentBranchId { get; set; }
     public bool Exists { get; set; } = true;
+    public ShipmentDirection Direction { get; set; } = ShipmentDirection.Outbound;
 
     public Task<ShipmentScanInfo?> GetScanInfoAsync(Guid shipmentId, CancellationToken cancellationToken = default) =>
-        Task.FromResult(Exists ? new ShipmentScanInfo(shipmentId, Guid.NewGuid(), "AWB-INTL-1", Status, CurrentBranchId ?? OriginBranchId, OriginBranchId, DestinationBranchId, null) : null);
+        Task.FromResult(Exists ? new ShipmentScanInfo(shipmentId, Guid.NewGuid(), "AWB-INTL-1", Status, CurrentBranchId ?? OriginBranchId, OriginBranchId, DestinationBranchId, null, 0m, Direction) : null);
     public Task<ShipmentResponse?> GetResponseAsync(Guid shipmentId, CancellationToken cancellationToken = default) =>
         Task.FromResult(Exists ? new ShipmentResponse(
             shipmentId, "AWB-INTL-1", Guid.NewGuid(), OriginBranchId, DestinationBranchId, CurrentBranchId ?? OriginBranchId, null, null, Status, Guid.NewGuid(),

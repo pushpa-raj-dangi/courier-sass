@@ -23,7 +23,11 @@ public record ShipmentScanInfo(
     // compiling unchanged. Only Riders.Application.RiderService.CompleteDeliveryAsync (Task 6)
     // reads this field; every one of those 11 test call sites defaults to CodAmount = 0m, which is
     // correct for all of them (none exercise COD collection).
-    decimal CodAmount = 0m);
+    decimal CodAmount = 0m,
+    // I4 — trailing optional for the same reason as CodAmount: existing positional test call
+    // sites keep compiling. Read by ManifestService.ScanAsync (inbound ReceivedFromCarrier sort)
+    // and International.Application (outbound/inbound carrier operations).
+    ShipmentDirection Direction = ShipmentDirection.Domestic);
 
 // Lets Manifests and Riders drive real shipment-status transitions without touching Shipment's
 // DbSet directly. Both callers perform the permission + branch-access + expected-operation +

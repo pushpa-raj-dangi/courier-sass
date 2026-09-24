@@ -26,5 +26,13 @@ public enum ShipmentStatus
     RtoInTransit,
     RtoAtOrigin,
     RtoDelivered,
-    CustomsPrepared
+    CustomsPrepared,
+    // I4 — international carrier lifecycle. Append-only (persisted ordinals).
+    HandedToCarrier,
+    InInternationalTransit,
+    DeliveredAbroad,
+    CustomsHold,
+    InternationalException,
+    CustomsClearance,
+    ReceivedFromCarrier
 }
