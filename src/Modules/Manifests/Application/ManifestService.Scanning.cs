@@ -39,11 +39,13 @@ public partial class ManifestService
             ?? throw new ManifestScanRejectedException("SHIPMENT_NOT_FOUND", $"No shipment found for AWB '{request.Awb}'.");
 
         // Check 3 (shipment state) + check 4 (expected operation) collapse into one check here: the
-        // only operation this endpoint performs IS the AtOriginBranch -> Sorted transition, so
-        // "shipment is AtOriginBranch" fully captures both.
-        if (scanInfo.CurrentStatus != ShipmentStatus.AtOriginBranch)
+        // only operation this endpoint performs IS the -> Sorted transition, from AtOriginBranch, or
+        // (I4) from ReceivedFromCarrier for an inbound international parcel at its gateway branch.
+        var sortable = scanInfo.CurrentStatus == ShipmentStatus.AtOriginBranch
+            || (scanInfo.Direction == ShipmentDirection.Inbound && scanInfo.CurrentStatus == ShipmentStatus.ReceivedFromCarrier);
+        if (!sortable)
         {
-            throw new ManifestScanRejectedException("WRONG_STATE", $"Shipment must be AtOriginBranch to be added to a manifest, was {scanInfo.CurrentStatus}.");
+            throw new ManifestScanRejectedException("WRONG_STATE", $"Shipment must be AtOriginBranch (or ReceivedFromCarrier for inbound international) to be added to a manifest, was {scanInfo.CurrentStatus}.");
         }
         // Check 5 (custody consistency): the shipment must physically be at the branch this
         // manifest departs from.

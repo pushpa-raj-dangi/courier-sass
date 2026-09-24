@@ -655,4 +655,151 @@ public class ShipmentServiceInternationalTests
         await Assert.ThrowsAsync<ShipmentInvalidTransitionException>(() =>
             service.OverrideInternationalStatusAsync(shipmentId, ShipmentStatus.DeliveredAbroad, "Carrier confirmed by phone", ActingUser(Guid.NewGuid())));
     }
+
+    [Fact]
+    public async Task HandToCarrierAsync_FromCustomsPrepared_ClearsCustodyAndRecordsCarrier()
+    {
+        var (dbContext, organizationId, serviceTypeId) = await SeedAsync();
+        await using var _ = dbContext;
+        var service = CreateService(dbContext, organizationId);
+        var branchId = Guid.NewGuid();
+        var shipmentId = await CreateAtStatusAsync(dbContext, service, serviceTypeId, ShipmentDirection.Outbound, ShipmentStatus.CustomsPrepared, branchId, branchId, branchId);
+        var accountId = Guid.NewGuid();
+
+        var result = await service.HandToCarrierAsync(shipmentId, new CarrierHandoffReference(accountId, "DHL123"), ActingUser(Guid.NewGuid()));
+
+        Assert.Equal(ShipmentStatus.HandedToCarrier, result!.CurrentStatus);
+        Assert.Null(result.CurrentBranchId);
+        Assert.Null(result.CurrentCustodianUserId);
+        var evt = await dbContext.Set<ShipmentEvent>().SingleAsync(e => e.ShipmentId == shipmentId && e.EventType == ShipmentEventType.HandedToCarrier);
+        Assert.Equal(branchId, evt.BranchId);
+        Assert.Contains("DHL123", evt.Metadata);
+        Assert.Contains(accountId.ToString(), evt.Metadata);
+    }
+
+    [Fact]
+    public async Task HandToCarrierAsync_WrongState_ThrowsInvalidTransition()
+    {
+        var (dbContext, organizationId, serviceTypeId) = await SeedAsync();
+        await using var _ = dbContext;
+        var service = CreateService(dbContext, organizationId);
+        var branchId = Guid.NewGuid();
+        var shipmentId = await CreateAtStatusAsync(dbContext, service, serviceTypeId, ShipmentDirection.Outbound, ShipmentStatus.Sorted, branchId, branchId, branchId);
+
+        await Assert.ThrowsAsync<ShipmentInvalidTransitionException>(() =>
+            service.HandToCarrierAsync(shipmentId, new CarrierHandoffReference(Guid.NewGuid(), "DHL123"), ActingUser(Guid.NewGuid())));
+    }
+
+    [Fact]
+    public async Task HandToCarrierAsync_InboundShipment_ThrowsValidation()
+    {
+        var (dbContext, organizationId, serviceTypeId) = await SeedAsync();
+        await using var _ = dbContext;
+        var service = CreateService(dbContext, organizationId);
+        var branchId = Guid.NewGuid();
+        var shipmentId = await CreateAtStatusAsync(dbContext, service, serviceTypeId, ShipmentDirection.Inbound, ShipmentStatus.CustomsPrepared, branchId, branchId, branchId);
+
+        var ex = await Assert.ThrowsAsync<ShipmentValidationException>(() =>
+            service.HandToCarrierAsync(shipmentId, new CarrierHandoffReference(Guid.NewGuid(), "DHL123"), ActingUser(Guid.NewGuid())));
+        Assert.IsNotType<ShipmentInvalidTransitionException>(ex);
+    }
+
+    [Fact]
+    public async Task HandToCarrierAsync_UserWithoutAccessToCurrentBranch_ThrowsValidation()
+    {
+        var (dbContext, organizationId, serviceTypeId) = await SeedAsync();
+        await using var _ = dbContext;
+        var branchId = Guid.NewGuid();
+        var shipmentId = await CreateAtStatusAsync(dbContext, CreateService(dbContext, organizationId), serviceTypeId,
+            ShipmentDirection.Outbound, ShipmentStatus.CustomsPrepared, branchId, branchId, branchId);
+        var restricted = CreateService(dbContext, organizationId, branchAuthorizationChecker: new SpecificBranchesAuthorizationChecker(Guid.NewGuid()));
+
+        await Assert.ThrowsAsync<ShipmentValidationException>(() =>
+            restricted.HandToCarrierAsync(shipmentId, new CarrierHandoffReference(Guid.NewGuid(), "DHL123"), ActingUser(Guid.NewGuid())));
+    }
+
+    [Fact]
+    public async Task ReceiveFromCarrierAsync_OriginDiffersFromDestination_StopsAtReceivedFromCarrier()
+    {
+        var (dbContext, organizationId, serviceTypeId) = await SeedAsync();
+        await using var _ = dbContext;
+        var service = CreateService(dbContext, organizationId);
+        var gatewayBranchId = Guid.NewGuid();
+        var shipmentId = await CreateAtStatusAsync(dbContext, service, serviceTypeId, ShipmentDirection.Inbound, ShipmentStatus.CustomsClearance, gatewayBranchId, Guid.NewGuid(), null);
+        var userId = Guid.NewGuid();
+
+        var result = await service.ReceiveFromCarrierAsync(shipmentId, ActingUser(userId));
+
+        Assert.Equal(ShipmentStatus.ReceivedFromCarrier, result!.CurrentStatus);
+        Assert.Equal(gatewayBranchId, result.CurrentBranchId);
+        Assert.Equal(userId, result.CurrentCustodianUserId);
+        var evt = await dbContext.Set<ShipmentEvent>().SingleAsync(e => e.ShipmentId == shipmentId && e.EventType == ShipmentEventType.ReceivedFromCarrier);
+        Assert.Equal(gatewayBranchId, evt.BranchId);
+    }
+
+    [Fact]
+    public async Task ReceiveFromCarrierAsync_OriginEqualsDestination_RecordsTwoEventsAndArrives()
+    {
+        var (dbContext, organizationId, serviceTypeId) = await SeedAsync();
+        await using var _ = dbContext;
+        var service = CreateService(dbContext, organizationId);
+        var branchId = Guid.NewGuid();
+        var shipmentId = await CreateAtStatusAsync(dbContext, service, serviceTypeId, ShipmentDirection.Inbound, ShipmentStatus.InInternationalTransit, branchId, branchId, null);
+
+        var result = await service.ReceiveFromCarrierAsync(shipmentId, ActingUser(Guid.NewGuid()));
+
+        Assert.Equal(ShipmentStatus.AtDestinationBranch, result!.CurrentStatus);
+        var events = await dbContext.Set<ShipmentEvent>().Where(e => e.ShipmentId == shipmentId).OrderBy(e => e.Timestamp).ToListAsync();
+        Assert.Contains(events, e => e.EventType == ShipmentEventType.ReceivedFromCarrier && e.NewStatus == ShipmentStatus.ReceivedFromCarrier);
+        Assert.Contains(events, e => e.EventType == ShipmentEventType.ReceivedAtDestination
+            && e.PreviousStatus == ShipmentStatus.ReceivedFromCarrier && e.NewStatus == ShipmentStatus.AtDestinationBranch);
+    }
+
+    [Fact]
+    public async Task ReceiveFromCarrierAsync_UserWithoutAccessToGatewayBranch_ThrowsValidation()
+    {
+        var (dbContext, organizationId, serviceTypeId) = await SeedAsync();
+        await using var _ = dbContext;
+        var shipmentId = await CreateAtStatusAsync(dbContext, CreateService(dbContext, organizationId), serviceTypeId,
+            ShipmentDirection.Inbound, ShipmentStatus.CustomsClearance);
+        var restricted = CreateService(dbContext, organizationId, branchAuthorizationChecker: new SpecificBranchesAuthorizationChecker(Guid.NewGuid()));
+
+        await Assert.ThrowsAsync<ShipmentValidationException>(() => restricted.ReceiveFromCarrierAsync(shipmentId, ActingUser(Guid.NewGuid())));
+    }
+
+    [Fact]
+    public async Task ReceiveFromCarrierAsync_FromCreated_ThrowsInvalidTransition()
+    {
+        var (dbContext, organizationId, serviceTypeId) = await SeedAsync();
+        await using var _ = dbContext;
+        var service = CreateService(dbContext, organizationId);
+        var shipmentId = await CreateAtStatusAsync(dbContext, service, serviceTypeId, ShipmentDirection.Inbound, ShipmentStatus.Created);
+
+        await Assert.ThrowsAsync<ShipmentInvalidTransitionException>(() => service.ReceiveFromCarrierAsync(shipmentId, ActingUser(Guid.NewGuid())));
+    }
+
+    [Fact]
+    public async Task SortAsync_InboundReceivedFromCarrier_Sorts()
+    {
+        var (dbContext, organizationId, serviceTypeId) = await SeedAsync();
+        await using var _ = dbContext;
+        var service = CreateService(dbContext, organizationId);
+        var branchId = Guid.NewGuid();
+        var shipmentId = await CreateAtStatusAsync(dbContext, service, serviceTypeId, ShipmentDirection.Inbound, ShipmentStatus.ReceivedFromCarrier, branchId, Guid.NewGuid(), branchId);
+
+        var result = await service.SortAsync(shipmentId, ActingUser(Guid.NewGuid()));
+
+        Assert.Equal(ShipmentStatus.Sorted, result!.CurrentStatus);
+    }
+
+    [Fact]
+    public async Task SortAsync_OutboundAtReceivedFromCarrier_ThrowsInvalidTransition()
+    {
+        var (dbContext, organizationId, serviceTypeId) = await SeedAsync();
+        await using var _ = dbContext;
+        var service = CreateService(dbContext, organizationId);
+        var shipmentId = await CreateAtStatusAsync(dbContext, service, serviceTypeId, ShipmentDirection.Outbound, ShipmentStatus.ReceivedFromCarrier);
+
+        await Assert.ThrowsAsync<ShipmentInvalidTransitionException>(() => service.SortAsync(shipmentId, ActingUser(Guid.NewGuid())));
+    }
 }

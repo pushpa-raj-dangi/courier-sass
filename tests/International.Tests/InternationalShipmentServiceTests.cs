@@ -65,6 +65,8 @@ internal class RecordingGateway : IShipmentInternationalGateway
     // tests today.
     public Task<CarrierStatusApplyResult> ApplyCarrierStatusAsync(Guid shipmentId, ShipmentStatus targetStatus, DateTimeOffset occurredAt, CarrierEventReference reference, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     public Task<ShipmentResponse?> OverrideInternationalStatusAsync(Guid shipmentId, ShipmentStatus targetStatus, string reason, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    public Task<ShipmentResponse?> HandToCarrierAsync(Guid shipmentId, CarrierHandoffReference reference, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    public Task<ShipmentResponse?> ReceiveFromCarrierAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 }
 
 internal class FixedItemLookup : IShipmentItemLookupService

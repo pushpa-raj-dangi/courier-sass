@@ -49,6 +49,10 @@ public record CreateInternationalShipmentShellRequest(
 // ShipmentEvent's Metadata so the timeline can show which carrier reported it.
 public record CarrierEventReference(Guid CarrierAccountId, string CarrierAwb, string CarrierEventId, string CarrierStatusCode, string? Location);
 
+// Identifies which carrier account/AWB a shipment was physically handed to; serialized into the
+// ShipmentEvent's Metadata for HandToCarrierAsync below.
+public record CarrierHandoffReference(Guid CarrierAccountId, string CarrierAwb);
+
 public enum CarrierStatusApplyResult
 {
     Applied,
@@ -71,4 +75,11 @@ public interface IShipmentInternationalGateway
 
     // I4 — staff exit from CustomsHold/InternationalException, with a required reason.
     Task<ShipmentResponse?> OverrideInternationalStatusAsync(Guid shipmentId, ShipmentStatus targetStatus, string reason, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default);
+
+    // I4 — handoff scan: CustomsPrepared -> HandedToCarrier; our custody ends.
+    Task<ShipmentResponse?> HandToCarrierAsync(Guid shipmentId, CarrierHandoffReference reference, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default);
+
+    // I4 — receive scan at the inbound gateway (OriginBranchId): -> ReceivedFromCarrier; custody
+    // resumes. When the gateway is also the destination, arrives (AtDestinationBranch) in the same save.
+    Task<ShipmentResponse?> ReceiveFromCarrierAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default);
 }

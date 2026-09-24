@@ -228,4 +228,33 @@ public class ManifestServiceScanningTests
 
         await Assert.ThrowsAsync<ManifestValidationException>(() => service.SealAsync(manifestId, ActingUser(Guid.NewGuid())));
     }
+
+    [Fact]
+    public async Task ScanAsync_InboundInternationalReceivedFromCarrier_IsSorted()
+    {
+        await using var dbContext = CreateContext();
+        var (service, shipments, manifestId, fromBranchId, toBranchId) = await SeedDraftManifestAsync(dbContext, Guid.NewGuid());
+        var info = AtOriginInfo(fromBranchId, toBranchId) with { CurrentStatus = ShipmentStatus.ReceivedFromCarrier, Direction = ShipmentDirection.Inbound };
+        shipments.ShipmentsById[info.ShipmentId] = info;
+
+        var result = await service.ScanAsync(manifestId, new ScanShipmentRequest(info.Awb), ActingUser(Guid.NewGuid()));
+
+        Assert.Equal(info.ShipmentId, result.ShipmentId);
+        Assert.Contains(info.ShipmentId, shipments.SortCalls);
+    }
+
+    [Theory]
+    [InlineData(ShipmentDirection.Outbound)]
+    [InlineData(ShipmentDirection.Domestic)]
+    public async Task ScanAsync_ReceivedFromCarrierButNotInbound_ThrowsWrongState(ShipmentDirection direction)
+    {
+        await using var dbContext = CreateContext();
+        var (service, shipments, manifestId, fromBranchId, toBranchId) = await SeedDraftManifestAsync(dbContext, Guid.NewGuid());
+        var info = AtOriginInfo(fromBranchId, toBranchId) with { CurrentStatus = ShipmentStatus.ReceivedFromCarrier, Direction = direction };
+        shipments.ShipmentsById[info.ShipmentId] = info;
+
+        var ex = await Assert.ThrowsAsync<ManifestScanRejectedException>(() =>
+            service.ScanAsync(manifestId, new ScanShipmentRequest(info.Awb), ActingUser(Guid.NewGuid())));
+        Assert.Equal("WRONG_STATE", ex.ReasonCode);
+    }
 }

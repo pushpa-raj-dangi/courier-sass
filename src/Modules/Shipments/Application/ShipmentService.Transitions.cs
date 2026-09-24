@@ -112,9 +112,18 @@ public partial class ShipmentService
     // Branch-scope/permission enforcement for this operation lives one layer up in
     // Manifests.Application.ManifestService.ScanAsync (BRANCH-OPERATIONS.md §1 checks 1/2), which
     // is the only caller of this method as of Phase 7.
-    public Task<ShipmentResponse?> SortAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) =>
-        TransitionAsync(shipmentId, ShipmentStatus.AtOriginBranch, ShipmentStatus.Sorted, ShipmentEventType.Sorted,
+    public async Task<ShipmentResponse?> SortAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
+    {
+        // I4: an inbound international parcel received from the carrier at the gateway branch
+        // enters the domestic flow here instead of at AtOriginBranch.
+        var current = await _dbContext.Set<Shipment>().Where(s => s.Id == shipmentId)
+            .Select(s => new { s.CurrentStatus, s.Direction }).FirstOrDefaultAsync(cancellationToken);
+        var expectedFrom = current is { Direction: ShipmentDirection.Inbound, CurrentStatus: ShipmentStatus.ReceivedFromCarrier }
+            ? ShipmentStatus.ReceivedFromCarrier
+            : ShipmentStatus.AtOriginBranch;
+        return await TransitionAsync(shipmentId, expectedFrom, ShipmentStatus.Sorted, ShipmentEventType.Sorted,
             _ => { }, "shipment.sorted", actingUser, cancellationToken);
+    }
 
     // Used exclusively by Manifests.Application.ManifestService.DispatchAsync — see Phase 7's
     // reasoning in this same file's history for why this stages N shipments into one SaveChangesAsync.
