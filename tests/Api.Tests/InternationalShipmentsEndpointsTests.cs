@@ -646,6 +646,12 @@ public class InternationalShipmentsEndpointsTests : IClassFixture<WebApplication
 
         public Task<ShipmentResponse?> TransitionToCustomsPreparedAsync(Guid shipmentId, System.Security.Claims.ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
+
+        public Task<CarrierStatusApplyResult> ApplyCarrierStatusAsync(Guid shipmentId, ShipmentStatus targetStatus, DateTimeOffset occurredAt, CarrierEventReference reference, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<ShipmentResponse?> OverrideInternationalStatusAsync(Guid shipmentId, ShipmentStatus targetStatus, string reason, System.Security.Claims.ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
     }
 
     // Local shape for deserializing just Id/CurrentStatus from a full ShipmentResponse without

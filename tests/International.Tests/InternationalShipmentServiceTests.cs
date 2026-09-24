@@ -60,6 +60,11 @@ internal class RecordingGateway : IShipmentInternationalGateway
             1m, null, null, null, 5000m, 0m, false, 5000m, 0m, 0m, 5000m,
             "R", "1", "L", "S", "2", "L", new List<ShipmentItemResponse>(), DateTimeOffset.UtcNow));
     }
+
+    // I4 — replaced with recording versions in Task 5 and Task 13; not exercised by this file's
+    // tests today.
+    public Task<CarrierStatusApplyResult> ApplyCarrierStatusAsync(Guid shipmentId, ShipmentStatus targetStatus, DateTimeOffset occurredAt, CarrierEventReference reference, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    public Task<ShipmentResponse?> OverrideInternationalStatusAsync(Guid shipmentId, ShipmentStatus targetStatus, string reason, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 }
 
 internal class FixedItemLookup : IShipmentItemLookupService

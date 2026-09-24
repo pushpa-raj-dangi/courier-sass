@@ -45,6 +45,17 @@ public record CreateInternationalShipmentShellRequest(
     string ProvisionalTotalChargeCurrency,
     List<CreateShipmentItemRequest> Items);
 
+// Identifies the carrier tracking event that drove a transition; serialized into the
+// ShipmentEvent's Metadata so the timeline can show which carrier reported it.
+public record CarrierEventReference(Guid CarrierAccountId, string CarrierAwb, string CarrierEventId, string CarrierStatusCode, string? Location);
+
+public enum CarrierStatusApplyResult
+{
+    Applied,
+    AlreadyAtStatus,
+    NotFound
+}
+
 // Lets International.Application create and progress a Shipment without ever touching
 // Shipment's DbSet directly — same precedent as IShipmentTransitionService (used by
 // Manifests/Riders/Ndr). Implemented by ShipmentService (ShipmentService.International.cs).
@@ -52,4 +63,12 @@ public interface IShipmentInternationalGateway
 {
     Task<ShipmentResponse> CreateShipmentShellAsync(CreateInternationalShipmentShellRequest request, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default);
     Task<ShipmentResponse?> TransitionToCustomsPreparedAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default);
+
+    // I4 — carrier-driven (no user). Only InternationalTransitionRules' Carrier moves are
+    // allowed; throws ShipmentInvalidTransitionException otherwise, ShipmentValidationException
+    // for a non-international shipment.
+    Task<CarrierStatusApplyResult> ApplyCarrierStatusAsync(Guid shipmentId, ShipmentStatus targetStatus, DateTimeOffset occurredAt, CarrierEventReference reference, CancellationToken cancellationToken = default);
+
+    // I4 — staff exit from CustomsHold/InternationalException, with a required reason.
+    Task<ShipmentResponse?> OverrideInternationalStatusAsync(Guid shipmentId, ShipmentStatus targetStatus, string reason, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default);
 }
