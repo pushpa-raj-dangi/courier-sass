@@ -101,4 +101,15 @@ public class CountryQueryServiceTests
         Assert.True(await service.IsServicedAsync("in"));
         Assert.False(await service.IsServicedAsync("ZZ"));
     }
+
+    [Fact]
+    public async Task ExistsAsync_TrueForAnySeededIsoCode_RegardlessOfServiced_CaseInsensitive()
+    {
+        await using var dbContext = CreateSeededContext();
+        var service = new CountryQueryService(dbContext);
+
+        Assert.True(await service.ExistsAsync("NP"));
+        Assert.True(await service.ExistsAsync("np"));
+        Assert.False(await service.ExistsAsync("ZZ"));
+    }
 }

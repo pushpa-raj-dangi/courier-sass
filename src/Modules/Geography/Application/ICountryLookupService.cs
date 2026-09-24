@@ -8,4 +8,9 @@ namespace Courier.Geography.Application;
 public interface ICountryLookupService
 {
     Task<bool> IsServicedAsync(string isoCode, CancellationToken cancellationToken = default);
+
+    // True iff isoCode is a real (seeded ISO-3166-1 alpha-2) Country, serviced or not — used to
+    // validate a customs declaration's CountryOfOrigin, where "is it a country" is the rule, not
+    // "do we ship there".
+    Task<bool> ExistsAsync(string isoCode, CancellationToken cancellationToken = default);
 }

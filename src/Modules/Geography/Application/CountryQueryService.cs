@@ -54,4 +54,10 @@ public class CountryQueryService : ICountryLookupService
         var normalized = isoCode.ToUpperInvariant();
         return await _dbContext.Set<Country>().AnyAsync(c => c.IsoCode == normalized && c.IsServiced, cancellationToken);
     }
+
+    public async Task<bool> ExistsAsync(string isoCode, CancellationToken cancellationToken = default)
+    {
+        var normalized = isoCode.ToUpperInvariant();
+        return await _dbContext.Set<Country>().AnyAsync(c => c.IsoCode == normalized, cancellationToken);
+    }
 }
