@@ -10,6 +10,7 @@
     <Project Path="src/Modules/Branches/Branches.csproj" />
     <Project Path="src/Modules/Geography/Geography.csproj" />
     <Project Path="src/Modules/Identity/Identity.csproj" />
+    <Project Path="src/Modules/International/International.csproj" />
     <Project Path="src/Modules/Manifests/Manifests.csproj" />
     <Project Path="src/Modules/Merchants/Merchants.csproj" />
     <Project Path="src/Modules/Ndr/Ndr.csproj" />

@@ -7,9 +7,11 @@ namespace Courier.Shipments.Application;
 // Enforces the I3 design spec §3 shape rule: domestic shipments (and the domestic-side party of
 // an international shipment) require a full, valid Nepal geography chain; the foreign-side party
 // (determined by Direction — Outbound means the recipient is foreign, Inbound means the sender
-// is) requires InternationalAddress-shaped fields instead. Called by
-// ShipmentService.CreateShipmentAsync (domestic, both parties are Nepal) and
-// ShipmentService.CreateShipmentShellAsync (I3, Task 6).
+// is) requires InternationalAddress-shaped fields instead. Only caller today:
+// ShipmentService.CreateShipmentShellAsync (I3). Domestic ShipmentService.CreateShipmentAsync does
+// NOT call this — it validates both parties' Nepal geography chains inline via
+// IGeographyLookupService.IsValidHierarchyAsync (its request fields are non-nullable), so the
+// Scope == Domestic branch below is only exercised by unit tests.
 public static class ShipmentAddressValidator
 {
     public static async Task ValidateAsync(Shipment shipment, IGeographyLookupService geographyLookupService, CancellationToken cancellationToken)
@@ -25,12 +27,12 @@ public static class ShipmentAddressValidator
         if (recipientIsForeign)
         {
             await ValidateNepalPartyAsync("Sender", shipment.SenderProvinceId, shipment.SenderDistrictId, shipment.SenderLocalLevelId, shipment.SenderWardNumber, geographyLookupService, cancellationToken);
-            ValidateForeignParty("Recipient", shipment.RecipientAddressLine, shipment.RecipientCity, shipment.RecipientCountryCode);
+            ValidateForeignParty("Recipient", shipment.RecipientAddressLine, shipment.RecipientCity, shipment.RecipientRegion, shipment.RecipientPostalCode, shipment.RecipientCountryCode);
         }
         else
         {
             await ValidateNepalPartyAsync("Recipient", shipment.RecipientProvinceId, shipment.RecipientDistrictId, shipment.RecipientLocalLevelId, shipment.RecipientWardNumber, geographyLookupService, cancellationToken);
-            ValidateForeignParty("Sender", shipment.SenderAddressLine, shipment.SenderCity, shipment.SenderCountryCode);
+            ValidateForeignParty("Sender", shipment.SenderAddressLine, shipment.SenderCity, shipment.SenderRegion, shipment.SenderPostalCode, shipment.SenderCountryCode);
         }
     }
 
@@ -46,11 +48,11 @@ public static class ShipmentAddressValidator
         }
     }
 
-    private static void ValidateForeignParty(string party, string line1, string? city, string? countryCode)
+    private static void ValidateForeignParty(string party, string line1, string? city, string? region, string? postalCode, string? countryCode)
     {
         try
         {
-            InternationalAddress.Create(line1, null, city ?? string.Empty, null, null, countryCode ?? string.Empty);
+            InternationalAddress.Create(line1, null, city ?? string.Empty, region, postalCode, countryCode ?? string.Empty);
         }
         catch (InternationalAddressValidationException ex)
         {
