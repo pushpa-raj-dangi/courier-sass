@@ -13,10 +13,40 @@ public partial class ShipmentService : IShipmentInternationalGateway
         var organizationId = _currentTenantProvider.OrganizationId
             ?? throw new ShipmentValidationException("No active organization context.");
 
-        if (request.Items.Count == 0)
+        // Defense in depth — International.Application validates Direction up-front too, but the
+        // gateway must never create a Scope = International shipment with Direction = Domestic (or
+        // an undefined numeric value bound straight from JSON).
+        if (request.Direction is not (ShipmentDirection.Outbound or ShipmentDirection.Inbound))
+        {
+            throw new ShipmentValidationException("Direction must be Outbound or Inbound for an international shipment.");
+        }
+
+        if (request.Items is null || request.Items.Count == 0)
         {
             throw new ShipmentValidationException("A shipment must have at least one item.");
         }
+
+        // Same tenant checks domestic CreateShipmentAsync performs (merchant via
+        // IMerchantLookupService.ExistsAsync; branches via IBranchLookupService.GetZoneInfoAsync,
+        // which domestic reaches through PricingService.QuoteAsync). Shipment's FKs to
+        // Merchant/Branch are single-column, so without these a cross-tenant id would persist.
+        if (!await _merchantLookupService.ExistsAsync(request.MerchantId, cancellationToken))
+        {
+            throw new ShipmentValidationException("Merchant was not found in this organization.");
+        }
+        if (await _branchLookupService.GetZoneInfoAsync(request.OriginBranchId, cancellationToken) is null)
+        {
+            throw new ShipmentValidationException("Origin branch was not found in this organization.");
+        }
+        if (await _branchLookupService.GetZoneInfoAsync(request.DestinationBranchId, cancellationToken) is null)
+        {
+            throw new ShipmentValidationException("Destination branch was not found in this organization.");
+        }
+        await CheckBranchAccessAsync(actingUser, "international.create", request.OriginBranchId, cancellationToken);
+
+        // The Nepal-side party is addressed by its geography chain only — any InternationalAddress
+        // fields sent for it are dropped rather than persisted unvalidated.
+        var recipientIsForeign = request.Direction == ShipmentDirection.Outbound;
 
         var declaredValue = request.Items.Sum(i => i.Quantity * i.UnitValue);
 
@@ -58,10 +88,10 @@ public partial class ShipmentService : IShipmentInternationalGateway
                 RecipientLocalLevelId = request.RecipientLocalLevelId,
                 RecipientWardNumber = request.RecipientWardNumber,
                 RecipientAddressLine = request.RecipientAddressLine,
-                RecipientCity = request.RecipientCity,
-                RecipientRegion = request.RecipientRegion,
-                RecipientPostalCode = request.RecipientPostalCode,
-                RecipientCountryCode = request.RecipientCountryCode,
+                RecipientCity = recipientIsForeign ? request.RecipientCity : null,
+                RecipientRegion = recipientIsForeign ? request.RecipientRegion : null,
+                RecipientPostalCode = recipientIsForeign ? request.RecipientPostalCode : null,
+                RecipientCountryCode = recipientIsForeign ? request.RecipientCountryCode?.ToUpperInvariant() : null,
                 SenderName = request.SenderName,
                 SenderPhone = request.SenderPhone,
                 SenderProvinceId = request.SenderProvinceId,
@@ -69,10 +99,10 @@ public partial class ShipmentService : IShipmentInternationalGateway
                 SenderLocalLevelId = request.SenderLocalLevelId,
                 SenderWardNumber = request.SenderWardNumber,
                 SenderAddressLine = request.SenderAddressLine,
-                SenderCity = request.SenderCity,
-                SenderRegion = request.SenderRegion,
-                SenderPostalCode = request.SenderPostalCode,
-                SenderCountryCode = request.SenderCountryCode
+                SenderCity = recipientIsForeign ? null : request.SenderCity,
+                SenderRegion = recipientIsForeign ? null : request.SenderRegion,
+                SenderPostalCode = recipientIsForeign ? null : request.SenderPostalCode,
+                SenderCountryCode = recipientIsForeign ? null : request.SenderCountryCode?.ToUpperInvariant()
             };
 
             await ShipmentAddressValidator.ValidateAsync(shipment, _geographyLookupService, cancellationToken);
@@ -135,6 +165,16 @@ public partial class ShipmentService : IShipmentInternationalGateway
         if (shipment.Scope != ShipmentScope.International)
         {
             throw new ShipmentValidationException("Only international shipments can transition to CustomsPrepared.");
+        }
+
+        // Same "the operator must be at the branch physically holding the parcel" rule as
+        // ReceiveAtOriginAsync's scan check. A shipment with no CurrentBranchId (in transit / with a
+        // rider) can never be at Sorted/AtDestinationBranch, so for a branch-restricted caller the
+        // state guard below would reject it anyway; for them it fails here first.
+        var accessible = await _branchAuthorizationChecker.GetAccessibleBranchIdsAsync(actingUser, "international.manage_customs", cancellationToken);
+        if (accessible is not null && (shipment.CurrentBranchId is not Guid currentBranchId || !accessible.Contains(currentBranchId)))
+        {
+            throw new ShipmentValidationException("Branch is outside your branch access for permission 'international.manage_customs'.");
         }
 
         var expectedFrom = shipment.OriginBranchId == shipment.DestinationBranchId
