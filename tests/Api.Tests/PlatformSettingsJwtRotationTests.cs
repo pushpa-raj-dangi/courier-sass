@@ -21,6 +21,7 @@ namespace Courier.Api.Tests;
 // don't depend on that reload, since this process's own cache update happens synchronously inside
 // PlatformSettingsService.UpdateAsync/ResetAsync — but cross-test-host interference remains a
 // known, separately-tracked risk, not something fixed by this test.
+[Collection(NonParallelCollection.Name)]
 public class PlatformSettingsJwtRotationTests : IClassFixture<WebApplicationFactory<Program>>
 {
     private readonly WebApplicationFactory<Program> _factory;
