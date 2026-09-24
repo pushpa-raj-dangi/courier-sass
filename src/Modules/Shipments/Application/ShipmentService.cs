@@ -138,6 +138,11 @@ public partial class ShipmentService : IShipmentTransitionService
         // burst of same-org creates exhausted it and surfaced as raw 500s); 8 attempts plus a
         // jittered backoff between them — so racing losers don't immediately recompute the same
         // "current max" against each other again — verified safe under the same burst size below.
+        // Allocation is also serialized per organization by a Postgres advisory lock
+        // (BeginAwbAllocationAsync): domestic create has no ambient transaction, so it gets a short
+        // one owning the lock just for the AWB read + Shipment insert, committed right after. The
+        // retry loop stays as defense in depth.
+        await using var awbTransaction = await BeginAwbAllocationAsync(organizationId, cancellationToken);
         const int maxAwbAttempts = 8;
         Shipment shipment = null!;
         for (var attempt = 1; attempt <= maxAwbAttempts; attempt++)
@@ -230,6 +235,11 @@ public partial class ShipmentService : IShipmentTransitionService
                 await Task.Delay(Random.Shared.Next(10, 40) * attempt, cancellationToken);
             }
         }
+        if (awbTransaction is not null)
+        {
+            // Releases the AWB allocation lock as soon as the Shipment row is committed.
+            await awbTransaction.CommitAsync(cancellationToken);
+        }
 
         await _auditLogger.LogAsync(new AuditEntry(organizationId, actingUser.GetUserId(), "shipment.created", "Shipment", shipment.Id.ToString()), cancellationToken);
 
@@ -248,6 +258,56 @@ public partial class ShipmentService : IShipmentTransitionService
     [GeneratedRegex("[^A-Z0-9]")]
     private static partial Regex NonAlphanumericRegex();
 
+    // Advisory-lock namespace for per-organization AWB allocation. Uses Postgres's two-int
+    // pg_advisory_xact_lock(classid, objid) form: classid = this constant ("AWB1" in ASCII), objid =
+    // a stable 32-bit key folded from the OrganizationId. The two-int key space is disjoint from the
+    // single-bigint one, and the constant namespaces it from any other two-int advisory-lock user.
+    // A 32-bit fold can make two orgs share a key; that only serializes them against each other
+    // (never a correctness issue).
+    private const int AwbAllocationLockNamespace = 0x41574231;
+
+    // Serializes AWB allocation per organization (GenerateAwbAsync's max+1 read through the
+    // Shipment insert). Without it, a racer can't see a winner's AWB until the winner's transaction
+    // commits — under International's create transaction that is only after the leg insert — so
+    // racers recompute the same number, collide on IX_Shipments_OrganizationId_Awb and exhaust the
+    // retry budget. The xact lock is held until the enclosing transaction ends, so the next
+    // allocator for the org always reads the previous one's committed AWB.
+    // - Ambient transaction (International create): the lock joins it; returns null (the caller of
+    //   that transaction commits, which releases the lock).
+    // - No ambient transaction (domestic create): opens and returns a short transaction owned by
+    //   the caller, which must commit it right after the Shipment insert's SaveChangesAsync.
+    // InMemory provider (unit tests): no transactions or advisory locks; returns null, no lock.
+    private async Task<Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction?> BeginAwbAllocationAsync(Guid organizationId, CancellationToken cancellationToken)
+    {
+        if (!_dbContext.Database.IsRelational())
+        {
+            return null;
+        }
+
+        var ownedTransaction = _dbContext.Database.CurrentTransaction is null
+            ? await _dbContext.Database.BeginTransactionAsync(cancellationToken)
+            : null;
+
+        var bytes = organizationId.ToByteArray();
+        var organizationKey = BitConverter.ToInt32(bytes, 0) ^ BitConverter.ToInt32(bytes, 4)
+            ^ BitConverter.ToInt32(bytes, 8) ^ BitConverter.ToInt32(bytes, 12);
+        try
+        {
+            await _dbContext.Database.ExecuteSqlInterpolatedAsync(
+                $"SELECT pg_advisory_xact_lock({AwbAllocationLockNamespace}, {organizationKey})", cancellationToken);
+        }
+        catch
+        {
+            if (ownedTransaction is not null)
+            {
+                await ownedTransaction.DisposeAsync();
+            }
+            throw;
+        }
+
+        return ownedTransaction;
+    }
+
     // Format: {OrgSlugPrefix}{yyyyMMdd}{6-digit sequence}, e.g. ACME20260820000001. Prefix is the
     // org's Slug uppercased with non-alphanumeric characters stripped, truncated to 6 chars (a
     // Slug can be any string up to 100 chars per OrganizationConfiguration.cs — nothing sanitizes
@@ -255,10 +315,11 @@ public partial class ShipmentService : IShipmentTransitionService
     // symbols), fall back to the first 6 hex chars of OrganizationId — always non-empty, always
     // deterministic per org. Sequence: current max existing suffix for (OrganizationId,
     // today's date-prefix) + 1. This method does NOT itself guarantee uniqueness under
-    // concurrency — two callers racing on the same org/day can compute the same candidate. The
-    // caller (CreateShipmentAsync) is the one that makes this safe: it wraps the insert in a
-    // catch-DbUpdateException-retry loop and calls this method again on each retry, so a losing
-    // candidate always gets recomputed against the winner's now-committed row.
+    // concurrency — two callers racing on the same org/day can compute the same candidate. Its
+    // callers make it safe: on Postgres they first take BeginAwbAllocationAsync's per-organization
+    // advisory lock, which serializes allocators so each reads the previous one's committed AWB;
+    // and they wrap the insert in a catch-DbUpdateException-retry loop that calls this method
+    // again on each retry, as a fallback.
     private async Task<string> GenerateAwbAsync(Guid organizationId, CancellationToken cancellationToken)
     {
         var slug = await _organizationLookupService.GetSlugAsync(organizationId, cancellationToken);

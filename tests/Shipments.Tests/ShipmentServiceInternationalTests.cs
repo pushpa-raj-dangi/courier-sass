@@ -396,6 +396,31 @@ public class ShipmentServiceInternationalTests
         Assert.Empty(await dbContext.Set<Shipment>().ToListAsync());
     }
 
+    public static TheoryData<string, List<CreateShipmentItemRequest>> InvalidShellItems() => new()
+    {
+        { "null item element", new List<CreateShipmentItemRequest> { null! } },
+        { "zero quantity", new List<CreateShipmentItemRequest> { new("Sample goods", 0, 5000m) } },
+        { "negative quantity", new List<CreateShipmentItemRequest> { new("Sample goods", -2, 5000m) } },
+        { "negative unit value", new List<CreateShipmentItemRequest> { new("Sample goods", 1, -1m) } },
+    };
+
+    // Defense in depth — International.Application validates items up-front too, but a null element
+    // must never reach the declared-value Sum (NullReferenceException → 500).
+    [Theory]
+    [MemberData(nameof(InvalidShellItems))]
+    public async Task CreateShipmentShellAsync_InvalidItem_ThrowsValidationAndPersistsNothing(string label, List<CreateShipmentItemRequest> items)
+    {
+        var (dbContext, organizationId, serviceTypeId) = await SeedAsync();
+        await using var _ = dbContext;
+        var service = CreateService(dbContext, organizationId);
+        var request = OutboundRequest(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), serviceTypeId) with { Items = items };
+
+        var ex = await Assert.ThrowsAsync<ShipmentValidationException>(() => service.CreateShipmentShellAsync(request, ActingUser(Guid.NewGuid())));
+
+        Assert.False(string.IsNullOrEmpty(ex.Message), label);
+        Assert.Empty(await dbContext.Set<Shipment>().ToListAsync());
+    }
+
     [Fact]
     public async Task CreateShipmentShellAsync_NepalSideInternationalFields_AreNotPersisted()
     {

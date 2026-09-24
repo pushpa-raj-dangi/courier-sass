@@ -251,6 +251,18 @@ public partial class InternationalShipmentService
         {
             throw new InternationalShipmentValidationException("At least one shipment item is required.");
         }
+        if (request.Items.Any(i => i is null))
+        {
+            throw new InternationalShipmentValidationException("Shipment items must not contain null entries.");
+        }
+        if (request.Items.Any(i => i.Quantity <= 0))
+        {
+            throw new InternationalShipmentValidationException("Item quantity must be greater than zero.");
+        }
+        if (request.Items.Any(i => i.UnitValue < 0))
+        {
+            throw new InternationalShipmentValidationException("Item unit value must not be negative.");
+        }
         if (request.WeightKg <= 0)
         {
             throw new InternationalShipmentValidationException("WeightKg must be greater than zero.");

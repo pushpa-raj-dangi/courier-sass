@@ -25,6 +25,18 @@ public partial class ShipmentService : IShipmentInternationalGateway
         {
             throw new ShipmentValidationException("A shipment must have at least one item.");
         }
+        if (request.Items.Any(i => i is null))
+        {
+            throw new ShipmentValidationException("Shipment items must not contain null entries.");
+        }
+        if (request.Items.Any(i => i.Quantity <= 0))
+        {
+            throw new ShipmentValidationException("Item quantity must be greater than zero.");
+        }
+        if (request.Items.Any(i => i.UnitValue < 0))
+        {
+            throw new ShipmentValidationException("Item unit value must not be negative.");
+        }
 
         // Same tenant checks domestic CreateShipmentAsync performs (merchant via
         // IMerchantLookupService.ExistsAsync; branches via IBranchLookupService.GetZoneInfoAsync,
@@ -50,6 +62,11 @@ public partial class ShipmentService : IShipmentInternationalGateway
 
         var declaredValue = request.Items.Sum(i => i.Quantity * i.UnitValue);
 
+        // Per-organization AWB allocation lock (see BeginAwbAllocationAsync). Normally this runs
+        // inside InternationalShipmentService.CreateAsync's transaction, so the lock is held until
+        // that whole create commits and awbTransaction is null; called without one, it owns a short
+        // transaction committed right after the Shipment insert, like domestic create.
+        await using var awbTransaction = await BeginAwbAllocationAsync(organizationId, cancellationToken);
         const int maxAwbAttempts = 8;
         Shipment shipment = null!;
         for (var attempt = 1; attempt <= maxAwbAttempts; attempt++)
@@ -146,6 +163,10 @@ public partial class ShipmentService : IShipmentInternationalGateway
                 }
                 await Task.Delay(Random.Shared.Next(10, 40) * attempt, cancellationToken);
             }
+        }
+        if (awbTransaction is not null)
+        {
+            await awbTransaction.CommitAsync(cancellationToken);
         }
 
         await _auditLogger.LogAsync(new AuditEntry(organizationId, actingUser.GetUserId(), "international_shipment.created", "Shipment", shipment.Id.ToString()), cancellationToken);

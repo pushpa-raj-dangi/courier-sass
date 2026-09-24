@@ -211,15 +211,30 @@ Plans: `docs/superpowers/plans/`.
   - `POST /` — `international.create`, branch-scoped to `OriginBranchId` (same rule as domestic
     `POST /api/v1/shipments`, which also rejects an origin outside the caller's `shipment.create`
     branches). **One transaction:** `InternationalShipmentService.CreateAsync` first runs every
-    International-side validation (direction, items, weight > 0, charge ≥ 0, currency, foreign
-    address lengths, serviced country), then opens a DB transaction (`IsRelational()`-guarded, same
+    International-side validation (direction, items non-empty with no null entries, item
+    `Quantity > 0` and `UnitValue ≥ 0`, weight > 0, charge ≥ 0, currency, foreign address lengths,
+    serviced country), then opens a DB transaction (`IsRelational()`-guarded, same
     pattern as `CodService.Settlements.cs`/`AuthService.cs`) around the gateway's
     `CreateShipmentShellAsync` (Shipment/ShipmentItems/creation event, audit, `shipment.created`
     outbox row), the `InternationalLeg` insert and its audit; any failure rolls all of it back. The
-    gateway shares the same scoped `AppDbContext`, so its `SaveChangesAsync` calls enlist; its AWB
-    collision-retry loop still works inside the transaction because EF Core wraps each
-    `SaveChangesAsync` in a savepoint when a transaction is active (covered by a 10-way concurrent
-    same-org API test). The gateway itself validates, before writing anything, that `MerchantId`
+    gateway shares the same scoped `AppDbContext`, so its `SaveChangesAsync` calls enlist.
+    **AWB allocation is serialized per organization:** before computing the next AWB (max existing
+    same-day sequence + 1), the gateway takes a Postgres transaction-scoped advisory lock,
+    `pg_advisory_xact_lock(0x41574231 /* "AWB1" */, <32-bit fold of OrganizationId>)`
+    (`ShipmentService.BeginAwbAllocationAsync`). Inside this create transaction the lock is held
+    until the whole create commits, so a concurrent same-org create waits and then sees the
+    committed AWB instead of computing the same number (without it, racers could not see the
+    winner's uncommitted AWB, kept colliding on `IX_Shipments_OrganizationId_Awb` and exhausted the
+    retry budget → 500). Same-org international creates are therefore serialized end to end;
+    different orgs don't contend (a 32-bit fold collision would only serialize two orgs, never
+    break correctness). Domestic `POST /api/v1/shipments` shares the lock: it has no ambient
+    transaction, so it opens a short one covering just the AWB read and Shipment insert and commits
+    it immediately (its audit/COD/outbox writes stay outside, as before). The existing
+    catch-`DbUpdateException` retry loop remains as a fallback; it still works inside a transaction
+    because EF Core wraps each `SaveChangesAsync` in a savepoint. The InMemory provider (unit
+    tests) takes no lock. Covered by 10-way (international) and 20-way (domestic) concurrent
+    same-org API tests. The gateway itself also rejects a null item, `Quantity ≤ 0` or
+    `UnitValue < 0` (defense in depth), and validates, before writing anything, that `MerchantId`
     exists in the caller's tenant (`IMerchantLookupService.ExistsAsync`), that both branches exist
     in the tenant (`IBranchLookupService.GetZoneInfoAsync`), that `Direction` is `Outbound`/
     `Inbound`, and the origin branch scope — `400 SHIPMENT_VALIDATION_FAILED` on failure. Returns
