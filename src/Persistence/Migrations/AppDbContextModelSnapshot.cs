@@ -4622,6 +4622,24 @@ namespace Persistence.Migrations
                             Id = new Guid("af904214-6ec5-b290-eb93-533850f77399"),
                             Description = "Receive international shipments from a carrier",
                             Key = "international.receive"
+                        },
+                        new
+                        {
+                            Id = new Guid("6ded795a-0276-2fa3-5c04-3d79dedea070"),
+                            Description = "Manage international carrier accounts and credentials",
+                            Key = "international.carrier.manage"
+                        },
+                        new
+                        {
+                            Id = new Guid("f93c2dd8-d038-695e-4cab-451b8a797d87"),
+                            Description = "Book, cancel and link international carrier bookings",
+                            Key = "international.book"
+                        },
+                        new
+                        {
+                            Id = new Guid("82fdcb4e-8ed8-7a3b-8c02-5955426b41a6"),
+                            Description = "Record carrier tracking events and override international exception statuses",
+                            Key = "international.tracking.manage"
                         });
                 });
 

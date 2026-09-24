@@ -69,6 +69,9 @@ public static class PermissionCatalog
         ("international.manage_customs", "Manage international customs declarations"),
         ("international.handoff", "Hand off international shipments to a carrier"),
         ("international.receive", "Receive international shipments from a carrier"),
+        ("international.carrier.manage", "Manage international carrier accounts and credentials"),
+        ("international.book", "Book, cancel and link international carrier bookings"),
+        ("international.tracking.manage", "Record carrier tracking events and override international exception statuses"),
     };
 
     public static Guid IdFor(string key)
