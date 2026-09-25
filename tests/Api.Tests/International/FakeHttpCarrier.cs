@@ -97,7 +97,12 @@ public sealed class FakeHttpCarrierProvider : ICarrierProvider
         var raw = await response.Content.ReadAsStringAsync(cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
-            throw new CarrierBookingException($"Fake carrier returned {(int)response.StatusCode}.");
+            // Deliberately careless, like a real adapter that echoes credentials into an error
+            // message: puts the raw API key into the exception text so the test can prove
+            // CarrierBookingService's CarrierPayloadSanitizer.MaskSecrets is what keeps it out of
+            // the HTTP response, not this provider declining to mention it in the first place.
+            var apiKey = credentials.Values.GetValueOrDefault("apiKey");
+            throw new CarrierBookingException($"Fake carrier returned {(int)response.StatusCode} for api key {apiKey}.");
         }
         var body = JsonSerializer.Deserialize<BookBody>(raw, Json)!;
         return new CarrierBookingResult(body.CarrierAwb, body.ServiceLevel,

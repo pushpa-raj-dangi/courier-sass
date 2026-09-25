@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Courier.International.Application;
+using Courier.International.Application.Carriers;
 using Courier.International.Domain;
 using Courier.Persistence;
 using Courier.Shipments.Domain;
@@ -113,6 +114,26 @@ public class CarrierHttpIntegrationTests : InternationalApiTestBase, IClassFixtu
         Assert.Equal(0, await EventCountAsync(account.Account.Id));
     }
 
+    // Fix round 1, finding 3: a header far shorter than the hex-encoded HMAC (a naive
+    // fixed-length byte compare could throw on a length mismatch instead of just failing) must
+    // still be rejected as an invalid signature (401), never surface as a 500.
+    [Fact]
+    public async Task Webhook_SignatureHeaderWrongLength_Returns401()
+    {
+        var org = await SetUpOrgAsync("http-sig-len");
+        var account = await FakeAccountAsync(org.Client, polling: false);
+        var evt = new FakeTrackingEvent("FAKE-X", "e-1", "TRANSIT", null, null, DateTimeOffset.UtcNow);
+        var body = JsonSerializer.SerializeToUtf8Bytes(new[] { evt }, Json);
+
+        var request = new HttpRequestMessage(HttpMethod.Post, account.Account.WebhookPath) { Content = new ByteArrayContent(body) };
+        request.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
+        request.Headers.Add(FakeHttpCarrierProvider.SignatureHeader, "abc");
+        var response = await Factory.CreateClient().SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal(0, await EventCountAsync(account.Account.Id));
+    }
+
     [Fact]
     public async Task Booking_CarrierRejects_Returns502_ShipmentStaysCustomsPrepared_ThenANewKeyBooks()
     {
@@ -125,7 +146,12 @@ public class CarrierHttpIntegrationTests : InternationalApiTestBase, IClassFixtu
         Assert.Equal(HttpStatusCode.BadGateway, rejected.StatusCode);
         var rejectedBody = await rejected.Content.ReadAsStringAsync();
         Assert.Contains("CARRIER_BOOKING_FAILED", rejectedBody);
+        // The fake carrier deliberately echoes the raw API key into its failure message (see
+        // FakeHttpCarrierProvider.BookAsync) — this proves CarrierBookingService's
+        // CarrierPayloadSanitizer.MaskSecrets is what keeps the secret out of the response, not
+        // the fake carrier simply never mentioning it.
         Assert.DoesNotContain("fake-api-key-123", rejectedBody);
+        Assert.Contains(CarrierPayloadSanitizer.Mask, rejectedBody);
         Assert.Equal(ShipmentStatus.CustomsPrepared, await ShipmentStatusAsync(shipment.Shipment.Id));
 
         _backend.FailBookingWith = null;
@@ -188,14 +214,27 @@ public class CarrierHttpIntegrationTests : InternationalApiTestBase, IClassFixtu
             o.MinimumThroughput = 2;
             o.SamplingDuration = TimeSpan.FromSeconds(60);
             o.BreakDuration = TimeSpan.FromSeconds(60);
+            // Fix round 1, finding 2: the fake handler answers in-process and instantly, but under
+            // full-suite CPU contention the default 10s/30s timeouts leave enough slack for a
+            // starved attempt to time out instead of failing fast — a TimeoutRejectedException
+            // still counts as a carrier failure (502), so a timed-out attempt can silently replace
+            // one of the failures the circuit breaker needs to see, and the 5-attempt loop can run
+            // out without ever tripping it. Small, deterministic timeouts (still >= Polly's 10ms
+            // floor) keep every attempt fast and failing for the right reason.
+            o.AttemptTimeout = TimeSpan.FromSeconds(2);
+            o.TotalTimeout = TimeSpan.FromSeconds(5);
         });
         var harness = new CircuitHarness(factory);
         var org = await harness.SetUpAsync("http-circuit");
         var account = await FakeAccountAsync(org.Client, polling: false);
         var shipment = await harness.PrepareAsync(org);
 
+        // Fix round 1, finding 2: 8 attempts (not the original 5) gives the loop more margin to
+        // reach MinimumThroughput=2 failures within SamplingDuration and observe the breaker open,
+        // even if an occasional attempt under full-suite load returns 502 instead of contributing
+        // to the exact failure the breaker counts.
         HttpStatusCode last = default;
-        for (var attempt = 0; attempt < 5 && last != HttpStatusCode.ServiceUnavailable; attempt++)
+        for (var attempt = 0; attempt < 8 && last != HttpStatusCode.ServiceUnavailable; attempt++)
         {
             last = (await BookAsync(org.Client, shipment.Shipment.Id, account.Account.Id, Guid.NewGuid().ToString("N"))).StatusCode;
         }
