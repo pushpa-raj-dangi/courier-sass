@@ -74,4 +74,11 @@ public record InternationalLegResponse(
 
 public record CustomsItemResponse(Guid ShipmentItemId, string HsCode, decimal CustomsValueAmount, string CustomsValueCurrency);
 
-public record InternationalShipmentDetailResponse(ShipmentResponse Shipment, InternationalLegResponse Leg);
+// I4 adds the carrier booking (live one + history) and the carrier event timeline as trailing
+// optionals so every existing (shipment, leg) construction keeps compiling.
+public record InternationalShipmentDetailResponse(
+    ShipmentResponse Shipment,
+    InternationalLegResponse Leg,
+    CarrierBookingResponse? Booking = null,
+    IReadOnlyList<CarrierBookingResponse>? BookingHistory = null,
+    IReadOnlyList<CarrierTrackingEventResponse>? CarrierEvents = null);

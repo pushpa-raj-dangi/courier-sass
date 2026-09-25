@@ -42,6 +42,32 @@ public class InternationalShipmentQueryService
         {
             return null;
         }
-        return new InternationalShipmentDetailResponse(shipment, await InternationalShipmentAccess.ToLegResponseAsync(_dbContext, leg, cancellationToken));
+        var legResponse = await InternationalShipmentAccess.ToLegResponseAsync(_dbContext, leg, cancellationToken);
+        var bookings = await _dbContext.Set<CarrierBooking>().Where(b => b.InternationalLegId == leg.Id)
+            .OrderByDescending(b => b.CreatedAt).ToListAsync(cancellationToken);
+        if (bookings.Count == 0)
+        {
+            return new InternationalShipmentDetailResponse(shipment, legResponse, null, Array.Empty<CarrierBookingResponse>(), Array.Empty<CarrierTrackingEventResponse>());
+        }
+
+        var accountIds = bookings.Select(b => b.CarrierAccountId).Distinct().ToList();
+        var accounts = await _dbContext.Set<CarrierAccount>().Where(a => accountIds.Contains(a.Id)).ToDictionaryAsync(a => a.Id, cancellationToken);
+        var bookingResponses = bookings.Select(b => CarrierBookingService.ToResponse(b, accounts[b.CarrierAccountId])).ToList();
+        var live = bookings.FirstOrDefault(b => b.Status is CarrierBookingStatus.Pending or CarrierBookingStatus.Booked);
+
+        // Every event reported for any of this shipment's (account, carrier AWB) pairs — including
+        // ones still Pending/Unmatched, so staff see carrier activity before it is applied.
+        var pairs = bookings.Where(b => b.CarrierAwb is not null).Select(b => (b.CarrierAccountId, b.CarrierAwb!)).ToHashSet();
+        var awbs = pairs.Select(p => p.Item2).Distinct().ToList();
+        var events = (await _dbContext.Set<CarrierTrackingEvent>()
+                .Where(e => accountIds.Contains(e.CarrierAccountId) && awbs.Contains(e.CarrierAwb))
+                .OrderBy(e => e.OccurredAt)
+                .ToListAsync(cancellationToken))
+            .Where(e => pairs.Contains((e.CarrierAccountId, e.CarrierAwb)))
+            .Select(CarrierTrackingEventResponse.From)
+            .ToList();
+
+        return new InternationalShipmentDetailResponse(shipment, legResponse,
+            live is null ? null : CarrierBookingService.ToResponse(live, accounts[live.CarrierAccountId]), bookingResponses, events);
     }
 }

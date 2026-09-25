@@ -76,9 +76,41 @@ internal class RecordingGateway : IShipmentInternationalGateway
         }
         return Task.FromResult(ApplyResult);
     }
-    public Task<ShipmentResponse?> OverrideInternationalStatusAsync(Guid shipmentId, ShipmentStatus targetStatus, string reason, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-    public Task<ShipmentResponse?> HandToCarrierAsync(Guid shipmentId, CarrierHandoffReference reference, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-    public Task<ShipmentResponse?> ReceiveFromCarrierAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+    public List<(Guid ShipmentId, CarrierHandoffReference Reference)> Handoffs { get; } = new();
+    public List<Guid> Receives { get; } = new();
+    public List<(Guid ShipmentId, ShipmentStatus Target, string Reason)> Overrides { get; } = new();
+    public Exception? LifecycleException { get; set; }
+
+    public Task<ShipmentResponse?> HandToCarrierAsync(Guid shipmentId, CarrierHandoffReference reference, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
+    {
+        Handoffs.Add((shipmentId, reference));
+        return LifecycleResult(shipmentId, ShipmentStatus.HandedToCarrier);
+    }
+
+    public Task<ShipmentResponse?> ReceiveFromCarrierAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
+    {
+        Receives.Add(shipmentId);
+        return LifecycleResult(shipmentId, ShipmentStatus.ReceivedFromCarrier);
+    }
+
+    public Task<ShipmentResponse?> OverrideInternationalStatusAsync(Guid shipmentId, ShipmentStatus targetStatus, string reason, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
+    {
+        Overrides.Add((shipmentId, targetStatus, reason));
+        return LifecycleResult(shipmentId, targetStatus);
+    }
+
+    private Task<ShipmentResponse?> LifecycleResult(Guid shipmentId, ShipmentStatus status)
+    {
+        if (LifecycleException is not null)
+        {
+            throw LifecycleException;
+        }
+        return Task.FromResult<ShipmentResponse?>(new ShipmentResponse(
+            shipmentId, "AWB-INTL-1", Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), null, null, null, status, Guid.NewGuid(),
+            1m, null, null, null, 5000m, 0m, false, 5000m, 0m, 0m, 5000m,
+            "R", "1", "L", "S", "2", "L", new List<ShipmentItemResponse>(), DateTimeOffset.UtcNow));
+    }
 }
 
 internal class FixedItemLookup : IShipmentItemLookupService
@@ -155,6 +187,9 @@ public class InternationalShipmentServiceTests
         {
             modelBuilder.ApplyConfiguration(new InternationalLegConfiguration());
             modelBuilder.ApplyConfiguration(new CustomsItemConfiguration());
+            modelBuilder.ApplyConfiguration(new CarrierAccountConfiguration());
+            modelBuilder.ApplyConfiguration(new CarrierBookingConfiguration());
+            modelBuilder.ApplyConfiguration(new CarrierTrackingEventConfiguration());
         }
     }
 

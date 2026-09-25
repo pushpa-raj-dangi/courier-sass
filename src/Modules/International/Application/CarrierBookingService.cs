@@ -292,6 +292,23 @@ public class CarrierBookingService
         return ToResponse(booking, account);
     }
 
+    // The live booking's stored label; null when not visible, no live booking, or no label.
+    public async Task<(Stream Content, string ContentType)?> GetLabelAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
+    {
+        var target = await LoadVisibleAsync(shipmentId, actingUser, "international.read", cancellationToken);
+        if (target is null)
+        {
+            return null;
+        }
+        var booking = await _dbContext.Set<CarrierBooking>().FirstOrDefaultAsync(b => b.InternationalLegId == target.Value.Leg.Id
+            && b.Status == CarrierBookingStatus.Booked && b.LabelStorageKey != null, cancellationToken);
+        if (booking is null)
+        {
+            return null;
+        }
+        return (await _objectStorage.OpenReadAsync(booking.LabelStorageKey!, cancellationToken), booking.LabelContentType ?? "application/octet-stream");
+    }
+
     public static CarrierBookingResponse ToResponse(CarrierBooking booking, CarrierAccount account) => new(
         booking.Id, account.Id, account.CarrierCode, account.DisplayName, booking.Direction.ToString(), booking.Status.ToString(),
         booking.CarrierAwb, booking.ServiceLevel, booking.LabelStorageKey is not null, booking.FailureReason,

@@ -107,5 +107,32 @@ public static class InternationalEndpoints
                 var result = await service.RecordAsync(id, request, httpContext.User, httpContext.RequestAborted);
                 return result is null ? Results.NotFound() : Results.Accepted($"/api/v1/international/shipments/{id}", result);
             })).RequirePermission("international.tracking.manage");
+
+        group.MapPost("/{id:guid}/handoff", (Guid id, InternationalCarrierLifecycleService service, HttpContext httpContext) =>
+            InternationalEndpointErrors.ExecuteAsync(async () =>
+            {
+                var result = await service.HandoffAsync(id, httpContext.User, httpContext.RequestAborted);
+                return result is null ? Results.NotFound() : Results.Ok(result);
+            })).RequirePermission("international.handoff");
+
+        group.MapPost("/{id:guid}/receive", (Guid id, InternationalCarrierLifecycleService service, HttpContext httpContext) =>
+            InternationalEndpointErrors.ExecuteAsync(async () =>
+            {
+                var result = await service.ReceiveAsync(id, httpContext.User, httpContext.RequestAborted);
+                return result is null ? Results.NotFound() : Results.Ok(result);
+            })).RequirePermission("international.receive");
+
+        group.MapPost("/{id:guid}/status-override", (Guid id, StatusOverrideRequest request, InternationalCarrierLifecycleService service, HttpContext httpContext) =>
+            InternationalEndpointErrors.ExecuteAsync(async () =>
+            {
+                var result = await service.OverrideStatusAsync(id, request, httpContext.User, httpContext.RequestAborted);
+                return result is null ? Results.NotFound() : Results.Ok(result);
+            })).RequirePermission("international.tracking.manage");
+
+        group.MapGet("/{id:guid}/booking/label", async (Guid id, CarrierBookingService service, HttpContext httpContext) =>
+        {
+            var label = await service.GetLabelAsync(id, httpContext.User, httpContext.RequestAborted);
+            return label is null ? Results.NotFound() : Results.File(label.Value.Content, label.Value.ContentType);
+        }).RequirePermission("international.read");
     }
 }

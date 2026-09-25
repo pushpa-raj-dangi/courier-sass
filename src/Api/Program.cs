@@ -253,6 +253,7 @@ builder.Services.AddScoped<CountryAdminService>();
 builder.Services.AddScoped<CountryZoneService>();
 builder.Services.AddScoped<Courier.International.Application.InternationalShipmentService>();
 builder.Services.AddScoped<Courier.International.Application.InternationalShipmentQueryService>();
+builder.Services.AddScoped<Courier.International.Application.InternationalCarrierLifecycleService>();
 builder.Services.AddScoped<Courier.International.Application.Carriers.ICarrierProvider, Courier.International.Infrastructure.Carriers.ManualCarrierProvider>();
 builder.Services.AddScoped<Courier.International.Application.Carriers.ICarrierProviderRegistry, Courier.International.Application.Carriers.CarrierProviderRegistry>();
 builder.Services.AddScoped<Courier.International.Application.Carriers.ICarrierSecretProtector, Courier.International.Infrastructure.Carriers.DataProtectionCarrierSecretProtector>();

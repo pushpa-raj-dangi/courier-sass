@@ -43,6 +43,9 @@ public record CarrierBookingResponse(
 
 public record ManualCarrierEventRequest(string StatusCode, DateTimeOffset OccurredAt, string? Location, string? Description);
 
+// I4 — staff exit from CustomsHold/InternationalException (InternationalCarrierLifecycleService.OverrideStatusAsync).
+public record StatusOverrideRequest(Courier.Shipments.Domain.ShipmentStatus TargetStatus, string Reason);
+
 // RawPayload is deliberately not exposed.
 public record CarrierTrackingEventResponse(
     Guid Id, string Source, string CarrierAwb, string CarrierStatusCode, string? Description, string? Location,
