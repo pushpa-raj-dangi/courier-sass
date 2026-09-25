@@ -375,47 +375,51 @@ public class CarrierBookingService
     {
         var observedUpdatedAt = live.UpdatedAt;
         var claimedAt = DateTimeOffset.UtcNow;
-        bool claimed;
         if (_dbContext.Database.IsRelational())
         {
             var affected = await _dbContext.Set<CarrierBooking>()
                 .Where(b => b.Id == live.Id && b.Status == CarrierBookingStatus.Pending && b.UpdatedAt == observedUpdatedAt)
                 .ExecuteUpdateAsync(s => s.SetProperty(b => b.UpdatedAt, claimedAt), CancellationToken.None);
-            claimed = affected > 0;
+            if (affected == 0)
+            {
+                throw new InternationalShipmentValidationException("This booking is still in progress.");
+            }
+            // Fix round 3, finding 1: accept the value the ExecuteUpdate above just committed into
+            // the tracker WITHOUT reverting CurrentValues. `live` stays tracked (it is about to be
+            // mutated further by CompleteBookingAsync), so it must end this method Unchanged, not
+            // Modified — otherwise a later, unrelated SaveChangesAsync on this same scoped DbContext
+            // (the label save, RequeueUnmatchedAsync, the audit logger) would resend this stale
+            // UpdatedAt value and could silently undo a concurrent Cancel.
+            live.UpdatedAt = claimedAt;
+            AcceptTrackedChanges(live);
         }
         else
         {
             // EF Core's InMemory provider (unit tests) cannot run ExecuteUpdate — an equivalent
             // tracked compare-and-set: re-read fresh (untracked) to check the currently-committed
-            // state, then save through the already-tracked `live` only if it still matches.
+            // state, then save through the already-tracked `live` only if it still matches. A real
+            // SaveChangesAsync naturally leaves the entity Unchanged afterward.
             var fresh = await _dbContext.Set<CarrierBooking>().AsNoTracking().FirstOrDefaultAsync(b => b.Id == live.Id, CancellationToken.None);
-            claimed = fresh is not null && fresh.Status == CarrierBookingStatus.Pending && fresh.UpdatedAt == observedUpdatedAt;
-            if (claimed)
+            var claimed = fresh is not null && fresh.Status == CarrierBookingStatus.Pending && fresh.UpdatedAt == observedUpdatedAt;
+            if (!claimed)
             {
-                live.UpdatedAt = claimedAt;
-                await _dbContext.SaveChangesAsync(CancellationToken.None);
+                throw new InternationalShipmentValidationException("This booking is still in progress.");
             }
+            live.UpdatedAt = claimedAt;
+            await _dbContext.SaveChangesAsync(CancellationToken.None);
         }
-        if (!claimed)
-        {
-            throw new InternationalShipmentValidationException("This booking is still in progress.");
-        }
-        live.UpdatedAt = claimedAt;
     }
 
-    // Fix round 2, finding iii: persists `booking`'s current in-memory Booked fields only if its
-    // row is still Pending in the store — a late failure (from a different, losing attempt) can
-    // never overwrite a real success recorded here.
+    // Fix round 2, finding iii / round 3, finding 1: persists `booking`'s current in-memory Booked
+    // fields only if its row is still Pending in the store — a late failure (from a different,
+    // losing attempt) can never overwrite a real success recorded here.
     //
-    // Deliberately does NOT set `_dbContext.Entry(booking).State = EntityState.Unchanged` after a
-    // successful ExecuteUpdate: that assignment does not "accept" the current (Modified) values as
-    // EF Core's new baseline — on a Modified entity it instead REJECTS the pending changes and
-    // reverts CurrentValues back to the pre-mutation snapshot (i.e. back to Pending/nulls), even
-    // though the raw SQL UPDATE it runs alongside is unaffected. That reversion is exactly what
-    // caused this fix round's regression: the database row ended up Booked while the in-memory
-    // `booking` object — and therefore the HTTP response built from it — silently reverted to
-    // Pending. `booking` is left Modified on purpose; the harmless cost is that the next plain
-    // SaveChangesAsync (after a label upload) redundantly re-sends these same column values.
+    // On success, the entity is accepted into the tracker as Unchanged (see AcceptTrackedChanges).
+    // On the lost-race path it is detached instead: leaving it tracked and Modified would let some
+    // later, unrelated SaveChangesAsync on this same scoped DbContext (the label save,
+    // RequeueUnmatchedAsync, the audit logger — anything that runs on every successful booking)
+    // blindly resend these losing column values and silently revert a concurrent state change (e.g.
+    // a Cancel) made through a completely different code path.
     private async Task<bool> TryMarkBookedIfPendingAsync(CarrierBooking booking)
     {
         if (_dbContext.Database.IsRelational())
@@ -436,14 +440,20 @@ public class CarrierBookingService
                     .SetProperty(b => b.RawResponse, rawResponse)
                     .SetProperty(b => b.BookedAt, bookedAt)
                     .SetProperty(b => b.UpdatedAt, updatedAt), CancellationToken.None);
-            return affected > 0;
+            if (affected > 0)
+            {
+                AcceptTrackedChanges(booking);
+                return true;
+            }
+            DetachLosingEntity(booking);
+            return false;
         }
         return await TryPersistIfStillPendingNonRelationalAsync(booking);
     }
 
-    // Fix round 2, finding iii: same guard for the failure path — a failure must never overwrite an
-    // already-Booked (or otherwise resolved) row. See TryMarkBookedIfPendingAsync's comment: no
-    // EntityState.Unchanged reset here either, for the same reason.
+    // Fix round 2, finding iii / round 3, finding 1: same guard for the failure path — a failure
+    // must never overwrite an already-Booked (or otherwise resolved) row. See
+    // TryMarkBookedIfPendingAsync's comment for why the accept-or-detach handling matters.
     private async Task<bool> TryMarkFailedIfPendingAsync(CarrierBooking booking)
     {
         if (_dbContext.Database.IsRelational())
@@ -458,10 +468,38 @@ public class CarrierBookingService
                     .SetProperty(b => b.Status, status)
                     .SetProperty(b => b.FailureReason, failureReason)
                     .SetProperty(b => b.UpdatedAt, updatedAt), CancellationToken.None);
-            return affected > 0;
+            if (affected > 0)
+            {
+                AcceptTrackedChanges(booking);
+                return true;
+            }
+            DetachLosingEntity(booking);
+            return false;
         }
         return await TryPersistIfStillPendingNonRelationalAsync(booking);
     }
+
+    // Fix round 3, finding 1: accepts an entity's CURRENT (already-mutated) in-memory values as the
+    // change tracker's new baseline, after those exact values were just committed via a raw
+    // ExecuteUpdate that bypassed the tracker entirely. Setting OriginalValues to match CurrentValues
+    // BEFORE transitioning to Unchanged is required: assigning `.State = EntityState.Unchanged`
+    // directly on a Modified entity does not accept its current values — it REJECTS them and reverts
+    // CurrentValues back to the stale pre-mutation snapshot (the exact regression fix round 2
+    // introduced and then had to fix). The entity ends Unchanged either way, but only this order
+    // preserves the values that were actually written to the database.
+    private void AcceptTrackedChanges(CarrierBooking entity)
+    {
+        var entry = _dbContext.Entry(entity);
+        entry.OriginalValues.SetValues(entry.CurrentValues);
+        entry.State = EntityState.Unchanged;
+    }
+
+    // Fix round 3, finding 1: detaches an entity that lost a conditional (Pending-guarded) write —
+    // it never became Unchanged, so it is still tracked as Modified with the losing values. Without
+    // detaching it, a later, unrelated SaveChangesAsync on this same scoped DbContext would flush
+    // those stale values and could silently overwrite whatever the winning attempt (or an unrelated
+    // concurrent operation, like a Cancel) legitimately wrote.
+    private void DetachLosingEntity(CarrierBooking entity) => _dbContext.Entry(entity).State = EntityState.Detached;
 
     // EF Core's InMemory provider (unit tests) cannot run ExecuteUpdate — an equivalent tracked
     // compare-and-set: re-read fresh (untracked) to check the currently-committed status, then save
@@ -541,29 +579,67 @@ public class CarrierBookingService
 
         if (result.Label is not null)
         {
-            try
+            // Fix round 3, finding 2: a failed (or unpersisted) label save must never leave label
+            // changes dirty on `booking` — `booking` is Unchanged at this point (TryMarkBookedIfPendingAsync
+            // just accepted it), and it must still be Unchanged when this block ends, whatever
+            // happens, so RequeueUnmatchedAsync/the audit logger below (or anything later on this
+            // scoped DbContext) can never resurface a label failure as an unrelated exception, and
+            // can never blindly resend a stale label value.
+            if (_dbContext.Database.IsRelational())
             {
-                using var content = new MemoryStream(result.Label.Content);
-                booking.LabelStorageKey = await _objectStorage.UploadAsync($"carrier-labels/{organizationId}/{booking.Id}", content, result.Label.ContentType, CancellationToken.None);
-                booking.LabelContentType = result.Label.ContentType;
+                try
+                {
+                    using var content = new MemoryStream(result.Label.Content);
+                    var storageKey = await _objectStorage.UploadAsync($"carrier-labels/{organizationId}/{booking.Id}", content, result.Label.ContentType, CancellationToken.None);
+                    var labelUpdatedAt = DateTimeOffset.UtcNow;
+                    var affected = await _dbContext.Set<CarrierBooking>()
+                        .Where(b => b.Id == booking.Id && b.Status == CarrierBookingStatus.Booked)
+                        .ExecuteUpdateAsync(s => s
+                            .SetProperty(b => b.LabelStorageKey, storageKey)
+                            .SetProperty(b => b.LabelContentType, result.Label.ContentType)
+                            .SetProperty(b => b.UpdatedAt, labelUpdatedAt), CancellationToken.None);
+                    if (affected > 0)
+                    {
+                        booking.LabelStorageKey = storageKey;
+                        booking.LabelContentType = result.Label.ContentType;
+                        booking.UpdatedAt = labelUpdatedAt;
+                        AcceptTrackedChanges(booking);
+                    }
+                    else
+                    {
+                        _logger.LogError(
+                            "Could not persist the carrier label for booking {CarrierBookingId} (carrier AWB {CarrierAwb}) — its row was no longer Booked. The booking stands without a stored label.",
+                            booking.Id, booking.CarrierAwb);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Leave `booking` untouched: it is still the Unchanged, correctly-Booked entity
+                    // from TryMarkBookedIfPendingAsync — nothing about this failure may become dirty.
+                    _logger.LogError(ex, "Failed to upload the carrier label for booking {CarrierBookingId} (carrier AWB {CarrierAwb}) — the booking stands without a stored label.",
+                        booking.Id, booking.CarrierAwb);
+                }
             }
-            catch (Exception ex)
+            else
             {
-                _logger.LogError(ex, "Failed to upload the carrier label for booking {CarrierBookingId} (carrier AWB {CarrierAwb}) — the booking stands without a stored label.",
-                    booking.Id, booking.CarrierAwb);
-                booking.LabelStorageKey = null;
-                booking.LabelContentType = null;
-            }
-            try
-            {
-                // Fix round 2, finding iv: a transient failure here must not lose the Booked
-                // response we already have, or skip the requeue/audit below.
-                await _dbContext.SaveChangesAsync(CancellationToken.None);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to persist the label upload result for booking {CarrierBookingId} (storage key {LabelStorageKey}).",
-                    booking.Id, booking.LabelStorageKey);
+                // EF Core's InMemory provider (unit tests) cannot run ExecuteUpdate — keep the
+                // tracked save, but on failure revert the label properties and accept them, so
+                // nothing stays dirty for a later, unrelated SaveChangesAsync to resurface.
+                try
+                {
+                    using var content = new MemoryStream(result.Label.Content);
+                    booking.LabelStorageKey = await _objectStorage.UploadAsync($"carrier-labels/{organizationId}/{booking.Id}", content, result.Label.ContentType, CancellationToken.None);
+                    booking.LabelContentType = result.Label.ContentType;
+                    await _dbContext.SaveChangesAsync(CancellationToken.None);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to upload the carrier label for booking {CarrierBookingId} (carrier AWB {CarrierAwb}) — the booking stands without a stored label.",
+                        booking.Id, booking.CarrierAwb);
+                    booking.LabelStorageKey = null;
+                    booking.LabelContentType = null;
+                    AcceptTrackedChanges(booking);
+                }
             }
         }
 

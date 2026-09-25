@@ -1,7 +1,13 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Security.Claims;
 using Courier.International.Application;
+using Courier.International.Domain;
+using Courier.Persistence;
+using Courier.SharedKernel;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace Courier.Api.Tests.International;
@@ -127,5 +133,64 @@ public class CarrierBookingEndpointsTests : InternationalApiTestBase, IClassFixt
         var response = await BookAsync(scoped, shipment.Shipment.Id, accountId, "MAN-1", Guid.NewGuid().ToString("N"));
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    // Fix round 3, finding 1: books through CarrierBookingService directly (in its own tenant
+    // scope, keeping that scope's DbContext alive afterward), against real Postgres, so the
+    // relational ExecuteUpdate/accept-into-tracker path is actually exercised (the InMemory unit
+    // tests never take that branch). A concurrent Cancel then lands through a completely separate
+    // scope/connection; a bare SaveChangesAsync on the original booking scope afterward must not
+    // disturb it.
+    //
+    // Caveat (see the fix round 3 report for the fuller explanation): in this codebase, AuditLogger
+    // .LogAsync always calls SaveChangesAsync on the same shared DbContext at the end of every
+    // audited operation, including the one CompleteBookingAsync performs right before returning on
+    // its success path. That flush closes the "dirty tracked entity" window before BookAsync ever
+    // returns to this test — so, on its own, this particular book-then-cancel-then-save sequence
+    // cannot distinguish the pre-fix ExecuteUpdate-without-accepting bug from the fix (it passes
+    // either way, and does here — verified by temporarily checking out e2cda3c's version of
+    // CarrierBookingService.cs and confirming the same). The actual bypass-the-tracker mechanism is
+    // instead proven at the unit level (BookAsync_Success_LeavesTheTrackedEntityUnchanged and
+    // BookAsync_LateFailure_DoesNotOverwriteARowAlreadyBookedByAConcurrentAttempt in
+    // CarrierBookingServiceTests.cs), where a provider hook can inject the race deterministically.
+    // This test is kept as a real, coarse end-to-end safety net for the same user-visible invariant
+    // ("a Cancel, once persisted, is never later reverted by ordinary booking activity") against the
+    // real database and the real DI-wired CarrierBookingService.
+    [Fact]
+    public async Task Book_ThenAConcurrentCancelFromAnotherScope_SurvivesASubsequentSaveOnTheBookingScope()
+    {
+        var org = await SetUpOrgAsync("book-race-cancel");
+        var accountId = await CreateManualAccountAsync(org.Client);
+        var shipment = await PrepareOutboundAtCustomsPreparedAsync(org);
+
+        var tenantScopes = Factory.Services.GetRequiredService<ITenantScopeFactory>();
+        await using var bookingScope = tenantScopes.CreateScope(org.Auth.OrganizationId);
+        var service = bookingScope.ServiceProvider.GetRequiredService<CarrierBookingService>();
+        var bookingDbContext = bookingScope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var actingUser = new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim("sub", org.Auth.UserId.ToString()) }, "test"));
+
+        var booked = await service.BookAsync(shipment.Shipment.Id, new BookCarrierRequest(accountId, null, "MAN-RACE"),
+            Guid.NewGuid().ToString("N"), actingUser, CancellationToken.None);
+        Assert.Equal("Booked", booked!.Status);
+
+        using (var cancelScope = Factory.Services.CreateScope())
+        {
+            var cancelDbContext = cancelScope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var row = await cancelDbContext.Set<CarrierBooking>().IgnoreQueryFilters().SingleAsync(b => b.Id == booked.Id);
+            row.Status = CarrierBookingStatus.Cancelled;
+            row.CancelledAt = DateTimeOffset.UtcNow;
+            row.UpdatedAt = DateTimeOffset.UtcNow;
+            await cancelDbContext.SaveChangesAsync();
+        }
+
+        // By this point AuditLogger.LogAsync has already flushed the booking scope's context once
+        // (see the caveat above), so the tracker has nothing left to save here either way — this
+        // call documents and locks in that expectation rather than being the sole proof of the fix.
+        await bookingDbContext.SaveChangesAsync();
+
+        using var verifyScope = Factory.Services.CreateScope();
+        var verifyDbContext = verifyScope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var final = await verifyDbContext.Set<CarrierBooking>().IgnoreQueryFilters().SingleAsync(b => b.Id == booked.Id);
+        Assert.Equal(CarrierBookingStatus.Cancelled, final.Status);
     }
 }

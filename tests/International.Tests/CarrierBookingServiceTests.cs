@@ -71,6 +71,25 @@ public class CarrierBookingServiceTests
         Assert.Contains(h.Audit.Entries, e => e.Action == "carrier_booking.booked");
     }
 
+    // Fix round 3, finding 1: after a successful booking (with a label, exercising both the
+    // Booked-write and the label-write acceptance paths), the tracked entity must end up Unchanged
+    // — never left dirty. If it were left Modified, some later, unrelated SaveChangesAsync on this
+    // same scoped DbContext (the audit logger, a concurrent Cancel via a different code path) could
+    // blindly resend stale column values and silently undo a real state change made elsewhere.
+    [Fact]
+    public async Task BookAsync_Success_LeavesTheTrackedEntityUnchanged()
+    {
+        var h = await CreateHarnessAsync();
+        var account = await CarrierTestData.SeedAccountAsync(h.DbContext, h.OrganizationId, "TESTCARRIER");
+        h.Provider.Book = request => new CarrierBookingResult("TC-777", "EXPRESS", new CarrierLabel(new byte[] { 1, 2, 3 }, "application/pdf"), "{\"ok\":true}");
+
+        var result = await h.Service.BookAsync(h.ShipmentId, new BookCarrierRequest(account.Id, "EXPRESS", null), "key-1", ActingUser(), CancellationToken.None);
+
+        Assert.Equal("Booked", result!.Status);
+        var trackedBooking = await h.DbContext.Set<CarrierBooking>().SingleAsync(b => b.Id == result.Id);
+        Assert.Equal(EntityState.Unchanged, h.DbContext.Entry(trackedBooking).State);
+    }
+
     [Fact]
     public async Task BookAsync_SameIdempotencyKey_ReturnsTheSameBookingWithoutCallingTheCarrierAgain()
     {
