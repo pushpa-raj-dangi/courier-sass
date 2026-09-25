@@ -246,4 +246,135 @@ public class CarrierBookingServiceTests
         await Assert.ThrowsAsync<InternationalShipmentValidationException>(() =>
             h.Service.LinkInboundAsync(h.ShipmentId, new LinkInboundBookingRequest(account.Id, "X-1", null), ActingUser(), CancellationToken.None));
     }
+
+    // Fix round 1, finding 1: a client disconnecting mid-call (or any already-cancelled token)
+    // must never leave a booking stuck Pending. Passing an already-cancelled token exercises every
+    // internal DB call BookAsync makes; if any of them still used the caller's token, EF Core's
+    // InMemory provider would throw OperationCanceledException before this assertion is reached.
+    [Fact]
+    public async Task BookAsync_CallerCancellation_NeverAbortsAnInFlightBooking()
+    {
+        var h = await CreateHarnessAsync();
+        var account = await CarrierTestData.SeedAccountAsync(h.DbContext, h.OrganizationId, "TESTCARRIER");
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        var result = await h.Service.BookAsync(h.ShipmentId, new BookCarrierRequest(account.Id, null, null), "key-1", ActingUser(), cts.Token);
+
+        Assert.Equal("Booked", result!.Status);
+        Assert.False(h.Provider.LastBookCancellationToken!.Value.CanBeCanceled);
+        var stored = await h.DbContext.Set<CarrierBooking>().SingleAsync();
+        Assert.Equal(CarrierBookingStatus.Booked, stored.Status);
+    }
+
+    // Fix round 1, finding 1: a Pending booking left behind by a crash between committing it and
+    // calling the carrier must not block every future /book call forever. Once it is stale (older
+    // than the 2-minute threshold), a new call — even under a different Idempotency-Key — resumes
+    // it using its own stored key, rather than creating a second row.
+    [Fact]
+    public async Task BookAsync_StalePendingBooking_IsResumedWithItsOwnStoredIdempotencyKey()
+    {
+        var h = await CreateHarnessAsync();
+        var account = await CarrierTestData.SeedAccountAsync(h.DbContext, h.OrganizationId, "TESTCARRIER");
+        var stale = new CarrierBooking
+        {
+            Id = Guid.NewGuid(), OrganizationId = h.OrganizationId, InternationalLegId = h.Leg.Id, CarrierAccountId = account.Id,
+            Direction = CarrierBookingDirection.Outbound, Status = CarrierBookingStatus.Pending, IdempotencyKey = "stale-key",
+            CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-5), UpdatedAt = DateTimeOffset.UtcNow.AddMinutes(-5)
+        };
+        h.DbContext.Set<CarrierBooking>().Add(stale);
+        await h.DbContext.SaveChangesAsync();
+
+        var result = await h.Service.BookAsync(h.ShipmentId, new BookCarrierRequest(account.Id, null, null), "new-key", ActingUser(), CancellationToken.None);
+
+        Assert.Equal("Booked", result!.Status);
+        Assert.Equal(stale.Id, result.Id);
+        Assert.Equal("stale-key", h.Provider.LastBookIdempotencyKey);
+        var only = Assert.Single(await h.DbContext.Set<CarrierBooking>().ToListAsync());
+        Assert.Equal(CarrierBookingStatus.Booked, only.Status);
+        Assert.Equal(stale.Id, only.Id);
+    }
+
+    // Fix round 1, finding 1: a fresh (< 2 minute old) Pending booking still reports "in progress",
+    // unchanged — only a stale one is resumed.
+    [Fact]
+    public async Task BookAsync_FreshPendingBooking_StillReportsInProgress()
+    {
+        var h = await CreateHarnessAsync();
+        var account = await CarrierTestData.SeedAccountAsync(h.DbContext, h.OrganizationId, "TESTCARRIER");
+        var fresh = new CarrierBooking
+        {
+            Id = Guid.NewGuid(), OrganizationId = h.OrganizationId, InternationalLegId = h.Leg.Id, CarrierAccountId = account.Id,
+            Direction = CarrierBookingDirection.Outbound, Status = CarrierBookingStatus.Pending, IdempotencyKey = "fresh-key",
+            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow
+        };
+        h.DbContext.Set<CarrierBooking>().Add(fresh);
+        await h.DbContext.SaveChangesAsync();
+
+        await Assert.ThrowsAsync<InternationalShipmentValidationException>(() =>
+            h.Service.BookAsync(h.ShipmentId, new BookCarrierRequest(account.Id, null, null), "new-key", ActingUser(), CancellationToken.None));
+        Assert.Equal(0, h.Provider.BookCalls);
+    }
+
+    // Fix round 1, finding 1: a stale Pending booking on a DIFFERENT carrier account than the new
+    // request is a conflict staff must resolve by hand, not something the service can silently
+    // resume or override.
+    [Fact]
+    public async Task BookAsync_StalePendingBookingOnADifferentCarrierAccount_IsRejected()
+    {
+        var h = await CreateHarnessAsync();
+        var original = await CarrierTestData.SeedAccountAsync(h.DbContext, h.OrganizationId, "TESTCARRIER");
+        var other = await CarrierTestData.SeedAccountAsync(h.DbContext, h.OrganizationId, "MANUAL");
+        var stale = new CarrierBooking
+        {
+            Id = Guid.NewGuid(), OrganizationId = h.OrganizationId, InternationalLegId = h.Leg.Id, CarrierAccountId = original.Id,
+            Direction = CarrierBookingDirection.Outbound, Status = CarrierBookingStatus.Pending, IdempotencyKey = "stale-key",
+            CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-5), UpdatedAt = DateTimeOffset.UtcNow.AddMinutes(-5)
+        };
+        h.DbContext.Set<CarrierBooking>().Add(stale);
+        await h.DbContext.SaveChangesAsync();
+
+        await Assert.ThrowsAsync<InternationalShipmentValidationException>(() =>
+            h.Service.BookAsync(h.ShipmentId, new BookCarrierRequest(other.Id, null, "MAN-1"), "new-key", ActingUser(), CancellationToken.None));
+    }
+
+    // Fix round 1, finding 2: the carrier already assigned an AWB — a subsequent label-upload
+    // failure must never lose track of it. The booking still ends Booked, just without a label.
+    [Fact]
+    public async Task BookAsync_LabelUploadFails_StillCompletesBookedWithoutALabel()
+    {
+        var dbContext = CarrierTestData.NewContext();
+        var organizationId = Guid.NewGuid();
+        var shipmentId = Guid.NewGuid();
+        var leg = await CarrierTestData.SeedLegAsync(dbContext, organizationId, shipmentId);
+        var shipments = new FixedShipmentTransitionService { Status = ShipmentStatus.CustomsPrepared, Direction = ShipmentDirection.Outbound };
+        var provider = new TestCarrierProvider
+        {
+            Book = request => new CarrierBookingResult("TC-999", null, new CarrierLabel(new byte[] { 9 }, "application/pdf"), null)
+        };
+        var service = new CarrierBookingService(dbContext, new FixedTenantProvider(organizationId), new RecordingAuditLogger(), shipments,
+            new FixedBranchAuthorizationChecker(null),
+            new CarrierProviderRegistry(new ICarrierProvider[] { provider, new ManualCarrierProvider() }),
+            new DataProtectionCarrierSecretProtector(new EphemeralDataProtectionProvider()), new ThrowingObjectStorage(),
+            new RecordingJobScheduler(), NullLogger<CarrierBookingService>.Instance);
+        var account = await CarrierTestData.SeedAccountAsync(dbContext, organizationId, "TESTCARRIER");
+
+        var result = await service.BookAsync(shipmentId, new BookCarrierRequest(account.Id, null, null), "key-1", ActingUser(), CancellationToken.None);
+
+        Assert.Equal("Booked", result!.Status);
+        Assert.False(result.HasLabel);
+        var stored = await dbContext.Set<CarrierBooking>().SingleAsync();
+        Assert.Equal(CarrierBookingStatus.Booked, stored.Status);
+        Assert.Equal("TC-999", stored.CarrierAwb);
+        Assert.Null(stored.LabelStorageKey);
+        Assert.Null(stored.LabelContentType);
+    }
+
+    private sealed class ThrowingObjectStorage : Courier.SharedKernel.IObjectStorage
+    {
+        public Task<string> UploadAsync(string keyPrefix, Stream content, string contentType, CancellationToken cancellationToken = default) =>
+            throw new IOException("Simulated object storage failure.");
+        public Task<Stream> OpenReadAsync(string key, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+    }
 }

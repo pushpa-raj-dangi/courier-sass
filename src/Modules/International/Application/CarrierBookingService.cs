@@ -16,6 +16,9 @@ public class CarrierBookingService
     private const int MaxCarrierAwbLength = 100;
     private const int MaxServiceLevelLength = 100;
     private const int MaxFailureReasonLength = 1000;
+    // Fix round 1, finding 1: how old an unresolved Pending booking must be before a later /book
+    // call is allowed to resume it, instead of reporting "still in progress" forever.
+    private static readonly TimeSpan StalePendingThreshold = TimeSpan.FromMinutes(2);
 
     private readonly DbContext _dbContext;
     private readonly ICurrentTenantProvider _currentTenantProvider;
@@ -45,6 +48,11 @@ public class CarrierBookingService
         _logger = logger;
     }
 
+    // Fix round 1, finding 1: cancellationToken is deliberately unused past the trivial header
+    // check below. Once a booking attempt begins it must always run to completion — a client
+    // disconnect (ASP.NET Core keeps the request executing unless code observes the token) must
+    // never leave a booking stuck Pending, and neither must an already-cancelled token passed in.
+    // The carrier call's own resilience pipeline enforces its own timeout independently.
     public async Task<CarrierBookingResponse?> BookAsync(Guid shipmentId, BookCarrierRequest request, string? idempotencyKey, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
         var organizationId = RequireOrganization();
@@ -54,7 +62,7 @@ public class CarrierBookingService
             throw new InternationalShipmentValidationException($"An Idempotency-Key header of at most {MaxIdempotencyKeyLength} characters is required.");
         }
 
-        var target = await LoadVisibleAsync(shipmentId, actingUser, "international.book", cancellationToken);
+        var target = await LoadVisibleAsync(shipmentId, actingUser, "international.book", CancellationToken.None);
         if (target is null)
         {
             return null;
@@ -62,7 +70,7 @@ public class CarrierBookingService
         var (leg, scan) = target.Value;
 
         // Idempotent replay: same key -> same outcome, the carrier is never called twice.
-        var replay = await _dbContext.Set<CarrierBooking>().FirstOrDefaultAsync(b => b.IdempotencyKey == key, cancellationToken);
+        var replay = await _dbContext.Set<CarrierBooking>().FirstOrDefaultAsync(b => b.IdempotencyKey == key, CancellationToken.None);
         if (replay is not null)
         {
             if (replay.InternationalLegId != leg.Id || replay.CarrierAccountId != request.CarrierAccountId)
@@ -73,7 +81,7 @@ public class CarrierBookingService
             {
                 CarrierBookingStatus.Failed => throw new CarrierBookingFailedException(replay.FailureReason ?? "Carrier booking failed."),
                 CarrierBookingStatus.Pending => throw new InternationalShipmentValidationException("This booking is still in progress."),
-                _ => await ToResponseAsync(replay, cancellationToken)
+                _ => await ToResponseAsync(replay, CancellationToken.None)
             };
         }
 
@@ -85,22 +93,49 @@ public class CarrierBookingService
         {
             throw new InternationalShipmentValidationException($"Shipment must be CustomsPrepared to book a carrier, was {scan.CurrentStatus}.");
         }
-        await EnsureNoLiveBookingAsync(leg.Id, cancellationToken);
-        var (account, provider) = await RequireActiveAccountAsync(request.CarrierAccountId, cancellationToken);
+        var (account, provider) = await RequireActiveAccountAsync(request.CarrierAccountId, CancellationToken.None);
 
-        var serviceLevel = NormalizeOptional(request.ServiceLevel, MaxServiceLevelLength, "Service level");
-        string? manualAwb = null;
-        if (provider.Capabilities.RequiresManualAwb)
+        // Fix round 1, finding 1: look for any still-live booking for this leg — a fresh/older
+        // Pending row from an attempt that never resolved, or an already-Booked one — before
+        // creating a new one under a different Idempotency-Key.
+        var live = await _dbContext.Set<CarrierBooking>().FirstOrDefaultAsync(b => b.InternationalLegId == leg.Id
+            && (b.Status == CarrierBookingStatus.Pending || b.Status == CarrierBookingStatus.Booked), CancellationToken.None);
+        if (live is not null)
         {
-            manualAwb = NormalizeRequired(request.CarrierAwb, MaxCarrierAwbLength, "Carrier AWB");
-            await EnsureCarrierAwbFreeAsync(account.Id, manualAwb, cancellationToken);
-        }
-        else if (!string.IsNullOrWhiteSpace(request.CarrierAwb))
-        {
-            throw new InternationalShipmentValidationException($"Carrier '{account.CarrierCode}' assigns its own AWB; do not send one.");
+            if (live.Status == CarrierBookingStatus.Booked)
+            {
+                throw new InternationalShipmentValidationException("This shipment already has a carrier booking. Cancel it first.");
+            }
+            if (DateTimeOffset.UtcNow - live.UpdatedAt < StalePendingThreshold)
+            {
+                throw new InternationalShipmentValidationException("This booking is still in progress.");
+            }
+            // Stale Pending: a previous attempt was interrupted between committing the Pending row
+            // and completing the carrier call (e.g. a process crash) — resume it with its own
+            // stored key rather than leaving it stuck forever.
+            if (live.CarrierAccountId != account.Id)
+            {
+                throw new InternationalShipmentValidationException(
+                    "This shipment has a stale, unresolved carrier booking on a different carrier account. Cancel or resolve it before booking again.");
+            }
+            var (resumeServiceLevel, resumeManualAwb) = ValidateBookingInputs(request, account, provider);
+            if (resumeManualAwb is not null)
+            {
+                await EnsureCarrierAwbFreeAsync(account.Id, resumeManualAwb, CancellationToken.None);
+            }
+            var resumeShipmentDetail = await _shipmentTransitionService.GetResponseAsync(shipmentId, CancellationToken.None)
+                ?? throw new InternationalShipmentValidationException("Shipment not found.");
+            return await CompleteBookingAsync(live, account, provider, scan.Awb, resumeServiceLevel, resumeManualAwb,
+                resumeShipmentDetail.WeightKg, shipmentId, organizationId, actingUser, live.IdempotencyKey);
         }
 
-        var shipmentDetail = await _shipmentTransitionService.GetResponseAsync(shipmentId, cancellationToken)
+        var (serviceLevel, manualAwb) = ValidateBookingInputs(request, account, provider);
+        if (manualAwb is not null)
+        {
+            await EnsureCarrierAwbFreeAsync(account.Id, manualAwb, CancellationToken.None);
+        }
+
+        var shipmentDetail = await _shipmentTransitionService.GetResponseAsync(shipmentId, CancellationToken.None)
             ?? throw new InternationalShipmentValidationException("Shipment not found.");
 
         var now = DateTimeOffset.UtcNow;
@@ -120,7 +155,7 @@ public class CarrierBookingService
         _dbContext.Set<CarrierBooking>().Add(booking);
         try
         {
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            await _dbContext.SaveChangesAsync(CancellationToken.None);
         }
         catch (DbUpdateException)
         {
@@ -128,44 +163,8 @@ public class CarrierBookingService
             throw new InternationalShipmentValidationException("A booking for this shipment is already in progress or booked.");
         }
 
-        var credentials = _secretProtector.UnprotectCredentials(account.EncryptedCredentials);
-        CarrierBookingResult result;
-        try
-        {
-            result = await provider.BookAsync(new CarrierBookingRequest(shipmentId, scan.Awb, serviceLevel, manualAwb, shipmentDetail.WeightKg), credentials, key, cancellationToken);
-        }
-        catch (Exception ex) when (CarrierCallFailures.IsCarrierUnavailable(ex))
-        {
-            await MarkFailedAsync(booking, "Carrier is temporarily unavailable.", actingUser);
-            throw new CarrierUnavailableException($"Carrier '{account.CarrierCode}' is temporarily unavailable. Try again later.");
-        }
-        catch (Exception ex) when (CarrierCallFailures.IsCarrierFailure(ex) && !cancellationToken.IsCancellationRequested)
-        {
-            var reason = CarrierPayloadSanitizer.MaskSecrets(ex.Message, credentials.SecretValues);
-            await MarkFailedAsync(booking, reason, actingUser);
-            throw new CarrierBookingFailedException(Truncate(reason, MaxFailureReasonLength));
-        }
-
-        // The carrier has booked: persist with CancellationToken.None so a client disconnect can
-        // never lose a real carrier booking.
-        booking.Status = CarrierBookingStatus.Booked;
-        booking.CarrierAwb = Truncate(result.CarrierAwb.Trim(), MaxCarrierAwbLength);
-        booking.ServiceLevel = NormalizeOptionalOrNull(result.ServiceLevel, MaxServiceLevelLength) ?? serviceLevel;
-        booking.RawResponse = CarrierPayloadSanitizer.ToStoredJson(result.RawResponse, credentials.SecretValues);
-        booking.BookedAt = DateTimeOffset.UtcNow;
-        booking.UpdatedAt = booking.BookedAt.Value;
-        if (result.Label is not null)
-        {
-            using var content = new MemoryStream(result.Label.Content);
-            booking.LabelStorageKey = await _objectStorage.UploadAsync($"carrier-labels/{organizationId}/{booking.Id}", content, result.Label.ContentType, CancellationToken.None);
-            booking.LabelContentType = result.Label.ContentType;
-        }
-        await _dbContext.SaveChangesAsync(CancellationToken.None);
-        await RequeueUnmatchedAsync(account.Id, booking.CarrierAwb, CancellationToken.None);
-
-        await _auditLogger.LogAsync(new AuditEntry(organizationId, actingUser.GetUserId(), "carrier_booking.booked", "CarrierBooking", booking.Id.ToString(),
-            After: booking.CarrierAwb), CancellationToken.None);
-        return ToResponse(booking, account);
+        return await CompleteBookingAsync(booking, account, provider, scan.Awb, serviceLevel, manualAwb, shipmentDetail.WeightKg,
+            shipmentId, organizationId, actingUser, key);
     }
 
     public async Task<CarrierBookingResponse?> CancelAsync(Guid shipmentId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
@@ -204,7 +203,18 @@ public class CarrierBookingService
         booking.Status = CarrierBookingStatus.Cancelled;
         booking.CancelledAt = DateTimeOffset.UtcNow;
         booking.UpdatedAt = booking.CancelledAt.Value;
-        await _dbContext.SaveChangesAsync(CancellationToken.None);
+        try
+        {
+            await _dbContext.SaveChangesAsync(CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            // Fix round 1, finding 4: the carrier already cancelled the booking on its side — if we
+            // fail to record that locally, this is the only trace of it for reconciliation.
+            _logger.LogError(ex, "Failed to persist cancellation of carrier booking {CarrierBookingId} (carrier AWB {CarrierAwb}) after carrier {CarrierCode} confirmed the cancellation.",
+                booking.Id, booking.CarrierAwb, account.CarrierCode);
+            throw;
+        }
         await _auditLogger.LogAsync(new AuditEntry(organizationId, actingUser.GetUserId(), "carrier_booking.cancelled", "CarrierBooking", booking.Id.ToString()), CancellationToken.None);
         return ToResponse(booking, account);
     }
@@ -256,14 +266,16 @@ public class CarrierBookingService
         {
             throw new InternationalShipmentValidationException("This shipment already has a carrier booking, or this carrier AWB is already linked.");
         }
-        await RequeueUnmatchedAsync(account.Id, carrierAwb, cancellationToken);
+        // Fix round 1, finding 3: past the commit, match BookAsync — a client disconnect must never
+        // stop the requeue/audit side effects of a booking that has already happened.
+        await RequeueUnmatchedAsync(account.Id, carrierAwb, CancellationToken.None);
         if (account.PollingEnabled && provider.Capabilities.SupportsPolling)
         {
             _scheduler.EnqueuePoll(organizationId, booking.Id);
         }
 
         await _auditLogger.LogAsync(new AuditEntry(organizationId, actingUser.GetUserId(), "carrier_booking.inbound_linked", "CarrierBooking", booking.Id.ToString(),
-            After: carrierAwb), cancellationToken);
+            After: carrierAwb), CancellationToken.None);
         return ToResponse(booking, account);
     }
 
@@ -323,6 +335,93 @@ public class CarrierBookingService
         var provider = _registry.Find(account.CarrierCode)
             ?? throw new InternationalShipmentValidationException($"Carrier '{account.CarrierCode}' is not registered.");
         return (account, provider);
+    }
+
+    // Shared by the fresh-Pending and stale-Pending-resume paths of BookAsync.
+    private (string? ServiceLevel, string? ManualAwb) ValidateBookingInputs(BookCarrierRequest request, CarrierAccount account, ICarrierProvider provider)
+    {
+        var serviceLevel = NormalizeOptional(request.ServiceLevel, MaxServiceLevelLength, "Service level");
+        if (provider.Capabilities.RequiresManualAwb)
+        {
+            return (serviceLevel, NormalizeRequired(request.CarrierAwb, MaxCarrierAwbLength, "Carrier AWB"));
+        }
+        if (!string.IsNullOrWhiteSpace(request.CarrierAwb))
+        {
+            throw new InternationalShipmentValidationException($"Carrier '{account.CarrierCode}' assigns its own AWB; do not send one.");
+        }
+        return (serviceLevel, null);
+    }
+
+    // Calls the carrier, then persists the outcome onto `booking` (a freshly-created Pending row,
+    // or a resumed stale one) and returns its response. Used by both of BookAsync's paths.
+    private async Task<CarrierBookingResponse> CompleteBookingAsync(CarrierBooking booking, CarrierAccount account, ICarrierProvider provider,
+        string platformAwb, string? serviceLevel, string? manualAwb, decimal weightKg, Guid shipmentId, Guid organizationId,
+        ClaimsPrincipal actingUser, string carrierIdempotencyKey)
+    {
+        var credentials = _secretProtector.UnprotectCredentials(account.EncryptedCredentials);
+        CarrierBookingResult result;
+        try
+        {
+            // Fix round 1, finding 1: always CancellationToken.None. Once the Pending row is
+            // committed, the carrier call must run to completion regardless of the caller
+            // disconnecting — the resilience pipeline enforces its own timeout.
+            result = await provider.BookAsync(new CarrierBookingRequest(shipmentId, platformAwb, serviceLevel, manualAwb, weightKg),
+                credentials, carrierIdempotencyKey, CancellationToken.None);
+        }
+        catch (Exception ex) when (CarrierCallFailures.IsCarrierUnavailable(ex))
+        {
+            await MarkFailedAsync(booking, "Carrier is temporarily unavailable.", actingUser);
+            throw new CarrierUnavailableException($"Carrier '{account.CarrierCode}' is temporarily unavailable. Try again later.");
+        }
+        catch (Exception ex) when (CarrierCallFailures.IsCarrierFailure(ex))
+        {
+            var reason = CarrierPayloadSanitizer.MaskSecrets(ex.Message, credentials.SecretValues);
+            await MarkFailedAsync(booking, reason, actingUser);
+            throw new CarrierBookingFailedException(Truncate(reason, MaxFailureReasonLength));
+        }
+
+        // Fix round 1, finding 2: persist the carrier's own AWB on its own first, so a later
+        // failure (label upload, a transient DB error) can never lose track of a booking that has
+        // already happened at the carrier.
+        booking.Status = CarrierBookingStatus.Booked;
+        booking.CarrierAwb = Truncate(result.CarrierAwb.Trim(), MaxCarrierAwbLength);
+        booking.ServiceLevel = NormalizeOptionalOrNull(result.ServiceLevel, MaxServiceLevelLength) ?? serviceLevel;
+        booking.RawResponse = CarrierPayloadSanitizer.ToStoredJson(result.RawResponse, credentials.SecretValues);
+        booking.BookedAt = DateTimeOffset.UtcNow;
+        booking.UpdatedAt = booking.BookedAt.Value;
+        try
+        {
+            await _dbContext.SaveChangesAsync(CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to persist carrier booking {CarrierBookingId} after carrier {CarrierCode} assigned AWB {CarrierAwb} — reconcile manually.",
+                booking.Id, account.CarrierCode, booking.CarrierAwb);
+            throw;
+        }
+
+        if (result.Label is not null)
+        {
+            try
+            {
+                using var content = new MemoryStream(result.Label.Content);
+                booking.LabelStorageKey = await _objectStorage.UploadAsync($"carrier-labels/{organizationId}/{booking.Id}", content, result.Label.ContentType, CancellationToken.None);
+                booking.LabelContentType = result.Label.ContentType;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to upload the carrier label for booking {CarrierBookingId} (carrier AWB {CarrierAwb}) — the booking stands without a stored label.",
+                    booking.Id, booking.CarrierAwb);
+                booking.LabelStorageKey = null;
+                booking.LabelContentType = null;
+            }
+            await _dbContext.SaveChangesAsync(CancellationToken.None);
+        }
+
+        await RequeueUnmatchedAsync(account.Id, booking.CarrierAwb, CancellationToken.None);
+        await _auditLogger.LogAsync(new AuditEntry(organizationId, actingUser.GetUserId(), "carrier_booking.booked", "CarrierBooking", booking.Id.ToString(),
+            After: booking.CarrierAwb), CancellationToken.None);
+        return ToResponse(booking, account);
     }
 
     // Events that arrived before this booking existed (e.g. an early webhook) get another chance.

@@ -116,6 +116,12 @@ internal sealed class TestCarrierProvider : ICarrierProvider
         request => new CarrierBookingResult($"TC-{request.PlatformAwb}", request.ServiceLevel, null, "{\"ok\":true}");
     public Exception? BookException { get; set; }
     public int BookCalls { get; private set; }
+    // Fix round 1, finding 1: lets a test assert the caller's own (possibly already-cancelled)
+    // token never reaches the provider — CarrierBookingService must always pass CancellationToken.None.
+    public CancellationToken? LastBookCancellationToken { get; private set; }
+    // Fix round 1, finding 1: lets a stale-Pending-resume test assert the carrier was called with
+    // the STALE booking's own stored key, not a newer one supplied on the retry.
+    public string? LastBookIdempotencyKey { get; private set; }
     public List<string> CancelledAwbs { get; } = new();
     public List<CarrierTrackingUpdate> TrackingUpdates { get; } = new();
     public Exception? TrackingException { get; set; }
@@ -127,6 +133,8 @@ internal sealed class TestCarrierProvider : ICarrierProvider
     public Task<CarrierBookingResult> BookAsync(CarrierBookingRequest request, CarrierCredentials credentials, string idempotencyKey, CancellationToken cancellationToken)
     {
         BookCalls++;
+        LastBookCancellationToken = cancellationToken;
+        LastBookIdempotencyKey = idempotencyKey;
         if (BookException is not null)
         {
             throw BookException;
