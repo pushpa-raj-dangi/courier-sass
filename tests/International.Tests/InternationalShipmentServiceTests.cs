@@ -81,10 +81,15 @@ internal class RecordingGateway : IShipmentInternationalGateway
     public List<Guid> Receives { get; } = new();
     public List<(Guid ShipmentId, ShipmentStatus Target, string Reason)> Overrides { get; } = new();
     public Exception? LifecycleException { get; set; }
+    // Fix round 1: lets a test inject a side effect (e.g. a concurrent CancelAsync) at the instant
+    // the gateway is "in flight", between InternationalCarrierLifecycleService.HandoffAsync reading
+    // the live booking and it stamping custody onto it.
+    public Action? OnHandToCarrierCalled { get; set; }
 
     public Task<ShipmentResponse?> HandToCarrierAsync(Guid shipmentId, CarrierHandoffReference reference, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
         Handoffs.Add((shipmentId, reference));
+        OnHandToCarrierCalled?.Invoke();
         return LifecycleResult(shipmentId, ShipmentStatus.HandedToCarrier);
     }
 

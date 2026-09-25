@@ -142,5 +142,11 @@ public class CarrierLifecycleEndpointsTests : InternationalApiTestBase, IClassFi
         Assert.Equal(HttpStatusCode.Forbidden, (await readOnly.PostAsync($"/api/v1/international/shipments/{id}/handoff", null)).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await readOnly.PostAsJsonAsync($"/api/v1/international/shipments/{id}/status-override",
             new { targetStatus = "InInternationalTransit", reason = "x" })).StatusCode);
+        // readOnly holds only international.read, so it also lacks international.receive.
+        Assert.Equal(HttpStatusCode.Forbidden, (await readOnly.PostAsync($"/api/v1/international/shipments/{id}/receive", null)).StatusCode);
+
+        // Fix round 1: a client missing international.read must be forbidden from the label route too.
+        var handoffOnly = await SeedUserClientAsync(owner.Auth, new[] { "international.handoff" }, null);
+        Assert.Equal(HttpStatusCode.Forbidden, (await handoffOnly.GetAsync($"/api/v1/international/shipments/{id}/booking/label")).StatusCode);
     }
 }

@@ -4,6 +4,7 @@ using Courier.International.Domain;
 using Courier.Shipments.Application;
 using Courier.Shipments.Domain;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Courier.International.Tests;
 
@@ -29,7 +30,8 @@ public class InternationalCarrierLifecycleServiceTests
         var gateway = new RecordingGateway();
         var audit = new RecordingAuditLogger();
         var service = new InternationalCarrierLifecycleService(dbContext, new FixedTenantProvider(organizationId), audit, gateway,
-            new FixedShipmentTransitionService(), new FixedBranchAuthorizationChecker(accessibleBranchIds));
+            new FixedShipmentTransitionService(), new FixedBranchAuthorizationChecker(accessibleBranchIds),
+            NullLogger<InternationalCarrierLifecycleService>.Instance);
         return new Harness { DbContext = dbContext, OrganizationId = organizationId, ShipmentId = shipmentId, Leg = leg, Gateway = gateway, Audit = audit, Service = service };
     }
 
@@ -55,6 +57,34 @@ public class InternationalCarrierLifecycleServiceTests
         h.DbContext.ChangeTracker.Clear();
         Assert.NotNull((await h.DbContext.Set<CarrierBooking>().SingleAsync()).CustodyStartedAt);
         Assert.Contains(h.Audit.Entries, e => e.Action == "carrier_booking.custody_started");
+    }
+
+    // Fix round 1: on the InMemory (non-relational) provider used by these unit tests, the
+    // conditional "still Booked?" guard is a re-read-and-compare rather than an ExecuteUpdate. This
+    // simulates the race a concurrent CancelAsync would cause: the hook fires while the gateway call
+    // is "in flight" (i.e. between HandoffAsync reading the live booking and it stamping custody),
+    // cancelling the exact same tracked booking through the same DbContext — the same technique
+    // CarrierBookingServiceTests already uses (OnBookAsyncCalled) to simulate this class of race.
+    [Fact]
+    public async Task HandoffAsync_BookingCancelledWhileGatewayCallIsInFlight_ThrowsAndCustodyIsNotSet()
+    {
+        var h = await CreateHarnessAsync();
+        await BookAsync(h);
+        h.Gateway.OnHandToCarrierCalled = () =>
+        {
+            var tracked = h.DbContext.Set<CarrierBooking>().Single();
+            tracked.Status = CarrierBookingStatus.Cancelled;
+            tracked.CancelledAt = DateTimeOffset.UtcNow;
+            h.DbContext.SaveChanges();
+        };
+
+        await Assert.ThrowsAsync<InternationalShipmentValidationException>(() => h.Service.HandoffAsync(h.ShipmentId, ActingUser(), CancellationToken.None));
+
+        h.DbContext.ChangeTracker.Clear();
+        var stored = await h.DbContext.Set<CarrierBooking>().SingleAsync();
+        Assert.Equal(CarrierBookingStatus.Cancelled, stored.Status);
+        Assert.Null(stored.CustodyStartedAt);
+        Assert.DoesNotContain(h.Audit.Entries, e => e.Action == "carrier_booking.custody_started");
     }
 
     [Fact]
