@@ -262,6 +262,8 @@ builder.Services.AddScoped<Courier.International.Application.Carriers.ICarrierJo
 builder.Services.AddScoped<Courier.International.Application.CarrierTrackingEventWriter>();
 builder.Services.AddScoped<Courier.International.Application.CarrierEventApplier>();
 builder.Services.AddScoped<Courier.International.Application.CarrierEventProcessorJob>();
+builder.Services.AddScoped<Courier.International.Application.CarrierWebhookService>();
+builder.Services.AddScoped<Courier.International.Application.ManualCarrierEventService>();
 builder.Services.AddScoped<Courier.International.Application.CarrierBookingPoller>();
 builder.Services.AddScoped<Courier.International.Application.CarrierTrackingPollJob>();
 builder.Services.AddScoped<IMerchantPasswordHasher, MerchantPasswordHasherAdapter>();
@@ -467,6 +469,7 @@ app.MapPickupsEndpoints();
 app.MapManifestsEndpoints();
 app.MapInternationalEndpoints();
 app.MapCarrierAccountEndpoints();
+app.MapCarrierWebhookEndpoints();
 app.MapRidersEndpoints();
 app.MapNdrEndpoints();
 app.MapCodEndpoints();

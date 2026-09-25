@@ -40,3 +40,15 @@ public record CarrierBookingResponse(
     Guid Id, Guid CarrierAccountId, string CarrierCode, string CarrierAccountName, string Direction, string Status,
     string? CarrierAwb, string? ServiceLevel, bool HasLabel, string? FailureReason,
     DateTimeOffset? BookedAt, DateTimeOffset? CancelledAt, DateTimeOffset? CustodyStartedAt, DateTimeOffset CreatedAt);
+
+public record ManualCarrierEventRequest(string StatusCode, DateTimeOffset OccurredAt, string? Location, string? Description);
+
+// RawPayload is deliberately not exposed.
+public record CarrierTrackingEventResponse(
+    Guid Id, string Source, string CarrierAwb, string CarrierStatusCode, string? Description, string? Location,
+    DateTimeOffset OccurredAt, DateTimeOffset ReceivedAt, string ProcessingStatus, string? ProcessingNote, string? MappedShipmentStatus)
+{
+    public static CarrierTrackingEventResponse From(Domain.CarrierTrackingEvent e) => new(
+        e.Id, e.Source.ToString(), e.CarrierAwb, e.CarrierStatusCode, e.Description, e.Location,
+        e.OccurredAt, e.ReceivedAt, e.ProcessingStatus.ToString(), e.ProcessingNote, e.MappedShipmentStatus);
+}

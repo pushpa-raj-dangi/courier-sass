@@ -100,5 +100,12 @@ public static class InternationalEndpoints
                 var result = await service.LinkInboundAsync(id, request, httpContext.User, httpContext.RequestAborted);
                 return result is null ? Results.NotFound() : Results.Ok(result);
             })).RequirePermission("international.book");
+
+        group.MapPost("/{id:guid}/carrier-events", (Guid id, ManualCarrierEventRequest request, ManualCarrierEventService service, HttpContext httpContext) =>
+            InternationalEndpointErrors.ExecuteAsync(async () =>
+            {
+                var result = await service.RecordAsync(id, request, httpContext.User, httpContext.RequestAborted);
+                return result is null ? Results.NotFound() : Results.Accepted($"/api/v1/international/shipments/{id}", result);
+            })).RequirePermission("international.tracking.manage");
     }
 }
