@@ -272,7 +272,7 @@ public class CarrierBookingServiceTests
     // than the 2-minute threshold), a new call — even under a different Idempotency-Key — resumes
     // it using its own stored key, rather than creating a second row.
     [Fact]
-    public async Task BookAsync_StalePendingBooking_IsResumedWithItsOwnStoredIdempotencyKey()
+    public async Task BookAsync_StalePendingBooking_IsResumedWithItsOwnStoredIdempotencyKeyAndServiceLevel()
     {
         var h = await CreateHarnessAsync();
         var account = await CarrierTestData.SeedAccountAsync(h.DbContext, h.OrganizationId, "TESTCARRIER");
@@ -280,19 +280,82 @@ public class CarrierBookingServiceTests
         {
             Id = Guid.NewGuid(), OrganizationId = h.OrganizationId, InternationalLegId = h.Leg.Id, CarrierAccountId = account.Id,
             Direction = CarrierBookingDirection.Outbound, Status = CarrierBookingStatus.Pending, IdempotencyKey = "stale-key",
+            ServiceLevel = "STALE-EXPRESS",
             CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-5), UpdatedAt = DateTimeOffset.UtcNow.AddMinutes(-5)
         };
         h.DbContext.Set<CarrierBooking>().Add(stale);
         await h.DbContext.SaveChangesAsync();
 
-        var result = await h.Service.BookAsync(h.ShipmentId, new BookCarrierRequest(account.Id, null, null), "new-key", ActingUser(), CancellationToken.None);
+        // Fix round 2, finding v: the retry's own ServiceLevel ("NEW-LEVEL") must be ignored — the
+        // resume must send the stale booking's stored one ("STALE-EXPRESS").
+        var result = await h.Service.BookAsync(h.ShipmentId, new BookCarrierRequest(account.Id, "NEW-LEVEL", null), "new-key", ActingUser(), CancellationToken.None);
 
         Assert.Equal("Booked", result!.Status);
         Assert.Equal(stale.Id, result.Id);
         Assert.Equal("stale-key", h.Provider.LastBookIdempotencyKey);
+        Assert.Equal("STALE-EXPRESS", result.ServiceLevel);
         var only = Assert.Single(await h.DbContext.Set<CarrierBooking>().ToListAsync());
         Assert.Equal(CarrierBookingStatus.Booked, only.Status);
         Assert.Equal(stale.Id, only.Id);
+    }
+
+    // Fix round 2, finding i: a same-key retry after a crash (not just a different-key retry) must
+    // also resume a stale Pending booking, instead of being blocked by the exact-key replay branch
+    // forever reporting "still in progress".
+    [Fact]
+    public async Task BookAsync_SameIdempotencyKeyRetryOfAStalePendingBooking_IsResumed()
+    {
+        var h = await CreateHarnessAsync();
+        var account = await CarrierTestData.SeedAccountAsync(h.DbContext, h.OrganizationId, "TESTCARRIER");
+        var stale = new CarrierBooking
+        {
+            Id = Guid.NewGuid(), OrganizationId = h.OrganizationId, InternationalLegId = h.Leg.Id, CarrierAccountId = account.Id,
+            Direction = CarrierBookingDirection.Outbound, Status = CarrierBookingStatus.Pending, IdempotencyKey = "K",
+            CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-5), UpdatedAt = DateTimeOffset.UtcNow.AddMinutes(-5)
+        };
+        h.DbContext.Set<CarrierBooking>().Add(stale);
+        await h.DbContext.SaveChangesAsync();
+
+        var result = await h.Service.BookAsync(h.ShipmentId, new BookCarrierRequest(account.Id, null, null), "K", ActingUser(), CancellationToken.None);
+
+        Assert.Equal("Booked", result!.Status);
+        Assert.Equal(stale.Id, result.Id);
+        Assert.Equal("K", h.Provider.LastBookIdempotencyKey);
+        var only = Assert.Single(await h.DbContext.Set<CarrierBooking>().ToListAsync());
+        Assert.Equal(CarrierBookingStatus.Booked, only.Status);
+        Assert.Equal(stale.Id, only.Id);
+    }
+
+    // Fix round 2, finding iii: if another (winning) attempt already recorded a real success for
+    // this exact row before this attempt's own carrier call comes back with a failure, that late
+    // failure must never overwrite the Booked row.
+    [Fact]
+    public async Task BookAsync_LateFailure_DoesNotOverwriteARowAlreadyBookedByAConcurrentAttempt()
+    {
+        var h = await CreateHarnessAsync();
+        var account = await CarrierTestData.SeedAccountAsync(h.DbContext, h.OrganizationId, "TESTCARRIER");
+        h.Provider.BookException = new CarrierBookingException("boom");
+        h.Provider.OnBookAsyncCalled = () =>
+        {
+            // Simulate a concurrent flow that already completed this exact booking successfully
+            // (e.g. a resume that won the finding-ii claim) between this call's carrier request
+            // being sent and its (failing) result being persisted.
+            var booking = h.DbContext.Set<CarrierBooking>().Single();
+            booking.Status = CarrierBookingStatus.Booked;
+            booking.CarrierAwb = "TC-WON-THE-RACE";
+            booking.BookedAt = DateTimeOffset.UtcNow;
+            booking.UpdatedAt = DateTimeOffset.UtcNow;
+            h.DbContext.SaveChanges();
+        };
+
+        await Assert.ThrowsAsync<CarrierBookingFailedException>(() =>
+            h.Service.BookAsync(h.ShipmentId, new BookCarrierRequest(account.Id, null, null), "key-1", ActingUser(), CancellationToken.None));
+
+        h.DbContext.ChangeTracker.Clear();
+        var stored = await h.DbContext.Set<CarrierBooking>().SingleAsync();
+        Assert.Equal(CarrierBookingStatus.Booked, stored.Status);
+        Assert.Equal("TC-WON-THE-RACE", stored.CarrierAwb);
+        Assert.Null(stored.FailureReason);
     }
 
     // Fix round 1, finding 1: a fresh (< 2 minute old) Pending booking still reports "in progress",

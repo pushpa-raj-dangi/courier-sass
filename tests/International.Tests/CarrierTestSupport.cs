@@ -129,12 +129,17 @@ internal sealed class TestCarrierProvider : ICarrierProvider
     // the (real, network-based) provider call would observe it and throw — e.g. an HttpClient
     // surfacing the caller's CancellationToken as a TaskCanceledException.
     public Action? OnGetTrackingCalled { get; set; }
+    // Fix round 2, finding iii: lets a test inject a side effect (e.g. another flow completing this
+    // exact booking) at the instant the carrier is "in flight", before BookException is thrown —
+    // simulating a race this call's own (losing) failure must not corrupt.
+    public Action? OnBookAsyncCalled { get; set; }
 
     public Task<CarrierBookingResult> BookAsync(CarrierBookingRequest request, CarrierCredentials credentials, string idempotencyKey, CancellationToken cancellationToken)
     {
         BookCalls++;
         LastBookCancellationToken = cancellationToken;
         LastBookIdempotencyKey = idempotencyKey;
+        OnBookAsyncCalled?.Invoke();
         if (BookException is not null)
         {
             throw BookException;

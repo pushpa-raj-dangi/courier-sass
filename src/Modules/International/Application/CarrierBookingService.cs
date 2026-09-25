@@ -77,12 +77,20 @@ public class CarrierBookingService
             {
                 throw new InternationalShipmentValidationException("This Idempotency-Key was already used for a different booking.");
             }
-            return replay.Status switch
+            // Fix round 2, finding i: a same-key retry of a booking that is Pending but STALE (the
+            // original attempt was interrupted, e.g. by a crash) must not be blocked forever either
+            // — fall through so the live-booking lookup below finds and resumes this exact row,
+            // instead of reporting "still in progress" indefinitely.
+            var replayIsStalePending = replay.Status == CarrierBookingStatus.Pending && DateTimeOffset.UtcNow - replay.UpdatedAt >= StalePendingThreshold;
+            if (!replayIsStalePending)
             {
-                CarrierBookingStatus.Failed => throw new CarrierBookingFailedException(replay.FailureReason ?? "Carrier booking failed."),
-                CarrierBookingStatus.Pending => throw new InternationalShipmentValidationException("This booking is still in progress."),
-                _ => await ToResponseAsync(replay, CancellationToken.None)
-            };
+                return replay.Status switch
+                {
+                    CarrierBookingStatus.Failed => throw new CarrierBookingFailedException(replay.FailureReason ?? "Carrier booking failed."),
+                    CarrierBookingStatus.Pending => throw new InternationalShipmentValidationException("This booking is still in progress."),
+                    _ => await ToResponseAsync(replay, CancellationToken.None)
+                };
+            }
         }
 
         if (scan.Direction != ShipmentDirection.Outbound)
@@ -118,14 +126,19 @@ public class CarrierBookingService
                 throw new InternationalShipmentValidationException(
                     "This shipment has a stale, unresolved carrier booking on a different carrier account. Cancel or resolve it before booking again.");
             }
-            var (resumeServiceLevel, resumeManualAwb) = ValidateBookingInputs(request, account, provider);
+            var resumeManualAwb = ValidateManualAwb(request, account, provider);
             if (resumeManualAwb is not null)
             {
                 await EnsureCarrierAwbFreeAsync(account.Id, resumeManualAwb, CancellationToken.None);
             }
             var resumeShipmentDetail = await _shipmentTransitionService.GetResponseAsync(shipmentId, CancellationToken.None)
                 ?? throw new InternationalShipmentValidationException("Shipment not found.");
-            return await CompleteBookingAsync(live, account, provider, scan.Awb, resumeServiceLevel, resumeManualAwb,
+            // Fix round 2, finding ii: claim the row atomically right before calling the carrier, so
+            // two concurrent requests resuming the same stale booking can never both proceed.
+            await ClaimStalePendingBookingAsync(live);
+            // Fix round 2, finding v: resume with the ORIGINAL booking's own stored service level,
+            // not whatever the new (retry) request happens to send.
+            return await CompleteBookingAsync(live, account, provider, scan.Awb, live.ServiceLevel, resumeManualAwb,
                 resumeShipmentDetail.WeightKg, shipmentId, organizationId, actingUser, live.IdempotencyKey);
         }
 
@@ -337,19 +350,131 @@ public class CarrierBookingService
         return (account, provider);
     }
 
-    // Shared by the fresh-Pending and stale-Pending-resume paths of BookAsync.
-    private (string? ServiceLevel, string? ManualAwb) ValidateBookingInputs(BookCarrierRequest request, CarrierAccount account, ICarrierProvider provider)
+    private string? ValidateManualAwb(BookCarrierRequest request, CarrierAccount account, ICarrierProvider provider)
     {
-        var serviceLevel = NormalizeOptional(request.ServiceLevel, MaxServiceLevelLength, "Service level");
         if (provider.Capabilities.RequiresManualAwb)
         {
-            return (serviceLevel, NormalizeRequired(request.CarrierAwb, MaxCarrierAwbLength, "Carrier AWB"));
+            return NormalizeRequired(request.CarrierAwb, MaxCarrierAwbLength, "Carrier AWB");
         }
         if (!string.IsNullOrWhiteSpace(request.CarrierAwb))
         {
             throw new InternationalShipmentValidationException($"Carrier '{account.CarrierCode}' assigns its own AWB; do not send one.");
         }
-        return (serviceLevel, null);
+        return null;
+    }
+
+    // Shared by the fresh-Pending path of BookAsync only — the stale-Pending-resume path validates
+    // just the manual AWB (fix round 2, finding v: it reuses the stored ServiceLevel instead).
+    private (string? ServiceLevel, string? ManualAwb) ValidateBookingInputs(BookCarrierRequest request, CarrierAccount account, ICarrierProvider provider) =>
+        (NormalizeOptional(request.ServiceLevel, MaxServiceLevelLength, "Service level"), ValidateManualAwb(request, account, provider));
+
+    // Fix round 2, finding ii: atomically claims a stale Pending row (compare-and-set on its
+    // UpdatedAt) right before the carrier is called, so two concurrent requests resuming the same
+    // stale booking can never both proceed — the loser throws instead of calling the carrier.
+    private async Task ClaimStalePendingBookingAsync(CarrierBooking live)
+    {
+        var observedUpdatedAt = live.UpdatedAt;
+        var claimedAt = DateTimeOffset.UtcNow;
+        bool claimed;
+        if (_dbContext.Database.IsRelational())
+        {
+            var affected = await _dbContext.Set<CarrierBooking>()
+                .Where(b => b.Id == live.Id && b.Status == CarrierBookingStatus.Pending && b.UpdatedAt == observedUpdatedAt)
+                .ExecuteUpdateAsync(s => s.SetProperty(b => b.UpdatedAt, claimedAt), CancellationToken.None);
+            claimed = affected > 0;
+        }
+        else
+        {
+            // EF Core's InMemory provider (unit tests) cannot run ExecuteUpdate — an equivalent
+            // tracked compare-and-set: re-read fresh (untracked) to check the currently-committed
+            // state, then save through the already-tracked `live` only if it still matches.
+            var fresh = await _dbContext.Set<CarrierBooking>().AsNoTracking().FirstOrDefaultAsync(b => b.Id == live.Id, CancellationToken.None);
+            claimed = fresh is not null && fresh.Status == CarrierBookingStatus.Pending && fresh.UpdatedAt == observedUpdatedAt;
+            if (claimed)
+            {
+                live.UpdatedAt = claimedAt;
+                await _dbContext.SaveChangesAsync(CancellationToken.None);
+            }
+        }
+        if (!claimed)
+        {
+            throw new InternationalShipmentValidationException("This booking is still in progress.");
+        }
+        live.UpdatedAt = claimedAt;
+    }
+
+    // Fix round 2, finding iii: persists `booking`'s current in-memory Booked fields only if its
+    // row is still Pending in the store — a late failure (from a different, losing attempt) can
+    // never overwrite a real success recorded here.
+    //
+    // Deliberately does NOT set `_dbContext.Entry(booking).State = EntityState.Unchanged` after a
+    // successful ExecuteUpdate: that assignment does not "accept" the current (Modified) values as
+    // EF Core's new baseline — on a Modified entity it instead REJECTS the pending changes and
+    // reverts CurrentValues back to the pre-mutation snapshot (i.e. back to Pending/nulls), even
+    // though the raw SQL UPDATE it runs alongside is unaffected. That reversion is exactly what
+    // caused this fix round's regression: the database row ended up Booked while the in-memory
+    // `booking` object — and therefore the HTTP response built from it — silently reverted to
+    // Pending. `booking` is left Modified on purpose; the harmless cost is that the next plain
+    // SaveChangesAsync (after a label upload) redundantly re-sends these same column values.
+    private async Task<bool> TryMarkBookedIfPendingAsync(CarrierBooking booking)
+    {
+        if (_dbContext.Database.IsRelational())
+        {
+            var id = booking.Id;
+            var status = booking.Status;
+            var carrierAwb = booking.CarrierAwb;
+            var serviceLevel = booking.ServiceLevel;
+            var rawResponse = booking.RawResponse;
+            var bookedAt = booking.BookedAt;
+            var updatedAt = booking.UpdatedAt;
+            var affected = await _dbContext.Set<CarrierBooking>()
+                .Where(b => b.Id == id && b.Status == CarrierBookingStatus.Pending)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(b => b.Status, status)
+                    .SetProperty(b => b.CarrierAwb, carrierAwb)
+                    .SetProperty(b => b.ServiceLevel, serviceLevel)
+                    .SetProperty(b => b.RawResponse, rawResponse)
+                    .SetProperty(b => b.BookedAt, bookedAt)
+                    .SetProperty(b => b.UpdatedAt, updatedAt), CancellationToken.None);
+            return affected > 0;
+        }
+        return await TryPersistIfStillPendingNonRelationalAsync(booking);
+    }
+
+    // Fix round 2, finding iii: same guard for the failure path — a failure must never overwrite an
+    // already-Booked (or otherwise resolved) row. See TryMarkBookedIfPendingAsync's comment: no
+    // EntityState.Unchanged reset here either, for the same reason.
+    private async Task<bool> TryMarkFailedIfPendingAsync(CarrierBooking booking)
+    {
+        if (_dbContext.Database.IsRelational())
+        {
+            var id = booking.Id;
+            var status = booking.Status;
+            var failureReason = booking.FailureReason;
+            var updatedAt = booking.UpdatedAt;
+            var affected = await _dbContext.Set<CarrierBooking>()
+                .Where(b => b.Id == id && b.Status == CarrierBookingStatus.Pending)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(b => b.Status, status)
+                    .SetProperty(b => b.FailureReason, failureReason)
+                    .SetProperty(b => b.UpdatedAt, updatedAt), CancellationToken.None);
+            return affected > 0;
+        }
+        return await TryPersistIfStillPendingNonRelationalAsync(booking);
+    }
+
+    // EF Core's InMemory provider (unit tests) cannot run ExecuteUpdate — an equivalent tracked
+    // compare-and-set: re-read fresh (untracked) to check the currently-committed status, then save
+    // through the already-tracked, already-mutated `booking` only if it is still Pending.
+    private async Task<bool> TryPersistIfStillPendingNonRelationalAsync(CarrierBooking booking)
+    {
+        var fresh = await _dbContext.Set<CarrierBooking>().AsNoTracking().FirstOrDefaultAsync(b => b.Id == booking.Id, CancellationToken.None);
+        if (fresh is null || fresh.Status != CarrierBookingStatus.Pending)
+        {
+            return false;
+        }
+        await _dbContext.SaveChangesAsync(CancellationToken.None);
+        return true;
     }
 
     // Calls the carrier, then persists the outcome onto `booking` (a freshly-created Pending row,
@@ -380,24 +505,38 @@ public class CarrierBookingService
             throw new CarrierBookingFailedException(Truncate(reason, MaxFailureReasonLength));
         }
 
-        // Fix round 1, finding 2: persist the carrier's own AWB on its own first, so a later
-        // failure (label upload, a transient DB error) can never lose track of a booking that has
-        // already happened at the carrier.
+        // Fix round 1, finding 2 / round 2, finding iii: persist the carrier's own AWB first,
+        // conditional on the row still being Pending, so a later failure (label upload, a transient
+        // DB error, a losing concurrent attempt) can never lose track of — or overwrite — a booking
+        // that has already happened at the carrier.
         booking.Status = CarrierBookingStatus.Booked;
         booking.CarrierAwb = Truncate(result.CarrierAwb.Trim(), MaxCarrierAwbLength);
         booking.ServiceLevel = NormalizeOptionalOrNull(result.ServiceLevel, MaxServiceLevelLength) ?? serviceLevel;
         booking.RawResponse = CarrierPayloadSanitizer.ToStoredJson(result.RawResponse, credentials.SecretValues);
         booking.BookedAt = DateTimeOffset.UtcNow;
         booking.UpdatedAt = booking.BookedAt.Value;
+
+        bool persisted;
         try
         {
-            await _dbContext.SaveChangesAsync(CancellationToken.None);
+            persisted = await TryMarkBookedIfPendingAsync(booking);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to persist carrier booking {CarrierBookingId} after carrier {CarrierCode} assigned AWB {CarrierAwb} — reconcile manually.",
                 booking.Id, account.CarrierCode, booking.CarrierAwb);
             throw;
+        }
+        if (!persisted)
+        {
+            // Fix round 2, finding iii: the row moved on before we could persist the carrier's own
+            // result — this can never be silently dropped, and it must never be reported as this
+            // request's own success either, so the actual current state is returned instead.
+            _logger.LogError(
+                "Carrier {CarrierCode} assigned AWB {CarrierAwb} to booking {CarrierBookingId}, but its row was no longer Pending when persisting — reconcile manually.",
+                account.CarrierCode, booking.CarrierAwb, booking.Id);
+            var current = await _dbContext.Set<CarrierBooking>().AsNoTracking().FirstAsync(b => b.Id == booking.Id, CancellationToken.None);
+            return ToResponse(current, account);
         }
 
         if (result.Label is not null)
@@ -415,7 +554,17 @@ public class CarrierBookingService
                 booking.LabelStorageKey = null;
                 booking.LabelContentType = null;
             }
-            await _dbContext.SaveChangesAsync(CancellationToken.None);
+            try
+            {
+                // Fix round 2, finding iv: a transient failure here must not lose the Booked
+                // response we already have, or skip the requeue/audit below.
+                await _dbContext.SaveChangesAsync(CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to persist the label upload result for booking {CarrierBookingId} (storage key {LabelStorageKey}).",
+                    booking.Id, booking.LabelStorageKey);
+            }
         }
 
         await RequeueUnmatchedAsync(account.Id, booking.CarrierAwb, CancellationToken.None);
@@ -449,7 +598,16 @@ public class CarrierBookingService
         booking.Status = CarrierBookingStatus.Failed;
         booking.FailureReason = Truncate(reason, MaxFailureReasonLength);
         booking.UpdatedAt = DateTimeOffset.UtcNow;
-        await _dbContext.SaveChangesAsync(CancellationToken.None);
+
+        // Fix round 2, finding iii: conditional on the row still being Pending — a late failure
+        // must never overwrite an already-Booked (or otherwise resolved) row.
+        if (!await TryMarkFailedIfPendingAsync(booking))
+        {
+            _logger.LogWarning(
+                "Carrier booking {CarrierBookingId} failed, but its row was no longer Pending — the failure was not recorded because a concurrent attempt already resolved it.",
+                booking.Id);
+            return;
+        }
         _logger.LogWarning("Carrier booking {CarrierBookingId} failed.", booking.Id);
         await _auditLogger.LogAsync(new AuditEntry(booking.OrganizationId, actingUser.GetUserId(), "carrier_booking.failed", "CarrierBooking", booking.Id.ToString(),
             After: booking.FailureReason), CancellationToken.None);
