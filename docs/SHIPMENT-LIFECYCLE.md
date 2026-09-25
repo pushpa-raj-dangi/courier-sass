@@ -82,6 +82,27 @@ earlier draft of the state diagram showed one.
 | RTO_AT_ORIGIN | RTO_DELIVERED | Merchant confirmation |
 | SORTED | CUSTOMS_PREPARED | Customs declaration completed (international, same-branch: `OriginBranchId == DestinationBranchId`) |
 | AT_DESTINATION_BRANCH | CUSTOMS_PREPARED | Customs declaration completed (international, different-branch) |
+| CUSTOMS_PREPARED | HANDED_TO_CARRIER | Handoff scan (outbound, I4) |
+| HANDED_TO_CARRIER | IN_INTERNATIONAL_TRANSIT | Carrier event (outbound, I4) |
+| IN_INTERNATIONAL_TRANSIT | DELIVERED_ABROAD | Carrier event (outbound, terminal, I4) |
+| IN_INTERNATIONAL_TRANSIT | CUSTOMS_HOLD | Carrier event (outbound, I4) |
+| IN_INTERNATIONAL_TRANSIT | INTERNATIONAL_EXCEPTION | Carrier event (outbound, I4) |
+| CUSTOMS_HOLD | IN_INTERNATIONAL_TRANSIT | Carrier event or staff override (outbound, I4) |
+| CUSTOMS_HOLD | INTERNATIONAL_EXCEPTION | Carrier event or staff override (outbound, I4) |
+| INTERNATIONAL_EXCEPTION | IN_INTERNATIONAL_TRANSIT | Carrier event or staff override (outbound, I4) |
+| INTERNATIONAL_EXCEPTION | DELIVERED_ABROAD | Carrier event or staff override (outbound, I4) |
+| CREATED | IN_INTERNATIONAL_TRANSIT | Carrier event, only once an inbound booking is linked (inbound, I4) |
+| IN_INTERNATIONAL_TRANSIT | CUSTOMS_CLEARANCE | Carrier event (inbound, I4) |
+| IN_INTERNATIONAL_TRANSIT | CUSTOMS_HOLD | Carrier event (inbound, I4) |
+| IN_INTERNATIONAL_TRANSIT | INTERNATIONAL_EXCEPTION | Carrier event (inbound, I4) |
+| CUSTOMS_CLEARANCE | CUSTOMS_HOLD | Carrier event (inbound, I4) |
+| CUSTOMS_HOLD | CUSTOMS_CLEARANCE | Carrier event or staff override (inbound, I4) |
+| CUSTOMS_HOLD | INTERNATIONAL_EXCEPTION | Carrier event or staff override (inbound, I4) |
+| INTERNATIONAL_EXCEPTION | IN_INTERNATIONAL_TRANSIT | Carrier event or staff override (inbound, I4) |
+| INTERNATIONAL_EXCEPTION | CUSTOMS_CLEARANCE | Carrier event or staff override (inbound, I4) |
+| IN_INTERNATIONAL_TRANSIT or CUSTOMS_CLEARANCE | RECEIVED_FROM_CARRIER | Receive scan (inbound, I4) |
+| RECEIVED_FROM_CARRIER | AT_DESTINATION_BRANCH | Receive scan, same-branch gateway (inbound, I4, second event of the same scan) |
+| RECEIVED_FROM_CARRIER | SORTED | Sort scan (inbound, different-branch gateway, I4 — `SortAsync`'s only other from-status) |
 
 Any transition not in this table is rejected server-side with a validation error; the
 attempted transition and rejection reason are still logged for diagnosis, but no
@@ -102,15 +123,70 @@ legitimately reach `CustomsPrepared` from two different places depending on bran
 - From `AT_DESTINATION_BRANCH`, when the origin and destination branches differ — after the
   existing, unmodified manifest dispatch/receive cycle has moved the shipment there.
 
-`CUSTOMS_PREPARED` is currently terminal-for-now: no I3 code transitions a shipment out of it. I4
-is expected to add what comes after (`HandedToCarrier` and the remaining carrier-leg statuses from
-the parent international design spec). Separately, nine last-mile/NDR/RTO methods
+As of I4, `CUSTOMS_PREPARED` is no longer terminal: the handoff scan moves an outbound shipment to
+`HANDED_TO_CARRIER` (see the next subsection). Separately, nine last-mile/NDR/RTO methods
 (`AssignDeliveryToRiderAsync`, `CompleteDeliveryAsync`, `FailDeliveryAsync`,
 `TransitionToNdrCreatedAsync`, `ReattemptDeliveryAsync`, `InitiateRtoAsync`, `DispatchManyRtoAsync`,
 `ReceiveRtoAtOriginAsync`, `ConfirmRtoDeliveredAsync`) reject any shipment with `Direction ==
 Outbound` outright, so an outbound international shipment cannot skip `CUSTOMS_PREPARED` and fall
 into a domestic last-mile/NDR/RTO status. See `docs/INTERNATIONAL.md`'s "International module core
 (I3)" section for the full guard rationale (it is keyed on `Direction`, not `Scope`).
+
+### Carrier lifecycle (International, I4)
+
+Seven statuses appended after `CUSTOMS_PREPARED` (ordinal-append-only, per CLARIFICATIONS.md #10):
+`HANDED_TO_CARRIER`, `IN_INTERNATIONAL_TRANSIT`, `DELIVERED_ABROAD`, `CUSTOMS_HOLD`,
+`INTERNATIONAL_EXCEPTION`, `CUSTOMS_CLEARANCE`, `RECEIVED_FROM_CARRIER`. Every one is reachable only
+for `Scope = International` shipments. `Shipments.Domain.InternationalTransitionRules` is the single
+table encoding every row above from `HANDED_TO_CARRIER` onward except the handoff/receive scans
+themselves, keyed by `(Direction, From, To, Trigger)`:
+
+- **`Carrier`** trigger: every listed outbound/inbound row is allowed, driven by
+  `IShipmentInternationalGateway.ApplyCarrierStatusAsync` (carrier-driven, no user, timestamped with
+  the carrier's own `OccurredAt`, metadata `{ source: "Carrier", carrierAccountId, carrierAwb,
+  carrierEventId, carrierStatusCode, location }`). A target equal to the current status is a no-op;
+  any other move not in the table throws `ShipmentInvalidTransitionException`.
+- **`StaffOverride`** trigger: only the exits from `CUSTOMS_HOLD`/`INTERNATIONAL_EXCEPTION` — via
+  `POST /international/shipments/{id}/status-override` (`international.tracking.manage`), a required
+  non-empty reason (≤2000 chars), audited with before/after status and reason.
+- **Known gap:** the table allows `CUSTOMS_HOLD → IN_INTERNATIONAL_TRANSIT` for the `Carrier`
+  trigger unconditionally — there is no check that a carrier event releasing a hold is newer than
+  the shipment's current status, so a late/out-of-order carrier event can release a `CUSTOMS_HOLD`
+  that is still real at the carrier. See `docs/INTERNATIONAL.md`'s "Carrier layer (I4)" section.
+
+`HANDED_TO_CARRIER` (`CustomsPrepared → HandedToCarrier`) and `RECEIVED_FROM_CARRIER` are **scan
+operations**, not carrier events, each with its own gateway method
+(`HandToCarrierAsync`/`ReceiveFromCarrierAsync`) and not present in `InternationalTransitionRules`:
+
+- **Handoff** (outbound only) requires a `Booked` outbound carrier booking and branch access to the
+  shipment's current branch; clears `CurrentBranchId`/`CurrentCustodianUserId`/
+  `CurrentCustodianRiderId` — the carrier becomes the custodian of record (derived from status +
+  the active booking, not a `Shipment` column). The shipment transition and the booking's
+  `CustodyStartedAt` stamp commit in the same DB transaction; if the booking was concurrently
+  cancelled, the whole transaction rolls back with a validation error.
+- **Receive** (inbound only, at `OriginBranchId`) requires a linked, `Booked` inbound carrier
+  booking, and is only valid from `IN_INTERNATIONAL_TRANSIT` or `CUSTOMS_CLEARANCE`. Sets
+  `CurrentBranchId = OriginBranchId`, `CurrentCustodianUserId` = the scanning user. **Same-branch
+  gateway** (`OriginBranchId == DestinationBranchId`): the same scan immediately stages a second
+  transition, `RECEIVED_FROM_CARRIER → AT_DESTINATION_BRANCH` (event type `ReceivedAtDestination`,
+  timestamped 1 ms after the first so timelines order correctly) — one scan, two immutable
+  `ShipmentEvent`s, one save. **Different-branch gateway:** the shipment stays at
+  `RECEIVED_FROM_CARRIER`, and `ShipmentService.SortAsync` (via `ManifestService.ScanAsync`, its
+  only caller) accepts `RECEIVED_FROM_CARRIER` as an additional from-status — for `Direction ==
+  Inbound` only — so the normal `SORTED → manifest → IN_TRANSIT → AT_DESTINATION_BRANCH` flow
+  applies from there. No other transition method changes for this.
+
+These four gateway methods (`HandToCarrierAsync`, `ReceiveFromCarrierAsync`,
+`ApplyCarrierStatusAsync`, `OverrideInternationalStatusAsync`) use their own
+`StageInternationalTransition`/`SaveInternationalTransitionAsync` pair in
+`ShipmentService.InternationalLifecycle.cs` — not the domestic `TransitionAsync` — but preserve the
+same guarantees: an immutable `ShipmentEvent` per move, an audit entry, and xmin concurrency
+detection. A concurrency conflict throws `ShipmentConcurrencyException` (derives from
+`ShipmentInvalidTransitionException`) rather than a plain rejection, so a caller that distinguishes
+a lost race from a genuine invalid transition (the carrier-event processor) can retry it instead of
+giving up. Unlike `TransitionAsync`, **no outbox row is written** by any of these four methods — see
+`docs/INTERNATIONAL.md`'s "Carrier layer (I4)" section and the design spec's "Rulings made during
+planning and execution" for why.
 
 ## 4. `ShipmentEvent` (CLAUDE.md §11)
 

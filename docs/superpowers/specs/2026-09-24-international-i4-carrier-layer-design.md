@@ -155,7 +155,9 @@ Indexes:
 matched), `CarrierAwb` (≤100), `CarrierEventId` (≤200), `CarrierStatusCode` (≤100), `Description`
 (≤1000, nullable), `Location` (≤300, nullable), `OccurredAt`, `Source` (`Webhook | Poll |
 Manual`), `RawPayload` (jsonb, nullable), `EnteredByUserId` (nullable; manual only), `ReceivedAt`,
-`ProcessingStatus` (`Pending | Applied | Ignored | Rejected | Unmatched`), `ProcessingNote`
+`ProcessingStatus` (`Pending | Processing | Applied | Ignored | Rejected | Unmatched` — as built;
+see "Rulings made during planning and execution" below), `ProcessingAttempts` (as built),
+`ClaimedAt` (nullable, as built), `ProcessingNote`
 (nullable, ≤1000), `MappedShipmentStatus` (nullable), `ProcessedAt` (nullable).
 
 - Unique on `(CarrierAccountId, CarrierEventId)` — deduplication. Manual entries get a generated
@@ -309,8 +311,11 @@ organization. No request path sets it.
 - `OverrideInternationalStatusAsync(shipmentId, targetStatus, reason, actingUser, ct)` — staff
   override transitions only.
 
-All go through the existing `TransitionAsync` machinery (xmin concurrency, immutable
-`ShipmentEvent`, audit, outbox). `SortAsync` gains the inbound `ReceivedFromCarrier` from-status.
+These four go through their own `StageInternationalTransition`/`SaveInternationalTransitionAsync`
+machinery in `ShipmentService.InternationalLifecycle.cs` (xmin concurrency, immutable
+`ShipmentEvent`, audit) — **not** `TransitionAsync` and **not** the outbox; see "Rulings made
+during planning and execution" below for why no outbox row is written. `SortAsync` gains the
+inbound `ReceivedFromCarrier` from-status.
 
 ### 5.9 Resilience
 
@@ -394,3 +399,103 @@ Every validation runs before any carrier call or write. Unknown/invisible resour
 
 `INTERNATIONAL.md` (I4 section, status table), `SHIPMENT-LIFECYCLE.md`, `DOMAIN-MODEL.md`,
 `API-SPEC.md`, `RBAC.md`.
+
+## 11. Rulings made during planning and execution
+
+Deviations from this spec's text, decided either while planning (the implementation plan's
+header) or discovered/fixed during execution and review. The code is authoritative wherever it
+disagrees with the prose above; this section is the index of every place that happened.
+
+**Planning-time rulings** (from the plan's header, `docs/superpowers/plans/2026-09-24-international-i4-carrier-layer.md`):
+
+- **No outbox write on international transitions.** §5.8 above said transitions get the outbox
+  "for free"; the existing `TransitionAsync` writes no outbox row (only `CreateShipmentAsync`/shell
+  creation do), and the four new lifecycle methods (`HandToCarrierAsync`,
+  `ReceiveFromCarrierAsync`, `ApplyCarrierStatusAsync`, `OverrideInternationalStatusAsync`) don't
+  either — corrected in §5.8 above. Merchant-facing webhook event types are I7 anyway.
+- **`Processing` processing status.** §4.3 above originally listed
+  `Pending | Applied | Ignored | Rejected | Unmatched`. The processor atomically claims events
+  (`Pending → Processing`) so Hangfire runs and direct invocations never double-apply; stuck claims
+  older than 5 minutes are reclaimed. Adds `Processing`, `ProcessingAttempts`, `ClaimedAt` —
+  corrected in §4.3 above.
+- **No separate `deactivate` route.** §5.10 listed both `update (display name, active, polling)`
+  and `deactivate`; `PUT` covers `IsActive` (including reactivation), so only `PUT` is built.
+- **`MappedShipmentStatus` stored as a string** (e.g. `"CustomsHold"`) so `International.Domain`
+  does not depend on `Shipments.Domain`; `CarrierBooking.Direction` uses International's own
+  `CarrierBookingDirection` enum for the same reason.
+- **Book idempotency is enforced twice:** the existing `IdempotencyMiddleware` (staff partition,
+  same as rider actions) and a DB-unique `(OrganizationId, IdempotencyKey)` on `CarrierBookings`.
+  Replaying a key whose booking `Failed` returns the same 502.
+
+**Execution-time behavior changes** (found and fixed during review rounds, not in the plan text):
+
+- Carrier event processing is serialized across an entire run by a Postgres session advisory lock
+  (`CarrierEventProcessorJob.RunAsync`, key `8_427_119_003`); a run that finds the lock already held
+  returns immediately without processing anything. The per-event atomic `Pending → Processing`
+  claim, the 5-minute stale-claim reclaim, and the 5-attempt cap (`CarrierEventApplier.MaxAttempts`)
+  all still apply on top of the lock, as defense in depth.
+- `ShipmentConcurrencyException` (derives from `ShipmentInvalidTransitionException`, itself derived
+  from `ShipmentValidationException`) is thrown when an international transition's save hits an
+  xmin concurrency conflict. `CarrierEventApplier` catches it ahead of `ShipmentValidationException`
+  and treats it as retryable (`Pending`, counts toward `MaxAttempts`), not `Rejected` — a lost race
+  is not the same as an invalid transition.
+- Polling isolates failures per booking: `CarrierTrackingPollJob` catches and logs any exception
+  from one booking's poll (a bad ciphertext, a provider error) and moves on to the next tenant and
+  booking, filtered so a genuine caller cancellation (`cancellationToken.IsCancellationRequested`)
+  still propagates instead of being swallowed.
+- `CarrierTrackingEventWriter` treats only a Postgres unique violation (SqlState `23505`, on
+  `(CarrierAccountId, CarrierEventId)`) as an expected duplicate to drop silently; any other
+  `DbUpdateException` on a single-row fallback insert is logged before the row is dropped, never
+  silently swallowed. `International.csproj` references `Npgsql` directly (Application layer) so
+  this check can be precise instead of a broad `catch (DbUpdateException)`.
+- Booking (`CarrierBookingService.BookAsync`/`CompleteBookingAsync`):
+  - After the `Pending` row commits, the carrier is called with `CancellationToken.None` — a client
+    disconnect must never leave a booking stuck mid-flight once the carrier may have already been
+    called.
+  - A `Pending` booking older than `StalePendingThreshold` (2 minutes) is resumed by the next
+    `/book` call for that shipment, whether it reuses the same `Idempotency-Key` or sends a new one.
+    The resume path claims the stale row atomically (compare-and-set on `UpdatedAt`) before calling
+    the carrier, then re-calls it with the *original* stale booking's stored `IdempotencyKey` and
+    `ServiceLevel` — never the new request's.
+  - The final `Booked` and `Failed` writes (`TryMarkBookedIfPendingAsync`/`TryMarkFailedIfPendingAsync`)
+    are conditional `ExecuteUpdate`s guarded on the row still being `Pending`, so a losing concurrent
+    attempt can never overwrite a booking another attempt already resolved.
+  - The carrier's own AWB is persisted (conditionally) before the label is uploaded; a label upload
+    failure is logged and leaves the booking `Booked` with no stored label, never fails the booking
+    itself.
+  - `CarrierBooking.LabelContentType` was added by its own later migration
+    (`20260924145117_AddCarrierBookingLabelContentType`), not the initial `AddCarrierLayer` migration.
+- Handoff (`InternationalCarrierLifecycleService.HandoffAsync`) stamps `CustodyStartedAt` through a
+  conditional `ExecuteUpdate` guarded on the booking still being `Booked`, inside the same
+  transaction as the shipment transition. If the booking was cancelled concurrently between the
+  live-booking read and this update, the conditional update affects zero rows, a validation
+  exception is thrown, and the whole transaction (transition included) rolls back.
+- Test infrastructure: `PlatformSettingsJwtRotationTests` now runs in `NonParallelCollection`
+  (`DisableParallelization = true`, scheduled after every parallel collection) because it rotates
+  the shared JWT signing key and would otherwise invalidate concurrently running tests' access
+  tokens. A background tenant scope (`ITenantScopeFactory.CreateScope`/`TenantScopeOverride`) lets
+  `CarrierEventProcessorJob` and `CarrierTrackingPollJob` run tenant-filtered application services
+  per organization outside any HTTP request; `HttpContextCurrentTenantProvider` consults the scope
+  override before falling back to the request's `org_id` claim.
+
+**Known limitations found during review, not previously listed:**
+
+- Webhooks (`POST /api/v1/carrier-webhooks/{webhookPublicId}`) share the same per-IP rate limit as
+  public tracking (`RequireIpRateLimit()`, config key `RateLimiting:PublicTrackingRequestsPerMinute`,
+  default 30/minute) — a carrier's webhook calls and public tracking requests from the same IP
+  address draw from the same bucket.
+- The constant-time webhook signature comparison is each `ICarrierProvider`'s own responsibility
+  (`VerifyWebhook`); there is no shared helper in the carrier port or infrastructure. The only
+  implementation exercising this today is the test-only `FakeHttpCarrierProvider`
+  (`CryptographicOperations.FixedTimeEquals`); a future real adapter (I6) must implement it itself.
+- A late, older carrier event can still release a `CustomsHold`: `InternationalTransitionRules`
+  allows `CustomsHold → InInternationalTransit` as a carrier-triggered move (not just a staff
+  override), so an out-of-order or delayed "in transit" event arriving after a hold was recorded
+  will move the shipment back out of `CustomsHold`, even if the hold is still real at the carrier.
+- Existing tenants' roles are not backfilled with the three new permissions
+  (`international.carrier.manage`, `international.book`, `international.tracking.manage`) or the
+  now-wider `international.handoff`/`international.receive` grants — `AdditionalRoleSeeds` and the
+  `OrganizationOwner`'s all-permissions grant only run at organization registration
+  (`AuthService.RegisterOrganizationAsync`), so an organization created before this feature shipped
+  keeps its pre-I4 `RolePermission` rows until an operator (or a future migration) adds the new
+  rows by hand.

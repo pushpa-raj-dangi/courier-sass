@@ -98,13 +98,25 @@ notification_template.manage
 
 international.create        international.read      international.manage_customs
 international.handoff       international.receive
+international.carrier.manage  international.book    international.tracking.manage
 ```
 
 `ndr.*`, `rto.*`, `manifest.*`, `merchant.kyc.review`, `pricing.*`, `role.manage`,
 `org.*`, `international.*` extend the exact list in CLAUDE.md §6 — that list was
 illustrative ("Examples:"), this is the concrete v1 catalog the code checks against.
-`international.handoff`/`international.receive` are seeded now but unused until I4 wires
-the carrier handoff/receive scans that consume them.
+`international.carrier.manage`, `international.book`, and `international.tracking.manage` are
+new in I4 (`AddCarrierPermissions` migration): `international.carrier.manage` gates carrier
+account CRUD/credentials/webhook-secret rotation; `international.book` gates booking, cancelling,
+and linking an inbound carrier booking; `international.tracking.manage` gates manual carrier
+events and international status overrides. `international.handoff`/`international.receive`,
+seeded in I3 as unused, are now wired to the handoff and receive scans (I4).
+
+**Existing tenants are not backfilled.** `AdditionalRoleSeeds` and the `OrganizationOwner`
+all-permissions grant only run at organization registration
+(`Identity.Application.AuthService.RegisterOrganizationAsync`) — an organization created before I4
+shipped keeps its pre-I4 `RolePermission` rows and does not automatically gain the three new
+permissions, or the widened `international.handoff`/`international.receive` grants below, on its
+existing roles.
 
 ## 4. Illustrative Role → Permission Coverage
 
@@ -128,10 +140,15 @@ table — but indicative of intent:
   the application-service query level, not just the permission catalog, since a
   Merchant is not a courier-org staff member and has no `UserBranch` concept at all.
 * **Auditor**: `*.read` + `audit.read` across the org, no write permissions anywhere.
-* **OperationsManager** and **HubStaff** (I3): both additionally hold `international.create`,
-  `international.read`, and `international.manage_customs` — the two existing roles whose
-  descriptions already cover outbound/inbound branch operations. Neither holds
-  `international.handoff`/`international.receive` (unused until I4).
+* **OperationsManager** and **HubStaff** (I3, widened I4): both hold `international.create`,
+  `international.read`, `international.manage_customs`, `international.handoff`, and
+  `international.receive` — the two existing roles whose descriptions already cover
+  outbound/inbound branch operations, and now the carrier handoff/receive scans those permissions
+  gate. `international.book` (book/cancel/link a carrier booking) is also granted to both.
+  `international.tracking.manage` (manual carrier events, status overrides) is OperationsManager
+  only — HubStaff does not hold it. `international.carrier.manage` (carrier account
+  management/credentials) is not granted to either — it is OrganizationOwner/OrganizationAdmin
+  only (via the all-permissions grants those two roles already hold).
 
 ## 5. Merchant/MerchantStaff Authorization Model
 

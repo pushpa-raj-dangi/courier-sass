@@ -130,7 +130,10 @@ Shipment { Id (internal UUID), Awb (business identifier, unique per (Organizatio
              afterward (International module, I3; see docs/INTERNATIONAL.md),
            CurrentStatus (Created|PickupAssigned|PickedUp|AtOriginBranch|Sorted|InTransit|
              AtDestinationBranch|OutForDelivery|Delivered|Cancelled — NDR/RTO states added
-             Phase 9, CustomsPrepared added I3), ServiceTypeId,
+             Phase 9, CustomsPrepared added I3, HandedToCarrier|InInternationalTransit|
+             DeliveredAbroad|CustomsHold|InternationalException|CustomsClearance|
+             ReceivedFromCarrier added I4 — see International's Carrier layer section below),
+             ServiceTypeId,
            WeightKg, LengthCm (nullable), WidthCm (nullable), HeightCm (nullable),
            DeclaredValue (= sum of ShipmentItem.Quantity*UnitValue, server-computed),
            CodAmount, WantsInsurance,
@@ -226,6 +229,72 @@ Both entities are new in the `International` module (I3). See `docs/INTERNATIONA
 "International module core (I3)" section for the full cross-module contract
 (`IShipmentInternationalGateway`, `IShipmentItemLookupService`, `ICountryLookupService`) and
 guard rules, and `SHIPMENT-LIFECYCLE.md` for the `CustomsPrepared` transition.
+
+### Carrier layer (I4)
+
+```text
+CarrierAccount { Id, OrganizationId, CarrierCode (e.g. MANUAL, DHL_EXPRESS — must be registered in
+                 CarrierProviderRegistry), DisplayName (<=200), IsActive,
+                 EncryptedCredentials (nullable jsonb, Data Protection purpose
+                 "International.CarrierAccount.Credentials"), EncryptedWebhookSecret (nullable,
+                 purpose "International.CarrierAccount.WebhookSecret"), WebhookPublicId (random
+                 32-char URL-safe string, unique platform-wide), PollingEnabled }
+                 # Secrets are never returned by the API or logged; responses expose
+                 # hasCredentials/hasWebhookSecret booleans and the derived webhook URL only. Never
+                 # deleted once referenced by a booking — deactivated instead (IsActive = false via
+                 # PUT; there is no separate deactivate route). An inactive account's webhook calls
+                 # return 404 and it is skipped by polling.
+
+CarrierBooking { Id, OrganizationId, InternationalLegId (FK), CarrierAccountId (FK, restrict),
+                 Direction (International's own CarrierBookingDirection: Outbound|Inbound, kept
+                 separate from Shipments.Domain.ShipmentDirection so International.Domain has no
+                 dependency on Shipments.Domain), CarrierAwb (nullable until booked, <=100),
+                 ServiceLevel (nullable, <=100), LabelStorageKey (nullable; IObjectStorage),
+                 LabelContentType (nullable; added by its own later migration, separate from the
+                 table's own creation), Status (Pending|Booked|Failed|Cancelled), FailureReason
+                 (nullable, <=1000), RawResponse (jsonb, nullable, known secret values masked),
+                 IdempotencyKey (<=200), BookedAt, CancelledAt, CustodyStartedAt }
+                 # Partial unique index on InternationalLegId where Status IN (Pending, Booked) — at
+                 # most one live booking per leg. Unique on (CarrierAccountId, CarrierAwb) where
+                 # CarrierAwb IS NOT NULL AND Status = Booked — lets ingest resolve an event to
+                 # exactly one booking, and stops the same carrier AWB on the same account being
+                 # double-linked. Unique on (OrganizationId, IdempotencyKey). A Pending row older
+                 # than 2 minutes (StalePendingThreshold) is resumed, not re-created, by the next
+                 # /book call for that shipment — see docs/INTERNATIONAL.md's "Carrier layer (I4)".
+
+CarrierTrackingEvent { Id, OrganizationId, CarrierAccountId (FK), CarrierBookingId (nullable FK,
+                       set once matched), CarrierAwb (<=100), CarrierEventId (<=200),
+                       CarrierStatusCode (<=100), Description (<=1000, nullable), Location
+                       (<=300, nullable), OccurredAt, Source (Webhook|Poll|Manual), RawPayload
+                       (jsonb, nullable, known secret values masked), EnteredByUserId (nullable;
+                       manual only), ReceivedAt,
+                       ProcessingStatus (Pending|Processing|Applied|Ignored|Rejected|Unmatched —
+                         Processing was added during execution, not in the original design spec,
+                         so the processor's atomic claim has somewhere to park a row mid-apply),
+                       ProcessingAttempts (int, added alongside Processing — the processor gives up
+                         and marks Rejected after 5), ClaimedAt (nullable DateTimeOffset, added
+                         alongside Processing — a claim older than 5 minutes is reclaimed),
+                       ProcessingNote (nullable, <=1000), MappedShipmentStatus (nullable string —
+                         e.g. "CustomsHold" — stored as a string rather than a foreign-key/enum
+                         reference to Shipments.Domain.ShipmentStatus, again to keep
+                         International.Domain free of a Shipments.Domain dependency), ProcessedAt
+                       (nullable) }
+                       # Append-only except for the processing columns listed above. Unique on
+                       # (CarrierAccountId, CarrierEventId) — the sole deduplication key across
+                       # webhook/poll/manual sources; a manual entry gets a generated
+                       # "manual-<guid>" CarrierEventId. Index on (ProcessingStatus, OccurredAt)
+                       # for the processor's batch selection.
+```
+
+All three are tenant-owned (`OrganizationId`, FK to `Organization`, standard query filter),
+created by the `AddCarrierLayer` migration (permissions added by a separate
+`AddCarrierPermissions` migration, `LabelContentType` by a third,
+`AddCarrierBookingLabelContentType`) — all additive, no existing migration edited. See
+`docs/INTERNATIONAL.md`'s "Carrier layer (I4)" section for the full booking/ingest/processing
+flow, the carrier port (`ICarrierProvider`, `CarrierProviderRegistry`, `ManualCarrierProvider`),
+the background tenant scope, and the known limitations (including several execution-time behavior
+changes not in the original design spec — see the spec's "Rulings made during planning and
+execution" section).
 
 ## Scanning & Manifests — `OrganizationId` present
 
@@ -456,6 +525,8 @@ Shipment 1─* DeliveryAttempt 1─(0..1)─ DeliveryProof
 Shipment 1─(0..1)─ NDR 1─(0..1)─ ReturnShipment
 Shipment 1─(0..1)─ CODCollection 1─(0..1)─ MerchantSettlementItem *─1 MerchantSettlement
 Shipment 1─(0..1)─ InternationalLeg 1─* CustomsItem
+InternationalLeg 1─* CarrierBooking *─1 CarrierAccount
+CarrierAccount 1─* CarrierTrackingEvent *─(0..1)─ CarrierBooking
 Manifest 1─* ManifestShipment *─1 Shipment
 Manifest 1─* ShipmentTransfer *─1 Shipment
 Rider 1─* DeliveryTask *─1 Shipment
@@ -479,4 +550,7 @@ not left implicit in code.
   `ICountryLookupService`).
 - `Shipment.Scope`/`Direction`, `InternationalLeg`, `CustomsItem` (I3): see the `Shipment` entity
   and the "International" section above.
+- `CarrierAccount`, `CarrierBooking`, `CarrierTrackingEvent`, and the seven carrier-lifecycle
+  `ShipmentStatus`/`ShipmentEventType` values (I4): see the "Carrier layer (I4)" subsection above
+  and `docs/INTERNATIONAL.md`.
 - Existing persisted amounts are NPR by invariant. See `docs/INTERNATIONAL.md`.

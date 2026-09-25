@@ -12,7 +12,8 @@ Plans: `docs/superpowers/plans/`.
 | I1b | Notification-template locale | Implemented — Nepali default bodies are machine-drafted and need native review |
 | I2 | Countries, country zones, international address | Implemented — seeds Nepal + UN member states + a handful of dependent territories (not the complete ISO-3166-1 list); every country starts unserviced; Nepali names filled in for a 12-country starter set |
 | I3 | International module core | Implemented — see below |
-| I4–I8 | See the design spec §8 | Planned |
+| I4 | Carrier layer (booking, handoff/receive, tracking ingest) | Implemented — see below |
+| I5–I8 | See the design spec §8 | Planned |
 
 ## Money and currency (I0)
 
@@ -313,3 +314,293 @@ Plans: `docs/superpowers/plans/`.
   `PostalCode`/`CountryCode` fields. Only `RecipientAddressLine`/`SenderAddressLine` (the `Line1`
   reused column) are visible for the foreign party today; a caller must already know which side is
   foreign (from the request they sent) to interpret the response correctly.
+
+## Carrier layer (I4)
+
+Design: `docs/superpowers/specs/2026-09-24-international-i4-carrier-layer-design.md`. Everything
+below lives in the `International` module (`Application`/`Domain`/`Infrastructure`/`Presentation`);
+`Shipments` stays the sole owner of the state machine, custody and `ShipmentEvent`s. Seven new
+`ShipmentStatus`/`ShipmentEventType` values were appended (ordinal-append-only) after
+`CustomsPrepared`: `HandedToCarrier`, `InInternationalTransit`, `DeliveredAbroad`, `CustomsHold`,
+`InternationalException`, `CustomsClearance`, `ReceivedFromCarrier`.
+
+### Transitions (`InternationalTransitionRules`)
+
+`Shipments.Domain.InternationalTransitionRules` is the single table for every carrier-driven and
+staff-override move (see `SHIPMENT-LIFECYCLE.md` for the full table). Two triggers:
+`Carrier` (every listed row) and `StaffOverride` (only the rows out of `CustomsHold`/
+`InternationalException`, marked `StaffOverridable`). Handoff (`CustomsPrepared → HandedToCarrier`)
+and receive (`→ ReceivedFromCarrier`) are separate scan operations with their own gateway methods
+and are **not** in this table.
+
+`IShipmentInternationalGateway` gained four methods, all implemented in
+`ShipmentService.InternationalLifecycle.cs` with their own
+`StageInternationalTransition`/`SaveInternationalTransitionAsync` pair — **not**
+`TransitionAsync`, and **no outbox row is written** (the design spec originally claimed transitions
+get the outbox "for free"; that was wrong and has been corrected there):
+
+- `HandToCarrierAsync` — `CustomsPrepared → HandedToCarrier`; requires the operator to have branch
+  access to the shipment's current branch; clears `CurrentBranchId`/`CurrentCustodianUserId`/
+  `CurrentCustodianRiderId`.
+- `ReceiveFromCarrierAsync` — from `InInternationalTransit`/`CustomsClearance` to
+  `ReceivedFromCarrier`; requires branch access to `OriginBranchId`; sets
+  `CurrentBranchId = OriginBranchId`, `CurrentCustodianUserId` = the scanning user. **Same-branch
+  inbound receive:** when `OriginBranchId == DestinationBranchId`, the same call stages a *second*
+  transition (`ReceivedFromCarrier → AtDestinationBranch`, event type `ReceivedAtDestination`,
+  timestamped 1 ms later so timelines order correctly) into the same `SaveChangesAsync` — one scan,
+  two immutable `ShipmentEvent`s. Otherwise the shipment stays at `ReceivedFromCarrier` for the
+  normal sort/manifest flow.
+- `ApplyCarrierStatusAsync` — carrier-driven, no user; already-at-target is a no-op
+  (`AlreadyAtStatus`); any other invalid move throws `ShipmentInvalidTransitionException`.
+- `OverrideInternationalStatusAsync` — staff override with a required non-empty reason (≤2000
+  chars, the `ShipmentEvent.Notes` limit); audited with before/after status and reason.
+
+**Inbound sort from `ReceivedFromCarrier`.** `ShipmentService.SortAsync` picks its expected
+from-status dynamically: `ReceivedFromCarrier` when the shipment is `Direction == Inbound` and
+currently at that status, otherwise the usual `AtOriginBranch`. `ManifestService.ScanAsync` (the
+only caller, owner of the branch/expected-status checks) accepts the same inbound exception. No
+other transition method changes.
+
+**Concurrency.** A save that hits an xmin conflict throws `ShipmentConcurrencyException` (derives
+from `ShipmentInvalidTransitionException`, itself from `ShipmentValidationException`) instead of
+the plain concurrency exception `TransitionAsync` uses. `CarrierEventApplier` catches it ahead of
+`ShipmentValidationException` and treats it as **retryable** (`Pending`, counts toward the 5-attempt
+cap) rather than `Rejected` — a lost race to a concurrent update is not a business-rule violation.
+
+### Custody
+
+- **Handoff:** clears `CurrentBranchId`/`CurrentCustodianUserId`/`CurrentCustodianRiderId` as part
+  of the shipment transition; in the same DB transaction,
+  `InternationalCarrierLifecycleService.HandoffAsync` stamps `CarrierBooking.CustodyStartedAt`
+  through a **conditional `ExecuteUpdate`** guarded on the booking still being `Booked`. If a
+  concurrent `booking/cancel` cancelled it first, the conditional update affects zero rows, a
+  validation exception is thrown, and the whole transaction — the shipment transition included —
+  rolls back. While `HandedToCarrier` or later, the carrier is the custodian (derived from status +
+  the active booking; `Shipment` has no carrier-account column).
+- **Receive:** `CurrentBranchId` = the receiving (origin) branch, `CurrentCustodianUserId` = the
+  scanning user.
+
+### Ingest — store then process
+
+Every source (webhook, poll, manual) writes through the single `CarrierTrackingEventWriter.InsertAsync`,
+which deduplicates by `(CarrierAccountId, CarrierEventId)`: an in-batch de-dup, a lookup against
+already-stored rows, and — because the webhook path has no ambient transaction serializing it
+against a concurrent poll — a fallback to inserting one row at a time on a
+`DbUpdateException`. Only a genuine Postgres unique-index violation (`PostgresException.SqlState ==
+"23505"`, `PostgresErrorCodes.UniqueViolation`) is treated as an expected duplicate and dropped
+silently; any other `DbUpdateException` on that single-row retry is logged before the row is
+dropped, never silently swallowed. `International.csproj` references `Npgsql` directly
+(Application layer, not just Infrastructure) so this check can compare `SqlState` precisely instead
+of a broad `catch (DbUpdateException)`.
+
+- **Webhook** — `POST /api/v1/carrier-webhooks/{webhookPublicId}`, anonymous
+  (`AllowAnonymous().RequireIpRateLimit()`). Resolves the `CarrierAccount` by `WebhookPublicId` via
+  one `IgnoreQueryFilters()` lookup (an anonymous request has no tenant); unknown, inactive, or an
+  account with no webhook secret → 404; a provider without webhook support → 404. Verifies the
+  signature via `provider.VerifyWebhook` — **the constant-time comparison is each
+  `ICarrierProvider`'s own responsibility**; there is no shared helper in the carrier port or its
+  infrastructure. The only implementation exercised today is the test-only
+  `FakeHttpCarrierProvider` (`CryptographicOperations.FixedTimeEquals`); a real adapter (I6) must
+  implement its own. Bad signature → 401, logged, nothing stored; unparseable body with a valid
+  signature → 400 `CARRIER_WEBHOOK_INVALID_PAYLOAD`, nothing stored. Body capped at 1 MB
+  (`CarrierWebhookEndpoints.MaxBodyBytes`), checked against both `Content-Length` and the actual
+  bytes read; over the cap → 413. **This route shares the same per-IP rate-limit bucket as public
+  tracking** — `RequireIpRateLimit()` uses the same config key
+  (`RateLimiting:PublicTrackingRequestsPerMinute`, default 30/minute) and the same `ip:{address}`
+  partition key, so a carrier's webhook calls and public tracking hits from the same IP draw down
+  the same counter.
+- **Polling** — Hangfire recurring job `carrier-tracking-poll` (every 15 minutes,
+  `CarrierTrackingPollJob.RunAsync`), plus an immediate per-booking enqueue
+  (`PollBookingAsync`) after an inbound booking is linked. Covers `Booked` bookings created in the
+  last 60 days (`MaxBookingAge`) on an active, polling-enabled account, capped at 50 bookings per
+  account per run. **Failures are isolated per booking:** one tenant's booking failing (bad
+  ciphertext, an unhandled provider exception) is caught, logged, and the run moves on to the next
+  booking and tenant — it never aborts the whole run. A `CancellationToken` cancellation
+  (`cancellationToken.IsCancellationRequested`) is deliberately **not** swallowed by that same
+  catch filter, so a real shutdown/timeout still propagates. `CarrierTrackingWindow.IsTracked`
+  gates which statuses are still worth polling (outbound: `HandedToCarrier` through
+  `InternationalException`; inbound: `Created` through `InternationalException`) — a terminal
+  shipment (`DeliveredAbroad`, `Delivered`, `Cancelled`, or inbound past `ReceivedFromCarrier`) is
+  skipped.
+- **Manual** — `POST /{id}/carrier-events` (`international.tracking.manage`). Requires a `Booked`
+  booking; the status code must be in that provider's vocabulary (`IsKnownStatusCode`);
+  `OccurredAt` cannot be more than 5 minutes in the future. Inserted with `Source = Manual`,
+  `EnteredByUserId`, audited (`carrier_event.manual_recorded`).
+
+### Processing (`CarrierEventProcessorJob` / `CarrierEventApplier`)
+
+Hangfire recurring job `carrier-event-processor` (every 30 s) plus an immediate enqueue after every
+insert. **A Postgres session advisory lock serializes whole runs:** `RunAsync` calls
+`pg_try_advisory_lock` on a fixed key before touching any event; a run that finds the lock already
+held (another run — recurring, enqueued, or a test's direct call — is mid-batch) **returns
+immediately without processing anything**. This exists because the per-event claim alone isn't
+enough — two overlapping runs could each claim a *different* event for the *same* shipment and
+apply them out of order, or race on the same `Shipment` row. The per-event atomic claim
+(`Pending → Processing`, via `ExecuteUpdateAsync`) stays as defense in depth (e.g. a run holding the
+lock that's killed mid-batch still leaves its claims to be reclaimed).
+
+- **Stale-claim reclaim:** any row still `Processing` after 5 minutes (`StaleClaimAge`) is reset to
+  `Pending` at the start of each run, before new candidates are selected.
+- **Retry cap:** `CarrierEventApplier.MaxAttempts = 5`. An unexpected exception (not a state-machine
+  rejection) leaves the event `Pending` with a note; once `ProcessingAttempts >= 5` it is instead
+  marked `Rejected` with a "gave up after N attempts" note.
+- **Matching:** by `(CarrierAccountId, CarrierAwb)` against a **live `Booked`** booking only — never
+  by AWB alone (so the same AWB used by two tenants' accounts can never cross-match). No matching
+  booking → `Unmatched` (kept, not retried on its own — see requeue below).
+- **`Unmatched` re-queue:** when a booking is created or linked (`CarrierBookingService`'s
+  `CompleteBookingAsync`/`LinkInboundAsync`), any `Unmatched` event already stored for that
+  `(CarrierAccountId, CarrierAwb)` is reset to `Pending` and re-enqueued — an event that arrived
+  before its booking existed (e.g. an early webhook) gets another chance once the booking shows up.
+- **Mapping:** `provider.MapStatus(code, direction)`; `null` → `Ignored` (informational, shown on
+  the timeline).
+- **Applying:** `IShipmentInternationalGateway.ApplyCarrierStatusAsync`. Already at target →
+  `Ignored`; `ShipmentConcurrencyException` → `Pending` (retryable, see Concurrency above); any
+  other `ShipmentValidationException` (including `ShipmentInvalidTransitionException` — a stale or
+  out-of-order event) → `Rejected`; success → `Applied`.
+- Events within one organization's batch are processed **in `OccurredAt` order** (then `ReceivedAt`),
+  so an out-of-order delivery (e.g. `DELIVERED` inserted before `TRANSIT`) still reaches the right
+  end state.
+- **A carrier event that arrives before the handoff scan** *does* match its `Booked` outbound
+  booking (booking happens before handoff), but the shipment is still `CustomsPrepared` — not a
+  valid `Carrier`-trigger from-status in `InternationalTransitionRules` — so
+  `ApplyCarrierStatusAsync` throws `ShipmentInvalidTransitionException` and the event ends
+  `Rejected`. Unlike `Unmatched`, a `Rejected` event is **never automatically re-evaluated**
+  (`RequeueUnmatchedAsync` only resets `Unmatched` rows); it stays `Rejected` even after the
+  shipment is later handed off.
+
+**Known limitation carried into production:** `InternationalTransitionRules` allows
+`CustomsHold → InInternationalTransit` unconditionally for the `Carrier` trigger (not gated on
+event recency), so **a late, older carrier event can still release a `CustomsHold`** even if the
+hold is still real at the carrier — there is no check that a carrier event is newer than the
+shipment's current status before applying a hold-release.
+
+### Background tenant scope
+
+`CarrierEventProcessorJob` and `CarrierTrackingPollJob` run outside any HTTP request, but the
+tenant-filtered application services they call (`CarrierEventApplier`, `CarrierBookingPoller`, the
+gateway, every EF Core query filter) need an organization context. `ITenantScopeFactory.CreateScope
+(organizationId)` (`Courier.SharedKernel`) opens a new DI scope and sets its scoped
+`TenantScopeOverride.OrganizationId`; `HttpContextCurrentTenantProvider` checks that override
+*first*, before falling back to the request's `org_id` JWT claim. No request path ever sets the
+override, so ordinary HTTP requests are unaffected. Both jobs group their cross-tenant candidate
+rows (queried with `IgnoreQueryFilters()`, the same deliberate pattern as `OutboxPublisherJob`) by
+`OrganizationId` and open one tenant scope per organization per run.
+
+### Secrets
+
+Credentials and the webhook secret are encrypted with ASP.NET Data Protection under two distinct
+purpose strings (`International.CarrierAccount.Credentials`,
+`International.CarrierAccount.WebhookSecret` — `DataProtectionCarrierSecretProtector`), so
+credential ciphertext can never be decrypted as a webhook secret or vice versa. Decrypted only
+inside `CarrierAccountSecrets`/the secret protector, immediately before a provider call. Never
+returned by the API except the one-time secret in the create/rotate responses
+(`CarrierAccountSecretResponse`); every other account response exposes only `hasCredentials`/
+`hasWebhookSecret` booleans. `RawResponse`/`RawPayload` are masked before storage
+(`CarrierPayloadSanitizer`) using every known secret value (decrypted credentials plus the webhook
+secret) so a stored payload can't leak a secret even if a carrier happens to echo it back.
+
+### Resilience and error mapping
+
+`AddCarrierHttpClient<TClient, TImplementation>` wires a standard `Microsoft.Extensions.Http.Resilience`
+pipeline per typed carrier `HttpClient`: total timeout 30 s → retry (3 attempts, exponential
+backoff with jitter, on 5xx/408/429/`HttpRequestException`/timeouts) → circuit breaker (50% failure
+ratio over a 30 s window, minimum throughput 10, 30 s break) → per-attempt timeout 10 s — exactly
+the spec §5.9 defaults; tests shrink these via `CarrierResilienceOptions`.
+`InternationalEndpointErrors.ExecuteAsync` is the one exception → HTTP mapping for every I4 route:
+`CarrierBookingFailedException` → `502 CARRIER_BOOKING_FAILED`; `CarrierUnavailableException`
+(circuit open) → `503 CARRIER_UNAVAILABLE`; `InternationalShipmentValidationException` → `400
+INTERNATIONAL_SHIPMENT_VALIDATION_FAILED`; `CarrierAccountValidationException` → `400
+CARRIER_ACCOUNT_VALIDATION_FAILED`; `ShipmentInvalidTransitionException` → `400
+SHIPMENT_INVALID_TRANSITION` (with `{shipmentId, from, to}` detail); any other
+`ShipmentValidationException` → `400 SHIPMENT_VALIDATION_FAILED`.
+
+### Booking (`CarrierBookingService`)
+
+`POST /{id}/book` (`international.book`, `Idempotency-Key` header required, ≤200 chars):
+
+1. Validates tenant/branch visibility, `Direction == Outbound`, status `CustomsPrepared`, the
+   account is active and in-tenant, and (for a manual-AWB carrier) that the supplied AWB is free —
+   all before any write.
+2. **Idempotent replay:** the same key always returns the same outcome (`Failed` → re-throws the
+   same 502; `Pending` and not stale → "still in progress"; resolved → the stored response) without
+   ever calling the carrier twice — *unless* the replayed booking is `Pending` and older than
+   `StalePendingThreshold` (2 minutes), in which case it falls through to the resume path below.
+3. **Stale-`Pending` resume:** if the leg already has a live booking (`Pending` or `Booked`) —
+   found either by the idempotency-key replay lookup or by a fresh `/book` call using a *different*
+   key — a `Booked` one is rejected outright ("cancel it first"); a `Pending` one younger than 2
+   minutes is rejected as "still in progress"; a `Pending` one **at least 2 minutes old** is
+   resumed: the row is claimed atomically (compare-and-set on `UpdatedAt`, so two concurrent resume
+   attempts can never both proceed), then the carrier is called again using the **original stale
+   booking's own stored `IdempotencyKey` and `ServiceLevel`** — never the new request's — since the
+   original attempt may already have reached the carrier.
+4. **Carrier call runs with `CancellationToken.None`** once the `Pending` row is committed — a
+   client disconnect must never abandon a booking that may already be in flight at the carrier; the
+   resilience pipeline enforces its own timeout independently.
+5. On success, the carrier's own AWB, service level and raw response are persisted via a
+   **conditional `ExecuteUpdate` guarded on the row still being `Pending`**
+   (`TryMarkBookedIfPendingAsync`) — so a losing concurrent attempt (or a fully-resolved row) can
+   never be overwritten. **The AWB is persisted before any label upload is attempted** — a label
+   upload failure is logged and leaves the booking `Booked` with no stored label, it never fails
+   the booking itself or gets retried. On failure, the same conditional-update pattern
+   (`TryMarkFailedIfPendingAsync`) marks the booking `Failed` + `FailureReason`, returning `502
+   CARRIER_BOOKING_FAILED` (or `503 CARRIER_UNAVAILABLE` if the circuit is open); the shipment
+   itself is untouched (`CustomsPrepared`) either way, and a new booking may be attempted.
+6. Any `Unmatched` carrier events already stored for the resulting `(CarrierAccountId, CarrierAwb)`
+   are requeued, and the booking is audited (`carrier_booking.booked`/`carrier_booking.failed`).
+
+`CarrierBooking.LabelContentType` was added by its own later migration
+(`AddCarrierBookingLabelContentType`), separate from the initial `AddCarrierLayer` migration that
+created the three new tables.
+
+`POST /{id}/booking/cancel` (`international.book`) — only while `Booked` and the shipment hasn't
+been handed over; calls `CancelAsync` first, then marks `Cancelled` on success.
+
+`POST /{id}/inbound-booking` (`international.book`) — only `Direction == Inbound` at `Created` with
+no live booking; creates a `Booked` booking directly (no carrier call, since the foreign carrier
+already assigned the AWB); if the account is polling-enabled, enqueues an immediate poll.
+
+### Carrier account management
+
+`/api/v1/international/carrier-accounts` (`international.carrier.manage`): `GET /`, `GET /{id}`,
+`POST /` (create — returns the one-time webhook secret if generated), `PUT /{id}` (display name,
+`IsActive`, `PollingEnabled` — covers both deactivation and reactivation; there is no separate
+`deactivate` route), `POST /{id}/credentials` (replace), `POST /{id}/webhook-secret/rotate`
+(returns the new secret once). `GET /{id}/booking/label` (`international.read`) streams the live
+booking's stored label. Account responses always include the webhook URL
+(`/api/v1/carrier-webhooks/{webhookPublicId}`) and `hasCredentials`/`hasWebhookSecret` booleans,
+never the secrets themselves.
+
+### Known limitations
+
+- No real carrier adapter yet — `ManualCarrierProvider` (staff-entered AWB, no network call, no
+  labels/webhooks/polling) is the only production adapter; DHL Express is I6.
+- No pricing/`GetRatesAsync` — carrier rate quoting is I5.
+- No frontend, no merchant API, no merchant-facing webhook event types or notifications for the
+  carrier layer — all I4 routes are staff-only; I7 covers the merchant-facing surface.
+- International returns are not supported — `CustomsHold`/`InternationalException` exit back into
+  the forward lifecycle only (via carrier events or staff override); there is no RTO-equivalent
+  path for an international shipment.
+- Existing tenants' roles are **not** backfilled with the three new permissions
+  (`international.carrier.manage`, `international.book`, `international.tracking.manage`) or the
+  now-wider `international.handoff`/`international.receive` grants — `AdditionalRoleSeeds` and the
+  `OrganizationOwner` all-permissions grant only run at organization registration
+  (`AuthService.RegisterOrganizationAsync`); an organization created before I4 shipped keeps its
+  pre-I4 `RolePermission` rows.
+- A carrier event that arrives before the shipment has actually been handed off ends `Rejected`
+  (the booking matches, but `CustomsPrepared` isn't a valid carrier-trigger from-status) and is
+  **never automatically re-evaluated** — see Processing above. A carrier event that arrives before
+  any booking exists at all ends `Unmatched` instead, and *is* re-evaluated, but only when a new
+  booking is created or linked for that exact `(CarrierAccountId, CarrierAwb)` — not on a generic
+  retry loop.
+- Polling only covers bookings created in the last 60 days (`CarrierTrackingPollJob.MaxBookingAge`)
+  — an older `Booked` booking that somehow still needs tracking would need a manual carrier event
+  or a status override instead.
+- Webhooks share the same per-IP rate-limit bucket as public tracking (see Ingest above) — a
+  high-volume carrier webhook source behind a shared/NAT'd IP could be throttled by unrelated public
+  tracking traffic from the same address, or vice versa.
+- The constant-time webhook signature comparison is left to each `ICarrierProvider`'s own
+  `VerifyWebhook` implementation; there is no shared helper, so a careless future adapter could
+  introduce a timing side-channel.
+- `InternationalTransitionRules` allows `CustomsHold → InInternationalTransit` unconditionally for
+  carrier-triggered events, so a stale/out-of-order carrier event can release a `CustomsHold` that
+  is still real at the carrier (see Processing above).

@@ -174,21 +174,43 @@ the manifest's `ToBranchId`. Full internal endpoint catalog is enumerated per-mo
 as each module is implemented (`ROADMAP.md`), not upfront here, to avoid the
 catalog drifting from what's actually built.
 
-## 7. International Shipments API (I3)
+## 7. International Shipments API (I3, extended I4)
 
 Staff-only (JWT + permission), not part of the Merchant API catalog in §3 — merchant-facing
-international booking is I7. All four routes check the `international.*` permission (`403` if
-missing) **and** branch scope (`RBAC.md` §3): `POST` requires access to `originBranchId`; `GET`/
-`PATCH`/`prepare-customs` return `404` to a branch-restricted caller when the shipment touches none
-of their branches as origin, destination or current branch (same rule as `GET /api/v1/shipments`),
-and `prepare-customs` additionally requires access to the shipment's current branch (`400
-SHIPMENT_VALIDATION_FAILED`). Cross-tenant ids are `404`.
+international booking is I7. Every route checks its `international.*` permission (`403` if
+missing) **and** branch scope (`RBAC.md` §3): `POST /` requires access to `originBranchId`; the
+shipment-scoped GET/PATCH/action routes return `404` to a branch-restricted caller when the
+shipment touches none of their branches as origin, destination or current branch (same rule as
+`GET /api/v1/shipments`); `prepare-customs` and `handoff` additionally require access to the
+shipment's **current** branch (`400 SHIPMENT_VALIDATION_FAILED`), and `receive` requires access to
+the shipment's `originBranchId`. Cross-tenant ids are `404`.
 
 ```http
 POST   /api/v1/international/shipments                       # create an international shipment shell + InternationalLeg
-GET    /api/v1/international/shipments/{id}                  # merged Shipment + InternationalLeg + CustomsItem detail
+GET    /api/v1/international/shipments/{id}                  # merged Shipment + InternationalLeg + CustomsItem + booking/tracking detail (I4)
 PATCH  /api/v1/international/shipments/{id}/customs           # full-replace the customs declaration
 POST   /api/v1/international/shipments/{id}/prepare-customs   # trigger the CustomsPrepared transition
+
+# I4 — carrier booking and lifecycle
+POST   /api/v1/international/shipments/{id}/book              # book with a carrier (outbound)
+POST   /api/v1/international/shipments/{id}/booking/cancel    # cancel a Booked booking before handoff
+POST   /api/v1/international/shipments/{id}/inbound-booking    # link an existing carrier booking (inbound)
+GET    /api/v1/international/shipments/{id}/booking/label      # download the live booking's stored label
+POST   /api/v1/international/shipments/{id}/carrier-events      # record a manual carrier tracking event
+POST   /api/v1/international/shipments/{id}/handoff             # handoff scan (outbound custody ends)
+POST   /api/v1/international/shipments/{id}/receive              # receive scan (inbound custody resumes)
+POST   /api/v1/international/shipments/{id}/status-override      # staff override out of CustomsHold/InternationalException
+
+# I4 — carrier accounts (tenant-level, not shipment-scoped)
+GET    /api/v1/international/carrier-accounts                        # list carrier accounts
+GET    /api/v1/international/carrier-accounts/{id}                   # get a carrier account
+POST   /api/v1/international/carrier-accounts                        # create (returns the one-time webhook secret if generated)
+PUT    /api/v1/international/carrier-accounts/{id}                   # update display name / IsActive / PollingEnabled
+POST   /api/v1/international/carrier-accounts/{id}/credentials        # replace stored credentials
+POST   /api/v1/international/carrier-accounts/{id}/webhook-secret/rotate  # rotate the webhook secret (returned once)
+
+# I4 — anonymous carrier webhook ingest
+POST   /api/v1/carrier-webhooks/{webhookPublicId}                    # signed carrier webhook receiver
 ```
 
 * **`POST /`** — `international.create`. Body (`CreateInternationalShipmentRequest`): `merchantId`,
@@ -216,7 +238,11 @@ POST   /api/v1/international/shipments/{id}/prepare-customs   # trigger the Cust
   caller's tenant, or is outside the caller's branch visibility. Note:
   the embedded `shipment` object is the existing `ShipmentResponse` shape unchanged — it does not
   carry `scope`/`direction` or the foreign-side `city`/`region`/`postalCode`/`countryCode` fields
-  (see `docs/INTERNATIONAL.md`'s Known limitations).
+  (see `docs/INTERNATIONAL.md`'s Known limitations). **I4:** the response additionally carries the
+  live booking (if any, no secrets — a download reference instead of the label bytes), the full
+  booking history for the leg, and the carrier tracking-event timeline (source, carrier status
+  code, mapped `ShipmentStatus`, processing outcome, occurred/received timestamps). `RawPayload`/
+  `RawResponse` are never returned.
 * **`PATCH /{id}/customs`** — `international.manage_customs`. Full-replace body
   (`UpdateCustomsRequest`): `contentsDescription`, `countryOfOrigin`, `purpose` (`Gift`|
   `CommercialSale`|`Sample`|`Return`|`Documents`|`Other`), `incoterm` (`Ddu`|`Ddp`),
@@ -238,3 +264,94 @@ POST   /api/v1/international/shipments/{id}/prepare-customs   # trigger the Cust
   shipment's current branch; `400
   SHIPMENT_INVALID_TRANSITION` if the shipment isn't currently in the expected `Sorted`
   (same-branch)/`AtDestinationBranch` (different-branch) status.
+
+### 7.1 Carrier booking and lifecycle (I4)
+
+* **`POST /{id}/book`** — `international.book`. Requires an `Idempotency-Key` header (≤200 chars);
+  replaying the same key returns the original outcome without calling the carrier again (a `Failed`
+  replay re-throws the same `502`; a `Pending` replay younger than 2 minutes returns "still in
+  progress"). Body: `{ carrierAccountId, serviceLevel?, carrierAwb? }` (`carrierAwb` required only
+  when the carrier's capabilities say it assigns no AWB of its own). Requires `Direction ==
+  Outbound`, status `CustomsPrepared`, an active in-tenant carrier account, and no other live
+  booking on the leg. `400 INTERNATIONAL_SHIPMENT_VALIDATION_FAILED` for every validation failure
+  above (including "still in progress" and "already has a carrier booking"); `502
+  CARRIER_BOOKING_FAILED` if the carrier rejects/fails the booking (the shipment stays
+  `CustomsPrepared`, a new booking may be attempted); `503 CARRIER_UNAVAILABLE` if the circuit
+  breaker is open. Returns the booking (`CarrierBookingResponse`: id, carrier account, direction,
+  status, carrier AWB, service level, whether a label exists, booked/cancelled/custody timestamps —
+  never the raw carrier response or any secret).
+* **`POST /{id}/booking/cancel`** — `international.book`. Only while the booking is `Booked` and
+  the shipment hasn't been handed to the carrier yet (still `CustomsPrepared`); calls the carrier's
+  `CancelAsync` first, then marks the booking `Cancelled` on success. `400
+  INTERNATIONAL_SHIPMENT_VALIDATION_FAILED` if there is no booked booking or the shipment has
+  already moved past `CustomsPrepared`; `502`/`503` on a carrier-side cancel failure.
+* **`POST /{id}/inbound-booking`** — `international.book`. Body: `{ carrierAccountId, carrierAwb,
+  serviceLevel? }`. Only for `Direction == Inbound` at status `Created` with no live booking on the
+  leg; creates a `Booked` booking directly (no carrier call — the foreign carrier already assigned
+  the AWB) and, if the account is polling-enabled, enqueues an immediate poll. `400
+  INTERNATIONAL_SHIPMENT_VALIDATION_FAILED` if the AWB is already linked on that carrier account or
+  a live booking already exists.
+* **`GET /{id}/booking/label`** — `international.read`. Streams the live booking's stored label
+  (whatever content type the carrier returned, or `application/octet-stream`); `404` if there is no
+  visible shipment, no `Booked` booking, or no stored label.
+* **`POST /{id}/carrier-events`** — `international.tracking.manage`. Body: `{ statusCode,
+  occurredAt, location?, description? }`. Requires a `Booked` booking; `statusCode` must be in that
+  provider's known vocabulary; `occurredAt` cannot be more than 5 minutes in the future. Inserted
+  with `Source = Manual`, attributed to the caller, and audited
+  (`carrier_event.manual_recorded`). `400 INTERNATIONAL_SHIPMENT_VALIDATION_FAILED` for an unknown
+  status code, a future-dated `occurredAt`, or an oversized `location`/`description`.
+* **`POST /{id}/handoff`** — `international.handoff`, branch-scoped to the shipment's *current*
+  branch. Requires a `Booked` outbound booking; transitions `CustomsPrepared → HandedToCarrier` and
+  clears custody (see `SHIPMENT-LIFECYCLE.md`'s "Carrier lifecycle" subsection). `400
+  INTERNATIONAL_SHIPMENT_VALIDATION_FAILED` if there is no booked outbound booking; `400
+  SHIPMENT_VALIDATION_FAILED` if the caller lacks access to the shipment's current branch, or if the
+  booking was concurrently cancelled (the whole handoff transaction rolls back); `400
+  SHIPMENT_INVALID_TRANSITION` if the shipment isn't `CustomsPrepared`.
+* **`POST /{id}/receive`** — `international.receive`, requires access to the shipment's
+  `originBranchId`. Requires a linked `Booked` inbound booking; transitions from
+  `InInternationalTransit`/`CustomsClearance` to `ReceivedFromCarrier` (and, at a same-branch
+  gateway, immediately on to `AtDestinationBranch` in the same call). `400
+  INTERNATIONAL_SHIPMENT_VALIDATION_FAILED` if no inbound booking is linked yet; `400
+  SHIPMENT_INVALID_TRANSITION` if the shipment isn't in one of the two valid from-statuses.
+* **`POST /{id}/status-override`** — `international.tracking.manage`. Body: `{ targetStatus,
+  reason }`; `reason` is required and non-empty (≤2000 chars). Allowed only for the transitions
+  `InternationalTransitionRules` marks staff-overridable (out of `CustomsHold`/
+  `InternationalException`); audited with before/after status and reason. `400
+  SHIPMENT_VALIDATION_FAILED` for a missing/oversized reason; `400 SHIPMENT_INVALID_TRANSITION` for
+  a target not in the staff-override table.
+
+### 7.2 Carrier account management (I4)
+
+`/api/v1/international/carrier-accounts` — `international.carrier.manage` on every route
+(tenant-level, not shipment-scoped; cross-tenant ids are `404`).
+
+* **`GET /`** / **`GET /{id}`** — list/get. Every response exposes `hasCredentials`/
+  `hasWebhookSecret` booleans and the webhook URL (`/api/v1/carrier-webhooks/{webhookPublicId}`) —
+  never the secrets themselves.
+* **`POST /`** — create. Body: `{ carrierCode, displayName, credentials?, pollingEnabled,
+  generateWebhookSecret }`.
+  `pollingEnabled`/`generateWebhookSecret` are only accepted when the provider's capabilities
+  support them. Returns the account plus the plaintext webhook secret **once**, only in this
+  response (or the rotate response below) — never retrievable again. `400
+  CARRIER_ACCOUNT_VALIDATION_FAILED` for an unregistered `carrierCode` or an unsupported
+  capability request.
+* **`PUT /{id}`** — update `displayName`, `IsActive`, `pollingEnabled`. Covers both deactivation
+  and reactivation; there is no separate `deactivate` route. An inactive account's webhook calls
+  return `404` and it is skipped by polling.
+* **`POST /{id}/credentials`** — replace the encrypted credentials. Never returns them back.
+* **`POST /{id}/webhook-secret/rotate`** — generates and stores a new webhook secret, returning it
+  once in the response body.
+
+### 7.3 Carrier webhook ingest (I4)
+
+```http
+POST /api/v1/carrier-webhooks/{webhookPublicId}
+```
+
+Anonymous — authenticated only by the carrier account's own signature, resolved from
+`webhookPublicId` (never from the payload). Shares the same per-IP rate limit as public tracking
+(`RequireIpRateLimit()`, 30 req/min per IP by default). Body capped at 1 MB (`413` over the cap).
+Outcomes: `202 Accepted` (stored, queued for processing); `401 Unauthorized` (bad or missing
+signature — nothing stored); `400 CARRIER_WEBHOOK_INVALID_PAYLOAD` (valid signature, unparseable
+body — nothing stored); `404 Not Found` (unknown/inactive account, no webhook secret configured, or
+the account's carrier doesn't support webhooks).
