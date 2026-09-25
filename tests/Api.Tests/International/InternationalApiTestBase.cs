@@ -277,20 +277,24 @@ public abstract class InternationalApiTestBase
         return created;
     }
 
-    // Runs the processor directly, then waits until none of this carrier account's events is
-    // still Pending/Processing (the host's own Hangfire server may claim some first — the atomic
-    // claim makes that safe).
+    // Runs the processor directly on every iteration of the wait loop, then checks whether none of
+    // this carrier account's events is still Pending/Processing. Processing is serialized by a
+    // Postgres advisory lock (I4 fix round): a direct RunAsync() call skips outright if a
+    // concurrent Hangfire run already holds the lock, so a single up-front call can race a
+    // recurring job and leave events unprocessed. Retrying RunAsync() inside the loop means this
+    // helper's own call eventually wins the lock even when the host's recurring job keeps grabbing
+    // it first.
     protected async Task ProcessCarrierEventsAsync(Guid carrierAccountId)
     {
-        using (var scope = Factory.Services.CreateScope())
-        {
-            await scope.ServiceProvider.GetRequiredService<CarrierEventProcessorJob>().RunAsync();
-        }
         var deadline = DateTime.UtcNow.AddSeconds(15);
         while (true)
         {
-            using var scope = Factory.Services.CreateScope();
-            var open = await scope.ServiceProvider.GetRequiredService<AppDbContext>().Set<CarrierTrackingEvent>().IgnoreQueryFilters()
+            using (var scope = Factory.Services.CreateScope())
+            {
+                await scope.ServiceProvider.GetRequiredService<CarrierEventProcessorJob>().RunAsync();
+            }
+            using var checkScope = Factory.Services.CreateScope();
+            var open = await checkScope.ServiceProvider.GetRequiredService<AppDbContext>().Set<CarrierTrackingEvent>().IgnoreQueryFilters()
                 .CountAsync(e => e.CarrierAccountId == carrierAccountId
                     && (e.ProcessingStatus == CarrierEventProcessingStatus.Pending || e.ProcessingStatus == CarrierEventProcessingStatus.Processing));
             if (open == 0)
