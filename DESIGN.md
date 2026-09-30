@@ -104,7 +104,7 @@ This system is still mid-build (Phases F0–F4 of nine staff-portal phases; see 
 
 **Key Characteristics:**
 - Warm paper background + deep indigo ink, not black-on-white or cool gray-on-white.
-- Courier Cobalt — a single brand-blue hue, sharing ink's hue family — carries every interactive surface: primary buttons, links, focus rings, the active sidebar state, and KPI-highlight accents.
+- Courier Cobalt — a single brand-blue hue, sharing ink's hue family — carries every interactive surface: primary buttons, links, focus rings, and KPI-highlight accents.
 - A muted, WCAG-AA-first status palette — legible over loud, colorblind-safe over saturated.
 - Space Grotesk display type for titles, section headers, and the two auth surfaces; IBM Plex Sans everywhere else, including Sheet titles.
 - Almost flat: one soft default shadow for in-page surfaces, a second tinted lift reserved for the two auth surfaces, no elevation ladder beyond that.
@@ -116,10 +116,10 @@ A warm, low-saturation ledger palette: paper and ink for structure, a small set 
 
 ### Primary
 - **Deep Indigo Ink** (`#161821`): body text on paper, and the `foreground` role generally — headings, table cells, form values. Ink is a neutral now, not a stand-in for a brand color.
-- **Courier Cobalt** (`#1d2863`, light mode): the system's one brand hue, introduced in the 2026-09-02 color pass. Shares ink's ~230° hue family — deliberately "ink brought to life" rather than an unrelated accent — and carries the `primary` role (button fills), `ring` (focus rings), the sidebar's active state and brand-lockup icon chip, and (via `accent`, below) hover/selection tints and KPI-highlight panel backgrounds. Text/links/buttons on top of it use paper (`#fffdf9`) for a contrast ratio above 12:1. This is the one token that changes hue between themes rather than just lightness — dark mode uses a brighter `#4f58e3` (see Dark Mode below) since a dark-lightness fill would disappear against the dark background.
+- **Courier Cobalt** (`#1d2863`, light mode): the system's one brand hue, introduced in the 2026-09-02 color pass. Shares ink's ~230° hue family — deliberately "ink brought to life" rather than an unrelated accent — and carries the `primary` role (button fills), `ring` (focus rings), and (via `accent`, below) hover/selection tints and KPI-highlight panel backgrounds. Text/links/buttons on top of it use `--primary-foreground` (`#faf7f2`) for a contrast ratio above 12:1. This is the one token that changes hue between themes rather than just lightness — dark mode uses a brighter `#4f58e3` (see Dark Mode below) since a dark-lightness fill would disappear against the dark background.
 
 ### Secondary
-- **Cobalt Tint** (`#e9ebf7`): the `accent` role — hover/active backgrounds (menu items, dropdown items, sidebar active state, selection), `::selection`, and the background of highlighted KPI callout panels (e.g. Merchant Payable). A pale wash of Courier Cobalt, not a saturated highlight — replaces the previous "Warm Marigold Tint," which was disconnected from the (then ink-based) interactive palette. Marigold is retired from this role entirely; nothing else in the system references it.
+- **Cobalt Tint** (`#e9ebf7`): the `accent` role — hover/active backgrounds (menu items, dropdown items, selection), `::selection`, and the background of highlighted KPI callout panels (e.g. Merchant Payable). A pale wash of Courier Cobalt, not a saturated highlight — replaces the previous "Warm Marigold Tint," which was disconnected from the (then ink-based) interactive palette. Marigold is retired from this role entirely; nothing else in the system references it.
 - **Cool Slate Mist** (`#e9e9ed`) / **Fog** (`#eeeff1`): `secondary` and `muted` surfaces — secondary buttons, badge backgrounds, neutral icon-chip backgrounds, dropdown separators, disabled/quiet regions.
 
 ### Neutral
@@ -268,9 +268,9 @@ Shared page-level building blocks in `src/components/page/`: `PageHeader` (title
 **The No-Fake-Numbers Rule.** Data the API does not serve yet renders `ComingSoonSlot` (`src/components/page/ComingSoonSlot.tsx`, `data-coming-soon`), never mock or sample values on a product screen.
 
 ### Navigation (Sidebar)
-- **Style:** a dark console rail in both themes (`console-rail` `#161821`, muted text `console-rail-muted` `#8a8da0`), with a static brand lockup at the top. One `ConsoleShell` (`components/console/`) renders the rail, header and content region for staff, merchant and platform consoles alike; each console supplies only its own nav groups.
+- **Style:** a dark console rail: `#161821` in light mode and one step darker than the page in dark mode (`--sidebar-background` `225 22% 7.1%`, ≈`#0e1016`). Muted text is `#8a8da0`. In the frontmatter, `console-rail` maps to `--sidebar-background` and `console-rail-muted` to `--sidebar-muted`; the brand-lockup chip uses `--sidebar-primary` (`#4f58e3`), with a static brand lockup at the top. One `ConsoleShell` (`components/console/`) renders the rail, header and content region for staff, merchant and platform consoles alike; each console supplies only its own nav groups.
 - **Groups:** grouped, non-collapsible section headings in IBM Plex Mono caps. Headings are labels, not disclosure controls. Items are gated per console (staff by permission via `useStaffNavGroups`; merchant via `useMerchantNavGroups`) and render nothing when denied; a group with no permitted items is dropped.
-- **Active state:** `bg-sidebar-accent` with white text and `aria-current="page"`; the active item is the longest-matching href (`findActiveItem`).
+- **Active state:** `bg-sidebar-accent` (`--sidebar-accent`, `#2a2e42`) with white text and `aria-current="page"`; the active item is the longest-matching href (`findActiveItem`).
 - **Mobile:** below `md`, the rail is replaced by a `Sheet`-based drawer opened via a header hamburger trigger, sharing the same nav content as desktop so the two can't drift apart.
 
 ### Header
