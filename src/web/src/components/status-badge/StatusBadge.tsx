@@ -8,7 +8,7 @@ import { resolveStatusConfig } from "@/components/status-badge/statusConfig";
 export function StatusBadge({ status, namespace }: { status: string; namespace?: string }) {
   const config = resolveStatusConfig(status, namespace);
   return (
-    <Badge variant="secondary" className="gap-1.5">
+    <Badge variant="secondary" className="h-6 gap-1.5 rounded-md px-2 text-xs font-medium">
       <span
         className="h-2 w-2 rounded-full"
         style={{ backgroundColor: `hsl(var(--${config.token}))` }}

@@ -40,7 +40,7 @@ export default function PlatformQueuesPage() {
   }
 
   return (
-    <div className="space-y-4 p-6">
+    <div className="space-y-4">
       <h1 className="font-display text-xl font-semibold">Queues</h1>
       <DataTable
         columns={columns}

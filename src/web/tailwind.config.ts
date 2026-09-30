@@ -48,6 +48,7 @@ const config: Config = {
         border: "hsl(var(--border) / <alpha-value>)",
         input: "hsl(var(--input) / <alpha-value>)",
         ring: "hsl(var(--ring) / <alpha-value>)",
+        "surface-sunken": "hsl(var(--surface-sunken) / <alpha-value>)",
         "status-created": {
           DEFAULT: "hsl(var(--status-created) / <alpha-value>)",
           foreground: "hsl(var(--status-created-foreground) / <alpha-value>)",
@@ -93,6 +94,7 @@ const config: Config = {
           "accent-foreground": "hsl(var(--sidebar-accent-foreground))",
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
+          muted: "hsl(var(--sidebar-muted))",
         },
         "marketing-bg": "hsl(var(--marketing-bg) / <alpha-value>)",
         "marketing-bg-elevated": "hsl(var(--marketing-bg-elevated) / <alpha-value>)",

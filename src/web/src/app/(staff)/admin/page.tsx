@@ -31,7 +31,7 @@ export default function AdminPage() {
   // other sub-tab such a user lacks permission for.
   const permitted = { roles: canManageRoles, users: canReadUsers, settings: canManageSettings || canManageTemplates };
 
-  // The sidebar's own Admin link is visible to anyone with role.manage OR user.read (nav-main.tsx)
+  // The sidebar's own Admin link is visible to anyone with role.manage OR user.read (navItems.ts)
   // — a user with only one of the two must never see a tab (or its data fetch) requiring the
   // other, since the backend's own RequirePermission on each endpoint is stricter than that OR.
   const visibleTabs = TABS.filter((tab) => permitted[tab.key]);

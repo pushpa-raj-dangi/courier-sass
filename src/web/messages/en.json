@@ -3,7 +3,7 @@
     "appName": "Courier Platform"
   },
   "nav": {
-    "group": "Platform",
+    "groups": { "operations": "Operations", "finance": "Finance", "network": "Network", "admin": "Admin" },
     "dashboard": "Dashboard",
     "shipments": "Shipments",
     "branches": "Branches",
@@ -89,5 +89,16 @@
       "calendarGregorian": "Gregorian (AD)",
       "calendarBikramSambat": "Bikram Sambat (BS)"
     }
+  },
+  "console": {
+    "operationsConsole": "Operations console",
+    "needsBackend": "Needs backend",
+    "notifications": "Notifications",
+    "notificationsTitle": "Notifications",
+    "notificationsDescription": "Shipment exceptions, manifest alerts and settlement approvals will appear here.",
+    "breadcrumb": "Breadcrumb",
+    "bsSuffix": "BS",
+    "branchScope": "Branch scope",
+    "selectBranch": "Select branch"
   }
 }

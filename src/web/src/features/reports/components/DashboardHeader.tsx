@@ -1,6 +1,7 @@
 "use client";
 
 import { useSession } from "@/features/auth/hooks/useSession";
+import { PageHeader } from "@/components/page/PageHeader";
 
 function greeting(hour: number): string {
   if (hour < 12) return "Good morning";
@@ -18,20 +19,10 @@ export function DashboardHeader() {
   const now = new Date();
 
   return (
-    <div className="flex flex-wrap items-start justify-between gap-3">
-      <div>
-        <p className="text-sm text-muted-foreground">
-          {greeting(now.getHours())}
-          {firstName ? `, ${firstName}` : ""}
-        </p>
-        <h1 className="font-display text-xl font-semibold text-foreground">
-          {session?.organizationName ?? "Organization Dashboard"}
-        </h1>
-      </div>
-      <p className="text-xs text-muted-foreground">
-        As of {now.toLocaleDateString("en-US", { month: "short", day: "numeric" })},{" "}
-        {now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
-      </p>
-    </div>
+    <PageHeader
+      eyebrow={`${greeting(now.getHours())}${firstName ? `, ${firstName}` : ""}`}
+      title={session?.organizationName ?? "Organization Dashboard"}
+      description={`As of ${now.toLocaleDateString("en-US", { month: "short", day: "numeric" })}, ${now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`}
+    />
   );
 }

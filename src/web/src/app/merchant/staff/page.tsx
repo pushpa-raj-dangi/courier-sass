@@ -13,7 +13,7 @@ import { useMerchantStaff } from "@/features/merchant-staff/hooks/useMerchantSta
 import { useMerchantStaffPanelStore } from "@/features/merchant-staff/store/merchantStaffPanelStore";
 
 export default function MerchantStaffPage() {
-  // Owner-only screen. The nav entry (MerchantNavMain) already hides "Staff" from a Staff-role
+  // Owner-only screen. The nav entry (merchantNav.ts) already hides "Staff" from a Staff-role
   // session, and the backend (`MerchantStaffEndpoints`) already requires
   // `merchant.staff.manage` on both routes — this is defense in depth for anyone who navigates
   // to /merchant/staff directly: never issue the fetch, never render staff data.

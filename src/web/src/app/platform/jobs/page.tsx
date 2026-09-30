@@ -47,7 +47,7 @@ export default function PlatformJobsPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-6 p-6">
+      <div className="space-y-6">
         <h1 className="font-display text-xl font-semibold">Jobs</h1>
         <StatTilesSkeleton count={6} />
         <div className="space-y-2">
@@ -72,7 +72,7 @@ export default function PlatformJobsPage() {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       <h1 className="font-display text-xl font-semibold">Jobs</h1>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
         <StatTile label="Enqueued" value={data.summary.enqueued} />

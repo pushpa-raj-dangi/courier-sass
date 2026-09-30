@@ -99,3 +99,29 @@ describe("DataTable", () => {
     expect(onPageChange).toHaveBeenCalledWith(4);
   });
 });
+
+describe("DataTable selection", () => {
+  const data = {
+    items: [{ id: "a", name: "Alpha" }, { id: "b", name: "Beta" }],
+    page: 1,
+    pageSize: 20,
+    totalCount: 2,
+    totalPages: 1,
+  };
+  const columns = [{ key: "name", header: "Name", render: (r: { name: string }) => r.name }];
+
+  it("marks the row matching selectedRowId as selected and no other", () => {
+    render(
+      <DataTable columns={columns} data={data} isLoading={false} emptyTitle="None" onPageChange={() => {}} rowKey={(r) => r.id} selectedRowId="b" />
+    );
+    expect(screen.getByText("Beta").closest("tr")).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByText("Alpha").closest("tr")).toHaveAttribute("aria-selected", "false");
+  });
+
+  it("omits aria-selected entirely when selection is not in use", () => {
+    render(
+      <DataTable columns={columns} data={data} isLoading={false} emptyTitle="None" onPageChange={() => {}} rowKey={(r) => r.id} />
+    );
+    expect(screen.getByText("Alpha").closest("tr")).not.toHaveAttribute("aria-selected");
+  });
+});

@@ -136,7 +136,7 @@ function PageItem({
   const hasSecond = usePermission(permissions[1] ?? permissions[0]);
   const label = tNav(item.labelKey);
   // Also match the English label and the URL so English/slug searches work in Nepali mode.
-  const englishLabel = (enMessages.nav as Record<string, string>)[item.labelKey] ?? "";
+  const englishLabel = enMessages.nav[item.labelKey] ?? "";
   if (!(hasFirst || hasSecond) || !matches(query, label, englishLabel, item.href)) {
     return null;
   }

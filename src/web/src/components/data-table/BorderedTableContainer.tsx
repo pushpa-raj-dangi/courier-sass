@@ -4,13 +4,8 @@ export interface BorderedTableContainerProps {
   children: ReactNode;
 }
 
-// Shared wrapper for a raw `Table` used outside `DataTable` (non-paginated merchant-scoped
-// lists). `bg-muted/40` rather than `bg-card` is deliberate: these lists sit directly on the
-// page background, and `bg-card` is hex-identical to it in light mode.
+// The one bordered table frame (DataTable and every raw Table). F15 R1: card surface on the sand
+// page — cards and page no longer share a color, so bg-card now reads as a lifted panel.
 export function BorderedTableContainer({ children }: BorderedTableContainerProps) {
-  return (
-    <div className="overflow-hidden rounded-xl border border-border bg-muted/40">
-      {children}
-    </div>
-  );
+  return <div className="overflow-hidden rounded-xl border border-border bg-card">{children}</div>;
 }

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { cn } from "@/lib/utils";
 import {
   Table,
   TableBody,
@@ -18,6 +19,7 @@ import {
 } from "@/components/ui/pagination";
 import { EmptyState } from "@/components/states/EmptyState";
 import { LoadingState } from "@/components/states/LoadingState";
+import { BorderedTableContainer } from "@/components/data-table/BorderedTableContainer";
 
 export interface ColumnDef<T> {
   key: string;
@@ -66,6 +68,7 @@ export interface DataTableProps<T> {
   emptyDescription?: string;
   onPageChange: (page: number) => void;
   rowKey: (row: T) => string;
+  selectedRowId?: string;
 }
 
 export function DataTable<T>({
@@ -76,6 +79,7 @@ export function DataTable<T>({
   emptyDescription,
   onPageChange,
   rowKey,
+  selectedRowId,
 }: DataTableProps<T>) {
   if (isLoading) {
     return <LoadingState rows={data?.pageSize ?? 5} />;
@@ -86,26 +90,38 @@ export function DataTable<T>({
 
   return (
     <div className="space-y-4">
-      <div className="overflow-hidden rounded-xl border border-border bg-muted/40">
+      <BorderedTableContainer>
         <Table>
-          <TableHeader>
-            <TableRow>
+          <TableHeader className="bg-surface-sunken">
+            <TableRow className="hover:bg-transparent">
               {columns.map((col) => (
-                <TableHead key={col.key}>{col.header}</TableHead>
+                <TableHead key={col.key} className="h-10 text-[11.5px] font-medium text-muted-foreground">
+                  {col.header}
+                </TableHead>
               ))}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {data.items.map((row) => (
-              <TableRow key={rowKey(row)}>
-                {columns.map((col) => (
-                  <TableCell key={col.key}>{col.render(row)}</TableCell>
-                ))}
-              </TableRow>
-            ))}
+            {data.items.map((row) => {
+              const id = rowKey(row);
+              const selected = selectedRowId !== undefined && id === selectedRowId;
+              return (
+                <TableRow
+                  key={id}
+                  aria-selected={selectedRowId === undefined ? undefined : selected}
+                  className={cn(selected && "bg-accent hover:bg-accent")}
+                >
+                  {columns.map((col) => (
+                    <TableCell key={col.key} className="h-[52px] py-2">
+                      {col.render(row)}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
-      </div>
+      </BorderedTableContainer>
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
           Page {data.page} of {data.totalPages} ({data.totalCount} total)

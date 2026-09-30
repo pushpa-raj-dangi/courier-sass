@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { Building2, ChevronDown } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useSession } from "@/features/auth/hooks/useSession";
 import { useUiStore } from "@/lib/store/uiStore";
 import { useBranchPanelStore } from "@/features/branches/store/branchPanelStore";
@@ -16,6 +17,7 @@ import { Button } from "@/components/ui/button";
 // Renders nothing for a single-branch user (Phase F2's exit criteria) — a switcher implies a
 // choice, and a user with exactly one branch (or none) has none to make.
 export function BranchSwitcher() {
+  const t = useTranslations("console");
   const { data: session } = useSession();
   const activeBranchId = useUiStore((s) => s.activeBranchId);
   const setActiveBranchId = useUiStore((s) => s.setActiveBranchId);
@@ -41,10 +43,16 @@ export function BranchSwitcher() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-1.5">
-          <Building2 className="h-3.5 w-3.5" strokeWidth={2} />
-          {active?.branchName ?? "Select branch"}
-          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={2} />
+        <Button
+          variant="ghost"
+          className="h-auto min-h-12 w-full justify-start gap-2.5 rounded-lg border border-sidebar-border bg-sidebar-accent/60 px-3 py-2 text-left text-sidebar-accent-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-sidebar-ring"
+        >
+          <Building2 className="h-4 w-4 shrink-0 text-sidebar-primary" strokeWidth={2} aria-hidden="true" />
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="text-[11px] font-normal text-sidebar-foreground">{t("branchScope")}</span>
+            <span className="truncate text-[13px] font-medium">{active?.branchName ?? t("selectBranch")}</span>
+          </span>
+          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-sidebar-muted" strokeWidth={2} aria-hidden="true" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent>
