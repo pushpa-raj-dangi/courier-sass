@@ -62,17 +62,25 @@
  * is ever actually competing with for identification. Re-run the validator
  * (`"<primary-hex>,<status-sealed-hex>,<status-received-hex>" --mode dark --pairs
  * all`) before changing either hue.
+ *
+ * F15 R1 (2026-09-30): --background moved to warm sand and --card/--popover to near-white so
+ * cards separate from the page without shadows; --surface-sunken added. Every text/non-text
+ * pair these touch is asserted in src/app/tokens.contrast.test.ts (light + dark).
  */
 
 :root {
-  --background: 37.5 44.4% 96.5%;
+  --background: 42 31% 93.7%;
   --foreground: 229.1 20.0% 10.8%;
 
-  --card: 37.5 44.4% 96.5%;
+  --card: 40 100% 98.8%;
   --card-foreground: 229.1 20.0% 10.8%;
 
-  --popover: 37.5 44.4% 96.5%;
+  --popover: 40 100% 98.8%;
   --popover-foreground: 229.1 20.0% 10.8%;
+
+  /* F15 R1: sunken surface for table header rows and Sheet footer bars — a step below
+     --background so it reads as recessed on both page and card. */
+  --surface-sunken: 42 26% 92.5%;
 
   --primary: 230.0 55.0% 25.0%;
   --primary-foreground: 37.5 44.4% 96.5%;
@@ -199,6 +207,8 @@
 
   --popover: 228.8 21.1% 14.9%;
   --popover-foreground: 40.0 33.3% 92.9%;
+
+  --surface-sunken: 229 20% 12.5%;
 
   --primary: 236.0 73.0% 60.0%;
   --primary-foreground: 40.0 33.3% 92.9%;
@@ -353,34 +363,34 @@ body {
 }
 
 /*
- * Sidebar tokens (shadcn sidebar-07 block, Frontend Phase F4 sidebar redo) — mapped onto this
- * palette's existing background/accent/border/ring values rather than left at the block's
- * generic gray defaults, so the sidebar reads as part of this design system instead of a
- * bolted-on demo. Light mode shares --background exactly (this palette's --card is identical to
- * --background already) with --border providing the only separation, matching how every other
- * bordered panel in this app works; dark mode does the same.
+ * Sidebar tokens — F15 R1 "console rail": the sidebar is a dark ink rail in BOTH themes
+ * (one step darker than the page in dark mode so it still reads as its own surface).
+ * Ratios are enforced by src/app/tokens.contrast.test.ts: rail text ≈10:1, group headings
+ * (--sidebar-muted) ≈5.4:1, brand chip (--sidebar-primary) ≈3.3:1 non-text.
  */
 
 @layer base {
   :root {
-    --sidebar-background: 37.5 44.4% 96.5%;
-    --sidebar-foreground: 229.1 20.0% 10.8%;
-    --sidebar-primary: 230.0 55.0% 25.0%;
-    --sidebar-primary-foreground: 37.5 44.4% 96.5%;
-    --sidebar-accent: 230.0 45.0% 94.0%;
-    --sidebar-accent-foreground: 229.1 20.0% 10.8%;
-    --sidebar-border: 230 10% 87%;
-    --sidebar-ring: 230.0 55.0% 25.0%;
+    --sidebar-background: 229 20% 10.8%;
+    --sidebar-foreground: 231 12% 79%;
+    --sidebar-primary: 236 73% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 230 22% 21.2%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 229 20% 21.6%;
+    --sidebar-ring: 236 73% 70%;
+    --sidebar-muted: 232 10% 58.4%;
   }
   .dark {
-    --sidebar-background: 230.0 23.1% 10.2%;
-    --sidebar-foreground: 40.0 33.3% 92.9%;
-    --sidebar-primary: 236.0 73.0% 60.0%;
-    --sidebar-primary-foreground: 40.0 33.3% 92.9%;
-    --sidebar-accent: 236.0 28.0% 22.0%;
-    --sidebar-accent-foreground: 40.0 33.3% 92.9%;
-    --sidebar-border: 228.8 15% 24%;
-    --sidebar-ring: 236.0 73.0% 60.0%;
+    --sidebar-background: 225 22% 7.1%;
+    --sidebar-foreground: 231 12% 79%;
+    --sidebar-primary: 236 73% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 230 22% 21.2%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 229 20% 21.6%;
+    --sidebar-ring: 236 73% 70%;
+    --sidebar-muted: 232 10% 58.4%;
   }
 }
 
