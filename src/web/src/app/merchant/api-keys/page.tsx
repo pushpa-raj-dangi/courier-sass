@@ -14,7 +14,7 @@ import { useRevokeMerchantApiKey } from "@/features/merchant-api-keys/hooks/useR
 import { useMerchantApiKeyPanelStore } from "@/features/merchant-api-keys/store/merchantApiKeyPanelStore";
 
 export default function MerchantApiKeysPage() {
-  // Owner-only screen. The nav entry (MerchantNavMain) already hides "API Keys" from a Staff-role
+  // Owner-only screen. The nav entry (merchantNav.ts) already hides "API Keys" from a Staff-role
   // session, and the backend already requires `merchant.apikeys.manage` on every route — this is
   // defense in depth for anyone who navigates to /merchant/api-keys directly: never issue the
   // fetch, never render key data.
