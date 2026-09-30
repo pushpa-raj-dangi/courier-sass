@@ -12,9 +12,13 @@ export function DualDate({ now }: { now?: Date }) {
   const [date, setDate] = useState<Date | null>(now ?? null);
 
   useEffect(() => {
-    if (!now) {
-      setDate(new Date());
+    if (now) {
+      return;
     }
+    setDate(new Date());
+    // Keep the date current if the console stays open across midnight.
+    const id = setInterval(() => setDate(new Date()), 60_000);
+    return () => clearInterval(id);
   }, [now]);
 
   if (!date) {

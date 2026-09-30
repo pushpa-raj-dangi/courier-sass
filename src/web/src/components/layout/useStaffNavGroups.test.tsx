@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { IntlTestProvider } from "@/test/renderWithIntl";
+import en from "../../../messages/en.json";
+import { NAV_ITEMS } from "@/lib/navigation/navItems";
 import { useStaffNavGroups } from "./useStaffNavGroups";
 
 function mockSession(permissions: string[]) {
@@ -88,5 +90,20 @@ describe("useStaffNavGroups", () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(labels(result.current.groups)).toEqual([["सञ्चालन", ["ड्यासबोर्ड", "ढुवानीहरू"]]]);
+  });
+
+  const cases = NAV_ITEMS.flatMap((item) =>
+    (Array.isArray(item.permission) ? item.permission : [item.permission]).map(
+      (permission) => [item.labelKey, permission, en.nav[item.labelKey]] as const
+    )
+  );
+
+  it.each(cases)("%s: permission %s alone shows exactly the \"%s\" item", async (_key, permission, label) => {
+    mockSession([permission]);
+    const { result } = renderHook(() => useStaffNavGroups(), { wrapper: wrapper() });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    const items = result.current.groups.flatMap((g) => g.items);
+    expect(items.map((i) => i.label)).toEqual([label]);
   });
 });

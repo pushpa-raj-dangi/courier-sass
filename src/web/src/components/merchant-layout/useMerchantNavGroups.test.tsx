@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { findActiveItem } from "@/components/console/navModel";
 import { useMerchantNavGroups } from "./useMerchantNavGroups";
 
 function mockSession(permissions: string[]) {
@@ -63,5 +64,14 @@ describe("useMerchantNavGroups", () => {
       ["Overview", ["Dashboard"]],
       ["Account", ["Staff", "API Keys"]],
     ]);
+  });
+
+  it("resolves a nested shipments route to the Shipments item", async () => {
+    mockSession(["shipment.read"]);
+    const { result } = renderHook(() => useMerchantNavGroups(), { wrapper: wrapper() });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    const active = findActiveItem("/merchant/shipments/abc", result.current.groups);
+    expect(active?.item.label).toBe("Shipments");
   });
 });

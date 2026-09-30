@@ -98,6 +98,7 @@
     "notificationsDescription": "ढुवानी अपवाद, म्यानिफेस्ट सूचना र भुक्तानी स्वीकृतिहरू यहाँ देखिनेछन्।",
     "breadcrumb": "ब्रेडक्रम्ब",
     "bsSuffix": "वि.सं.",
-    "branchScope": "शाखा दायरा"
+    "branchScope": "शाखा दायरा",
+    "selectBranch": "शाखा छान्नुहोस्"
   }
 }

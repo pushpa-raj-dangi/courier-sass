@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Package, Wallet } from "lucide-react";
 import { renderWithIntl } from "@/test/renderWithIntl";
@@ -81,6 +81,12 @@ describe("ConsoleSidebar", () => {
     renderSidebar();
     expect(screen.getByRole("link", { name: "Shipments" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Dashboard" })).not.toHaveAttribute("aria-current");
+  });
+
+  it("exposes the nav groups as a Main navigation landmark", () => {
+    renderSidebar();
+    const landmark = screen.getByRole("navigation", { name: "Main" });
+    expect(within(landmark).getByRole("link", { name: "Dashboard" })).toBeInTheDocument();
   });
 
   it("renders the scope slot when expanded", () => {

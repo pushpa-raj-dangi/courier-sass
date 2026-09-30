@@ -17,7 +17,6 @@ import {
   SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { Skeleton } from "@/components/ui/skeleton";
 import { findActiveItem } from "./navModel";
 import type { ConsoleBrand, ConsoleNavGroup } from "./types";
@@ -38,19 +37,18 @@ export function ConsoleSidebar({
 }) {
   const pathname = usePathname();
   const { state, isMobile, setOpenMobile } = useSidebar();
-  const isDeviceMobile = useIsMobile();
   const activeHref = findActiveItem(pathname, nav)?.item.href;
   const onNavigate = isMobile ? () => setOpenMobile(false) : undefined;
   const BrandIcon = brand.icon;
   // On mobile, always expand brand and scope since the sidebar renders as a drawer
-  const expanded = isDeviceMobile || state === "expanded";
+  const expanded = isMobile || state === "expanded";
 
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="gap-3 pt-4">
         <SidebarMenu>
           <SidebarMenuItem className="flex items-center gap-2.5 px-1 py-1">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary">
+            <span className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-lg bg-sidebar-primary">
               <BrandIcon className="h-4 w-4 text-sidebar-primary-foreground" strokeWidth={2} aria-hidden="true" />
             </span>
             {expanded &&
@@ -69,12 +67,17 @@ export function ConsoleSidebar({
         {expanded && scope}
       </SidebarHeader>
       <SidebarContent>
+        <nav aria-label="Main" className="flex flex-col gap-2">
         {navLoading ? (
           <SidebarGroup>
             <SidebarMenu>
               {Array.from({ length: NAV_SKELETON_ROWS }).map((_, i) => (
                 <SidebarMenuItem key={i}>
-                  <SidebarMenuSkeleton showIcon data-testid="nav-item-skeleton" />
+                  <SidebarMenuSkeleton
+                    showIcon
+                    className="[&>[data-sidebar^=menu-skeleton]]:bg-sidebar-accent"
+                    data-testid="nav-item-skeleton"
+                  />
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
@@ -93,7 +96,7 @@ export function ConsoleSidebar({
                     const active = item.href === activeHref;
                     return (
                       <SidebarMenuItem key={item.href}>
-                        <SidebarMenuButton asChild isActive={active} tooltip={item.label} className="h-9 text-[13.5px]">
+                        <SidebarMenuButton asChild isActive={active} tooltip={item.label} className="h-[38px] text-[13.5px] [&>svg]:size-[18px]">
                           <Link href={item.href} onClick={onNavigate} aria-current={active ? "page" : undefined}>
                             <Icon strokeWidth={1.75} aria-hidden="true" />
                             <span>{item.label}</span>
@@ -107,6 +110,7 @@ export function ConsoleSidebar({
               </SidebarGroup>
             ))
         )}
+        </nav>
       </SidebarContent>
       <SidebarRail />
     </Sidebar>

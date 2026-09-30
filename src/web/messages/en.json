@@ -98,6 +98,7 @@
     "notificationsDescription": "Shipment exceptions, manifest alerts and settlement approvals will appear here.",
     "breadcrumb": "Breadcrumb",
     "bsSuffix": "BS",
-    "branchScope": "Branch scope"
+    "branchScope": "Branch scope",
+    "selectBranch": "Select branch"
   }
 }
