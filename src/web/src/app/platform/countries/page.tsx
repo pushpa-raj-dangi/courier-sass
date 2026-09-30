@@ -86,7 +86,7 @@ export default function PlatformCountriesPage() {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="font-display text-xl font-semibold">Countries</h1>
       </div>

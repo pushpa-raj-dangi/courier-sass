@@ -52,7 +52,7 @@ export default function PlatformPlansPage() {
   }
 
   return (
-    <div className="space-y-4 p-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="font-display text-xl font-semibold">Plans</h1>
         <Button size="sm" className="gap-1.5" onClick={() => openCreate()}>

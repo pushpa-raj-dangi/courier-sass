@@ -38,7 +38,7 @@ export default function PlatformInvoicesPage() {
   }
 
   return (
-    <div className="space-y-4 p-6">
+    <div className="space-y-4">
       <h1 className="font-display text-xl font-semibold">Invoices</h1>
       <div className="flex flex-wrap items-center gap-2">
         <Input

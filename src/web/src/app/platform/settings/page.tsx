@@ -121,7 +121,7 @@ export default function PlatformSettingsPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-4 p-6">
+      <div className="space-y-4">
         <h1 className="font-display text-xl font-semibold">Platform Settings</h1>
         <Spinner className="h-6 w-6" />
       </div>
@@ -138,7 +138,7 @@ export default function PlatformSettingsPage() {
   }
 
   return (
-    <div className="space-y-4 p-6">
+    <div className="space-y-4">
       <h1 className="font-display text-xl font-semibold">Platform Settings</h1>
       <Tabs defaultValue="PaymentGateway">
         <TabsList>
