@@ -3,6 +3,12 @@ import { BS_MONTHS_EN, BS_MONTHS_NE, toBsDate } from "@/lib/i18n/bsDate";
 import { CONSOLE_TIME_ZONE, formatDualDate } from "./formatDualDate";
 
 describe("formatDualDate", () => {
+  it("formats the AD date exactly without ICU month/weekday names", () => {
+    const date = new Date("2026-09-30T06:00:00Z");
+    const result = formatDualDate(date, "en");
+    expect(result.ad).toBe("Wed, 30 Sep 2026");
+  });
+
   it("formats the AD date and the converter's BS date for the Kathmandu day", () => {
     const date = new Date("2026-09-30T06:00:00Z");
     const bs = toBsDate(date, CONSOLE_TIME_ZONE)!;
