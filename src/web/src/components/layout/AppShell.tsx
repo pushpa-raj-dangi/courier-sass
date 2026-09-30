@@ -1,5 +1,10 @@
+"use client";
+
 import type { ReactNode } from "react";
-import { AppSidebar } from "@/components/app-sidebar";
+import { Package } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { ConsoleShell } from "@/components/console/ConsoleShell";
+import { BranchSwitcher } from "@/components/layout/BranchSwitcher";
 import { CommandPalette } from "@/components/layout/CommandPalette";
 import { HeaderSearch } from "@/components/layout/HeaderSearch";
 import { ImpersonationBanner } from "@/components/layout/ImpersonationBanner";
@@ -9,31 +14,49 @@ import { ReauthDialog } from "@/components/layout/ReauthDialog";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { TrialStatusBanner } from "@/components/layout/TrialStatusBanner";
 import { UserMenu } from "@/components/layout/UserMenu";
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { useStaffNavGroups } from "@/components/layout/useStaffNavGroups";
 import { Separator } from "@/components/ui/separator";
+import { useSession } from "@/features/auth/hooks/useSession";
 
 export function AppShell({ children }: { children: ReactNode }) {
+  const tCommon = useTranslations("common");
+  const tConsole = useTranslations("console");
+  const { data: session, isLoading } = useSession();
+  const { groups, isLoading: navLoading } = useStaffNavGroups();
+
   return (
-    <SidebarProvider>
+    <>
       <LocaleSync />
-      <AppSidebar />
-      <SidebarInset>
-        <ImpersonationBanner />
-        <TrialStatusBanner />
-        <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-3 border-b border-border bg-card px-4 sm:px-6">
-          <SidebarTrigger className="h-9 w-9 rounded-lg border border-input" />
-          <HeaderSearch />
-          <div className="ml-auto flex items-center gap-3">
+      <ConsoleShell
+        brand={{
+          icon: Package,
+          name: session?.organizationName ?? tCommon("appName"),
+          subtitle: tConsole("operationsConsole"),
+          isLoading,
+        }}
+        scope={isLoading ? undefined : <BranchSwitcher />}
+        nav={groups}
+        navLoading={navLoading}
+        headerStart={<HeaderSearch />}
+        headerEnd={
+          <>
             <LanguageSwitcher />
             <ThemeToggle />
             <Separator orientation="vertical" className="h-6" />
             <UserMenu />
-          </div>
-        </header>
-        <div className="flex-1 bg-background p-6">{children}</div>
-      </SidebarInset>
+          </>
+        }
+        banners={
+          <>
+            <ImpersonationBanner />
+            <TrialStatusBanner />
+          </>
+        }
+      >
+        {children}
+      </ConsoleShell>
       <ReauthDialog />
       <CommandPalette />
-    </SidebarProvider>
+    </>
   );
 }

@@ -3,7 +3,7 @@
     "appName": "कुरियर प्लेटफर्म"
   },
   "nav": {
-    "group": "प्लेटफर्म",
+    "groups": { "operations": "सञ्चालन", "finance": "वित्त", "network": "नेटवर्क", "admin": "प्रशासन" },
     "dashboard": "ड्यासबोर्ड",
     "shipments": "ढुवानीहरू",
     "branches": "शाखाहरू",

@@ -3,7 +3,7 @@
     "appName": "Courier Platform"
   },
   "nav": {
-    "group": "Platform",
+    "groups": { "operations": "Operations", "finance": "Finance", "network": "Network", "admin": "Admin" },
     "dashboard": "Dashboard",
     "shipments": "Shipments",
     "branches": "Branches",
