@@ -89,5 +89,15 @@
       "calendarGregorian": "Gregorian (AD)",
       "calendarBikramSambat": "Bikram Sambat (BS)"
     }
+  },
+  "console": {
+    "operationsConsole": "Operations console",
+    "needsBackend": "Needs backend",
+    "notifications": "Notifications",
+    "notificationsTitle": "Notifications",
+    "notificationsDescription": "Shipment exceptions, manifest alerts and settlement approvals will appear here.",
+    "breadcrumb": "Breadcrumb",
+    "bsSuffix": "BS",
+    "branchScope": "Branch scope"
   }
 }

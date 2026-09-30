@@ -89,5 +89,15 @@
       "calendarGregorian": "ग्रेगोरियन (ई.सं.)",
       "calendarBikramSambat": "विक्रम सम्वत् (वि.सं.)"
     }
+  },
+  "console": {
+    "operationsConsole": "सञ्चालन कन्सोल",
+    "needsBackend": "ब्याकइन्ड आवश्यक",
+    "notifications": "सूचनाहरू",
+    "notificationsTitle": "सूचनाहरू",
+    "notificationsDescription": "ढुवानी अपवाद, म्यानिफेस्ट सूचना र भुक्तानी स्वीकृतिहरू यहाँ देखिनेछन्।",
+    "breadcrumb": "ब्रेडक्रम्ब",
+    "bsSuffix": "वि.सं.",
+    "branchScope": "शाखा दायरा"
   }
 }
