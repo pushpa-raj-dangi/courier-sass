@@ -133,7 +133,8 @@ public class CarrierEventProcessingTests : InternationalApiTestBase, IClassFixtu
     public async Task Processor_AppliedTransition_WritesACarrierShipmentEvent()
     {
         var (organizationId, shipmentId, accountId) = await SeedHandedOverAsync("event", "EVT-AWB");
-        var occurredAt = DateTimeOffset.UtcNow.AddHours(-1);
+        // After the seeded handoff, so the carrier's own time is used as-is.
+        var occurredAt = DateTimeOffset.UtcNow;
         var evt = await InsertPendingEventAsync(organizationId, accountId, "EVT-AWB", "IN_TRANSIT", occurredAt);
 
         await ProcessCarrierEventsAsync(accountId);
@@ -143,5 +144,22 @@ public class CarrierEventProcessingTests : InternationalApiTestBase, IClassFixtu
             .SingleAsync(e => e.ShipmentId == shipmentId && e.EventType == ShipmentEventType.InInternationalTransit);
         Assert.Null(shipmentEvent.UserId);
         Assert.Equal(occurredAt.ToUnixTimeMilliseconds(), shipmentEvent.Timestamp.ToUnixTimeMilliseconds());
+        Assert.Contains("\"carrierOccurredAt\"", shipmentEvent.Metadata);
+    }
+
+    [Fact]
+    public async Task Processor_EventOlderThanTheHandoff_IsStampedAfterItOnTheTimeline()
+    {
+        var (organizationId, shipmentId, accountId) = await SeedHandedOverAsync("event-old", "EVT-OLD");
+        var occurredAt = DateTimeOffset.UtcNow.AddHours(-1);
+        await InsertPendingEventAsync(organizationId, accountId, "EVT-OLD", "IN_TRANSIT", occurredAt);
+
+        await ProcessCarrierEventsAsync(accountId);
+
+        using var scope = Factory.Services.CreateScope();
+        var events = await scope.ServiceProvider.GetRequiredService<AppDbContext>().Set<ShipmentEvent>()
+            .Where(e => e.ShipmentId == shipmentId).OrderBy(e => e.Timestamp).ToListAsync();
+        Assert.Equal(ShipmentEventType.InInternationalTransit, events[^1].EventType);
+        Assert.True(events[^1].Timestamp > occurredAt);
     }
 }
