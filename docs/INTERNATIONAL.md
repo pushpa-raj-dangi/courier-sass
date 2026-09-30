@@ -350,7 +350,11 @@ get the outbox "for free"; that was wrong and has been corrected there):
   timestamped 1 ms later so timelines order correctly) into the same `SaveChangesAsync` — one scan,
   two immutable `ShipmentEvent`s. Otherwise the shipment stays at `ReceivedFromCarrier` for the
   normal sort/manifest flow.
-- `ApplyCarrierStatusAsync` — carrier-driven, no user; already-at-target is a no-op
+- `ApplyCarrierStatusAsync` — carrier-driven, no user; the `ShipmentEvent.Timestamp` is the
+  carrier's `OccurredAt`, **clamped to 1 ms after the shipment's latest existing event** when the
+  carrier time is not later (carrier lag, a late handoff scan, a backdated manual entry) so the
+  timeline never goes out of order; the carrier's own time is always kept in the event metadata as
+  `carrierOccurredAt`. Already-at-target is a no-op
   (`AlreadyAtStatus`); any other invalid move throws `ShipmentInvalidTransitionException`.
 - `OverrideInternationalStatusAsync` — staff override with a required non-empty reason (≤2000
   chars, the `ShipmentEvent.Notes` limit); audited with before/after status and reason.
@@ -424,7 +428,9 @@ of a broad `catch (DbUpdateException)`.
   skipped.
 - **Manual** — `POST /{id}/carrier-events` (`international.tracking.manage`). Requires a `Booked`
   booking; the status code must be in that provider's vocabulary (`IsKnownStatusCode`);
-  `OccurredAt` cannot be more than 5 minutes in the future. Inserted with `Source = Manual`,
+  `OccurredAt` cannot be more than 5 minutes in the future, and for an outbound booking cannot be
+  earlier than the handoff (`CustodyStartedAt`, minus the same 5-minute skew) — inbound has no such
+  floor, since the foreign carrier's scans precede our own records. Inserted with `Source = Manual`,
   `EnteredByUserId`, audited (`carrier_event.manual_recorded`).
 
 ### Processing (`CarrierEventProcessorJob` / `CarrierEventApplier`)

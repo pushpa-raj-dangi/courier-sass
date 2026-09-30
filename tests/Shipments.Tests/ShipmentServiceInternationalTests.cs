@@ -558,7 +558,7 @@ public class ShipmentServiceInternationalTests
         await using var _ = dbContext;
         var service = CreateService(dbContext, organizationId);
         var shipmentId = await CreateAtStatusAsync(dbContext, service, serviceTypeId, ShipmentDirection.Outbound, ShipmentStatus.HandedToCarrier);
-        var occurredAt = DateTimeOffset.UtcNow.AddHours(-3);
+        var occurredAt = DateTimeOffset.UtcNow.AddMinutes(1);
 
         var result = await service.ApplyCarrierStatusAsync(shipmentId, ShipmentStatus.InInternationalTransit, occurredAt, CarrierRef());
 
@@ -571,6 +571,23 @@ public class ShipmentServiceInternationalTests
         Assert.Equal(ShipmentStatus.HandedToCarrier, evt.PreviousStatus);
         Assert.Contains("\"source\":\"Carrier\"", evt.Metadata);
         Assert.Contains("CARRIER-AWB-1", evt.Metadata);
+    }
+
+    [Fact]
+    public async Task ApplyCarrierStatusAsync_OccurredBeforeTheLatestEvent_IsStampedAfterItAndKeepsTheCarrierTimeInMetadata()
+    {
+        var (dbContext, organizationId, serviceTypeId) = await SeedAsync();
+        await using var _ = dbContext;
+        var service = CreateService(dbContext, organizationId);
+        var shipmentId = await CreateAtStatusAsync(dbContext, service, serviceTypeId, ShipmentDirection.Outbound, ShipmentStatus.HandedToCarrier);
+        var latestBefore = await dbContext.Set<ShipmentEvent>().Where(e => e.ShipmentId == shipmentId).MaxAsync(e => e.Timestamp);
+        var occurredAt = latestBefore.AddHours(-3);
+
+        await service.ApplyCarrierStatusAsync(shipmentId, ShipmentStatus.InInternationalTransit, occurredAt, CarrierRef());
+
+        var evt = await dbContext.Set<ShipmentEvent>().SingleAsync(e => e.ShipmentId == shipmentId && e.EventType == ShipmentEventType.InInternationalTransit);
+        Assert.True(evt.Timestamp > latestBefore, $"expected {evt.Timestamp:O} after {latestBefore:O}");
+        Assert.Contains($"\"carrierOccurredAt\":\"{occurredAt:yyyy-MM-ddTHH:mm:ss}", evt.Metadata);
     }
 
     [Fact]

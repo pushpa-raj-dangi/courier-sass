@@ -91,8 +91,10 @@ carries the staff user.
 ### 3.5 Carrier-driven events
 
 Carrier-driven transitions record a `ShipmentEvent` with `UserId = null`, `Timestamp` = the
-carrier's `OccurredAt`, and metadata `{ source: "Carrier", carrierAccountId, carrierAwb,
-carrierEventId, carrierStatusCode, location }`. An event whose target equals the current status is
+carrier's `OccurredAt` (clamped to 1 ms after the shipment's latest event when not later — amended
+2026-09-30 after a live E2E showed backdated events sorting before the handoff), and metadata
+`{ source: "Carrier", carrierAccountId, carrierAwb, carrierEventId, carrierStatusCode,
+carrierOccurredAt, location }`. An event whose target equals the current status is
 a no-op (processing outcome `Ignored`); any other invalid transition is rejected by the state
 machine (outcome `Rejected`), so a stale or out-of-order event can never move a shipment backwards.
 

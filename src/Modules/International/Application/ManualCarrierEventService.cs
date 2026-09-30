@@ -71,6 +71,13 @@ public class ManualCarrierEventService
         {
             throw new InternationalShipmentValidationException("OccurredAt cannot be in the future.");
         }
+        // Outbound: the carrier cannot have scanned the parcel before we handed it over. Inbound has
+        // no such floor — the foreign carrier's scans genuinely precede our booking/shipment rows.
+        if (booking.Direction == CarrierBookingDirection.Outbound && booking.CustodyStartedAt is { } handedOverAt
+            && request.OccurredAt < handedOverAt - AllowedClockSkew)
+        {
+            throw new InternationalShipmentValidationException("OccurredAt cannot be before the parcel was handed to the carrier.");
+        }
         var location = string.IsNullOrWhiteSpace(request.Location) ? null : request.Location.Trim();
         var description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
         if (location?.Length > MaxLocationLength || description?.Length > MaxDescriptionLength)

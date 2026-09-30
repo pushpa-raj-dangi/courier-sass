@@ -39,6 +39,17 @@ public partial class ShipmentService
         }
 
         var previousStatus = shipment.CurrentStatus;
+
+        // The carrier's clock (or a staff-entered time) can precede our own latest event — e.g. a
+        // late handoff scan, or carrier reporting lag — and the timeline orders by Timestamp. Never
+        // stamp a transition before the event that preceded it; the carrier's own time is kept in
+        // metadata (carrierOccurredAt) so nothing is lost.
+        var latestEventAt = await _dbContext.Set<ShipmentEvent>()
+            .Where(e => e.ShipmentId == shipmentId)
+            .Select(e => (DateTimeOffset?)e.Timestamp)
+            .MaxAsync(cancellationToken);
+        var eventTimestamp = latestEventAt is { } latest && occurredAt <= latest ? latest.AddMilliseconds(1) : occurredAt;
+
         var metadata = JsonSerializer.Serialize(new
         {
             source = "Carrier",
@@ -46,10 +57,11 @@ public partial class ShipmentService
             carrierAwb = reference.CarrierAwb,
             carrierEventId = reference.CarrierEventId,
             carrierStatusCode = reference.CarrierStatusCode,
+            carrierOccurredAt = occurredAt,
             location = reference.Location
         });
         StageInternationalTransition(shipment, targetStatus, InternationalTransitionRules.EventTypeFor(targetStatus),
-            userId: null, occurredAt, notes: null, metadata, _ => { });
+            userId: null, eventTimestamp, notes: null, metadata, _ => { });
         await SaveInternationalTransitionAsync(shipmentId, previousStatus, targetStatus, cancellationToken);
 
         await _auditLogger.LogAsync(new AuditEntry(organizationId, null, "shipment.carrier_status_applied", "Shipment", shipmentId.ToString(),

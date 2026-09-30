@@ -84,6 +84,46 @@ public class ManualCarrierEventServiceTests
     }
 
     [Fact]
+    public async Task RecordAsync_OutboundOccurredBeforeHandoff_IsRejected()
+    {
+        var h = await CreateHarnessAsync();
+        await BookManualAsync(h);
+        var booking = await h.DbContext.Set<CarrierBooking>().SingleAsync();
+        booking.CustodyStartedAt = DateTimeOffset.UtcNow.AddHours(-1);
+        await h.DbContext.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<InternationalShipmentValidationException>(() =>
+            h.Service.RecordAsync(h.ShipmentId, new ManualCarrierEventRequest("IN_TRANSIT", DateTimeOffset.UtcNow.AddHours(-2), null, null), ActingUser(Guid.NewGuid()), CancellationToken.None));
+        Assert.Contains("handed", ex.Message);
+    }
+
+    [Fact]
+    public async Task RecordAsync_OutboundOccurredAfterHandoff_IsAccepted()
+    {
+        var h = await CreateHarnessAsync();
+        await BookManualAsync(h);
+        var booking = await h.DbContext.Set<CarrierBooking>().SingleAsync();
+        booking.CustodyStartedAt = DateTimeOffset.UtcNow.AddHours(-2);
+        await h.DbContext.SaveChangesAsync();
+
+        var result = await h.Service.RecordAsync(h.ShipmentId, new ManualCarrierEventRequest("IN_TRANSIT", DateTimeOffset.UtcNow.AddHours(-1), null, null), ActingUser(Guid.NewGuid()), CancellationToken.None);
+
+        Assert.Equal("Pending", result!.ProcessingStatus);
+    }
+
+    [Fact]
+    public async Task RecordAsync_InboundOccurredLongBeforeTheBooking_IsAccepted()
+    {
+        var h = await CreateHarnessAsync();
+        var account = await CarrierTestData.SeedAccountAsync(h.DbContext, h.OrganizationId, "MANUAL");
+        await CarrierTestData.SeedBookingAsync(h.DbContext, h.OrganizationId, h.Leg.Id, account.Id, CarrierBookingStatus.Booked, "IN-1", CarrierBookingDirection.Inbound);
+
+        var result = await h.Service.RecordAsync(h.ShipmentId, new ManualCarrierEventRequest("IN_TRANSIT", DateTimeOffset.UtcNow.AddDays(-3), null, null), ActingUser(Guid.NewGuid()), CancellationToken.None);
+
+        Assert.Equal("Pending", result!.ProcessingStatus);
+    }
+
+    [Fact]
     public async Task RecordAsync_WithoutABookedBooking_IsRejected()
     {
         var h = await CreateHarnessAsync();
