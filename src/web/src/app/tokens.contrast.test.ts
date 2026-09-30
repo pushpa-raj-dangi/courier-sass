@@ -10,9 +10,9 @@ function readTokens() {
   const light: Record<string, string> = {};
   const dark: Record<string, string> = {};
   const blockRe = /(:root|\.dark)\s*\{([^}]*)\}/g;
-  for (const match of css.matchAll(blockRe)) {
+  for (const match of Array.from(css.matchAll(blockRe))) {
     const target = match[1] === ":root" ? light : dark;
-    for (const decl of match[2].matchAll(/--([\w-]+)\s*:\s*([^;]+);/g)) {
+    for (const decl of Array.from(match[2].matchAll(/--([\w-]+)\s*:\s*([^;]+);/g))) {
       target[decl[1]] = decl[2].trim();
     }
   }
