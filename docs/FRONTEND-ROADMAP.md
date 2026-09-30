@@ -1050,6 +1050,24 @@ baseline, pass when run alone). Visually confirmed in a browser: `/` (dark and l
 Not browser-verified: `/register`, `/track/[awb]` with live data, and `prefers-reduced-motion`
 (covered by unit tests only). Contrast used existing verified tokens only; no new colors.
 
+## Phase F15 — Console Redesign
+
+Design source: claude.ai artifact "Courier Platform UI Redesign"
+(https://claude.ai/artifact/1dGwukUsc2jwxhThg5eyHu). Frontend only; data the API does not
+serve renders `ComingSoonSlot`. Each sub-phase has its own spec → plan → implementation cycle.
+
+| Sub-phase | Scope | Status |
+|---|---|---|
+| R1 — Console Foundation | Tokens, `ConsoleShell` (staff/merchant/platform), grouped dark rail, header (breadcrumb, AD/BS date, notifications slot), page primitives, table/badge restyle | Done — spec `docs/superpowers/specs/2026-09-30-f15-r1-console-foundation-design.md` |
+| R2 — Staff operations | Dashboard, Shipments + detail Sheet, `/scan` Scan station | Planned |
+| R3 — Staff finance & network | COD, manifests, NDR, RTO, riders, live map, branches | Planned |
+| R4 — Rider PWA | Run screen, POD flow, scan, profile | Planned |
+| R5 — Merchant portal + public tracking | 7 merchant pages, `/track` | Planned |
+| R6 — Platform + admin | Platform pages, admin, audit, billing, auth pages | Planned |
+
+**Backend follow-ups from R1:** notification feed (header bell); nav badge counts (e.g. open
+NDRs); plan/branch usage in the session payload (sidebar plan card).
+
 ## Later
 
 All frontend phases planned through F14 are complete. Any further frontend

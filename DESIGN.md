@@ -2,7 +2,11 @@
 name: Courier Platform
 description: A muted, ledger-grounded design system for a Nepal domestic courier back-office — status-driven, dense, and built for scan-heavy operational work.
 colors:
-  paper: "#faf7f2"
+  paper: "#fffdf9"
+  sand: "#f4f1ea"
+  surface-sunken: "#f1eee7"
+  console-rail: "#161821"
+  console-rail-muted: "#8a8da0"
   ink: "#161821"
   courier-cobalt: "#1d2863"
   cobalt-tint: "#e9ebf7"
@@ -112,14 +116,16 @@ A warm, low-saturation ledger palette: paper and ink for structure, a small set 
 
 ### Primary
 - **Deep Indigo Ink** (`#161821`): body text on paper, and the `foreground` role generally — headings, table cells, form values. Ink is a neutral now, not a stand-in for a brand color.
-- **Courier Cobalt** (`#1d2863`, light mode): the system's one brand hue, introduced in the 2026-09-02 color pass. Shares ink's ~230° hue family — deliberately "ink brought to life" rather than an unrelated accent — and carries the `primary` role (button fills), `ring` (focus rings), the sidebar's active state and brand-lockup icon chip, and (via `accent`, below) hover/selection tints and KPI-highlight panel backgrounds. Text/links/buttons on top of it use paper (`#faf7f2`) for a 12.8:1 contrast ratio. This is the one token that changes hue between themes rather than just lightness — dark mode uses a brighter `#4f58e3` (see Dark Mode below) since a dark-lightness fill would disappear against the dark background.
+- **Courier Cobalt** (`#1d2863`, light mode): the system's one brand hue, introduced in the 2026-09-02 color pass. Shares ink's ~230° hue family — deliberately "ink brought to life" rather than an unrelated accent — and carries the `primary` role (button fills), `ring` (focus rings), the sidebar's active state and brand-lockup icon chip, and (via `accent`, below) hover/selection tints and KPI-highlight panel backgrounds. Text/links/buttons on top of it use paper (`#fffdf9`) for a contrast ratio above 12:1. This is the one token that changes hue between themes rather than just lightness — dark mode uses a brighter `#4f58e3` (see Dark Mode below) since a dark-lightness fill would disappear against the dark background.
 
 ### Secondary
 - **Cobalt Tint** (`#e9ebf7`): the `accent` role — hover/active backgrounds (menu items, dropdown items, sidebar active state, selection), `::selection`, and the background of highlighted KPI callout panels (e.g. Merchant Payable). A pale wash of Courier Cobalt, not a saturated highlight — replaces the previous "Warm Marigold Tint," which was disconnected from the (then ink-based) interactive palette. Marigold is retired from this role entirely; nothing else in the system references it.
 - **Cool Slate Mist** (`#e9e9ed`) / **Fog** (`#eeeff1`): `secondary` and `muted` surfaces — secondary buttons, badge backgrounds, neutral icon-chip backgrounds, dropdown separators, disabled/quiet regions.
 
 ### Neutral
-- **Lokta Paper** (`#faf7f2`): the base `background`/`card`/`popover` fill across the entire app (light mode). Named for the handmade Nepali paper it evokes, not a generic off-white.
+- **Sand** (`#f4f1ea`): the page `background` (light mode) — the warm ground every card sits on (F15 R1).
+- **Lokta Paper** (`#fffdf9`): the `card`/`popover` fill (light mode) — a near-white surface lifted off the sand page. Named for the handmade Nepali paper it evokes, not a generic off-white.
+- **Surface Sunken** (`#f1eee7`): `--surface-sunken` — table header rows and Sheet footer bars, one step below the card surface.
 - **Fog Ink** (`#5b5d68`): `muted-foreground` — secondary/caption text, labels, timestamps, placeholder text.
 - **Hairline** (`#dbdce1`): `border`/`input` — the only separator weight in the system; there is no secondary "heavier" border.
 - **Terracotta** (`#a83824`): `destructive` — error text, destructive buttons, error-state borders/backgrounds (always at reduced opacity for backgrounds, e.g. `bg-destructive/5`).
@@ -223,7 +229,7 @@ A neutral `secondary`-variant pill (slate-mist background, ink text, `rounded-md
 
 ### Cards / Containers
 - **Corner Style:** `rounded-xl` (12px) — see Shapes' named exception.
-- **Background:** paper (`bg-card`, identical to page `background` in light mode).
+- **Background:** near-white card on the sand page (`bg-card` over `bg-background`) — the two no longer share a value (F15 R1).
 - **Shadow Strategy:** default Tailwind `shadow` for in-page cards; the tinted `shadow-xl shadow-primary/5` lift is reserved for the auth-gate cards (Login, Register, Accept-Invite) only (see Elevation).
 - **Border:** 1px hairline (`border-border`).
 - **Internal Padding:** `CardHeader`/`CardContent`/`CardFooter` all use `p-6`, content dropping the header's shared top padding (`pt-0`) so the two stack without doubled space.
@@ -256,21 +262,26 @@ Flat, ruled-underline tabs, not a rounded pill switcher — the one primitive th
 ### Menus (Dropdown)
 The user menu is the only dropdown in the app today: an avatar + name trigger (`hover:bg-accent`, `rounded-full`) opening a `bg-popover` panel (`rounded-md`, hairline border, `shadow-md`, `min-w-56`) with a header row (avatar + name + email), a hairline separator, and one or more `DropdownMenuItem`s that share the sidebar's `focus:bg-accent` hover treatment. Avatars are initials-only (no image upload exists yet) on a `secondary`-tinted circle with a `ring-1 ring-border`.
 
+### Page primitives
+Shared page-level building blocks in `src/components/page/`: `PageHeader` (title, description, actions), `SectionCard` (titled card section), `KpiTile` (single metric), `PipelineStrip` (ordered stage counts), `SheetHeaderBlock` (Sheet title/identity block) and `ComingSoonSlot` (placeholder for data the API does not serve yet).
+
+**The No-Fake-Numbers Rule.** Data the API does not serve yet renders `ComingSoonSlot` (`src/components/page/ComingSoonSlot.tsx`, `data-coming-soon`), never mock or sample values on a product screen.
+
 ### Navigation (Sidebar)
-- **Style:** icon-rail sidebar, `collapsible="icon"`, with a static brand lockup (rounded-md Courier-Cobalt-filled icon chip + "Courier Platform" in Space Grotesk when expanded) replacing the shadcn block's default team-switcher — this app has no multi-org concept per user. The lockup was ink-filled before the 2026-09-02 color pass; it's the one static "logo-ish" element in the app, so it's where the brand hue reads strongest.
-- **Items:** flat list (no nested groups — deliberately not built until a nav item actually needs sub-items), each gated behind `usePermission(item.permission)` and rendering `null` entirely when denied, not disabled/grayed-out.
-- **Active state:** `isActive` on `SidebarMenuButton`, which resolves to the cobalt-tint accent background.
-- **Mobile:** below `md`, the permanent rail is replaced by a `Sheet`-based drawer opened via a header hamburger trigger — sharing the same `SidebarNav` content as desktop so the two can't drift apart.
+- **Style:** a dark console rail in both themes (`console-rail` `#161821`, muted text `console-rail-muted` `#8a8da0`), with a static brand lockup at the top. One `ConsoleShell` (`components/console/`) renders the rail, header and content region for staff, merchant and platform consoles alike; each console supplies only its own nav groups.
+- **Groups:** grouped, non-collapsible section headings in IBM Plex Mono caps. Headings are labels, not disclosure controls. Items are gated per console (staff by permission via `useStaffNavGroups`; merchant via `useMerchantNavGroups`) and render nothing when denied; a group with no permitted items is dropped.
+- **Active state:** `bg-sidebar-accent` with white text and `aria-current="page"`; the active item is the longest-matching href (`findActiveItem`).
+- **Mobile:** below `md`, the rail is replaced by a `Sheet`-based drawer opened via a header hamburger trigger, sharing the same nav content as desktop so the two can't drift apart.
 
 ### Header
-Sticky, `h-16`, hairline bottom border, `bg-card`: sidebar trigger, a global search bar, then theme toggle + vertical hairline separator + user menu, right-aligned. The search bar (`⌘K`-labeled) opens `CommandPalette` — a real `Ctrl+K`/`⌘K` command dialog (`components/layout/CommandPalette.tsx`) listing every permitted nav page and permission-gated quick-create action, plus live entity search once a query is at least 2 characters (shipments, branches, manifests, NDRs, return shipments via `useGlobalSearch`). AWB/manifest-code results use the same reserved monospace treatment as the shipment list (see Typography). This replaced an earlier non-functional placeholder; nothing in the header is decorative-only anymore.
+Sticky, `h-16`, hairline bottom border, `bg-card`: sidebar trigger, a breadcrumb (group › page, `ConsoleBreadcrumb`), a global search bar, then the AD/BS dual date (`DualDate`, `Asia/Kathmandu`), a notifications bell (`NotificationsButton`, showing a `ComingSoonSlot` until a notification feed exists), theme toggle + vertical hairline separator + user menu, right-aligned. The search bar (`⌘K`-labeled) opens `CommandPalette` — a real `Ctrl+K`/`⌘K` command dialog (`components/layout/CommandPalette.tsx`) listing every permitted nav page and permission-gated quick-create action, plus live entity search once a query is at least 2 characters (shipments, branches, manifests, NDRs, return shipments via `useGlobalSearch`). AWB/manifest-code results use the same reserved monospace treatment as the shipment list (see Typography). This replaced an earlier non-functional placeholder; nothing in the header is decorative-only anymore.
 
 ### Data Table
-The table itself sits in its own bordered container — `rounded-xl border border-border bg-muted/40` (`overflow-hidden` to clip the corners), the same corner radius as a Card. `bg-muted/40` rather than `bg-card` is deliberate: `DataTable` is typically the entire content of a list page, sitting directly on the page background rather than nested inside a Card, and `bg-card` is hex-identical to the page background in light mode (see Cards, above) — invisible as a container fill there. A light `muted` tint reads as a distinct, lifted panel in both themes. Header row + body rows keep the shadcn `Table` default 1px hairline row separators inside that container, no zebra striping, no row hover highlight beyond the default. Below the table, outside the bordered container: a plain-text "Page X of Y (N total)" caption on the left, numbered `PaginationLink`s with ellipsis collapsing plus Previous/Next controls (disabled at the bounds) on the right — this superseded an earlier Previous/Next-only design once real page counts made jump-ahead navigation worth the extra chrome. The bordered/rounded/tinted container itself is a standalone component, `BorderedTableContainer` (`components/data-table/`), promoted out of `DataTable` during the 2026-09-08 audit pass once a sixth hand-rolled copy of the same wrapper markup showed up across the app; `DataTable` and every non-`DataTable` table (`MerchantSettlementsTab` and the five merchant portal list pages — cod, kyc, pickups, staff, api-keys, none of which paginate since their list endpoints don't support it yet) now render through this one shared wrapper instead of copy-pasting the div.
+The table itself sits in its own bordered container — `rounded-xl border border-border bg-card` (`overflow-hidden` to clip the corners), the same corner radius as a Card, with a `bg-surface-sunken` header row so it reads as a lifted card on the sand page (F15 R1; it replaced the earlier `bg-muted/40` fill, needed only while card and page shared a value). `DataTable` accepts an optional `selectedRowId` to highlight the row whose Sheet is open. Header row + body rows keep the shadcn `Table` default 1px hairline row separators inside that container, no zebra striping, no row hover highlight beyond the default. Below the table, outside the bordered container: a plain-text "Page X of Y (N total)" caption on the left, numbered `PaginationLink`s with ellipsis collapsing plus Previous/Next controls (disabled at the bounds) on the right — this superseded an earlier Previous/Next-only design once real page counts made jump-ahead navigation worth the extra chrome. The bordered/rounded/tinted container itself is a standalone component, `BorderedTableContainer` (`components/data-table/`), promoted out of `DataTable` during the 2026-09-08 audit pass once a sixth hand-rolled copy of the same wrapper markup showed up across the app; `DataTable` and every non-`DataTable` table (`MerchantSettlementsTab` and the five merchant portal list pages — cod, kyc, pickups, staff, api-keys, none of which paginate since their list endpoints don't support it yet) now render through this one shared wrapper instead of copy-pasting the div.
 
 ### Empty / Loading / Error States
 - **Empty:** dashed hairline border, `rounded-lg`, generous `p-12` padding, centered content — an optional circular `bg-muted` icon chip, a Space Grotesk `text-sm font-medium` title, an optional `muted-foreground` description, and an optional action below.
-- **Loading:** a stack of `Skeleton` bars (`h-10 w-full`, default 5 rows) inside the same `rounded-xl border border-border bg-muted/40 p-3` container the populated table uses, standing in for the eventual table/list shape — the container previews the exact shape the table pops into once data arrives, rather than skeleton bars sitting flush with the page and the framed card appearing out of nowhere on load. Never a full-page spinner for list content (a bare `Spinner` is reserved for page-level "nothing has rendered yet" waits, e.g. the shipments list's initial load).
+- **Loading:** a stack of `Skeleton` bars (`h-10 w-full`, default 5 rows) inside the same `rounded-xl border border-border bg-card p-3` container the populated table uses, standing in for the eventual table/list shape — the container previews the exact shape the table pops into once data arrives, rather than skeleton bars sitting flush with the page and the framed card appearing out of nowhere on load. Never a full-page spinner for list content (a bare `Spinner` is reserved for page-level "nothing has rendered yet" waits, e.g. the shipments list's initial load).
 - **Error:** terracotta-tinted (`border-destructive/30 bg-destructive/5`) variant of the same centered `p-12` card shape, terracotta title text, optional Retry (`outline` button).
 
 ## Do's and Don'ts
@@ -289,6 +300,6 @@ The table itself sits in its own bordered container — `rounded-xl border borde
 - **Don't** introduce a second monospace or display typeface; IBM Plex Mono is already reserved (unused) for future AWB/tracking-code data, and Space Grotesk is the only display face.
 - **Don't** give Cards the base 6px `--radius` scale; their 12px `rounded-xl` is an intentional, confirmed exception, not a value to "fix" into consistency with buttons/inputs.
 - **Don't** invent a brand name, logo, or marketing personality for this product — it is confirmed unnamed/white-label (`PRODUCT.md`); keep the system generic until that changes.
-- **Don't** build nested/collapsible sidebar nav groups speculatively — the flat list is a deliberate YAGNI choice, not an oversight, until a real feature needs sub-items.
+- **Don't** make section headings collapsible or add sub-items — headings are labels, not groups.
 - **Don't** reintroduce a `rounded-full` tinted-emphasis icon badge for a stat/metric tile — `RateTiles` and `FinancialSummary` disagreed on this until a 2026-09-11 audit pass standardized both on `rounded-lg`, matching the rest of the icon-chip system; `rounded-full` stays reserved for avatars, status dots, and the header's icon-only buttons (see Shapes).
 - **Don't** assume the ledger palette applies to the public marketing landing page — `/` intentionally runs a separate, distinct `--marketing-*` token system ("Night Dispatch"; see Colors → Marketing System) as the one confirmed exception to Product Principle 4.
