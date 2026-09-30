@@ -13,7 +13,7 @@ export function EmptyState({
   icon?: ComponentType<LucideProps>;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border p-12 text-center">
+    <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border bg-card p-12 text-center">
       {Icon && (
         <div className="flex h-11 w-11 items-center justify-center rounded-full bg-muted">
           <Icon className="h-5 w-5 text-muted-foreground" strokeWidth={1.75} />
