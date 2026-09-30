@@ -1,10 +1,5 @@
-import { PlatformNav } from "@/features/platform/PlatformNav";
+import { PlatformShell } from "@/features/platform/PlatformShell";
 
 export default function PlatformLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="min-h-screen bg-background">
-      <PlatformNav />
-      {children}
-    </div>
-  );
+  return <PlatformShell>{children}</PlatformShell>;
 }
