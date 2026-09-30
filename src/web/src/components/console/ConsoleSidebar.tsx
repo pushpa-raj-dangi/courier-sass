@@ -17,6 +17,7 @@ import {
   SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Skeleton } from "@/components/ui/skeleton";
 import { findActiveItem } from "./navModel";
 import type { ConsoleBrand, ConsoleNavGroup } from "./types";
@@ -37,10 +38,12 @@ export function ConsoleSidebar({
 }) {
   const pathname = usePathname();
   const { state, isMobile, setOpenMobile } = useSidebar();
+  const isDeviceMobile = useIsMobile();
   const activeHref = findActiveItem(pathname, nav)?.item.href;
   const onNavigate = isMobile ? () => setOpenMobile(false) : undefined;
   const BrandIcon = brand.icon;
-  const expanded = state === "expanded";
+  // On mobile, always expand brand and scope since the sidebar renders as a drawer
+  const expanded = isDeviceMobile || state === "expanded";
 
   return (
     <Sidebar collapsible="icon">

@@ -1,12 +1,19 @@
-import { describe, expect, it, vi } from "vitest";
-import { screen } from "@testing-library/react";
+import { describe, expect, it, vi, beforeEach } from "vitest";
+import { screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { Package, Wallet } from "lucide-react";
 import { renderWithIntl } from "@/test/renderWithIntl";
-import { SidebarProvider } from "@/components/ui/sidebar";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { ConsoleSidebar } from "./ConsoleSidebar";
 import type { ConsoleNavGroup } from "./types";
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/shipments" }));
+
+// Mutable mock for useIsMobile to allow test-specific control
+let mockIsMobile = false;
+vi.mock("@/hooks/use-mobile", () => ({
+  useIsMobile: () => mockIsMobile,
+}));
 
 const nav: ConsoleNavGroup[] = [
   {
@@ -33,7 +40,24 @@ function renderSidebar(props: Partial<Parameters<typeof ConsoleSidebar>[0]> = {}
   );
 }
 
+function renderSidebarWithTrigger(props: Partial<Parameters<typeof ConsoleSidebar>[0]> = {}, defaultOpen = true) {
+  return renderWithIntl(
+    <SidebarProvider defaultOpen={defaultOpen}>
+      <SidebarTrigger />
+      <ConsoleSidebar
+        brand={{ icon: Package, name: "Sagarmatha Express", subtitle: "Operations console" }}
+        nav={nav}
+        {...props}
+      />
+    </SidebarProvider>
+  );
+}
+
 describe("ConsoleSidebar", () => {
+  beforeEach(() => {
+    mockIsMobile = false;
+  });
+
   it("renders brand name and subtitle", () => {
     renderSidebar();
     expect(screen.getByText("Sagarmatha Express")).toBeInTheDocument();
@@ -74,5 +98,22 @@ describe("ConsoleSidebar", () => {
     renderSidebar({}, false);
     expect(screen.getByRole("link", { name: "Dashboard" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "COD" })).toBeInTheDocument();
+  });
+
+  it("shows brand and scope in mobile drawer even with collapsed desktop state", async () => {
+    const user = userEvent.setup();
+    mockIsMobile = true;
+    renderSidebarWithTrigger({ scope: <div data-testid="scope-control">Scope control</div> }, false);
+
+    // Click the trigger to open the mobile drawer
+    const trigger = screen.getByRole("button", { name: /toggle sidebar/i });
+    await user.click(trigger);
+
+    // On mobile, brand and scope should be visible even with collapsed desktop state
+    await waitFor(() => {
+      expect(screen.getByText("Sagarmatha Express")).toBeInTheDocument();
+      expect(screen.getByText("Operations console")).toBeInTheDocument();
+      expect(screen.getByTestId("scope-control")).toBeInTheDocument();
+    });
   });
 });
