@@ -16,8 +16,8 @@ public class OrganizationAdminService : IOrganizationLookupService
         _auditLogger = auditLogger;
     }
 
-    public async Task<string?> GetSlugAsync(Guid organizationId, CancellationToken cancellationToken = default) =>
-        (await _dbContext.Set<Organization>().FirstOrDefaultAsync(o => o.Id == organizationId, cancellationToken))?.Slug;
+    public async Task<string?> GetAwbPrefixAsync(Guid organizationId, CancellationToken cancellationToken = default) =>
+        await _dbContext.Set<Organization>().Where(o => o.Id == organizationId).Select(o => o.AwbPrefix).FirstOrDefaultAsync(cancellationToken);
 
     // IgnoreQueryFilters(): this is called from pre-tenant-context surfaces (staff login/refresh,
     // merchant login, API-key authentication all run before any tenant is resolved) as well as

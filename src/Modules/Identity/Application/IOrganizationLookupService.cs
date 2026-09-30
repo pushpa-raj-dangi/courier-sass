@@ -7,12 +7,12 @@ public record OrganizationUserRecord(Guid Id, string Email, string FullName, boo
 
 public interface IOrganizationLookupService
 {
-    // Null iff no Organization with this id exists. Lets other modules (e.g. Shipments'
-    // GenerateAwbAsync, which derives the AWB prefix from the org's Slug) resolve this single
-    // field without reaching directly into Identity's EF-mapped Organization table — mirrors
+    // The organization's globally unique AWB prefix (Identity.Domain.AwbPrefix). Null iff no
+    // Organization with this id exists. Lets Shipments' GenerateAwbAsync resolve this single field
+    // without reaching directly into Identity's EF-mapped Organization table — mirrors
     // Merchants.Application.IMerchantLookupService/Branches.Application.IBranchLookupService's
     // shape (a narrow, single-purpose lookup interface, no DbSet exposed).
-    Task<string?> GetSlugAsync(Guid organizationId, CancellationToken cancellationToken = default);
+    Task<string?> GetAwbPrefixAsync(Guid organizationId, CancellationToken cancellationToken = default);
 
     // False for a suspended (IsActive == false) or soft-deleted (DeletedAt is not null)
     // organization, or one that does not exist. Used by every login/auth surface (staff

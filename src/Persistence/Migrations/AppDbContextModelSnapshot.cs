@@ -4118,6 +4118,13 @@ namespace Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("AwbPrefix")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(6)
+                        .HasColumnType("character varying(6)")
+                        .HasDefaultValueSql("'Q' || upper(lpad(to_hex(nextval('\"OrganizationAwbPrefixFallback\"')), 5, '0'))");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -4143,6 +4150,9 @@ namespace Persistence.Migrations
                         .HasColumnType("boolean");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AwbPrefix")
+                        .IsUnique();
 
                     b.HasIndex("Slug")
                         .IsUnique();

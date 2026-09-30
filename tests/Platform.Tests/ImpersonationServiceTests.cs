@@ -12,7 +12,7 @@ public class ImpersonationServiceTests
     {
         public OrganizationRecord? Organization { get; set; }
         public OrganizationUserRecord? User { get; set; }
-        public Task<string?> GetSlugAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult<string?>(null);
+        public Task<string?> GetAwbPrefixAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult<string?>(null);
         public Task<bool> IsActiveAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult(true);
         public Task ReactivateIfSystemSuspendedAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<PagedResult<OrganizationRecord>> ListAsync(string? search, bool? isActive, bool? isDeleted, int? page, int? pageSize, CancellationToken cancellationToken = default) => Task.FromResult(new PagedResult<OrganizationRecord>(new List<OrganizationRecord>(), 1, 25, 0));

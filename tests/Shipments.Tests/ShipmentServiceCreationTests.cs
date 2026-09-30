@@ -77,7 +77,7 @@ file class FixedOrganizationLookup : IOrganizationLookupService
     public Task SuspendForNonPaymentAsync(Guid organizationId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     private readonly string? _slug;
     public FixedOrganizationLookup(string? slug) => _slug = slug;
-    public Task<string?> GetSlugAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult(_slug);
+    public Task<string?> GetAwbPrefixAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult(_slug);
     public Task<bool> IsActiveAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult(true);
     public Task ReactivateIfSystemSuspendedAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.CompletedTask;
     public Task<PagedResult<OrganizationRecord>> ListAsync(string? search, bool? isActive, bool? isDeleted, int? page, int? pageSize, CancellationToken cancellationToken = default) => Task.FromResult(new PagedResult<OrganizationRecord>(new List<OrganizationRecord>(), 1, 25, 0));
@@ -184,7 +184,7 @@ public class ShipmentServiceCreationTests
         return seed;
     }
 
-    private static ShipmentService CreateService(TestDbContext dbContext, Guid organizationId, Dictionary<Guid, Guid?> zonesByBranch, string? organizationSlug = "TESTORG", IOutboxWriter? outboxWriter = null)
+    private static ShipmentService CreateService(TestDbContext dbContext, Guid organizationId, Dictionary<Guid, Guid?> zonesByBranch, string? organizationSlug = "TESTOR", IOutboxWriter? outboxWriter = null)
     {
         var branchLookup = new FakeBranchLookup(zonesByBranch);
         var pricingService = new PricingService(dbContext, new FixedTenantProvider(organizationId), branchLookup, new AlwaysTrueMerchantLookup());

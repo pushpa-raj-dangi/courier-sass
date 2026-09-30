@@ -13,7 +13,7 @@ public class PlatformDashboardServiceTests
     private sealed class FakeOrganizationLookupService : IOrganizationLookupService
     {
         public List<OrganizationRecord> Organizations { get; set; } = new();
-        public Task<string?> GetSlugAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult<string?>(null);
+        public Task<string?> GetAwbPrefixAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult<string?>(null);
         public Task<bool> IsActiveAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult(true);
         public Task ReactivateIfSystemSuspendedAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.CompletedTask;
         // Mirrors OrganizationAdminService.ListAsync's real filter/pagination semantics closely

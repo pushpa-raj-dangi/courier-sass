@@ -88,7 +88,7 @@ file class FixedOrganizationLookup : IOrganizationLookupService
     public Task SuspendForNonPaymentAsync(Guid organizationId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     private readonly string? _slug;
     public FixedOrganizationLookup(string? slug) => _slug = slug;
-    public Task<string?> GetSlugAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult(_slug);
+    public Task<string?> GetAwbPrefixAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult(_slug);
     public Task<bool> IsActiveAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult(true);
     public Task ReactivateIfSystemSuspendedAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.CompletedTask;
     public Task<PagedResult<OrganizationRecord>> ListAsync(string? search, bool? isActive, bool? isDeleted, int? page, int? pageSize, CancellationToken cancellationToken = default) => Task.FromResult(new PagedResult<OrganizationRecord>(new List<OrganizationRecord>(), 1, 25, 0));
@@ -152,7 +152,7 @@ public class ShipmentServiceReadTests
         return new ShipmentService(
             dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), branchLookup,
             new AlwaysTrueGeographyLookup(), new AlwaysTrueMerchantLookup(), pricingService, branchAuthorizationChecker ?? new AllBranchesAuthorizationChecker(),
-            new FixedOrganizationLookup("testorg"), new NoopCodCollectionCreationService(), new NoopOutboxWriter());
+            new FixedOrganizationLookup("TESTOR"), new NoopCodCollectionCreationService(), new NoopOutboxWriter());
     }
 
     private static async Task<ShipmentResponse> SeedShipmentForMerchantAsync(TestDbContext dbContext, Guid organizationId, Guid merchantId)
@@ -165,7 +165,7 @@ public class ShipmentServiceReadTests
         var weightSlabId = dbContext.Set<WeightSlab>().First(w => w.MinWeightKg == 0.5m && w.MaxWeightKg == 1m).Id;
 
         // Seeds a real Organization row for model fidelity; matches CreateService's
-        // FixedOrganizationLookup("testorg") default used by GenerateAwbAsync's primary path.
+        // FixedOrganizationLookup("TESTOR") default used by GenerateAwbAsync's primary path.
         // Only seed once per organizationId across the multiple SeedShipmentForMerchantAsync
         // calls some tests make.
         if (!dbContext.Set<Organization>().Any(o => o.Id == organizationId))

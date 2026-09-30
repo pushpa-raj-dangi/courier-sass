@@ -47,19 +47,13 @@ public class PublicTrackingEndpointTests : IClassFixture<WebApplicationFactory<P
         _factory = factory;
     }
 
-    private async Task<AuthResult> RegisterOrgAsync(HttpClient client, string label)
+    private async Task<AuthResult> RegisterOrgAsync(HttpClient client, string label, string? slug = null)
     {
         var suffix = $"{label}-{Guid.NewGuid():N}";
-        // ShipmentService.GenerateAwbAsync derives its AWB prefix from the first 6 alphanumeric
-        // characters of the org slug — a slug that starts with a shared literal like
-        // "tracking-org-" would give every org in this file the SAME AWB prefix, and since each
-        // org's per-org sequence independently starts at 000001, their first shipments would all
-        // collide on the exact same AWB (uniqueness is only enforced per (OrganizationId, Awb),
-        // not globally — see ShipmentConfiguration.cs). PublicTrackingService intentionally has no
-        // OrganizationId to filter by (it's anonymous), so an AWB collision across orgs would make
-        // it return the wrong org's shipment. Using a pure random hex slug (no shared literal
-        // prefix) keeps every org's AWB prefix effectively unique across this file's tests.
-        var slug = Guid.NewGuid().ToString("N");
+        // Every organization gets a globally unique Organization.AwbPrefix at registration
+        // (Identity.Domain.AwbPrefix), so orgs whose slugs share a leading literal no longer issue
+        // the same AWBs — see GetTrack_OrganizationsWithTheSameSlugPrefix_GetDistinctTrackableAwbs.
+        slug ??= Guid.NewGuid().ToString("N");
         var request = new RegisterOrganizationRequest(
             $"Tracking Org {suffix}", slug, $"owner-{suffix}@example.com", "P@ssw0rd123!", "Owner Person");
         var response = await client.PostAsJsonAsync("/api/v1/auth/register", request);
@@ -238,10 +232,40 @@ public class PublicTrackingEndpointTests : IClassFixture<WebApplicationFactory<P
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
+    // Two organizations whose slugs derive the same 6-char base: before per-org AwbPrefix
+    // allocation both issued e.g. SAMEPF20260930000001 and /track failed closed (404) for both.
+    [Fact]
+    public async Task GetTrack_OrganizationsWithTheSameSlugPrefix_GetDistinctTrackableAwbs()
+    {
+        var sharedStem = $"samepfx-{Guid.NewGuid():N}";
+        var awbs = new List<string>();
+        foreach (var label in new[] { "stem-a", "stem-b" })
+        {
+            var client = _factory.CreateClient();
+            var org = await RegisterOrgAsync(client, label, $"{sharedStem}-{label}");
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+            var (origin, destination, serviceType) = await SeedRoutableBranchesAsync(client);
+            var merchant = await CreateMerchantAsync(client);
+            var created = await client.PostAsJsonAsync("/api/v1/shipments", ValidShipmentRequest(merchant, origin, destination, serviceType));
+            Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+            awbs.Add((await created.Content.ReadFromJsonAsync<ShipmentResponse>())!.Awb);
+        }
+
+        Assert.NotEqual(awbs[0], awbs[1]);
+        var anonClient = _factory.CreateClient();
+        foreach (var awb in awbs)
+        {
+            var response = await anonClient.GetAsync($"/track/{awb}");
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var tracking = JsonSerializer.Deserialize<PublicTrackingResponse>(await response.Content.ReadAsStringAsync(), CaseInsensitiveJson);
+            Assert.Equal(awb, tracking!.Awb);
+        }
+    }
+
     // Proves PublicTrackingService.GetByAwbAsync's fail-closed fix: AWB uniqueness is only
-    // enforced per-(OrganizationId, Awb) (ShipmentConfiguration.cs), not globally, so two
-    // different organizations' shipments CAN legitimately share the same Awb string (e.g. same
-    // org-slug-derived 6-char prefix, same UTC day — see ShipmentService.GenerateAwbAsync). Every
+    // enforced per-(OrganizationId, Awb) (ShipmentConfiguration.cs), not globally. New AWBs can no
+    // longer collide across organizations (unique Organization.AwbPrefix), but AWBs issued before
+    // that prefix existed can still share a string (same slug-derived prefix, same UTC day). Every
     // other shipment read path in this codebase goes through the tenant query filter and never
     // notices this; /track/{awb} is the first anonymous, zero-tenant-scope path, so it must not
     // arbitrarily pick one org's row when more than one matches — it must refuse to guess.

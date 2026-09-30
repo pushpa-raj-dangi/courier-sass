@@ -22,9 +22,10 @@ public class PublicTrackingService
         //
         // AWB uniqueness is enforced per-(OrganizationId, Awb), not globally (ShipmentConfiguration.cs) —
         // a pre-existing Phase 6 design that was safe only because every prior lookup path went through
-        // the tenant query filter. This endpoint is the first one with zero tenant scope, so a same-day
-        // collision between two orgs (same org-slug-derived 6-char prefix) is now a real cross-tenant
-        // leak risk, not just a hypothetical. Fail closed: if more than one Shipment matches this AWB,
+        // the tenant query filter. This endpoint is the first one with zero tenant scope. New AWBs can
+        // no longer collide across orgs (each org has a unique Organization.AwbPrefix), but AWBs issued
+        // before that prefix existed can (same slug-derived prefix, same day) — a real cross-tenant
+        // leak risk for those legacy rows. Fail closed: if more than one Shipment matches this AWB,
         // treat it as not found rather than arbitrarily picking one and leaking the wrong org's data.
         var matches = await _dbContext.Set<Shipment>().IgnoreQueryFilters()
             .Where(s => s.Awb == awb)

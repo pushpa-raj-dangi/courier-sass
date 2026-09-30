@@ -77,11 +77,13 @@ public class AuthService
         (RefreshToken Entity, string PlainText) refreshToken;
         try
         {
+            var organizationId = Guid.NewGuid();
             organization = new Organization
             {
-                Id = Guid.NewGuid(),
+                Id = organizationId,
                 Name = request.OrganizationName,
-                Slug = request.OrganizationSlug
+                Slug = request.OrganizationSlug,
+                AwbPrefix = await AllocateAwbPrefixAsync(request.OrganizationSlug, organizationId, cancellationToken)
             };
             _dbContext.Set<Organization>().Add(organization);
 
@@ -344,6 +346,38 @@ public class AuthService
 
         var accessToken = _jwtTokenService.IssueAccessToken(user.Id, user.OrganizationId!.Value, user.Email);
         return new AuthResult(accessToken, refreshToken.PlainText, user.Id, user.OrganizationId.Value);
+    }
+
+    // pg_advisory_xact_lock(classid, objid) namespace ("AWBP" in ASCII); objid is always 0 — prefix
+    // allocation is global, not per-organization.
+    private const int AwbPrefixAllocationLockNamespace = 0x41574250;
+
+    // First free AwbPrefix.Candidate for the slug's derived base. Runs inside RegisterOrganizationAsync's
+    // transaction; the transaction-scoped advisory lock serializes concurrent registrations so two
+    // can never both see the same candidate as free (the unique index on AwbPrefix is the backstop).
+    // Organizations is read with IgnoreQueryFilters: registration has no tenant, and uniqueness is
+    // across every organization.
+    private async Task<string> AllocateAwbPrefixAsync(string slug, Guid organizationId, CancellationToken cancellationToken)
+    {
+        if (_dbContext.Database.IsRelational())
+        {
+            await _dbContext.Database.ExecuteSqlRawAsync(
+                $"SELECT pg_advisory_xact_lock({AwbPrefixAllocationLockNamespace}, 0)", cancellationToken);
+        }
+
+        var basePrefix = AwbPrefix.Derive(slug, organizationId);
+        var taken = (await _dbContext.Set<Organization>().IgnoreQueryFilters()
+            .Where(o => o.AwbPrefix.StartsWith(basePrefix.Substring(0, 1)))
+            .Select(o => o.AwbPrefix)
+            .ToListAsync(cancellationToken)).ToHashSet();
+        for (var attempt = 1; ; attempt++)
+        {
+            var candidate = AwbPrefix.Candidate(basePrefix, attempt);
+            if (!taken.Contains(candidate))
+            {
+                return candidate;
+            }
+        }
     }
 
     private async Task<(RefreshToken Entity, string PlainText)> IssueRefreshTokenAsync(Guid userId, Guid organizationId, CancellationToken cancellationToken)

@@ -124,6 +124,26 @@ public class AuthServiceTests
     }
 
     [Fact]
+    public async Task RegisterOrganizationAsync_SlugsDerivingTheSamePrefix_GetDistinctAwbPrefixes()
+    {
+        await using var dbContext = CreateContext();
+        var service = CreateService(dbContext);
+        // Both slugs derive "SAMEPR"; a unique per-org prefix is what keeps AWBs globally unique.
+        var first = await service.RegisterOrganizationAsync(new RegisterOrganizationRequest(
+            "Same Prefix A", $"same-prefix-a-{Guid.NewGuid():N}", $"a-{Guid.NewGuid():N}@example.com", "P@ssw0rd123!", "Owner A"));
+        var second = await service.RegisterOrganizationAsync(new RegisterOrganizationRequest(
+            "Same Prefix B", $"same-prefix-b-{Guid.NewGuid():N}", $"b-{Guid.NewGuid():N}@example.com", "P@ssw0rd123!", "Owner B"));
+
+        var prefixes = await dbContext.Set<Organization>().IgnoreQueryFilters()
+            .Where(o => o.Id == first.OrganizationId || o.Id == second.OrganizationId)
+            .Select(o => o.AwbPrefix).ToListAsync();
+
+        Assert.Equal(2, prefixes.Distinct().Count());
+        Assert.All(prefixes, p => Assert.Matches(@"^[A-Z0-9]{1,6}$", p));
+        Assert.All(prefixes, p => Assert.StartsWith("SAME", p));
+    }
+
+    [Fact]
     public async Task RegisterOrganizationAsync_Seeds14Roles_WithExpectedPermissionSets()
     {
         await using var dbContext = CreateContext();

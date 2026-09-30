@@ -255,9 +255,6 @@ public partial class ShipmentService : IShipmentTransitionService
         return await LoadResponseAsync(shipment.Id, cancellationToken);
     }
 
-    [GeneratedRegex("[^A-Z0-9]")]
-    private static partial Regex NonAlphanumericRegex();
-
     // Advisory-lock namespace for per-organization AWB allocation. Uses Postgres's two-int
     // pg_advisory_xact_lock(classid, objid) form: classid = this constant ("AWB1" in ASCII), objid =
     // a stable 32-bit key folded from the OrganizationId. The two-int key space is disjoint from the
@@ -308,13 +305,11 @@ public partial class ShipmentService : IShipmentTransitionService
         return ownedTransaction;
     }
 
-    // Format: {OrgSlugPrefix}{yyyyMMdd}{6-digit sequence}, e.g. ACME20260820000001. Prefix is the
-    // org's Slug uppercased with non-alphanumeric characters stripped, truncated to 6 chars (a
-    // Slug can be any string up to 100 chars per OrganizationConfiguration.cs — nothing sanitizes
-    // it at registration, so this must). If that leaves an empty prefix (a slug made entirely of
-    // symbols), fall back to the first 6 hex chars of OrganizationId — always non-empty, always
-    // deterministic per org. Sequence: current max existing suffix for (OrganizationId,
-    // today's date-prefix) + 1. This method does NOT itself guarantee uniqueness under
+    // Format: {AwbPrefix}{yyyyMMdd}{6-digit sequence}, e.g. ACME20260820000001. The prefix is the
+    // organization's stored AwbPrefix (Identity.Domain.AwbPrefix) — unique across organizations,
+    // so AWBs never collide between tenants (public /track/{awb} has no tenant scope). The
+    // org-id-derived fallback only covers an organization row that no longer exists. Sequence:
+    // current max existing suffix for (OrganizationId, today's date-prefix) + 1. This method does NOT itself guarantee uniqueness under
     // concurrency — two callers racing on the same org/day can compute the same candidate. Its
     // callers make it safe: on Postgres they first take BeginAwbAllocationAsync's per-organization
     // advisory lock, which serializes allocators so each reads the previous one's committed AWB;
@@ -322,9 +317,8 @@ public partial class ShipmentService : IShipmentTransitionService
     // again on each retry, as a fallback.
     private async Task<string> GenerateAwbAsync(Guid organizationId, CancellationToken cancellationToken)
     {
-        var slug = await _organizationLookupService.GetSlugAsync(organizationId, cancellationToken);
-        var rawPrefix = NonAlphanumericRegex().Replace(slug?.ToUpperInvariant() ?? string.Empty, string.Empty);
-        var prefix = rawPrefix.Length > 0 ? rawPrefix[..Math.Min(6, rawPrefix.Length)] : organizationId.ToString("N")[..6].ToUpperInvariant();
+        var storedPrefix = await _organizationLookupService.GetAwbPrefixAsync(organizationId, cancellationToken);
+        var prefix = string.IsNullOrEmpty(storedPrefix) ? Identity.Domain.AwbPrefix.Derive(null, organizationId) : storedPrefix;
         var datePart = DateTimeOffset.UtcNow.ToString("yyyyMMdd");
         var awbPrefix = $"{prefix}{datePart}";
 

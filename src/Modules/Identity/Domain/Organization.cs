@@ -5,6 +5,8 @@ public class Organization
     public Guid Id { get; set; }
     public required string Name { get; set; }
     public required string Slug { get; set; }
+    // Unique across all organizations; assigned once at registration, never changed (see AwbPrefix).
+    public string AwbPrefix { get; set; } = string.Empty;
     public bool IsActive { get; set; } = true;
     // True only when the overdue-invoice job (Billing Task 13) auto-suspended this org for
     // non-payment — distinguishes that from a SuperAdmin's manual suspend (Task 9) so a later

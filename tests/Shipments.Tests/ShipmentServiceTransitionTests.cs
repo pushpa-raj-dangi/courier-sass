@@ -93,7 +93,7 @@ file class FixedOrganizationLookup : IOrganizationLookupService
     public Task SuspendForNonPaymentAsync(Guid organizationId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     private readonly string? _slug;
     public FixedOrganizationLookup(string? slug) => _slug = slug;
-    public Task<string?> GetSlugAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult(_slug);
+    public Task<string?> GetAwbPrefixAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult(_slug);
     public Task<bool> IsActiveAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult(true);
     public Task ReactivateIfSystemSuspendedAsync(Guid organizationId, CancellationToken cancellationToken = default) => Task.CompletedTask;
     public Task<PagedResult<OrganizationRecord>> ListAsync(string? search, bool? isActive, bool? isDeleted, int? page, int? pageSize, CancellationToken cancellationToken = default) => Task.FromResult(new PagedResult<OrganizationRecord>(new List<OrganizationRecord>(), 1, 25, 0));
@@ -156,7 +156,7 @@ public class ShipmentServiceTransitionTests
         return new ShipmentService(
             dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), branchLookup,
             new AlwaysTrueGeographyLookup(), new AlwaysTrueMerchantLookup(), pricingService, branchAuthorizationChecker ?? new AllBranchesAuthorizationChecker(),
-            new FixedOrganizationLookup("testorg"), new NoopCodCollectionCreationService(), new NoopOutboxWriter());
+            new FixedOrganizationLookup("TESTOR"), new NoopCodCollectionCreationService(), new NoopOutboxWriter());
     }
 
     private static async Task<(ShipmentService Service, Guid ShipmentId, Guid OriginBranchId, Guid DestinationBranchId)> SeedCreatedShipmentAsync(TestDbContext dbContext, Guid organizationId)
@@ -169,7 +169,7 @@ public class ShipmentServiceTransitionTests
         var weightSlabId = dbContext.Set<WeightSlab>().First(w => w.MinWeightKg == 0.5m && w.MaxWeightKg == 1m).Id;
 
         // Seeds a real Organization row for model fidelity; matches CreateService's
-        // FixedOrganizationLookup("testorg") default used by GenerateAwbAsync's primary path.
+        // FixedOrganizationLookup("TESTOR") default used by GenerateAwbAsync's primary path.
         dbContext.Set<Organization>().Add(new Organization { Id = organizationId, Name = "Test Org", Slug = "testorg" });
 
         var rateCard = new RateCard { Id = Guid.NewGuid(), OrganizationId = organizationId, Name = "Default", EffectiveFrom = DateTimeOffset.UtcNow, Version = 1, IsActive = true };

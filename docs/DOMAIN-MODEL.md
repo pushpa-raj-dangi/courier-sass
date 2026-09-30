@@ -14,7 +14,7 @@ Entities/fields introduced or changed by `CLARIFICATIONS.md` are marked **[C#n]*
 ## Identity & Tenancy — `OrganizationId` N/A (this module defines it)
 
 ```text
-Organization { Id, Name, Slug, SubscriptionPlan, IsActive }
+Organization { Id, Name, Slug, AwbPrefix (unique across organizations), SubscriptionPlan, IsActive }
 
 User { Id, OrganizationId (nullable — null = platform user, e.g. SuperAdmin) [C#5],
        Email, PasswordHash, FullName, Phone, IsActive }
@@ -119,7 +119,8 @@ origin/destination branch to a rating zone for `ZoneRate` lookup.
 
 ```text
 Shipment { Id (internal UUID), Awb (business identifier, unique per (OrganizationId, Awb),
-             format {OrgSlugPrefix}{yyyyMMdd}{6-digit sequence}, e.g. ACME20260820000001),
+             format {Organization.AwbPrefix}{yyyyMMdd}{6-digit sequence}, e.g. ACME20260820000001;
+             AwbPrefix is unique across organizations, so new AWBs are globally unique),
            OrganizationId, MerchantId,
            OriginBranchId, DestinationBranchId, CurrentBranchId (nullable),
            CurrentCustodianUserId (nullable), CurrentCustodianRiderId (nullable — always

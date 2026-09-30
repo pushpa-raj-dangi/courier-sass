@@ -1156,6 +1156,32 @@ recorded here rather than only in commit messages.
 
 ---
 
+## 24. AWB prefixes are unique per organization (2026-09-30)
+
+AWBs were `{first 6 alphanumerics of the org Slug}{yyyyMMdd}{6-digit sequence}` with uniqueness
+indexed only per `(OrganizationId, Awb)`, so two organizations whose slugs share a 6-character
+stem (e.g. `ktm-express` and `ktm-express-cargo`) issued identical AWBs on the same day, and
+public `/track/{awb}` — tenantless — failed closed with 404 for both. Found in a live I4 E2E run.
+
+1. **`Organization.AwbPrefix`** (≤6 chars, unique index) is allocated once at registration
+   (`AuthService.AllocateAwbPrefixAsync`, serialized by a transaction-scoped advisory lock): the
+   slug-derived base if free, otherwise the first free `left(base, 6 - len(n)) || n`
+   (`KTMEXP` → `KTMEX2`, `KTMEX3`, …). `ShipmentService.GenerateAwbAsync` uses it verbatim.
+   Equal-length AWBs have equal-length prefixes, so distinct prefixes cannot yield equal AWBs.
+2. **Backfill** (`AddOrganizationAwbPrefix` migration): the oldest organization per base keeps
+   the base, so existing tenants' AWB format is unchanged unless they collided with an older one;
+   later ones get the numeric candidate by rank, and any still-clashing row re-rolls to first
+   letter + 5 hex chars of a salted hash of its id. Already-issued AWBs are never rewritten
+   (printed on labels) — `/track` keeps failing closed for those legacy duplicates.
+3. **Database default**: `'Q' || 5 hex digits` from the `OrganizationAwbPrefixFallback`
+   sequence, so any row inserted without registration (test seeds, manual SQL) still gets a
+   unique prefix. Registration always sets a readable one explicitly.
+4. `IOrganizationLookupService.GetSlugAsync` (whose only consumer was AWB generation) was
+   replaced by `GetAwbPrefixAsync`. The prefix is not editable — changing it would split an
+   organization's AWB history across two formats.
+
+---
+
 ## Summary of schema additions implied by this document
 
 * `UserRole` (new entity) — resolves #1, carries `BranchScope` enum — resolves #6.
