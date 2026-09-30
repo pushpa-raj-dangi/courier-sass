@@ -44,7 +44,7 @@ spec → plan → implementation cycle (recorded as Frontend Phase F15 in
   dark console rail.
 - Page primitives exist in `src/components/page/` and are used by at least the dashboard
   header (reference adoption); other pages adopt them in R2–R6.
-- `DataTable`, `BorderedTableContainer`, `StatusBadge`, `EmptyState`, `ErrorState`
+- `DataTable`, `BorderedTableContainer`, `StatusBadge`, `EmptyState`, `LoadingState`
   restyled in place — every page picks the change up with no behaviour change.
 - `npm run build`, `npm run lint`, `tsc --noEmit`, `npm test` all pass.
 - `DESIGN.md` and `docs/FRONTEND-ROADMAP.md` updated.
@@ -66,19 +66,19 @@ Light mode changes; everything else unchanged.
 |---|---|---|---|
 | `--background` | `37.5 44.4% 96.5%` (#faf7f2) | `42 31% 93.7%` (#f4f1ea) | Page must differ from cards |
 | `--card`, `--popover` | = background | `40 100% 98.8%` (#fffdf9) | Cards lift without shadow (Flat-Ledger Rule holds) |
-| `--surface-sunken` (new) | — | `42 24% 92.5%` (#f1eee7) | Table header row, Sheet footer bar |
+| `--surface-sunken` (new) | — | `42 26% 92.5%` (#f1eee7) | Table header row, Sheet footer bar |
 | `--sidebar-background` | paper | `229 20% 10.8%` (#161821) | Dark console rail |
-| `--sidebar-foreground` | ink | `231 11% 79%` (#c3c5d0) | Rail item text |
-| `--sidebar-accent` | cobalt tint | `230 22% 21%` (#2a2e42) | Active item fill |
+| `--sidebar-foreground` | ink | `231 12% 79%` (#c3c5d0) | Rail item text |
+| `--sidebar-accent` | cobalt tint | `230 22% 21.2%` (#2a2e42) | Active item fill |
 | `--sidebar-accent-foreground` | ink | `0 0% 100%` | Active item text |
 | `--sidebar-primary` | cobalt | `236 73% 60%` (#4f58e3) | Brand chip, badges on ink |
 | `--sidebar-primary-foreground` | paper | `0 0% 100%` | |
-| `--sidebar-border` | hairline | `229 20% 22%` (#2c3042) | Scope switcher, separators |
-| `--sidebar-muted` (new) | — | `232 9% 58%` (#8a8da0) | Group headings |
+| `--sidebar-border` | hairline | `229 20% 21.6%` (#2c3042) | Scope switcher, separators |
+| `--sidebar-muted` (new) | — | `232 10% 58.4%` (#8a8da0) | Group headings |
 | `--sidebar-ring` | cobalt | `236 73% 70%` | Focus ring visible on ink |
 
 Dark mode: `--background`/`--card` unchanged; `--surface-sunken` = `229 20% 12.5%`;
-sidebar one step darker than the page, `--sidebar-background` = `228 22% 7%` (#0e1016),
+sidebar one step darker than the page, `--sidebar-background` = `225 22% 7.1%` (#0e1016),
 other sidebar values as light mode. Add `surface-sunken` and `sidebar.muted` to
 `tailwind.config.ts`.
 
@@ -191,7 +191,7 @@ All presentational: plain props, no fetching, no state.
   dividers; new optional `selectedRowId` + `getRowId` props → selected row
   `bg-accent` + `aria-selected="true"`. Pagination unchanged.
 - `StatusBadge`: same dot + label; `h-6 text-xs font-medium`, `rounded-md`.
-- `EmptyState` / `ErrorState`: `bg-card` surface.
+- `EmptyState` and `LoadingState`: `bg-card` surface. `ErrorState` keeps its destructive tint (reads correctly on sand).
 - Tabs: unchanged (already ruled-underline).
 
 ## 7. Error / loading behaviour
