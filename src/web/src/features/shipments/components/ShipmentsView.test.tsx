@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
-import type { ShipmentListParams } from "@/features/shipments/lib/listParams";
+import { toApiQuery, type ShipmentListParams } from "@/features/shipments/lib/listParams";
 
 const replace = vi.fn();
 let search = "";
@@ -97,6 +97,45 @@ describe("ShipmentsView", () => {
     expect(screen.getByText("No shipments match these filters")).toBeInTheDocument();
     fireEvent.click(within(screen.getByRole("toolbar")).getByRole("button", { name: /clear filters/i }));
     expect(replace).toHaveBeenCalledWith("/shipments", { scroll: false });
+  });
+
+  it("explicit status params override the tab", () => {
+    search = "tab=ndr&status=Created&status=PickupAssigned";
+    render(<ShipmentsView />);
+    screen.getAllByRole("tab").forEach((t) => expect(t).not.toHaveAttribute("aria-selected", "true"));
+    expect(useShipmentsMock).toHaveBeenLastCalledWith(expect.objectContaining({ statuses: ["Created", "PickupAssigned"] }));
+  });
+
+  it("does not send a 1-character search to the API", () => {
+    vi.useFakeTimers();
+    render(<ShipmentsView />);
+    fireEvent.change(screen.getByRole("searchbox", { name: /filter shipments/i }), { target: { value: "a" } });
+    act(() => vi.advanceTimersByTime(300));
+    const lastParams = useShipmentsMock.mock.calls.at(-1)![0] as ShipmentListParams;
+    expect(toApiQuery(lastParams, 20).has("q")).toBe(false);
+    vi.useRealTimers();
+  });
+
+  it("changing a filter resets the page", () => {
+    search = "page=3";
+    render(<ShipmentsView />);
+    fireEvent.click(screen.getByRole("button", { name: /Merchant/ }));
+    fireEvent.click(screen.getByRole("option", { name: /Everest Organics/ }));
+    expect(replace).toHaveBeenCalledWith("/shipments?merchantId=m1", { scroll: false });
+  });
+
+  it("keeps newer keystrokes while the URL catches up", () => {
+    vi.useFakeTimers();
+    const { rerender } = render(<ShipmentsView />);
+    const input = () => screen.getByRole("searchbox", { name: /filter shipments/i }) as HTMLInputElement;
+    fireEvent.change(input(), { target: { value: "ab" } });
+    act(() => vi.advanceTimersByTime(300));
+    expect(replace).toHaveBeenCalledWith("/shipments?q=ab", { scroll: false });
+    fireEvent.change(input(), { target: { value: "abc" } });
+    search = "q=ab";
+    rerender(<ShipmentsView />);
+    expect(input().value).toBe("abc");
+    vi.useRealTimers();
   });
 
   it("shows the plain empty state with no filters", () => {

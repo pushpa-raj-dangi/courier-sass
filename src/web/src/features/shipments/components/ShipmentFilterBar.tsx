@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -33,11 +33,23 @@ export function ShipmentFilterBar({
   const [searchText, setSearchText] = useState(params.q);
   const debounced = useDebouncedValue(searchText, 300);
 
-  // URL → input when the URL changes from elsewhere (Clear filters, back button).
-  useEffect(() => setSearchText(params.q), [params.q]);
-  // Debounced input → URL. Compared to params.q so a URL-driven reset doesn't loop.
+  // Last q this component pushed to the URL; a params.q that differs came from elsewhere.
+  const lastPushedRef = useRef(params.q);
+
+  // URL → input only when the change came from elsewhere (Clear filters, back button),
+  // never when it is just our own write catching up (that would drop newer keystrokes).
   useEffect(() => {
-    if (debounced !== params.q) onChange({ q: debounced });
+    if (params.q !== lastPushedRef.current) {
+      lastPushedRef.current = params.q;
+      setSearchText(params.q);
+    }
+  }, [params.q]);
+  // Debounced input → URL. Compared to the last pushed value so retyping old text after a reset is pushed again.
+  useEffect(() => {
+    if (debounced !== lastPushedRef.current) {
+      lastPushedRef.current = debounced;
+      onChange({ q: debounced });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only the debounced value drives this
   }, [debounced]);
 
