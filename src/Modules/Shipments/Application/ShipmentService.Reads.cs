@@ -9,17 +9,52 @@ public partial class ShipmentService
 {
     public async Task<ShipmentResponse?> GetByAwbAsync(string awb, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
+        var shipment = await FindReadableByAwbAsync(awb, actingUser, cancellationToken);
+        return shipment is null ? null : await LoadResponseAsync(shipment.Id, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<ShipmentEventResponse>?> GetEventsByAwbAsync(string awb, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
+    {
+        var shipment = await FindReadableByAwbAsync(awb, actingUser, cancellationToken);
+        if (shipment is null)
+        {
+            return null;
+        }
+
+        // ShipmentEvent carries no OrganizationId; tenant isolation comes from resolving the
+        // (tenant-filtered) Shipment first and reading only its events.
+        return await _dbContext.Set<ShipmentEvent>()
+            .Where(e => e.ShipmentId == shipment.Id)
+            .OrderBy(e => e.Timestamp).ThenBy(e => e.Id)
+            .Select(e => new ShipmentEventResponse(e.Id, e.EventType, e.PreviousStatus, e.NewStatus, e.BranchId, e.UserId, e.RiderId, e.Timestamp, e.Notes))
+            .ToListAsync(cancellationToken);
+    }
+
+    // Single-shipment read rule (CLARIFICATIONS #25): tenant filter (global), merchant callers pinned
+    // to their own shipments, staff callers limited to shipments whose origin, destination or
+    // current branch is in their shipment.read scope — the same predicate ListAsync uses. A miss
+    // is indistinguishable from "does not exist" so AWB existence is never disclosed.
+    private async Task<Shipment?> FindReadableByAwbAsync(string awb, ClaimsPrincipal actingUser, CancellationToken cancellationToken)
+    {
         var shipment = await _dbContext.Set<Shipment>().FirstOrDefaultAsync(s => s.Awb == awb, cancellationToken);
         if (shipment is null)
         {
             return null;
         }
-        if (actingUser.GetMerchantId() is Guid callerMerchantId && shipment.MerchantId != callerMerchantId)
+        if (actingUser.GetMerchantId() is Guid callerMerchantId)
         {
-            return null;
+            return shipment.MerchantId == callerMerchantId ? shipment : null;
         }
 
-        return await LoadResponseAsync(shipment.Id, cancellationToken);
+        var accessibleBranchIds = await _branchAuthorizationChecker.GetAccessibleBranchIdsAsync(actingUser, "shipment.read", cancellationToken);
+        if (accessibleBranchIds is null)
+        {
+            return shipment;
+        }
+        var inScope = accessibleBranchIds.Contains(shipment.OriginBranchId) ||
+                      accessibleBranchIds.Contains(shipment.DestinationBranchId) ||
+                      (shipment.CurrentBranchId is Guid current && accessibleBranchIds.Contains(current));
+        return inScope ? shipment : null;
     }
 
     public async Task<PagedResult<ShipmentResponse>> ListAsync(int? page, int? pageSize, ClaimsPrincipal actingUser, ShipmentListFilter? filter = null, CancellationToken cancellationToken = default)

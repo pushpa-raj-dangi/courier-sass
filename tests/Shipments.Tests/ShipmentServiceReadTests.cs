@@ -436,4 +436,86 @@ public class ShipmentServiceReadTests
         Assert.Equal(latest, listed.LastEventAt);
         Assert.Equal(latest, single!.LastEventAt);
     }
+
+    [Fact]
+    public async Task GetByAwbAsync_StaffOutsideBranchScope_ReturnsNull()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var shipment = await SeedShipmentForMerchantAsync(dbContext, organizationId, Guid.NewGuid());
+        var restricted = new RestrictedBranchesAuthorizationChecker(new HashSet<Guid> { Guid.NewGuid() });
+        var service = CreateService(dbContext, organizationId, new(), restricted);
+
+        Assert.Null(await service.GetByAwbAsync(shipment.Awb, StaffUser(Guid.NewGuid())));
+    }
+
+    [Theory]
+    [InlineData("origin")]
+    [InlineData("destination")]
+    [InlineData("current")]
+    public async Task GetByAwbAsync_StaffScopedToOriginDestinationOrCurrent_ReturnsShipment(string which)
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var shipment = await SeedShipmentForMerchantAsync(dbContext, organizationId, Guid.NewGuid());
+        var currentBranchId = Guid.NewGuid();
+        await MutateAsync(dbContext, shipment.Id, s => s.CurrentBranchId = currentBranchId);
+        var branchId = which switch { "origin" => shipment.OriginBranchId, "destination" => shipment.DestinationBranchId, _ => currentBranchId };
+        var service = CreateService(dbContext, organizationId, new(), new RestrictedBranchesAuthorizationChecker(new HashSet<Guid> { branchId }));
+
+        Assert.NotNull(await service.GetByAwbAsync(shipment.Awb, StaffUser(Guid.NewGuid())));
+    }
+
+    [Fact]
+    public async Task GetByAwbAsync_MerchantCaller_IsNotBranchScoped()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var merchantId = Guid.NewGuid();
+        var shipment = await SeedShipmentForMerchantAsync(dbContext, organizationId, merchantId);
+        var service = CreateService(dbContext, organizationId, new(), new RestrictedBranchesAuthorizationChecker(new HashSet<Guid>()));
+
+        Assert.NotNull(await service.GetByAwbAsync(shipment.Awb, MerchantUser(merchantId)));
+    }
+
+    [Fact]
+    public async Task GetEventsByAwbAsync_ReturnsEventsAscendingWithoutInternalFields()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var shipment = await SeedShipmentForMerchantAsync(dbContext, organizationId, Guid.NewGuid());
+        var later = DateTimeOffset.UtcNow.AddHours(2);
+        dbContext.Set<ShipmentEvent>().Add(new ShipmentEvent
+        {
+            Id = Guid.NewGuid(), ShipmentId = shipment.Id, EventType = ShipmentEventType.ReceivedAtOrigin,
+            PreviousStatus = ShipmentStatus.PickedUp, NewStatus = ShipmentStatus.AtOriginBranch,
+            BranchId = shipment.OriginBranchId, Timestamp = later, Notes = "dock 2",
+            Latitude = 27.7m, Longitude = 85.3m, Metadata = "{\"secret\":1}",
+        });
+        await dbContext.SaveChangesAsync();
+        var service = CreateService(dbContext, organizationId, new());
+
+        var events = await service.GetEventsByAwbAsync(shipment.Awb, StaffUser(Guid.NewGuid()));
+
+        Assert.NotNull(events);
+        Assert.True(events!.Count >= 2);
+        Assert.Equal(events.OrderBy(e => e.Timestamp).ThenBy(e => e.Id).Select(e => e.Id), events.Select(e => e.Id));
+        var last = events[^1];
+        Assert.Equal(ShipmentEventType.ReceivedAtOrigin, last.EventType);
+        Assert.Equal("dock 2", last.Notes);
+        Assert.DoesNotContain(typeof(ShipmentEventResponse).GetProperties(), p => p.Name is "Metadata" or "Latitude" or "Longitude");
+    }
+
+    [Fact]
+    public async Task GetEventsByAwbAsync_OutOfScopeOrUnknown_ReturnsNull()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var shipment = await SeedShipmentForMerchantAsync(dbContext, organizationId, Guid.NewGuid());
+        var restricted = CreateService(dbContext, organizationId, new(), new RestrictedBranchesAuthorizationChecker(new HashSet<Guid> { Guid.NewGuid() }));
+        var open = CreateService(dbContext, organizationId, new());
+
+        Assert.Null(await restricted.GetEventsByAwbAsync(shipment.Awb, StaffUser(Guid.NewGuid())));
+        Assert.Null(await open.GetEventsByAwbAsync("NOPE-0000", StaffUser(Guid.NewGuid())));
+    }
 }

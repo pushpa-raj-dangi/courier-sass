@@ -158,3 +158,16 @@ public class ShipmentConcurrencyException : ShipmentInvalidTransitionException
     public ShipmentConcurrencyException(Guid shipmentId, ShipmentStatus from, ShipmentStatus to)
         : base(shipmentId, from, to) { }
 }
+
+// Staff-only event read (F15 R2). Deliberately omits ShipmentEvent.Metadata, Latitude and
+// Longitude — internal data that the Timeline/Custody views do not need.
+public record ShipmentEventResponse(
+    Guid Id,
+    ShipmentEventType EventType,
+    ShipmentStatus? PreviousStatus,
+    ShipmentStatus NewStatus,
+    Guid? BranchId,
+    Guid? UserId,
+    Guid? RiderId,
+    DateTimeOffset Timestamp,
+    string? Notes);
