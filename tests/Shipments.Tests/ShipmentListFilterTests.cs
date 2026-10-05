@@ -50,6 +50,18 @@ public class ShipmentListFilterTests
     }
 
     [Fact]
+    public void Parse_NonUtcOffsets_AreNormalisedToUtcSameInstant()
+    {
+        var from = new DateTimeOffset(2026, 10, 5, 0, 0, 0, TimeSpan.FromMinutes(345));
+        var to = new DateTimeOffset(2026, 10, 6, 0, 0, 0, TimeSpan.FromMinutes(345));
+        var filter = ShipmentListFilter.Parse(null, null, null, null, null, from, to);
+        Assert.Equal(TimeSpan.Zero, filter.CreatedFrom!.Value.Offset);
+        Assert.Equal(TimeSpan.Zero, filter.CreatedTo!.Value.Offset);
+        Assert.Equal(from.UtcDateTime, filter.CreatedFrom.Value.UtcDateTime);
+        Assert.Equal(to.UtcDateTime, filter.CreatedTo.Value.UtcDateTime);
+    }
+
+    [Fact]
     public void Parse_NoInput_IsEmpty()
     {
         var filter = ShipmentListFilter.Parse(null, null, null, null, null, null, null);

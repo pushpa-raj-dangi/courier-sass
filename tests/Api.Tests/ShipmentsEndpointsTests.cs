@@ -391,6 +391,18 @@ public class ShipmentsEndpointsTests : IClassFixture<WebApplicationFactory<Progr
     }
 
     [Fact]
+    public async Task List_NonUtcOffsetCreatedFrom_Returns200()
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "list-offset");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+
+        var response = await client.GetAsync("/api/v1/shipments?createdFrom=2026-10-05T00:00:00%2B05:45");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
     public async Task List_RepeatedStatusParam_FiltersAndReturnsLastEventAt()
     {
         var client = _factory.CreateClient();

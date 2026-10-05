@@ -112,6 +112,10 @@ public record ShipmentListFilter(
             throw new ShipmentValidationException("Search must be at least 2 characters.");
         }
 
+        // Npgsql only writes timestamptz parameters with a zero offset.
+        createdFrom = createdFrom?.ToUniversalTime();
+        createdTo = createdTo?.ToUniversalTime();
+
         if (createdFrom is not null && createdTo is not null && createdFrom > createdTo)
         {
             throw new ShipmentValidationException("createdFrom must not be after createdTo.");
