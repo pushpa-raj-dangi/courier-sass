@@ -4,9 +4,11 @@ import { useQuery } from "@tanstack/react-query";
 import { clientFetch } from "@/lib/api/clientFetch";
 import type { Rider } from "@/features/riders/types";
 
-export function useRiders() {
+export function useRiders(options: { enabled?: boolean } = {}) {
+  const { enabled = true } = options;
   return useQuery({
     queryKey: ["riders"],
     queryFn: () => clientFetch<Rider[]>("/api/riders"),
+    enabled,
   });
 }
