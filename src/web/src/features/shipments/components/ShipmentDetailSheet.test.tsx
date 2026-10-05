@@ -70,6 +70,15 @@ describe("ShipmentDetailSheet", () => {
     }
   });
 
+  it("keeps origin, created-at, parties and items on the Parties tab", () => {
+    renderWithIntl(<ShipmentDetailSheet />);
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "Parties" }));
+    expect(screen.getByText("Origin branch").nextSibling).toHaveTextContent("Kathmandu Hub");
+    expect(screen.getByText("Created at")).toBeInTheDocument();
+    expect(screen.getByText(/Sita Shrestha/)).toBeInTheDocument();
+    expect(screen.getByText("Tea × 2")).toBeInTheDocument();
+  });
+
   it("isolates an events error to the timeline", () => {
     useShipmentEvents.mockReturnValue({ data: undefined, isLoading: false, isError: true, refetch: vi.fn() });
     renderWithIntl(<ShipmentDetailSheet />);

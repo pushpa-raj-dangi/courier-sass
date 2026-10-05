@@ -1,3 +1,4 @@
+import { usePeopleNames } from "@/features/shipments/hooks/usePeopleNames";
 import type { Shipment } from "@/features/shipments/types";
 
 const npr = new Intl.NumberFormat("en-NP", { style: "currency", currency: "NPR" });
@@ -12,6 +13,7 @@ function Field({ label, value }: { label: string; value: string }) {
 }
 
 export function PartiesTab({ shipment }: { shipment: Shipment }) {
+  const names = usePeopleNames();
   const dims = shipment.lengthCm && shipment.widthCm && shipment.heightCm ? `${shipment.lengthCm} × ${shipment.widthCm} × ${shipment.heightCm} cm` : "—";
   return (
     <div className="space-y-6">
@@ -22,6 +24,8 @@ export function PartiesTab({ shipment }: { shipment: Shipment }) {
         <Field label="Sender address" value={shipment.senderAddressLine} />
         <Field label="Weight" value={`${shipment.weightKg} kg`} />
         <Field label="Dimensions" value={dims} />
+        <Field label="Origin branch" value={names.branchName(shipment.originBranchId)} />
+        <Field label="Created at" value={new Date(shipment.createdAt).toLocaleString()} />
       </div>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
         <Field label="Declared value" value={npr.format(shipment.declaredValue)} />
