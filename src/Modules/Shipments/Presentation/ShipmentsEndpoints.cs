@@ -86,14 +86,24 @@ public static class ShipmentsEndpoints
             return result is null ? Results.NotFound() : Results.Ok(result);
         });
 
-        group.MapGet("/", async (int? page, int? pageSize, ShipmentService service, HttpContext httpContext, IPermissionChecker permissionChecker, IMerchantAuthorizationChecker merchantAuthorizationChecker) =>
+        group.MapGet("/", async (int? page, int? pageSize, string[]? status, string? q, Guid? merchantId, Guid? serviceTypeId, Guid? branchId, DateTimeOffset? createdFrom, DateTimeOffset? createdTo, ShipmentService service, HttpContext httpContext, IPermissionChecker permissionChecker, IMerchantAuthorizationChecker merchantAuthorizationChecker) =>
         {
             if (!await HasReadAccessAsync(httpContext, permissionChecker, merchantAuthorizationChecker))
             {
                 return httpContext.User.GetMerchantId() is null && httpContext.User.GetUserId() is null ? Results.Unauthorized() : Results.Forbid();
             }
 
-            return Results.Ok(await service.ListAsync(page, pageSize, httpContext.User, httpContext.RequestAborted));
+            ShipmentListFilter filter;
+            try
+            {
+                filter = ShipmentListFilter.Parse(status, q, merchantId, serviceTypeId, branchId, createdFrom, createdTo);
+            }
+            catch (ShipmentValidationException ex)
+            {
+                return Results.BadRequest(new { error = new { code = "SHIPMENT_VALIDATION_FAILED", message = ex.Message } });
+            }
+
+            return Results.Ok(await service.ListAsync(page, pageSize, httpContext.User, filter, httpContext.RequestAborted));
         });
 
         group.MapPost("/{id:guid}/receive-origin", async (Guid id, ShipmentService service, HttpContext httpContext) =>

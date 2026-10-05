@@ -337,10 +337,13 @@ public partial class ShipmentService : IShipmentTransitionService
     {
         var shipment = await _dbContext.Set<Shipment>().FirstAsync(s => s.Id == shipmentId, cancellationToken);
         var items = await _dbContext.Set<ShipmentItem>().Where(i => i.ShipmentId == shipmentId).ToListAsync(cancellationToken);
-        return ToResponse(shipment, items);
+        var lastEventAt = await _dbContext.Set<ShipmentEvent>()
+            .Where(e => e.ShipmentId == shipmentId)
+            .MaxAsync(e => (DateTimeOffset?)e.Timestamp, cancellationToken);
+        return ToResponse(shipment, items, lastEventAt);
     }
 
-    private static ShipmentResponse ToResponse(Shipment shipment, List<ShipmentItem> items) => new(
+    private static ShipmentResponse ToResponse(Shipment shipment, List<ShipmentItem> items, DateTimeOffset? lastEventAt = null) => new(
         shipment.Id, shipment.Awb, shipment.MerchantId, shipment.OriginBranchId, shipment.DestinationBranchId,
         shipment.CurrentBranchId, shipment.CurrentCustodianUserId, shipment.CurrentCustodianRiderId, shipment.CurrentStatus, shipment.ServiceTypeId,
         shipment.WeightKg, shipment.LengthCm, shipment.WidthCm, shipment.HeightCm,
@@ -349,5 +352,6 @@ public partial class ShipmentService : IShipmentTransitionService
         shipment.RecipientName, shipment.RecipientPhone, shipment.RecipientAddressLine,
         shipment.SenderName, shipment.SenderPhone, shipment.SenderAddressLine,
         items.Select(i => new ShipmentItemResponse(i.Id, i.Description, i.Quantity, i.UnitValue)).ToList(),
-        shipment.CreatedAt);
+        shipment.CreatedAt,
+        lastEventAt);
 }

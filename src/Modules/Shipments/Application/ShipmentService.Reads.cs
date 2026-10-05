@@ -22,7 +22,7 @@ public partial class ShipmentService
         return await LoadResponseAsync(shipment.Id, cancellationToken);
     }
 
-    public async Task<PagedResult<ShipmentResponse>> ListAsync(int? page, int? pageSize, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
+    public async Task<PagedResult<ShipmentResponse>> ListAsync(int? page, int? pageSize, ClaimsPrincipal actingUser, ShipmentListFilter? filter = null, CancellationToken cancellationToken = default)
     {
         var query = _dbContext.Set<Shipment>().AsQueryable();
         if (actingUser.GetMerchantId() is Guid callerMerchantId)
@@ -52,6 +52,11 @@ public partial class ShipmentService
             }
         }
 
+        if (filter is not null)
+        {
+            query = ApplyFilter(query, filter);
+        }
+
         var (normalizedPage, normalizedPageSize) = PaginationDefaults.Normalize(page, pageSize);
         var totalCount = await query.CountAsync(cancellationToken);
         var shipments = await query
@@ -60,13 +65,68 @@ public partial class ShipmentService
             .Take(normalizedPageSize)
             .ToListAsync(cancellationToken);
 
-        var responses = new List<ShipmentResponse>();
-        foreach (var shipment in shipments)
-        {
-            var items = await _dbContext.Set<ShipmentItem>().Where(i => i.ShipmentId == shipment.Id).ToListAsync(cancellationToken);
-            responses.Add(ToResponse(shipment, items));
-        }
+        // One query each for the page's items and latest event times (replaces a per-row items
+        // query). Output is identical to the former per-row loading.
+        var shipmentIds = shipments.Select(s => s.Id).ToArray();
+        var itemsByShipment = (await _dbContext.Set<ShipmentItem>()
+                .Where(i => shipmentIds.Contains(i.ShipmentId))
+                .ToListAsync(cancellationToken))
+            .GroupBy(i => i.ShipmentId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+        var lastEventByShipment = await _dbContext.Set<ShipmentEvent>()
+            .Where(e => shipmentIds.Contains(e.ShipmentId))
+            .GroupBy(e => e.ShipmentId)
+            .Select(g => new { ShipmentId = g.Key, Last = g.Max(e => e.Timestamp) })
+            .ToDictionaryAsync(x => x.ShipmentId, x => x.Last, cancellationToken);
+
+        var responses = shipments
+            .Select(s => ToResponse(
+                s,
+                itemsByShipment.TryGetValue(s.Id, out var items) ? items : new List<ShipmentItem>(),
+                lastEventByShipment.TryGetValue(s.Id, out var last) ? last : null))
+            .ToList();
         return new PagedResult<ShipmentResponse>(responses, normalizedPage, normalizedPageSize, totalCount);
+    }
+
+    private static IQueryable<Shipment> ApplyFilter(IQueryable<Shipment> query, ShipmentListFilter filter)
+    {
+        if (filter.Statuses is { Count: > 0 })
+        {
+            var statuses = filter.Statuses.ToArray();
+            query = query.Where(s => statuses.Contains(s.CurrentStatus));
+        }
+        if (filter.Query is string raw)
+        {
+            // StartsWith/Contains translate to LIKE with EF's own escaping of % and _, so user
+            // input is matched literally on Npgsql; InMemory evaluates them as plain string ops.
+            var upper = raw.ToUpperInvariant();
+            var lower = raw.ToLowerInvariant();
+            query = query.Where(s =>
+                s.Awb.ToUpper().StartsWith(upper) ||
+                s.RecipientName.ToLower().Contains(lower) ||
+                s.RecipientPhone.Contains(raw));
+        }
+        if (filter.MerchantId is Guid merchantId)
+        {
+            query = query.Where(s => s.MerchantId == merchantId);
+        }
+        if (filter.ServiceTypeId is Guid serviceTypeId)
+        {
+            query = query.Where(s => s.ServiceTypeId == serviceTypeId);
+        }
+        if (filter.BranchId is Guid branchId)
+        {
+            query = query.Where(s => s.OriginBranchId == branchId || s.DestinationBranchId == branchId || s.CurrentBranchId == branchId);
+        }
+        if (filter.CreatedFrom is DateTimeOffset from)
+        {
+            query = query.Where(s => s.CreatedAt >= from);
+        }
+        if (filter.CreatedTo is DateTimeOffset to)
+        {
+            query = query.Where(s => s.CreatedAt <= to);
+        }
+        return query;
     }
 
     public async Task<ShipmentScanInfo?> GetScanInfoAsync(Guid shipmentId, CancellationToken cancellationToken = default)

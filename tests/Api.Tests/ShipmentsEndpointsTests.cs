@@ -373,4 +373,39 @@ public class ShipmentsEndpointsTests : IClassFixture<WebApplicationFactory<Progr
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
+
+    [Theory]
+    [InlineData("/api/v1/shipments?status=Bogus")]
+    [InlineData("/api/v1/shipments?q=a")]
+    [InlineData("/api/v1/shipments?createdFrom=2026-10-05T00:00:00Z&createdTo=2026-10-01T00:00:00Z")]
+    public async Task List_InvalidFilter_Returns400WithValidationCode(string url)
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "list-bad-filter");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+
+        var response = await client.GetAsync(url);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("SHIPMENT_VALIDATION_FAILED", await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task List_RepeatedStatusParam_FiltersAndReturnsLastEventAt()
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "list-status");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (originBranchId, destinationBranchId, serviceTypeId) = await SeedRoutableBranchesAsync(client);
+        await SeedRateCardAsync(client, originBranchId, destinationBranchId, serviceTypeId, 100m);
+        var merchantId = await CreateMerchantAsync(client);
+        await client.PostAsJsonAsync("/api/v1/shipments", ValidShipmentRequest(merchantId, originBranchId, destinationBranchId, serviceTypeId));
+
+        var created = await (await client.GetAsync("/api/v1/shipments?status=Created&status=PickupAssigned")).Content.ReadFromJsonAsync<PagedResult<ShipmentResponse>>();
+        var inTransit = await (await client.GetAsync("/api/v1/shipments?status=InTransit")).Content.ReadFromJsonAsync<PagedResult<ShipmentResponse>>();
+
+        Assert.Single(created!.Items);
+        Assert.NotNull(created.Items[0].LastEventAt);
+        Assert.Empty(inTransit!.Items);
+    }
 }

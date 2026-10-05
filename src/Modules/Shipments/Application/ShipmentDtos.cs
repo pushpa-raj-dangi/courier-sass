@@ -62,7 +62,64 @@ public record ShipmentResponse(
     string SenderPhone,
     string SenderAddressLine,
     List<ShipmentItemResponse> Items,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? LastEventAt = null);
+
+// Optional, AND-combined narrowing for GET /api/v1/shipments (F15 R2). Applied AFTER the
+// tenant filter and the caller's merchant pin / staff branch scope, so it can only ever narrow.
+public record ShipmentListFilter(
+    IReadOnlyList<ShipmentStatus>? Statuses,
+    string? Query,
+    Guid? MerchantId,
+    Guid? ServiceTypeId,
+    Guid? BranchId,
+    DateTimeOffset? CreatedFrom,
+    DateTimeOffset? CreatedTo)
+{
+    public bool IsEmpty =>
+        (Statuses is null || Statuses.Count == 0) && Query is null && MerchantId is null &&
+        ServiceTypeId is null && BranchId is null && CreatedFrom is null && CreatedTo is null;
+
+    public static ShipmentListFilter Parse(
+        string[]? status, string? q, Guid? merchantId, Guid? serviceTypeId, Guid? branchId,
+        DateTimeOffset? createdFrom, DateTimeOffset? createdTo)
+    {
+        List<ShipmentStatus>? statuses = null;
+        if (status is { Length: > 0 })
+        {
+            statuses = new List<ShipmentStatus>();
+            foreach (var raw in status)
+            {
+                // Exact enum member names only — Enum.TryParse would otherwise accept numeric
+                // strings ("3") and, with ignoreCase, alternate casings the frontend never sends.
+                if (string.IsNullOrEmpty(raw) || !raw.All(char.IsLetter) ||
+                    !Enum.TryParse<ShipmentStatus>(raw, ignoreCase: false, out var parsed) ||
+                    parsed.ToString() != raw)
+                {
+                    throw new ShipmentValidationException($"Unknown shipment status '{raw}'.");
+                }
+                statuses.Add(parsed);
+            }
+        }
+
+        var query = q?.Trim();
+        if (string.IsNullOrEmpty(query))
+        {
+            query = null;
+        }
+        else if (query.Length < 2)
+        {
+            throw new ShipmentValidationException("Search must be at least 2 characters.");
+        }
+
+        if (createdFrom is not null && createdTo is not null && createdFrom > createdTo)
+        {
+            throw new ShipmentValidationException("createdFrom must not be after createdTo.");
+        }
+
+        return new ShipmentListFilter(statuses, query, merchantId, serviceTypeId, branchId, createdFrom, createdTo);
+    }
+}
 
 public class ShipmentValidationException : Exception
 {
