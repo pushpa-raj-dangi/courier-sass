@@ -1,14 +1,16 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { clientFetch } from "@/lib/api/clientFetch";
 import type { PagedResult } from "@/components/data-table/DataTable";
 import type { Shipment } from "@/features/shipments/types";
+import { toApiQuery, type ShipmentListParams } from "@/features/shipments/lib/listParams";
 
-export function useShipments(page: number, pageSize: number) {
+export function useShipments(params: ShipmentListParams, pageSize = 20) {
+  const query = toApiQuery(params, pageSize).toString();
   return useQuery({
-    queryKey: ["shipments", page, pageSize],
-    queryFn: () =>
-      clientFetch<PagedResult<Shipment>>(`/api/shipments?page=${page}&pageSize=${pageSize}`),
+    queryKey: ["shipments", "list", query],
+    queryFn: () => clientFetch<PagedResult<Shipment>>(`/api/shipments?${query}`),
+    placeholderData: keepPreviousData,
   });
 }

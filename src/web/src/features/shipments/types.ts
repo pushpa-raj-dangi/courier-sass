@@ -35,6 +35,7 @@ export interface Shipment {
   senderAddressLine: string;
   items: ShipmentItem[];
   createdAt: string;
+  lastEventAt: string | null;
 }
 
 export interface CreateShipmentItemInput {
@@ -105,4 +106,16 @@ export interface QuoteResponse {
   discountPercent: number;
   subtotal: number;
   total: number;
+}
+
+export interface ShipmentEvent {
+  id: string;
+  eventType: string;
+  previousStatus: string | null;
+  newStatus: string;
+  branchId: string | null;
+  userId: string | null;
+  riderId: string | null;
+  timestamp: string;
+  notes: string | null;
 }
