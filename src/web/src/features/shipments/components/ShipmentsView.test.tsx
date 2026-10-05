@@ -138,6 +138,23 @@ describe("ShipmentsView", () => {
     vi.useRealTimers();
   });
 
+  it("re-applies the same search text typed again after Clear filters", () => {
+    vi.useFakeTimers();
+    search = "q=ab";
+    const { rerender } = render(<ShipmentsView />);
+    fireEvent.click(within(screen.getByRole("toolbar")).getByRole("button", { name: /clear filters/i }));
+    expect(replace).toHaveBeenCalledWith("/shipments", { scroll: false });
+    replace.mockClear();
+    search = "";
+    rerender(<ShipmentsView />);
+    const input = screen.getByRole("searchbox", { name: /filter shipments/i }) as HTMLInputElement;
+    expect(input.value).toBe("");
+    fireEvent.change(input, { target: { value: "ab" } });
+    act(() => vi.advanceTimersByTime(300));
+    expect(replace).toHaveBeenCalledWith("/shipments?q=ab", { scroll: false });
+    vi.useRealTimers();
+  });
+
   it("shows the plain empty state with no filters", () => {
     useShipmentsMock.mockReturnValue(page([]));
     render(<ShipmentsView />);

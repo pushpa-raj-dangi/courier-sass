@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
-import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { useBranches } from "@/features/branches/hooks/useBranches";
 import { useMerchants } from "@/features/shipments/hooks/useMerchants";
 import { useServiceTypes } from "@/features/shipments/hooks/useServiceTypes";
@@ -31,27 +30,41 @@ export function ShipmentFilterBar({
   const { data: merchants } = useMerchants();
   const { data: serviceTypes } = useServiceTypes();
   const [searchText, setSearchText] = useState(params.q);
-  const debounced = useDebouncedValue(searchText, 300);
 
   // Last q this component pushed to the URL; a params.q that differs came from elsewhere.
   const lastPushedRef = useRef(params.q);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The timer fires later, so it must call the latest onChange (it closes over current params).
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
+  function clearTimer() {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = null;
+  }
 
   // URL → input only when the change came from elsewhere (Clear filters, back button),
   // never when it is just our own write catching up (that would drop newer keystrokes).
   useEffect(() => {
     if (params.q !== lastPushedRef.current) {
+      clearTimer();
       lastPushedRef.current = params.q;
       setSearchText(params.q);
     }
   }, [params.q]);
-  // Debounced input → URL. Compared to the last pushed value so retyping old text after a reset is pushed again.
-  useEffect(() => {
-    if (debounced !== lastPushedRef.current) {
-      lastPushedRef.current = debounced;
-      onChange({ q: debounced });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only the debounced value drives this
-  }, [debounced]);
+  useEffect(() => clearTimer, []);
+
+  // Input → URL, debounced by an owned timer so retyping text after an external reset is always pushed.
+  function handleSearchChange(value: string) {
+    setSearchText(value);
+    clearTimer();
+    if (value === lastPushedRef.current) return;
+    timerRef.current = setTimeout(() => {
+      timerRef.current = null;
+      lastPushedRef.current = value;
+      onChangeRef.current({ q: value });
+    }, 300);
+  }
 
   return (
     <div role="toolbar" aria-label="Shipment filters" className="flex flex-wrap items-center gap-2">
@@ -62,7 +75,7 @@ export function ShipmentFilterBar({
           aria-label="Filter shipments"
           placeholder="Filter by AWB, name or phone"
           value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
+          onChange={(e) => handleSearchChange(e.target.value)}
           className="min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground"
         />
       </label>
