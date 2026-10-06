@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
+import { createDeduper, SCAN_DEDUPE_MS } from "./dedupe";
 
 declare global {
   interface Window {
@@ -13,7 +15,15 @@ declare global {
   }
 }
 
-export function BarcodeScanner({ onDetect }: { onDetect: (awb: string) => void }) {
+export function BarcodeScanner({
+  onDetect,
+  continuous = false,
+  manualEntry = true,
+}: {
+  onDetect: (awb: string) => void;
+  continuous?: boolean;
+  manualEntry?: boolean;
+}) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [manualValue, setManualValue] = useState("");
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -31,6 +41,9 @@ export function BarcodeScanner({ onDetect }: { onDetect: (awb: string) => void }
   // duplicate pickup-scan write with its own idempotency key) for one physical scan.
   const onDetectRef = useRef(onDetect);
   onDetectRef.current = onDetect;
+  const continuousRef = useRef(continuous);
+  continuousRef.current = continuous;
+  const dedupeRef = useRef(createDeduper(SCAN_DEDUPE_MS));
 
   useEffect(() => {
     if (!scanning) return;
@@ -59,13 +72,16 @@ export function BarcodeScanner({ onDetect }: { onDetect: (awb: string) => void }
             try {
               const results = await detector.detect(videoRef.current);
               if (results[0]?.rawValue) {
-                onDetectRef.current(results[0].rawValue.trim().toUpperCase());
-                // One physical scan, one detection: stop the camera and drop back to the "Start
-                // Scanning" button rather than continuing to fire on the same barcode still in
-                // frame. The rider explicitly starts scanning again for the next parcel.
-                stopScanning();
-                if (!cancelled) setScanning(false);
-                return;
+                const code = results[0].rawValue.trim().toUpperCase();
+                if (continuousRef.current) {
+                  if (dedupeRef.current(code)) onDetectRef.current(code);
+                } else {
+                  onDetectRef.current(code);
+                  // One physical scan, one detection: stop the camera (single-shot rider flow).
+                  stopScanning();
+                  if (!cancelled) setScanning(false);
+                  return;
+                }
               }
             } catch {
               // transient decode failure — keep looping
@@ -77,12 +93,16 @@ export function BarcodeScanner({ onDetect }: { onDetect: (awb: string) => void }
           const { BrowserMultiFormatReader } = await import("@zxing/browser");
           const reader = new BrowserMultiFormatReader();
           const controls = await reader.decodeFromVideoElement(videoRef.current, (result) => {
-            if (result && !cancelled) {
-              onDetectRef.current(result.getText().trim().toUpperCase());
-              controls.stop();
-              stopScanning();
-              setScanning(false);
+            if (!result || cancelled) return;
+            const code = result.getText().trim().toUpperCase();
+            if (continuousRef.current) {
+              if (dedupeRef.current(code)) onDetectRef.current(code);
+              return;
             }
+            onDetectRef.current(code);
+            controls.stop();
+            stopScanning();
+            setScanning(false);
           });
         }
       } catch {
@@ -104,23 +124,30 @@ export function BarcodeScanner({ onDetect }: { onDetect: (awb: string) => void }
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="relative aspect-square w-full overflow-hidden rounded-lg bg-black">
+      <div className={cn("relative w-full overflow-hidden rounded-lg bg-black", continuous ? "aspect-video" : "aspect-square")}>
         {scanning ? (
           <video ref={videoRef} className="h-full w-full object-cover" muted playsInline />
         ) : (
           <div className="flex h-full w-full items-center justify-center">
-            <Button type="button" size="lg" className="h-11" onClick={() => setScanning(true)}>Start Scanning</Button>
+            <Button type="button" size="lg" className="h-11" onClick={() => setScanning(true)}>{continuous ? "Start camera" : "Start Scanning"}</Button>
           </div>
+        )}
+        {scanning && continuous && (
+          <Button type="button" variant="secondary" size="sm" className="absolute right-2 top-2" onClick={() => setScanning(false)}>
+            Stop camera
+          </Button>
         )}
         {cameraError && <p className="absolute inset-x-0 bottom-2 text-center text-sm text-white">{cameraError}</p>}
       </div>
-      <div className="space-y-2">
-        <Label htmlFor="manual-awb">Enter AWB manually</Label>
-        <div className="flex gap-2">
-          <Input id="manual-awb" className="h-11" value={manualValue} onChange={(e) => setManualValue(e.target.value)} />
-          <Button type="button" className="h-11" onClick={submitManual}>Use this AWB</Button>
+      {manualEntry && (
+        <div className="space-y-2">
+          <Label htmlFor="manual-awb">Enter AWB manually</Label>
+          <div className="flex gap-2">
+            <Input id="manual-awb" className="h-11" value={manualValue} onChange={(e) => setManualValue(e.target.value)} />
+            <Button type="button" className="h-11" onClick={submitManual}>Use this AWB</Button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

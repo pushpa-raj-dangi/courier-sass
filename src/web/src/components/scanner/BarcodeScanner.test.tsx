@@ -89,4 +89,20 @@ describe("BarcodeScanner", () => {
 
     expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledTimes(1);
   });
+
+  it("keeps scanning in continuous mode and suppresses a held barcode", async () => {
+    const sequence = ["QA-1", "QA-1", "QA-1", "QA-2"];
+    const detect = vi.fn().mockImplementation(async () => {
+      const next = sequence.shift();
+      return next ? [{ rawValue: next }] : [];
+    });
+    stubBarcodeDetector(detect);
+    const onDetect = vi.fn();
+    render(<BarcodeScanner onDetect={onDetect} continuous manualEntry={false} />);
+    fireEvent.click(screen.getByRole("button", { name: "Start camera" }));
+    await waitFor(() => expect(onDetect).toHaveBeenCalledWith("QA-2"));
+    expect(onDetect.mock.calls.map((c) => c[0])).toEqual(["QA-1", "QA-2"]);
+    expect(screen.getByRole("button", { name: "Stop camera" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Enter AWB manually")).toBeNull();
+  });
 });
