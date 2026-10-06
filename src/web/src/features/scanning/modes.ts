@@ -27,7 +27,15 @@ function describe(s: Pick<Shipment, "recipientName" | "codAmount">): string {
   return `${s.recipientName} · ${s.codAmount > 0 ? `COD Rs ${rs.format(s.codAmount)}` : "Prepaid"}`;
 }
 
+// AWBs are {AwbPrefix}{yyyyMMdd}{6-digit seq} (prefix: up to 6 of A-Z0-9, incl. the Q+hex
+// fallback) and return AWBs are RTO-{yyyyMMdd}-{3-digit seq}; Shipment.Awb is at most 30 chars.
+// Anything else (a stray QR payload, a URL, a typo with spaces) is rejected before any request.
+const AWB_PATTERN = /^[A-Z0-9-]{3,30}$/;
+export const INVALID_AWB_MESSAGE = "Not a valid AWB";
+export const isValidAwb = (code: string) => AWB_PATTERN.test(code);
+
 async function run(awb: string, op: () => Promise<string>): Promise<ScanOutcome> {
+  if (!isValidAwb(awb)) return { ok: false, awb, message: INVALID_AWB_MESSAGE };
   try {
     return { ok: true, awb, summary: await op() };
   } catch (error) {
@@ -44,7 +52,8 @@ export const SCAN_MODES: ScanMode[] = [
     label: "Receive",
     title: (ctx) => (ctx.kind === "manifest" ? "Receive manifest" : "Receive at origin"),
     context: "optional-manifest",
-    isAvailable: (can) => can("shipment.scan") || can("manifest.receive"),
+    // Without shipment.scan, Receive is manifest-only — so it also needs manifest.read for the picker.
+    isAvailable: (can) => can("shipment.scan") || (can("manifest.receive") && can("manifest.read")),
     requiresContext: (can) => !can("shipment.scan"),
     manifestFilter: (m, inScope) => m.status === "InTransit" && inScope(m.toBranchId),
     submit: (awb, ctx) =>

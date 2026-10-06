@@ -33,8 +33,9 @@ vi.mock("@/lib/api/clientFetch", async (orig) => ({ ...(await orig<object>()), c
 
 import { ScanStation } from "./ScanStation";
 
+let qc: QueryClient;
 function renderStation() {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return renderWithIntl(
     <QueryClientProvider client={qc}>
       <ScanStation />
@@ -67,6 +68,17 @@ describe("ScanStation", () => {
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Accepted"));
     expect(clientFetch.mock.calls[1][0]).toBe("/api/shipments/s1/receive-origin");
     expect(screen.getByText("1 scans this session")).toBeInTheDocument();
+  });
+
+  it("refreshes the dashboard status summary after a successful scan", async () => {
+    clientFetch.mockResolvedValueOnce({ id: "s1", awb: "QA-1", recipientName: "Sita", codAmount: 0 }).mockResolvedValueOnce({});
+    renderStation();
+    const invalidate = vi.spyOn(qc, "invalidateQueries");
+    const input = screen.getByRole("textbox", { name: /scan or type awb/i });
+    fireEvent.change(input, { target: { value: "qa-1" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Accepted"));
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["shipments-summary"] });
   });
 
   it("blocks scanning until required context is chosen", () => {

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const clientFetch = vi.fn();
 vi.mock("@/lib/api/clientFetch", async (orig) => ({ ...(await orig<object>()), clientFetch: (...a: unknown[]) => clientFetch(...a) }));
 
-import { SCAN_MODES, getScanMode, type ScanContext } from "./modes";
+import { SCAN_MODES, getScanMode, isValidAwb, type ScanContext } from "./modes";
 import type { Manifest } from "@/features/manifests/types";
 
 const manifest = { id: "m1", code: "MNF-1", fromBranchId: "a", toBranchId: "b", purpose: "Forward", status: "Draft", shipmentCount: 0 } as Manifest;
@@ -55,12 +55,28 @@ describe("scan modes", () => {
     expect(outcome).toEqual({ ok: false, awb: "QA-9", message: "This shipment isn't on this manifest." });
   });
 
+  it("rejects codes that are not AWB-shaped before any lookup", async () => {
+    for (const code of ["AB", "QA 1", "QA/1", "../X", "A".repeat(31), "QA-1?X"]) {
+      const outcome = await mode("receive").submit!(code, { kind: "none" });
+      expect(outcome).toEqual({ ok: false, awb: code, message: "Not a valid AWB" });
+    }
+    const handover = await mode("handover").submit!("QA/1", { kind: "rider", rider: { id: "r1" } as never });
+    expect(handover).toMatchObject({ ok: false, message: "Not a valid AWB" });
+    expect(clientFetch).not.toHaveBeenCalled();
+  });
+
+  it("accepts real AWB formats", () => {
+    for (const code of ["ACME20261005000001", "Q1A2B320261005000042", "RTO-20261005-001", "QA-1"]) expect(isValidAwb(code)).toBe(true);
+  });
+
   it("sort has no submit", () => {
     expect(mode("sort").submit).toBeUndefined();
   });
 
   it("availability mirrors endpoint permissions", () => {
-    expect(mode("receive").isAvailable(can(["manifest.receive"]))).toBe(true);
+    // Without shipment.scan, Receive needs a manifest — so it needs the picker (manifest.read) too.
+    expect(mode("receive").isAvailable(can(["manifest.receive"]))).toBe(false);
+    expect(mode("receive").isAvailable(can(["manifest.receive", "manifest.read"]))).toBe(true);
     expect(mode("receive").requiresContext(can(["manifest.receive"]))).toBe(true);
     expect(mode("receive").requiresContext(can(["shipment.scan"]))).toBe(false);
     expect(mode("dispatch").isAvailable(can(["manifest.create"]))).toBe(false);

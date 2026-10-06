@@ -3,7 +3,7 @@ import { apiFetch } from "@/lib/auth/apiFetch";
 
 export async function GET(_request: Request, { params }: { params: { awb: string } }) {
   try {
-    const response = await apiFetch(`/api/v1/shipments/${params.awb}`);
+    const response = await apiFetch(`/api/v1/shipments/${encodeURIComponent(params.awb)}`);
     const body = await response.json().catch(() => null);
     return NextResponse.json(body, { status: response.status });
   } catch {

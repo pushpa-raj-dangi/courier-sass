@@ -63,6 +63,8 @@ export function ScanStation() {
     if (outcome.ok) {
       void queryClient.invalidateQueries({ queryKey: ["manifests"] });
       void queryClient.invalidateQueries({ queryKey: ["shipments"] });
+      // Not under the ["shipments"] prefix — the dashboard pipeline counts.
+      void queryClient.invalidateQueries({ queryKey: ["shipments-summary"] });
     }
     inputRef.current?.focus();
   };
