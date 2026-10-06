@@ -23,7 +23,7 @@ export function ScanContextPicker({
   const canReadManifests = usePermission("manifest.read");
   const canReceive = usePermission("manifest.receive");
   const canManifests = canReadManifests && (mode.context !== "optional-manifest" || canReceive);
-  const manifests = useManifests();
+  const manifests = useManifests(undefined, undefined, { enabled: wantsManifest && canManifests });
   const riders = useRiders({ enabled: mode.context === "rider" });
   const names = usePeopleNames();
 
