@@ -12,11 +12,12 @@ import {
   CreditCard,
   History,
   MapPin,
+  ScanLine,
   type LucideIcon,
 } from "lucide-react";
 
 export type NavLabelKey =
-  | "dashboard" | "shipments" | "branches" | "manifests" | "ndrs" | "returnShipments"
+  | "dashboard" | "scan" | "shipments" | "branches" | "manifests" | "ndrs" | "returnShipments"
   | "riders" | "liveMap" | "myDeliveries" | "cod" | "billing" | "auditLogs" | "admin";
 
 export type StaffNavGroup = "operations" | "finance" | "network" | "admin";
@@ -43,6 +44,7 @@ export interface NavItem {
 // then, and the item is hidden entirely for any user lacking the permission regardless.
 export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", labelKey: "dashboard", permission: "report.read", icon: LayoutDashboard, group: "operations" },
+  { href: "/scan", labelKey: "scan", permission: ["shipment.scan", "manifest.create", "manifest.receive", "delivery.assign"], icon: ScanLine, group: "operations" },
   { href: "/shipments", labelKey: "shipments", permission: "shipment.read", icon: Package, group: "operations" },
   { href: "/manifests", labelKey: "manifests", permission: "manifest.read", icon: Truck, group: "operations" },
   { href: "/riders", labelKey: "riders", permission: "rider.read", icon: Bike, group: "operations" },

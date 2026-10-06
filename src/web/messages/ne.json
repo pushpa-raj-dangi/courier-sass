@@ -5,6 +5,7 @@
   "nav": {
     "groups": { "operations": "सञ्चालन", "finance": "वित्त", "network": "नेटवर्क", "admin": "प्रशासन" },
     "dashboard": "ड्यासबोर्ड",
+    "scan": "स्क्यान स्टेसन",
     "shipments": "ढुवानीहरू",
     "branches": "शाखाहरू",
     "manifests": "म्यानिफेस्टहरू",
