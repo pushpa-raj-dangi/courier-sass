@@ -11,7 +11,11 @@ const can = (granted: string[]) => (p: string) => granted.includes(p);
 const mode = (id: string) => SCAN_MODES.find((m) => m.id === id)!;
 
 describe("scan modes", () => {
-  beforeEach(() => clientFetch.mockReset());
+  // Vitest 4: a bare mockReset() leaves the mock in a state where a later mockRejectedValue fails the
+  // test with the rejection even when it is handled; re-seeding an implementation avoids that.
+  beforeEach(() => {
+    clientFetch.mockReset().mockImplementation(async () => undefined);
+  });
 
   it("receive with a manifest posts receive-scan", async () => {
     clientFetch.mockResolvedValue({ awb: "QA-1" });
