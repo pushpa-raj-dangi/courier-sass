@@ -506,6 +506,25 @@ public class ShipmentsEndpointsTests : IClassFixture<WebApplicationFactory<Progr
     }
 
     [Fact]
+    public async Task GetEvents_StaffWithoutShipmentRead_Returns403()
+    {
+        var (owner, shipment, originBranchId) = await BookOneAsync("events-noread");
+        // FinanceStaff holds only cod.read/cod.reconcile — no shipment.read — even in the shipment's own branch.
+        var financeStaff = await CreateBranchScopedStaffClientAsync(owner, originBranchId, "FinanceStaff");
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await financeStaff.GetAsync($"/api/v1/shipments/{shipment.Awb}/events")).StatusCode);
+    }
+
+    [Fact]
+    public async Task GetEvents_Unauthenticated_Returns401()
+    {
+        var (_, shipment, _) = await BookOneAsync("events-anon");
+        var anonymous = _factory.CreateClient();
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.GetAsync($"/api/v1/shipments/{shipment.Awb}/events")).StatusCode);
+    }
+
+    [Fact]
     public async Task GetEvents_MerchantCaller_Returns403()
     {
         var (owner, shipment, _) = await BookOneAsync("events-merchant");

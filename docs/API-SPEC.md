@@ -206,7 +206,8 @@ Response: `ShipmentResponse` including `LastEventAt`.
 
 #### `GET /api/v1/shipments/{awb}/events`
 
-Staff only: requires `shipment.read`; a merchant caller → `403`. Shipment resolved by AWB
+Staff only: requires `shipment.read` (staff without it → `403`); a merchant caller → `403`;
+unauthenticated → `401`. Shipment resolved by AWB
 under tenant isolation and the branch-scope rule; not found or out of scope → `404`.
 
 Response: array ordered by `Timestamp` ascending, then `Id`:
