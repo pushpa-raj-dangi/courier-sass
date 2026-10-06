@@ -37,3 +37,9 @@ export async function clientFetch<T>(path: string, init?: RequestInit): Promise<
   }
   return response.json();
 }
+
+// A 404 from a proxied backend read: the backend's NotFound has no body, so clientFetch throws
+// its generic "... failed with 404" message.
+export function isNotFoundError(error: unknown): boolean {
+  return error instanceof Error && /failed with 404$/.test(error.message);
+}

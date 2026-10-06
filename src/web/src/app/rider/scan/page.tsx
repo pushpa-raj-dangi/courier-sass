@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { BarcodeScanner } from "@/features/rider-app/components/BarcodeScanner";
+import { BarcodeScanner } from "@/components/scanner/BarcodeScanner";
 import { useMyRider } from "@/features/riders/hooks/useMyRider";
 import { useMyTasksToday } from "@/features/riders/hooks/useMyTasksToday";
 import { useRiderPickupScan } from "@/features/rider-app/hooks/useRiderPickupScan";

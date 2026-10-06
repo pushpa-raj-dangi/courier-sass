@@ -86,14 +86,44 @@ public static class ShipmentsEndpoints
             return result is null ? Results.NotFound() : Results.Ok(result);
         });
 
-        group.MapGet("/", async (int? page, int? pageSize, ShipmentService service, HttpContext httpContext, IPermissionChecker permissionChecker, IMerchantAuthorizationChecker merchantAuthorizationChecker) =>
+        // Staff-only (F15 R2): merchants already see their customer-safe history via /track.
+        group.MapGet("/{awb}/events", async (string awb, ShipmentService service, HttpContext httpContext, IPermissionChecker permissionChecker) =>
+        {
+            if (httpContext.User.GetMerchantId() is not null)
+            {
+                return Results.Forbid();
+            }
+            if (httpContext.User.GetUserId() is null)
+            {
+                return Results.Unauthorized();
+            }
+            if (!await permissionChecker.HasPermissionAsync(httpContext.User, "shipment.read", httpContext.RequestAborted))
+            {
+                return Results.Forbid();
+            }
+
+            var events = await service.GetEventsByAwbAsync(awb, httpContext.User, httpContext.RequestAborted);
+            return events is null ? Results.NotFound() : Results.Ok(events);
+        });
+
+        group.MapGet("/", async (int? page, int? pageSize, string[]? status, string? q, Guid? merchantId, Guid? serviceTypeId, Guid? branchId, DateTimeOffset? createdFrom, DateTimeOffset? createdTo, ShipmentService service, HttpContext httpContext, IPermissionChecker permissionChecker, IMerchantAuthorizationChecker merchantAuthorizationChecker) =>
         {
             if (!await HasReadAccessAsync(httpContext, permissionChecker, merchantAuthorizationChecker))
             {
                 return httpContext.User.GetMerchantId() is null && httpContext.User.GetUserId() is null ? Results.Unauthorized() : Results.Forbid();
             }
 
-            return Results.Ok(await service.ListAsync(page, pageSize, httpContext.User, httpContext.RequestAborted));
+            ShipmentListFilter filter;
+            try
+            {
+                filter = ShipmentListFilter.Parse(status, q, merchantId, serviceTypeId, branchId, createdFrom, createdTo);
+            }
+            catch (ShipmentValidationException ex)
+            {
+                return Results.BadRequest(new { error = new { code = "SHIPMENT_VALIDATION_FAILED", message = ex.Message } });
+            }
+
+            return Results.Ok(await service.ListAsync(page, pageSize, httpContext.User, filter, httpContext.RequestAborted));
         });
 
         group.MapPost("/{id:guid}/receive-origin", async (Guid id, ShipmentService service, HttpContext httpContext) =>

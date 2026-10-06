@@ -1,29 +1,31 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ErrorState } from "@/components/states/ErrorState";
 import { DetailSkeleton } from "@/components/states/DetailSkeleton";
 import { StatusBadge } from "@/components/status-badge/StatusBadge";
+import { SheetHeaderBlock } from "@/components/page/SheetHeaderBlock";
+import { ComingSoonSlot } from "@/components/page/ComingSoonSlot";
+import { isNotFoundError } from "@/lib/api/clientFetch";
 import { usePermission } from "@/features/auth/hooks/usePermission";
-import { useBranches } from "@/features/branches/hooks/useBranches";
+import { scanErrorMessage } from "@/features/scanning/scanErrors";
 import { useShipment } from "@/features/shipments/hooks/useShipment";
+import { useShipmentEvents } from "@/features/shipments/hooks/useShipmentEvents";
 import { useMerchants } from "@/features/shipments/hooks/useMerchants";
 import { useReceiveAtOrigin } from "@/features/shipments/hooks/useReceiveAtOrigin";
 import { useServiceTypes } from "@/features/shipments/hooks/useServiceTypes";
 import { useShipmentPanelStore } from "@/features/shipments/store/shipmentPanelStore";
 import { ShipmentNdrRtoLinks } from "@/features/shipments/components/ShipmentNdrRtoLinks";
+import { custodySince } from "@/features/shipments/lib/custodyChain";
+import { ProgressStepper } from "./detail/ProgressStepper";
+import { RightNowCard } from "./detail/RightNowCard";
+import { TimelineTab } from "./detail/TimelineTab";
+import { CustodyTab } from "./detail/CustodyTab";
+import { PartiesTab } from "./detail/PartiesTab";
 
-const currencyFormatter = new Intl.NumberFormat("en-NP", { style: "currency", currency: "NPR" });
-
-function Field({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="text-sm font-medium text-foreground">{value}</span>
-    </div>
-  );
-}
+const rs = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
 
 export function ShipmentDetailSheet() {
   const panel = useShipmentPanelStore((s) => s.panel);
@@ -31,102 +33,105 @@ export function ShipmentDetailSheet() {
   const isOpen = panel.mode === "detail";
   const awb = panel.mode === "detail" ? panel.awb : "";
 
-  const { data: shipment, isLoading, isError, refetch } = useShipment(awb);
-  const { data: branches } = useBranches();
+  const { data: shipment, isLoading, isError, error, refetch } = useShipment(awb);
+  const events = useShipmentEvents(awb);
   const { data: merchants } = useMerchants();
   const { data: serviceTypes } = useServiceTypes();
   const canScan = usePermission("shipment.scan");
   const receiveAtOrigin = useReceiveAtOrigin(shipment?.id ?? "");
 
-  const branchName = (id: string) => branches?.find((b) => b.id === id)?.name ?? "—";
-  const merchantName = (id: string) => merchants?.find((m) => m.id === id)?.displayName ?? "—";
-  const serviceTypeName = (id: string) => serviceTypes?.find((s) => s.id === id)?.name ?? "—";
+  const serviceName = shipment ? serviceTypes?.find((s) => s.id === shipment.serviceTypeId)?.name ?? "Service" : "";
+  const merchantName = shipment ? merchants?.find((m) => m.id === shipment.merchantId)?.displayName ?? "—" : "—";
+
+  const historyError = (
+    <ErrorState title="Couldn't load the history" description="The shipment's events could not be fetched." onRetry={() => events.refetch()} />
+  );
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => { if (!open) close(); }}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
-        <SheetHeader>
-          <SheetTitle className={shipment?.awb ? "font-mono" : undefined}>{shipment?.awb ?? "Shipment"}</SheetTitle>
-        </SheetHeader>
-        <div className="mt-6 space-y-6">
+      <SheetContent className="flex w-full flex-col gap-0 p-0 sm:max-w-[580px]">
+        <div className="flex-1 space-y-5 overflow-y-auto p-6">
+          {!shipment && <SheetTitle className="sr-only">Shipment</SheetTitle>}
           {isLoading && <DetailSkeleton fieldRows={5} />}
-          {isError && (
+          {isError && (isNotFoundError(error) ? (
             <ErrorState
-              title="Couldn't load this shipment"
-              description="It may not exist, or you may not have access to it."
+              title="Shipment not found or not in your branches"
+              description="Check the AWB, or ask an admin for access to the branch that holds it."
               onRetry={() => refetch()}
             />
-          )}
+          ) : (
+            <ErrorState
+              title="Couldn't load shipment"
+              description="Something went wrong fetching this shipment. Check your connection and try again."
+              onRetry={() => refetch()}
+            />
+          ))}
           {shipment && (
             <>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1">
-                  <span className="text-xs text-muted-foreground">Status</span>
-                  <StatusBadge status={shipment.currentStatus} />
-                  {canScan && shipment.currentStatus === "PickedUp" && (
-                    <Button
-                      size="sm"
-                      className="mt-1 w-fit"
-                      disabled={receiveAtOrigin.isPending}
-                      onClick={() => receiveAtOrigin.mutate()}
-                    >
-                      {receiveAtOrigin.isPending ? "Receiving…" : "Receive at Origin"}
-                    </Button>
-                  )}
-                </div>
-                <Field label="Service Type" value={serviceTypeName(shipment.serviceTypeId)} />
-                <Field label="Merchant" value={merchantName(shipment.merchantId)} />
-                <Field label="Created At" value={new Date(shipment.createdAt).toLocaleString()} />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <Field label="Origin Branch" value={branchName(shipment.originBranchId)} />
-                <Field label="Destination Branch" value={branchName(shipment.destinationBranchId)} />
-                <Field label="Weight" value={`${shipment.weightKg} kg`} />
-                <Field
-                  label="Dimensions"
-                  value={
-                    shipment.lengthCm && shipment.widthCm && shipment.heightCm
-                      ? `${shipment.lengthCm} x ${shipment.widthCm} x ${shipment.heightCm} cm`
-                      : "—"
-                  }
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <Field label="Recipient" value={`${shipment.recipientName} (${shipment.recipientPhone})`} />
-                <Field label="Recipient Address" value={shipment.recipientAddressLine} />
-                <Field label="Sender" value={`${shipment.senderName} (${shipment.senderPhone})`} />
-                <Field label="Sender Address" value={shipment.senderAddressLine} />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                <Field label="Declared Value" value={currencyFormatter.format(shipment.declaredValue)} />
-                <Field label="COD Amount" value={currencyFormatter.format(shipment.codAmount)} />
-                <Field label="Delivery Charge" value={currencyFormatter.format(shipment.deliveryCharge)} />
-                <Field label="Insurance Charge" value={currencyFormatter.format(shipment.insuranceCharge)} />
-                <Field label="Other Charges" value={currencyFormatter.format(shipment.otherCharges)} />
-                <Field label="Total Charge" value={currencyFormatter.format(shipment.totalCharge)} />
-              </div>
-
-              <div className="space-y-2">
-                <span className="text-xs text-muted-foreground">Items</span>
-                <ul className="space-y-1">
-                  {shipment.items.map((item) => (
-                    <li key={item.id} className="flex justify-between text-sm">
-                      <span>{item.description} × {item.quantity}</span>
-                      <span>{currencyFormatter.format(item.unitValue)}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
+              <SheetHeaderBlock
+                eyebrow={`AWB · ${serviceName.toUpperCase()} · ${shipment.codAmount > 0 ? "COD" : "PREPAID"}`}
+                title={shipment.awb}
+                mono
+                status={<StatusBadge status={shipment.currentStatus} />}
+                facts={[
+                  { label: "Merchant", value: merchantName },
+                  { label: "COD", value: shipment.codAmount > 0 ? `Rs ${rs.format(shipment.codAmount)}` : "—" },
+                  { label: "Weight", value: `${shipment.weightKg} kg` },
+                  { label: "Charge", value: `Rs ${rs.format(shipment.totalCharge)}` },
+                ]}
+              />
+              <RightNowCard shipment={shipment} since={events.data ? custodySince(events.data) : null} />
+              <ProgressStepper status={shipment.currentStatus} />
               {(shipment.currentStatus === "NdrCreated" || shipment.currentStatus.startsWith("Rto")) && (
                 <ShipmentNdrRtoLinks shipmentId={shipment.id} />
               )}
+              <Tabs defaultValue="timeline">
+                <TabsList className="w-full justify-start overflow-x-auto">
+                  <TabsTrigger value="timeline">Timeline</TabsTrigger>
+                  <TabsTrigger value="custody">Custody chain</TabsTrigger>
+                  <TabsTrigger value="cod">COD</TabsTrigger>
+                  <TabsTrigger value="attempts">Attempts</TabsTrigger>
+                  <TabsTrigger value="parties">Parties</TabsTrigger>
+                  <TabsTrigger value="audit">Audit</TabsTrigger>
+                </TabsList>
+                <TabsContent value="timeline" className="pt-4">
+                  {events.isLoading ? <DetailSkeleton fieldRows={4} /> : events.isError ? historyError : <TimelineTab events={events.data ?? []} />}
+                </TabsContent>
+                <TabsContent value="custody" className="pt-4">
+                  {events.isLoading ? <DetailSkeleton fieldRows={3} /> : events.isError ? historyError : <CustodyTab events={events.data ?? []} />}
+                </TabsContent>
+                <TabsContent value="cod" className="pt-4">
+                  <ComingSoonSlot title="COD for this shipment" description="Collection, rider deposit and settlement status for this parcel." />
+                </TabsContent>
+                <TabsContent value="attempts" className="pt-4">
+                  <ComingSoonSlot title="Delivery attempts" description="Each attempt with reason, rider, time and next action." />
+                </TabsContent>
+                <TabsContent value="parties" className="pt-4">
+                  <PartiesTab shipment={shipment} />
+                </TabsContent>
+                <TabsContent value="audit" className="pt-4">
+                  <ComingSoonSlot title="Audit trail" description="Edits and corrections to this shipment with before/after values." />
+                </TabsContent>
+              </Tabs>
             </>
           )}
         </div>
+        {shipment && (
+          <div className="flex items-center gap-2.5 border-t border-border bg-surface-sunken px-6 py-3.5">
+            {receiveAtOrigin.isError ? (
+              <p role="alert" className="flex-1 text-[11.5px] text-destructive">
+                Couldn&apos;t receive at origin: {scanErrorMessage(receiveAtOrigin.error)}
+              </p>
+            ) : (
+              <span className="flex-1 text-[11.5px] text-muted-foreground">Status changes only through scans and rider actions</span>
+            )}
+            {canScan && shipment.currentStatus === "PickedUp" && (
+              <Button size="sm" disabled={receiveAtOrigin.isPending} onClick={() => receiveAtOrigin.mutate()}>
+                {receiveAtOrigin.isPending ? "Receiving…" : "Receive at origin"}
+              </Button>
+            )}
+          </div>
+        )}
       </SheetContent>
     </Sheet>
   );

@@ -12,6 +12,7 @@ using Courier.Pricing.Application;
 using Courier.Pricing.Domain;
 using Courier.Pricing.Infrastructure;
 using Courier.Shipments.Application;
+using Courier.Shipments.Domain;
 using Courier.Shipments.Infrastructure;
 using Courier.SharedKernel;
 using Microsoft.EntityFrameworkCore;
@@ -281,5 +282,240 @@ public class ShipmentServiceReadTests
         var resultIds = result.Items.Select(s => s.Id).ToHashSet();
         Assert.Contains(inScope.Id, resultIds);
         Assert.DoesNotContain(outOfScope.Id, resultIds);
+    }
+
+    private static async Task MutateAsync(TestDbContext dbContext, Guid shipmentId, Action<Shipment> change)
+    {
+        var entity = await dbContext.Set<Shipment>().SingleAsync(s => s.Id == shipmentId);
+        change(entity);
+        await dbContext.SaveChangesAsync();
+    }
+
+    private static ShipmentListFilter Filter(
+        IReadOnlyList<ShipmentStatus>? statuses = null, string? query = null, Guid? merchantId = null,
+        Guid? serviceTypeId = null, Guid? branchId = null, DateTimeOffset? from = null, DateTimeOffset? to = null) =>
+        new(statuses, query, merchantId, serviceTypeId, branchId, from, to);
+
+    [Fact]
+    public async Task ListAsync_StatusFilter_ReturnsOnlyMatchingStatuses()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var a = await SeedShipmentForMerchantAsync(dbContext, organizationId, Guid.NewGuid());
+        var b = await SeedShipmentForMerchantAsync(dbContext, organizationId, Guid.NewGuid());
+        await MutateAsync(dbContext, b.Id, s => s.CurrentStatus = ShipmentStatus.InTransit);
+        var service = CreateService(dbContext, organizationId, new());
+
+        var result = await service.ListAsync(null, null, StaffUser(Guid.NewGuid()), Filter(statuses: new[] { ShipmentStatus.InTransit, ShipmentStatus.Sorted }));
+
+        Assert.Equal(new[] { b.Id }, result.Items.Select(s => s.Id));
+        Assert.Equal(1, result.TotalCount);
+    }
+
+    [Fact]
+    public async Task ListAsync_Query_MatchesAwbPrefixCaseInsensitive_RecipientNameAndPhone()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var byAwb = await SeedShipmentForMerchantAsync(dbContext, organizationId, Guid.NewGuid());
+        var byName = await SeedShipmentForMerchantAsync(dbContext, organizationId, Guid.NewGuid());
+        var byPhone = await SeedShipmentForMerchantAsync(dbContext, organizationId, Guid.NewGuid());
+        await MutateAsync(dbContext, byAwb.Id, s => s.Awb = "ZQ-260930-00001");
+        await MutateAsync(dbContext, byName.Id, s => s.RecipientName = "Sita Shrestha");
+        await MutateAsync(dbContext, byPhone.Id, s => s.RecipientPhone = "9841555777");
+        var service = CreateService(dbContext, organizationId, new());
+        var user = StaffUser(Guid.NewGuid());
+
+        Assert.Equal(new[] { byAwb.Id }, (await service.ListAsync(null, null, user, Filter(query: "zq-2609"))).Items.Select(s => s.Id));
+        Assert.Equal(new[] { byName.Id }, (await service.ListAsync(null, null, user, Filter(query: "SHRESTHA"))).Items.Select(s => s.Id));
+        Assert.Equal(new[] { byPhone.Id }, (await service.ListAsync(null, null, user, Filter(query: "555777"))).Items.Select(s => s.Id));
+    }
+
+    [Fact]
+    public async Task ListAsync_Query_TreatsPercentAndUnderscoreLiterally()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        await SeedShipmentForMerchantAsync(dbContext, organizationId, Guid.NewGuid());
+        var service = CreateService(dbContext, organizationId, new());
+
+        var result = await service.ListAsync(null, null, StaffUser(Guid.NewGuid()), Filter(query: "%_"));
+
+        Assert.Empty(result.Items);
+    }
+
+    [Fact]
+    public async Task ListAsync_MerchantServiceTypeBranchAndDateFilters_EachNarrow()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var merchantId = Guid.NewGuid();
+        var a = await SeedShipmentForMerchantAsync(dbContext, organizationId, merchantId);
+        var b = await SeedShipmentForMerchantAsync(dbContext, organizationId, Guid.NewGuid());
+        var otherServiceType = Guid.NewGuid();
+        await MutateAsync(dbContext, b.Id, s => { s.ServiceTypeId = otherServiceType; s.CreatedAt = DateTimeOffset.UtcNow.AddDays(-10); });
+        var service = CreateService(dbContext, organizationId, new());
+        var user = StaffUser(Guid.NewGuid());
+
+        Assert.Equal(new[] { a.Id }, (await service.ListAsync(null, null, user, Filter(merchantId: merchantId))).Items.Select(s => s.Id));
+        Assert.Equal(new[] { b.Id }, (await service.ListAsync(null, null, user, Filter(serviceTypeId: otherServiceType))).Items.Select(s => s.Id));
+        Assert.Equal(new[] { a.Id }, (await service.ListAsync(null, null, user, Filter(branchId: a.OriginBranchId))).Items.Select(s => s.Id));
+        Assert.Equal(new[] { b.Id }, (await service.ListAsync(null, null, user, Filter(branchId: b.DestinationBranchId))).Items.Select(s => s.Id));
+        Assert.Equal(new[] { a.Id }, (await service.ListAsync(null, null, user, Filter(from: DateTimeOffset.UtcNow.AddDays(-1)))).Items.Select(s => s.Id));
+        Assert.Equal(new[] { b.Id }, (await service.ListAsync(null, null, user, Filter(to: DateTimeOffset.UtcNow.AddDays(-5)))).Items.Select(s => s.Id));
+    }
+
+    [Fact]
+    public async Task ListAsync_CombinedFilters_AreAndedTogether()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var merchantId = Guid.NewGuid();
+        var a = await SeedShipmentForMerchantAsync(dbContext, organizationId, merchantId);
+        await SeedShipmentForMerchantAsync(dbContext, organizationId, merchantId);
+        await MutateAsync(dbContext, a.Id, s => s.CurrentStatus = ShipmentStatus.InTransit);
+        var service = CreateService(dbContext, organizationId, new());
+
+        var result = await service.ListAsync(null, null, StaffUser(Guid.NewGuid()),
+            Filter(statuses: new[] { ShipmentStatus.InTransit }, merchantId: merchantId));
+
+        Assert.Equal(new[] { a.Id }, result.Items.Select(s => s.Id));
+    }
+
+    [Fact]
+    public async Task ListAsync_BranchFilterOutsideCallerScope_ReturnsEmptyPage()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var inScope = await SeedShipmentForMerchantAsync(dbContext, organizationId, Guid.NewGuid());
+        var outOfScope = await SeedShipmentForMerchantAsync(dbContext, organizationId, Guid.NewGuid());
+        var restricted = new RestrictedBranchesAuthorizationChecker(new HashSet<Guid> { inScope.OriginBranchId });
+        var service = CreateService(dbContext, organizationId, new(), restricted);
+
+        var result = await service.ListAsync(null, null, StaffUser(Guid.NewGuid()), Filter(branchId: outOfScope.OriginBranchId));
+
+        Assert.Empty(result.Items);
+        Assert.Equal(0, result.TotalCount);
+    }
+
+    [Fact]
+    public async Task ListAsync_MerchantCallerFilteringByAnotherMerchant_ReturnsEmptyPage()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var merchantId = Guid.NewGuid();
+        var otherMerchantId = Guid.NewGuid();
+        await SeedShipmentForMerchantAsync(dbContext, organizationId, merchantId);
+        await SeedShipmentForMerchantAsync(dbContext, organizationId, otherMerchantId);
+        var service = CreateService(dbContext, organizationId, new());
+
+        var result = await service.ListAsync(null, null, MerchantUser(merchantId), Filter(merchantId: otherMerchantId));
+
+        Assert.Empty(result.Items);
+    }
+
+    [Fact]
+    public async Task ListAsync_PopulatesItemsAndLastEventAt()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var a = await SeedShipmentForMerchantAsync(dbContext, organizationId, Guid.NewGuid());
+        var latest = DateTimeOffset.UtcNow.AddHours(3);
+        dbContext.Set<ShipmentEvent>().Add(new ShipmentEvent
+        {
+            Id = Guid.NewGuid(), ShipmentId = a.Id, EventType = ShipmentEventType.ReceivedAtOrigin,
+            PreviousStatus = ShipmentStatus.PickedUp, NewStatus = ShipmentStatus.AtOriginBranch, Timestamp = latest,
+        });
+        await dbContext.SaveChangesAsync();
+        var service = CreateService(dbContext, organizationId, new());
+
+        var listed = (await service.ListAsync(null, null, StaffUser(Guid.NewGuid()))).Items.Single();
+        var single = await service.GetByAwbAsync(a.Awb, StaffUser(Guid.NewGuid()));
+
+        Assert.Equal("Item", Assert.Single(listed.Items).Description);
+        Assert.Equal(latest, listed.LastEventAt);
+        Assert.Equal(latest, single!.LastEventAt);
+    }
+
+    [Fact]
+    public async Task GetByAwbAsync_StaffOutsideBranchScope_ReturnsNull()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var shipment = await SeedShipmentForMerchantAsync(dbContext, organizationId, Guid.NewGuid());
+        var restricted = new RestrictedBranchesAuthorizationChecker(new HashSet<Guid> { Guid.NewGuid() });
+        var service = CreateService(dbContext, organizationId, new(), restricted);
+
+        Assert.Null(await service.GetByAwbAsync(shipment.Awb, StaffUser(Guid.NewGuid())));
+    }
+
+    [Theory]
+    [InlineData("origin")]
+    [InlineData("destination")]
+    [InlineData("current")]
+    public async Task GetByAwbAsync_StaffScopedToOriginDestinationOrCurrent_ReturnsShipment(string which)
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var shipment = await SeedShipmentForMerchantAsync(dbContext, organizationId, Guid.NewGuid());
+        var currentBranchId = Guid.NewGuid();
+        await MutateAsync(dbContext, shipment.Id, s => s.CurrentBranchId = currentBranchId);
+        var branchId = which switch { "origin" => shipment.OriginBranchId, "destination" => shipment.DestinationBranchId, _ => currentBranchId };
+        var service = CreateService(dbContext, organizationId, new(), new RestrictedBranchesAuthorizationChecker(new HashSet<Guid> { branchId }));
+
+        Assert.NotNull(await service.GetByAwbAsync(shipment.Awb, StaffUser(Guid.NewGuid())));
+    }
+
+    [Fact]
+    public async Task GetByAwbAsync_MerchantCaller_IsNotBranchScoped()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var merchantId = Guid.NewGuid();
+        var shipment = await SeedShipmentForMerchantAsync(dbContext, organizationId, merchantId);
+        var service = CreateService(dbContext, organizationId, new(), new RestrictedBranchesAuthorizationChecker(new HashSet<Guid>()));
+
+        Assert.NotNull(await service.GetByAwbAsync(shipment.Awb, MerchantUser(merchantId)));
+    }
+
+    [Fact]
+    public async Task GetEventsByAwbAsync_ReturnsEventsAscendingWithoutInternalFields()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var shipment = await SeedShipmentForMerchantAsync(dbContext, organizationId, Guid.NewGuid());
+        var later = DateTimeOffset.UtcNow.AddHours(2);
+        dbContext.Set<ShipmentEvent>().Add(new ShipmentEvent
+        {
+            Id = Guid.NewGuid(), ShipmentId = shipment.Id, EventType = ShipmentEventType.ReceivedAtOrigin,
+            PreviousStatus = ShipmentStatus.PickedUp, NewStatus = ShipmentStatus.AtOriginBranch,
+            BranchId = shipment.OriginBranchId, Timestamp = later, Notes = "dock 2",
+            Latitude = 27.7m, Longitude = 85.3m, Metadata = "{\"secret\":1}",
+        });
+        await dbContext.SaveChangesAsync();
+        var service = CreateService(dbContext, organizationId, new());
+
+        var events = await service.GetEventsByAwbAsync(shipment.Awb, StaffUser(Guid.NewGuid()));
+
+        Assert.NotNull(events);
+        Assert.True(events!.Count >= 2);
+        Assert.Equal(events.OrderBy(e => e.Timestamp).ThenBy(e => e.Id).Select(e => e.Id), events.Select(e => e.Id));
+        var last = events[^1];
+        Assert.Equal(ShipmentEventType.ReceivedAtOrigin, last.EventType);
+        Assert.Equal("dock 2", last.Notes);
+        Assert.DoesNotContain(typeof(ShipmentEventResponse).GetProperties(), p => p.Name is "Metadata" or "Latitude" or "Longitude");
+    }
+
+    [Fact]
+    public async Task GetEventsByAwbAsync_OutOfScopeOrUnknown_ReturnsNull()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var shipment = await SeedShipmentForMerchantAsync(dbContext, organizationId, Guid.NewGuid());
+        var restricted = CreateService(dbContext, organizationId, new(), new RestrictedBranchesAuthorizationChecker(new HashSet<Guid> { Guid.NewGuid() }));
+        var open = CreateService(dbContext, organizationId, new());
+
+        Assert.Null(await restricted.GetEventsByAwbAsync(shipment.Awb, StaffUser(Guid.NewGuid())));
+        Assert.Null(await open.GetEventsByAwbAsync("NOPE-0000", StaffUser(Guid.NewGuid())));
     }
 }

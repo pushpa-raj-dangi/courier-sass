@@ -5,6 +5,7 @@
   "nav": {
     "groups": { "operations": "Operations", "finance": "Finance", "network": "Network", "admin": "Admin" },
     "dashboard": "Dashboard",
+    "scan": "Scan station",
     "shipments": "Shipments",
     "branches": "Branches",
     "manifests": "Manifests",

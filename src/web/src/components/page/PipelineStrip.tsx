@@ -4,7 +4,8 @@ import Link from "next/link";
 export interface PipelineStage {
   key: string;
   label: string;
-  count: number;
+  /** null = unknown (data unavailable) — rendered as an em dash, never as 0. */
+  count: number | null;
   /** A statusConfig token name, e.g. "status-in-transit". */
   token: string;
   /** 0–1; clamped. Omit to hide the bar. */
@@ -24,7 +25,7 @@ function StageBody({ stage }: { stage: PipelineStage }) {
         <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: `hsl(var(--${stage.token}))` }} aria-hidden="true" />
         {stage.label}
       </span>
-      <span className="text-2xl font-semibold tabular-nums tracking-tight">{stage.count.toLocaleString("en-US")}</span>
+      <span className="text-2xl font-semibold tabular-nums tracking-tight">{stage.count === null ? "—" : stage.count.toLocaleString("en-US")}</span>
       {share !== undefined && (
         <span className="block h-1 rounded-full bg-muted" aria-hidden="true">
           <span

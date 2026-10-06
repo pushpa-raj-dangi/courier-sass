@@ -1,6 +1,11 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
+using Courier.Events.Domain;
+using Courier.Persistence;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Courier.Branches.Application;
 using Courier.Branches.Domain;
 using Courier.Geography.Application;
@@ -372,5 +377,164 @@ public class ShipmentsEndpointsTests : IClassFixture<WebApplicationFactory<Progr
         var response = await client.GetAsync("/api/v1/shipments/summary");
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("/api/v1/shipments?status=Bogus")]
+    [InlineData("/api/v1/shipments?q=a")]
+    [InlineData("/api/v1/shipments?createdFrom=2026-10-05T00:00:00Z&createdTo=2026-10-01T00:00:00Z")]
+    public async Task List_InvalidFilter_Returns400WithValidationCode(string url)
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "list-bad-filter");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+
+        var response = await client.GetAsync(url);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("SHIPMENT_VALIDATION_FAILED", await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task List_NonUtcOffsetCreatedFrom_Returns200()
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "list-offset");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+
+        var response = await client.GetAsync("/api/v1/shipments?createdFrom=2026-10-05T00:00:00%2B05:45");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task List_RepeatedStatusParam_FiltersAndReturnsLastEventAt()
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "list-status");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (originBranchId, destinationBranchId, serviceTypeId) = await SeedRoutableBranchesAsync(client);
+        await SeedRateCardAsync(client, originBranchId, destinationBranchId, serviceTypeId, 100m);
+        var merchantId = await CreateMerchantAsync(client);
+        await client.PostAsJsonAsync("/api/v1/shipments", ValidShipmentRequest(merchantId, originBranchId, destinationBranchId, serviceTypeId));
+
+        var created = await (await client.GetAsync("/api/v1/shipments?status=Created&status=PickupAssigned")).Content.ReadFromJsonAsync<PagedResult<ShipmentResponse>>();
+        var inTransit = await (await client.GetAsync("/api/v1/shipments?status=InTransit")).Content.ReadFromJsonAsync<PagedResult<ShipmentResponse>>();
+
+        Assert.Single(created!.Items);
+        Assert.NotNull(created.Items[0].LastEventAt);
+        Assert.Empty(inTransit!.Items);
+    }
+
+    private async Task<HttpClient> CreateBranchScopedStaffClientAsync(HttpClient ownerClient, Guid branchId, string roleName)
+    {
+        var roles = await (await ownerClient.GetAsync("/api/v1/roles")).Content.ReadFromJsonAsync<List<RoleResponse>>();
+        var role = roles!.Single(r => r.Name == roleName);
+
+        var staffEmail = $"staff-{Guid.NewGuid():N}@example.com";
+        (await ownerClient.PostAsJsonAsync("/api/v1/users/invite", new InviteUserRequest(staffEmail, "Staff Person", null, role.Id, branchId, null))).EnsureSuccessStatusCode();
+
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var outboxMessage = await dbContext.Set<OutboxMessage>().IgnoreQueryFilters()
+            .Where(m => m.EventType == "user.invited")
+            .OrderByDescending(m => m.CreatedAt)
+            .FirstAsync(m => m.Payload.Contains(staffEmail));
+        var payload = JsonDocument.Parse(outboxMessage.Payload).RootElement;
+        var inviteUrl = payload.GetProperty("InviteUrl").GetString()!;
+        var token = Uri.UnescapeDataString(inviteUrl.Split("token=")[1]);
+        (await ownerClient.PostAsJsonAsync("/api/v1/auth/accept-invite", new AcceptInviteRequest(token, "St@ffPassword1"))).EnsureSuccessStatusCode();
+
+        var staffClient = _factory.CreateClient();
+        var loginResponse = await staffClient.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest(staffEmail, "St@ffPassword1"));
+        loginResponse.EnsureSuccessStatusCode();
+        var staffAuth = await loginResponse.Content.ReadFromJsonAsync<AuthResult>();
+        staffClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", staffAuth!.AccessToken);
+        return staffClient;
+    }
+
+    private async Task<(HttpClient Owner, ShipmentResponse Shipment, Guid OriginBranchId)> BookOneAsync(string label)
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, label);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (originBranchId, destinationBranchId, serviceTypeId) = await SeedRoutableBranchesAsync(client);
+        await SeedRateCardAsync(client, originBranchId, destinationBranchId, serviceTypeId, 100m);
+        var merchantId = await CreateMerchantAsync(client);
+        var shipment = await (await client.PostAsJsonAsync("/api/v1/shipments", ValidShipmentRequest(merchantId, originBranchId, destinationBranchId, serviceTypeId))).Content.ReadFromJsonAsync<ShipmentResponse>();
+        return (client, shipment!, originBranchId);
+    }
+
+    [Fact]
+    public async Task GetByAwb_StaffScopedToUnrelatedBranch_Returns404_ScopedToOrigin_Returns200()
+    {
+        var (owner, shipment, originBranchId) = await BookOneAsync("scope-read");
+        var otherBranch = await (await owner.PostAsJsonAsync("/api/v1/branches", ValidBranchRequest($"XB-{Guid.NewGuid():N}"[..10]))).Content.ReadFromJsonAsync<BranchResponse>();
+
+        var outsider = await CreateBranchScopedStaffClientAsync(owner, otherBranch!.Id, "BranchManager");
+        var insider = await CreateBranchScopedStaffClientAsync(owner, originBranchId, "BranchManager");
+
+        Assert.Equal(HttpStatusCode.NotFound, (await outsider.GetAsync($"/api/v1/shipments/{shipment.Awb}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await outsider.GetAsync($"/api/v1/shipments/{shipment.Awb}/events")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await insider.GetAsync($"/api/v1/shipments/{shipment.Awb}")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await insider.GetAsync($"/api/v1/shipments/{shipment.Awb}/events")).StatusCode);
+    }
+
+    [Fact]
+    public async Task GetEvents_OwnerSeesCreatedEvent_WithoutMetadataOrCoordinates()
+    {
+        var (owner, shipment, _) = await BookOneAsync("events-owner");
+
+        var response = await owner.GetAsync($"/api/v1/shipments/{shipment.Awb}/events");
+        var json = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("\"eventType\":\"Created\"", json);
+        Assert.DoesNotContain("metadata", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("latitude", json, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task GetEvents_OtherTenant_Returns404()
+    {
+        var (_, shipment, _) = await BookOneAsync("events-tenant-a");
+        var clientB = _factory.CreateClient();
+        var orgB = await RegisterOrgAsync(clientB, "events-tenant-b");
+        clientB.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", orgB.AccessToken);
+
+        Assert.Equal(HttpStatusCode.NotFound, (await clientB.GetAsync($"/api/v1/shipments/{shipment.Awb}/events")).StatusCode);
+    }
+
+    [Fact]
+    public async Task GetEvents_StaffWithoutShipmentRead_Returns403()
+    {
+        var (owner, shipment, originBranchId) = await BookOneAsync("events-noread");
+        // FinanceStaff holds only cod.read/cod.reconcile — no shipment.read — even in the shipment's own branch.
+        var financeStaff = await CreateBranchScopedStaffClientAsync(owner, originBranchId, "FinanceStaff");
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await financeStaff.GetAsync($"/api/v1/shipments/{shipment.Awb}/events")).StatusCode);
+    }
+
+    [Fact]
+    public async Task GetEvents_Unauthenticated_Returns401()
+    {
+        var (_, shipment, _) = await BookOneAsync("events-anon");
+        var anonymous = _factory.CreateClient();
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.GetAsync($"/api/v1/shipments/{shipment.Awb}/events")).StatusCode);
+    }
+
+    [Fact]
+    public async Task GetEvents_MerchantCaller_Returns403()
+    {
+        var (owner, shipment, _) = await BookOneAsync("events-merchant");
+        var (ownerEmail, password) = await CreateMerchantWithLoginAsync(owner, "events");
+        var merchantClient = _factory.CreateClient();
+        var login = await merchantClient.PostAsJsonAsync("/api/v1/merchant/auth/login", new MerchantLoginRequest(ownerEmail, password));
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+        var auth = await login.Content.ReadFromJsonAsync<MerchantAuthResult>();
+        merchantClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth!.AccessToken);
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await merchantClient.GetAsync($"/api/v1/shipments/{shipment.Awb}/events")).StatusCode);
     }
 }

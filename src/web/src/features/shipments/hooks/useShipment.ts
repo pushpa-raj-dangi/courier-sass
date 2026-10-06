@@ -7,7 +7,7 @@ import type { Shipment } from "@/features/shipments/types";
 export function useShipment(awb: string) {
   return useQuery({
     queryKey: ["shipments", awb],
-    queryFn: () => clientFetch<Shipment>(`/api/shipments/${awb}`),
+    queryFn: () => clientFetch<Shipment>(`/api/shipments/${encodeURIComponent(awb)}`),
     enabled: awb !== "",
   });
 }
