@@ -11,8 +11,8 @@ vi.mock("@/features/ndr/hooks/useNdrsSummary", () => ({ useNdrsSummary: (o: unkn
 vi.mock("@/features/ndr/hooks/useReturnShipmentsSummary", () => ({
   useReturnShipmentsSummary: (o: unknown) => rto(o),
 }));
-const rto = vi.fn((_o?: unknown) => ({ data: { byRtoStage: {}, merchantConfirmed: 0, pendingConfirmation: 4 }, isLoading: false, isError: false }));
-const manifestsSummary = vi.fn((_o?: unknown) => ({ data: { InTransit: 2 }, isLoading: false, isError: false }));
+const rto = vi.fn<(o?: unknown) => unknown>(() => ({ data: { byRtoStage: {}, merchantConfirmed: 0, pendingConfirmation: 4 }, isLoading: false, isError: false }));
+const manifestsSummary = vi.fn<(o?: unknown) => unknown>(() => ({ data: { InTransit: 2 }, isLoading: false, isError: false }));
 vi.mock("@/features/manifests/hooks/useManifestsSummary", () => ({ useManifestsSummary: (o: unknown) => manifestsSummary(o) }));
 vi.mock("@/features/branches/hooks/useBranches", () => ({ useBranches: () => ({ data: [{ id: "b1", name: "Kathmandu Hub", code: "KTM" }] }) }));
 vi.mock("@/features/shipments/hooks/usePeopleNames", () => ({

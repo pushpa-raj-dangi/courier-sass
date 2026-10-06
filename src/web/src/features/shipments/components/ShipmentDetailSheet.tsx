@@ -120,7 +120,7 @@ export function ShipmentDetailSheet() {
           <div className="flex items-center gap-2.5 border-t border-border bg-surface-sunken px-6 py-3.5">
             {receiveAtOrigin.isError ? (
               <p role="alert" className="flex-1 text-[11.5px] text-destructive">
-                Couldn't receive at origin: {scanErrorMessage(receiveAtOrigin.error)}
+                Couldn&apos;t receive at origin: {scanErrorMessage(receiveAtOrigin.error)}
               </p>
             ) : (
               <span className="flex-1 text-[11.5px] text-muted-foreground">Status changes only through scans and rider actions</span>
