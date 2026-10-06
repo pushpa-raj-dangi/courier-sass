@@ -16,8 +16,12 @@ describe("dashboardModel", () => {
     expect(stages[6].caption).toBe("in range");
   });
 
-  it("handles missing data as zero", () => {
-    expect(buildPipelineStages(undefined, undefined).every((s) => s.count === 0)).toBe(true);
+  it("shows missing data as unknown, never as zero", () => {
+    expect(buildPipelineStages(undefined, undefined).every((s) => s.count === null)).toBe(true);
+    const noOrg = buildPipelineStages({ InTransit: 7 }, undefined);
+    expect(noOrg.find((s) => s.key === "delivered")?.count).toBeNull();
+    expect(noOrg.find((s) => s.key === "in-transit")?.count).toBe(7);
+    expect(noOrg.find((s) => s.key === "booked")?.count).toBe(0);
   });
 
   it("splits COD into non-negative segments", () => {

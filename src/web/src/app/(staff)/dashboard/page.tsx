@@ -70,6 +70,10 @@ export default function DashboardPage() {
         </div>
         {summary.isError ? (
           <ErrorState title="Couldn't load the pipeline" description="Current status counts are unavailable." />
+        ) : summary.isLoading ? (
+          <div role="status" aria-live="polite" aria-label="Loading parcel pipeline" className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 xl:grid-cols-7">
+            {Array.from({ length: 7 }).map((_, i) => <Skeleton key={i} className="h-[84px] rounded-lg" />)}
+          </div>
         ) : (
           <PipelineStrip ariaLabel="Parcel pipeline" stages={buildPipelineStages(summary.data, org.data?.branchPerformance)} />
         )}

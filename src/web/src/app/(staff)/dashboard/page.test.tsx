@@ -4,9 +4,8 @@ import { renderWithIntl } from "@/test/renderWithIntl";
 
 const useOrgDashboard = vi.fn();
 vi.mock("@/features/reports/hooks/useOrgDashboard", () => ({ useOrgDashboard: (p: unknown) => useOrgDashboard(p) }));
-vi.mock("@/features/shipments/hooks/useShipmentsSummary", () => ({
-  useShipmentsSummary: () => ({ data: { Created: 2, InTransit: 7, OutForDelivery: 6 }, isLoading: false, isError: false }),
-}));
+const shipmentsSummary = vi.fn();
+vi.mock("@/features/shipments/hooks/useShipmentsSummary", () => ({ useShipmentsSummary: () => shipmentsSummary() }));
 const ndr = vi.fn();
 vi.mock("@/features/ndr/hooks/useNdrsSummary", () => ({ useNdrsSummary: () => ndr() }));
 vi.mock("@/features/ndr/hooks/useReturnShipmentsSummary", () => ({
@@ -44,6 +43,7 @@ describe("DashboardPage", () => {
     perms = new Set(["report.read", "ndr.read", "rto.read", "manifest.read", "cod.read", "shipment.create"]);
     useOrgDashboard.mockReset().mockReturnValue({ data: summary, isLoading: false, isError: false, refetch: vi.fn() });
     ndr.mockReturnValue({ data: { Open: 3, Resolved: 9 }, isLoading: false, isError: false });
+    shipmentsSummary.mockReturnValue({ data: { Created: 2, InTransit: 7, OutForDelivery: 6 }, isLoading: false, isError: false });
   });
 
   it("renders the pipeline from current WIP plus delivered in range", () => {
@@ -58,6 +58,7 @@ describe("DashboardPage", () => {
     expect(screen.getByText("91.4%")).toBeInTheDocument();
     expect(screen.getByText("1.8 days")).toBeInTheDocument();
     expect(document.querySelector("[data-tone]")).toBeNull();
+    expect(document.querySelector("[data-rate-bar]")).not.toBeNull();
   });
 
   it("shows needs-action rows the user may see and a slot for the rest", () => {
@@ -94,5 +95,30 @@ describe("DashboardPage", () => {
     renderWithIntl(<DashboardPage />);
     expect(screen.getByText("Couldn't load performance data")).toBeInTheDocument();
     expect(screen.getByRole("list", { name: "Parcel pipeline" })).toBeInTheDocument();
+  });
+
+  it("shows a skeleton, not zeros, while the status summary loads", () => {
+    shipmentsSummary.mockReturnValue({ data: undefined, isLoading: true, isError: false });
+    renderWithIntl(<DashboardPage />);
+    expect(screen.queryByRole("list", { name: "Parcel pipeline" })).toBeNull();
+    expect(screen.getByRole("status", { name: "Loading parcel pipeline" })).toBeInTheDocument();
+  });
+
+  it("shows delivered-in-range as unknown when the org dashboard fails", () => {
+    useOrgDashboard.mockReturnValue({ data: undefined, isLoading: false, isError: true, refetch: vi.fn() });
+    renderWithIntl(<DashboardPage />);
+    const pipeline = screen.getByRole("list", { name: "Parcel pipeline" });
+    const delivered = within(pipeline).getByText("Delivered").closest("li")!;
+    expect(delivered).toHaveTextContent("—");
+    expect(delivered).not.toHaveTextContent(/[0-9]/);
+  });
+
+  it("draws no success-rate bar for a branch without a rate", () => {
+    useOrgDashboard.mockReturnValue({
+      data: { ...summary, branchPerformance: { b1: { ...summary.branchPerformance.b1, deliverySuccessRate: null } } },
+      isLoading: false, isError: false, refetch: vi.fn(),
+    });
+    renderWithIntl(<DashboardPage />);
+    expect(document.querySelector("[data-rate-bar]")).toBeNull();
   });
 });

@@ -16,9 +16,10 @@ export function buildPipelineStages(
   counts: Record<string, number> | undefined,
   branchPerformance: Record<string, BranchPerformance> | undefined
 ): PipelineStage[] {
-  const delivered = Object.values(branchPerformance ?? {}).reduce((t, b) => t + (b.deliverySuccesses ?? 0), 0);
+  // Missing data is unknown (null → "—"), never an invented zero.
+  const delivered = branchPerformance ? Object.values(branchPerformance).reduce((t, b) => t + (b.deliverySuccesses ?? 0), 0) : null;
   return [
-    ...STAGES.map((s) => ({ key: s.key, label: s.label, count: sumStatuses(counts, s.statuses), token: s.token, href: s.href })),
+    ...STAGES.map((s) => ({ key: s.key, label: s.label, count: counts ? sumStatuses(counts, s.statuses) : null, token: s.token, href: s.href })),
     { key: "delivered", label: "Delivered", count: delivered, token: "status-delivered", caption: "in range" },
   ];
 }

@@ -29,7 +29,7 @@ export function BranchPerformanceTable({ data }: { data: Record<string, BranchPe
             <TableBody>
               {rows.map(([id, b]) => {
                 const branch = branches?.find((x) => x.id === id);
-                const pct = b.deliverySuccessRate === null ? 0 : Math.round(b.deliverySuccessRate * 100);
+                const pct = b.deliverySuccessRate === null ? null : Math.round(b.deliverySuccessRate * 100);
                 return (
                   <TableRow key={id}>
                     <TableCell>
@@ -42,9 +42,11 @@ export function BranchPerformanceTable({ data }: { data: Record<string, BranchPe
                     <TableCell className="text-right tabular-nums">{b.deliverySuccesses}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <span className="h-1.5 w-20 rounded-full bg-muted" aria-hidden="true">
-                          <span className="block h-1.5 rounded-full bg-status-delivered" style={{ width: `${pct}%` }} />
-                        </span>
+                        {pct !== null && (
+                          <span className="h-1.5 w-20 rounded-full bg-muted" aria-hidden="true">
+                            <span data-rate-bar className="block h-1.5 rounded-full bg-status-delivered" style={{ width: `${pct}%` }} />
+                          </span>
+                        )}
                         <span className="text-xs tabular-nums">{formatRate(b.deliverySuccessRate)}</span>
                       </div>
                     </TableCell>
