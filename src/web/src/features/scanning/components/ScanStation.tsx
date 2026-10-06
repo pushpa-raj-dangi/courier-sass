@@ -12,6 +12,7 @@ import { EmptyState } from "@/components/states/EmptyState";
 import { BarcodeScanner } from "@/components/scanner/BarcodeScanner";
 import { useSession } from "@/features/auth/hooks/useSession";
 import { useManifestPanelStore } from "@/features/manifests/store/manifestPanelStore";
+import { useManifest } from "@/features/manifests/hooks/useManifest";
 import { usePeopleNames } from "@/features/shipments/hooks/usePeopleNames";
 import { SCAN_MODES, getScanMode, type ScanContext, type ScanOutcome } from "@/features/scanning/modes";
 import { useScanSession } from "@/features/scanning/useScanSession";
@@ -52,6 +53,9 @@ export function ScanStation() {
   useEffect(() => setSound(readSound()), []);
   useEffect(() => setContext({ kind: "none" }), [mode?.id]);
 
+  const contextManifestId = context.kind === "manifest" ? context.manifest.id : "";
+  const liveManifest = useManifest(contextManifestId).data;
+
   const soundRef = useRef(sound);
   soundRef.current = sound;
   const onSettled = (outcome: ScanOutcome) => {
@@ -70,7 +74,7 @@ export function ScanStation() {
 
   const missingContext = mode.requiresContext(can) && context.kind === "none";
   const canScan = Boolean(mode.submit) && !missingContext;
-  const manifest = context.kind === "manifest" ? context.manifest : null;
+  const manifest = context.kind === "manifest" ? (liveManifest ?? context.manifest) : null;
 
   function setMode(id: string) {
     router.replace(`${pathname}?mode=${id}`, { scroll: false });

@@ -14,9 +14,13 @@ let permissions: string[] = [];
 vi.mock("@/features/auth/hooks/useSession", () => ({
   useSession: () => ({ data: { permissions, hasAllBranchesScope: true, branches: [] } }),
 }));
-vi.mock("@/features/auth/hooks/usePermission", () => ({ usePermission: (p: string) => permissions.includes(p) }));
 vi.mock("@/components/scanner/BarcodeScanner", () => ({ BarcodeScanner: () => <div>camera</div> }));
-vi.mock("@/features/scanning/components/ScanContextPicker", () => ({ ScanContextPicker: () => <div>context-picker</div> }));
+const pickedManifest = { id: "m1", code: "MNF-1", fromBranchId: "b1", toBranchId: "b2", purpose: "Forward", vehiclePlate: null, driverId: null, status: "Draft", shipmentCount: 0, createdAt: "" };
+vi.mock("@/features/scanning/components/ScanContextPicker", () => ({
+  ScanContextPicker: ({ onChange }: { onChange: (c: unknown) => void }) => (
+    <button onClick={() => onChange({ kind: "manifest", manifest: pickedManifest })}>pick-manifest</button>
+  ),
+}));
 vi.mock("@/features/scanning/components/ReconciliationPanel", () => ({ ReconciliationPanel: () => <div>reconciliation</div> }));
 vi.mock("@/features/scanning/beep", () => ({ playScanTone: vi.fn() }));
 // Mocked so lookup queries (branches/users/riders) never consume the clientFetch responses
@@ -91,5 +95,29 @@ describe("ScanStation", () => {
     permissions = [];
     renderStation();
     expect(screen.getByText("You don't have permission to scan parcels.")).toBeInTheDocument();
+  });
+});
+
+describe("ScanStation live manifest counter", () => {
+  it("reflects the refetched manifest after a successful dispatch scan", async () => {
+    permissions = ["manifest.create", "manifest.read"];
+    search = "mode=dispatch";
+    let count = 0;
+    clientFetch.mockImplementation(async (url: string) => {
+      if (url === "/api/manifests/m1") return { ...pickedManifest, shipmentCount: count };
+      if (url === "/api/manifests/m1/scan") {
+        count = 1;
+        return {};
+      }
+      throw new Error(`unexpected ${url}`);
+    });
+    renderStation();
+    fireEvent.click(screen.getByText("pick-manifest"));
+    const card = await screen.findByRole("region", { name: "Manifest" });
+    expect(card).toHaveTextContent("0 scanned");
+    const input = screen.getByRole("textbox", { name: /scan or type awb/i });
+    fireEvent.change(input, { target: { value: "qa-1" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    await waitFor(() => expect(screen.getByRole("region", { name: "Manifest" })).toHaveTextContent("1 scanned"));
   });
 });
