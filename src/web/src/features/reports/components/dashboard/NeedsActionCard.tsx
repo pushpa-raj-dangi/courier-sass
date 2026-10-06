@@ -24,9 +24,9 @@ export function NeedsActionCard() {
   const canNdr = usePermission("ndr.read");
   const canRto = usePermission("rto.read");
   const canManifest = usePermission("manifest.read");
-  const ndrs = useNdrsSummary();
-  const rtos = useReturnShipmentsSummary();
-  const manifests = useManifestsSummary();
+  const ndrs = useNdrsSummary({ enabled: canNdr });
+  const rtos = useReturnShipmentsSummary({ enabled: canRto });
+  const manifests = useManifestsSummary({ enabled: canManifest });
 
   const rows: Row[] = [
     { key: "ndr", label: "Open NDRs", description: "Delivery failed, awaiting resolution", href: "/ndrs", count: ndrs.data ? openNdrCount(ndrs.data) : undefined, visible: canNdr && !ndrs.isError },

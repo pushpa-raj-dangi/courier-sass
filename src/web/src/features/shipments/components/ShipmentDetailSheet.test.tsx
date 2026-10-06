@@ -11,7 +11,8 @@ const useShipmentEvents = vi.fn();
 vi.mock("@/features/shipments/hooks/useShipmentEvents", () => ({ useShipmentEvents: () => useShipmentEvents() }));
 vi.mock("@/features/shipments/hooks/useMerchants", () => ({ useMerchants: () => ({ data: [{ id: "m1", displayName: "Everest Organics" }] }) }));
 vi.mock("@/features/shipments/hooks/useServiceTypes", () => ({ useServiceTypes: () => ({ data: [{ id: "s1", name: "Express" }] }) }));
-vi.mock("@/features/shipments/hooks/useReceiveAtOrigin", () => ({ useReceiveAtOrigin: () => ({ mutate: vi.fn(), isPending: false }) }));
+const useReceiveAtOrigin = vi.fn();
+vi.mock("@/features/shipments/hooks/useReceiveAtOrigin", () => ({ useReceiveAtOrigin: () => useReceiveAtOrigin() }));
 vi.mock("@/features/auth/hooks/usePermission", () => ({ usePermission: (p: string) => p === "shipment.scan" }));
 vi.mock("@/features/shipments/hooks/usePeopleNames", () => ({
   usePeopleNames: () => ({
@@ -41,6 +42,7 @@ describe("ShipmentDetailSheet", () => {
   beforeEach(() => {
     useShipment.mockReturnValue({ data: shipment, isLoading: false, isError: false, refetch: vi.fn() });
     useShipmentEvents.mockReturnValue({ data: events, isLoading: false, isError: false, refetch: vi.fn() });
+    useReceiveAtOrigin.mockReturnValue({ mutate: vi.fn(), isPending: false, isError: false, error: null });
   });
 
   it("renders header facts, the right-now card and the stepper", () => {
@@ -87,9 +89,29 @@ describe("ShipmentDetailSheet", () => {
   });
 
   it("explains a 404 as not found or out of scope", () => {
-    useShipment.mockReturnValue({ data: undefined, isLoading: false, isError: true, refetch: vi.fn() });
+    useShipment.mockReturnValue({ data: undefined, isLoading: false, isError: true, error: new Error("Request to /api/shipments/QA-1 failed with 404"), refetch: vi.fn() });
     renderWithIntl(<ShipmentDetailSheet />);
     expect(screen.getByText("Shipment not found or not in your branches")).toBeInTheDocument();
+  });
+
+  it("shows a generic retryable error for non-404 failures", () => {
+    const refetch = vi.fn();
+    useShipment.mockReturnValue({ data: undefined, isLoading: false, isError: true, error: new TypeError("Failed to fetch"), refetch });
+    renderWithIntl(<ShipmentDetailSheet />);
+    expect(screen.queryByText("Shipment not found or not in your branches")).toBeNull();
+    expect(screen.getByText("Couldn't load shipment")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /retry/i }));
+    expect(refetch).toHaveBeenCalled();
+  });
+
+  it("shows an inline error when receive-at-origin fails", () => {
+    useShipment.mockReturnValue({ data: { ...shipment, currentStatus: "PickedUp" }, isLoading: false, isError: false, refetch: vi.fn() });
+    useReceiveAtOrigin.mockReturnValue({
+      mutate: vi.fn(), isPending: false, isError: true,
+      error: new Error(JSON.stringify({ error: { message: "Shipment is not at this branch." } })),
+    });
+    renderWithIntl(<ShipmentDetailSheet />);
+    expect(screen.getByRole("alert")).toHaveTextContent("Couldn't receive at origin: Shipment is not at this branch.");
   });
 
   it("offers receive-at-origin only for picked-up shipments", () => {

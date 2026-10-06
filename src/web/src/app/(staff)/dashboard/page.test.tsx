@@ -7,11 +7,13 @@ vi.mock("@/features/reports/hooks/useOrgDashboard", () => ({ useOrgDashboard: (p
 const shipmentsSummary = vi.fn();
 vi.mock("@/features/shipments/hooks/useShipmentsSummary", () => ({ useShipmentsSummary: () => shipmentsSummary() }));
 const ndr = vi.fn();
-vi.mock("@/features/ndr/hooks/useNdrsSummary", () => ({ useNdrsSummary: () => ndr() }));
+vi.mock("@/features/ndr/hooks/useNdrsSummary", () => ({ useNdrsSummary: (o: unknown) => ndr(o) }));
 vi.mock("@/features/ndr/hooks/useReturnShipmentsSummary", () => ({
-  useReturnShipmentsSummary: () => ({ data: { byRtoStage: {}, merchantConfirmed: 0, pendingConfirmation: 4 }, isLoading: false, isError: false }),
+  useReturnShipmentsSummary: (o: unknown) => rto(o),
 }));
-vi.mock("@/features/manifests/hooks/useManifestsSummary", () => ({ useManifestsSummary: () => ({ data: { InTransit: 2 }, isLoading: false, isError: false }) }));
+const rto = vi.fn((_o?: unknown) => ({ data: { byRtoStage: {}, merchantConfirmed: 0, pendingConfirmation: 4 }, isLoading: false, isError: false }));
+const manifestsSummary = vi.fn((_o?: unknown) => ({ data: { InTransit: 2 }, isLoading: false, isError: false }));
+vi.mock("@/features/manifests/hooks/useManifestsSummary", () => ({ useManifestsSummary: (o: unknown) => manifestsSummary(o) }));
 vi.mock("@/features/branches/hooks/useBranches", () => ({ useBranches: () => ({ data: [{ id: "b1", name: "Kathmandu Hub", code: "KTM" }] }) }));
 vi.mock("@/features/shipments/hooks/usePeopleNames", () => ({
   usePeopleNames: () => ({ riderName: () => "Rider", userName: () => "Staff", branchName: () => "Kathmandu Hub" }),
@@ -73,6 +75,14 @@ describe("DashboardPage", () => {
     perms.delete("ndr.read");
     renderWithIntl(<DashboardPage />);
     expect(screen.queryByText("Open NDRs")).toBeNull();
+  });
+
+  it("does not fetch summaries the user may not read", () => {
+    perms = new Set(["report.read", "rto.read"]);
+    renderWithIntl(<DashboardPage />);
+    expect(ndr).toHaveBeenLastCalledWith({ enabled: false });
+    expect(manifestsSummary).toHaveBeenLastCalledWith({ enabled: false });
+    expect(rto).toHaveBeenLastCalledWith({ enabled: true });
   });
 
   it("keeps the page when one summary endpoint fails", () => {

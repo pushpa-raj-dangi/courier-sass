@@ -8,7 +8,9 @@ import { DetailSkeleton } from "@/components/states/DetailSkeleton";
 import { StatusBadge } from "@/components/status-badge/StatusBadge";
 import { SheetHeaderBlock } from "@/components/page/SheetHeaderBlock";
 import { ComingSoonSlot } from "@/components/page/ComingSoonSlot";
+import { isNotFoundError } from "@/lib/api/clientFetch";
 import { usePermission } from "@/features/auth/hooks/usePermission";
+import { scanErrorMessage } from "@/features/scanning/scanErrors";
 import { useShipment } from "@/features/shipments/hooks/useShipment";
 import { useShipmentEvents } from "@/features/shipments/hooks/useShipmentEvents";
 import { useMerchants } from "@/features/shipments/hooks/useMerchants";
@@ -31,7 +33,7 @@ export function ShipmentDetailSheet() {
   const isOpen = panel.mode === "detail";
   const awb = panel.mode === "detail" ? panel.awb : "";
 
-  const { data: shipment, isLoading, isError, refetch } = useShipment(awb);
+  const { data: shipment, isLoading, isError, error, refetch } = useShipment(awb);
   const events = useShipmentEvents(awb);
   const { data: merchants } = useMerchants();
   const { data: serviceTypes } = useServiceTypes();
@@ -51,13 +53,19 @@ export function ShipmentDetailSheet() {
         <div className="flex-1 space-y-5 overflow-y-auto p-6">
           {!shipment && <SheetTitle className="sr-only">Shipment</SheetTitle>}
           {isLoading && <DetailSkeleton fieldRows={5} />}
-          {isError && (
+          {isError && (isNotFoundError(error) ? (
             <ErrorState
               title="Shipment not found or not in your branches"
               description="Check the AWB, or ask an admin for access to the branch that holds it."
               onRetry={() => refetch()}
             />
-          )}
+          ) : (
+            <ErrorState
+              title="Couldn't load shipment"
+              description="Something went wrong fetching this shipment. Check your connection and try again."
+              onRetry={() => refetch()}
+            />
+          ))}
           {shipment && (
             <>
               <SheetHeaderBlock
@@ -110,7 +118,13 @@ export function ShipmentDetailSheet() {
         </div>
         {shipment && (
           <div className="flex items-center gap-2.5 border-t border-border bg-surface-sunken px-6 py-3.5">
-            <span className="flex-1 text-[11.5px] text-muted-foreground">Status changes only through scans and rider actions</span>
+            {receiveAtOrigin.isError ? (
+              <p role="alert" className="flex-1 text-[11.5px] text-destructive">
+                Couldn't receive at origin: {scanErrorMessage(receiveAtOrigin.error)}
+              </p>
+            ) : (
+              <span className="flex-1 text-[11.5px] text-muted-foreground">Status changes only through scans and rider actions</span>
+            )}
             {canScan && shipment.currentStatus === "PickedUp" && (
               <Button size="sm" disabled={receiveAtOrigin.isPending} onClick={() => receiveAtOrigin.mutate()}>
                 {receiveAtOrigin.isPending ? "Receiving…" : "Receive at origin"}

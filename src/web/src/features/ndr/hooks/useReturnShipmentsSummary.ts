@@ -9,9 +9,11 @@ export interface ReturnShipmentSummary {
   pendingConfirmation: number;
 }
 
-export function useReturnShipmentsSummary() {
+export function useReturnShipmentsSummary(options: { enabled?: boolean } = {}) {
+  const { enabled = true } = options;
   return useQuery({
     queryKey: ["return-shipments-summary"],
     queryFn: () => clientFetch<ReturnShipmentSummary>("/api/return-shipments/summary"),
+    enabled,
   });
 }

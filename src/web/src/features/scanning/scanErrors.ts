@@ -1,4 +1,4 @@
-import { SessionExpiredError } from "@/lib/api/clientFetch";
+import { SessionExpiredError, isNotFoundError } from "@/lib/api/clientFetch";
 import { manifestScanErrorMessage } from "@/features/manifests/lib/manifestErrorMessages";
 
 export const NOT_FOUND_MESSAGE = "AWB not found in your branches.";
@@ -8,8 +8,8 @@ const GENERIC_MESSAGE = "Couldn't record this scan. Check the AWB and try again.
 export function scanErrorMessage(error: unknown): string {
   if (error instanceof SessionExpiredError) return "Your session expired — sign in again.";
   if (error instanceof TypeError) return NETWORK_MESSAGE;
+  if (isNotFoundError(error)) return NOT_FOUND_MESSAGE;
   const message = error instanceof Error ? error.message : "";
-  if (/failed with 404$/.test(message)) return NOT_FOUND_MESSAGE;
   try {
     const parsed = JSON.parse(message);
     const reason = parsed?.error?.reason;
