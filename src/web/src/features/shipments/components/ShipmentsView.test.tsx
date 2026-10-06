@@ -99,6 +99,16 @@ describe("ShipmentsView", () => {
     expect(replace).toHaveBeenCalledWith("/shipments", { scroll: false });
   });
 
+  it("describes the total as a scope count without filters and a match count with them", () => {
+    const { unmount } = render(<ShipmentsView />);
+    expect(screen.getByText("1 shipment in your branch scope")).toBeInTheDocument();
+    unmount();
+    search = "merchantId=m1";
+    useShipmentsMock.mockReturnValue(page([row, { ...row, id: "x2", awb: "QA-2" }]));
+    render(<ShipmentsView />);
+    expect(screen.getByText("2 shipments match these filters")).toBeInTheDocument();
+  });
+
   it("explicit status params override the tab", () => {
     search = "tab=ndr&status=Created&status=PickupAssigned";
     render(<ShipmentsView />);

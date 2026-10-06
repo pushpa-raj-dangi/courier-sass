@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ShipmentEvent } from "@/features/shipments/types";
-import { buildCustodyChain, custodySince, formatDuration } from "./custodyChain";
+import { buildCustodyChain, custodySince, formatCustodyStart, formatDuration } from "./custodyChain";
 
 function ev(id: string, timestamp: string, holder: Partial<Pick<ShipmentEvent, "branchId" | "userId" | "riderId">>): ShipmentEvent {
   return { id, eventType: "Sorted", previousStatus: null, newStatus: "Sorted", branchId: null, userId: null, riderId: null, timestamp, notes: null, ...holder };
@@ -35,5 +35,22 @@ describe("buildCustodyChain", () => {
     expect(formatDuration("2026-10-05T08:00:00Z", "2026-10-05T08:05:00Z")).toBe("5 m");
     expect(formatDuration("2026-10-03T08:00:00Z", "2026-10-05T10:00:00Z")).toBe("2 d 2 h");
     expect(formatDuration("2026-10-05T08:00:00Z", null, new Date("2026-10-05T09:00:00Z"))).toBe("1 h 0 m");
+  });
+});
+
+describe("formatCustodyStart", () => {
+  const time = (d: Date) => d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  const date = (d: Date) => d.toLocaleDateString([], { day: "numeric", month: "short" });
+
+  it("shows only the time when custody started today", () => {
+    const now = new Date(2026, 9, 6, 15, 0);
+    const since = new Date(2026, 9, 6, 9, 30);
+    expect(formatCustodyStart(since.toISOString(), now)).toBe(time(since));
+  });
+
+  it("includes the date when custody started before today", () => {
+    const now = new Date(2026, 9, 6, 15, 0);
+    const since = new Date(2026, 9, 3, 9, 30);
+    expect(formatCustodyStart(since.toISOString(), now)).toBe(`${date(since)}, ${time(since)}`);
   });
 });

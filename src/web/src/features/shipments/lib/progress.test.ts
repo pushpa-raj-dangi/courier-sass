@@ -35,8 +35,14 @@ describe("buildProgress", () => {
     expect(p.steps[6].state).toBe("upcoming");
   });
 
-  it("treats international and unknown statuses as in transit, cancelled as an exception", () => {
+  it("treats international statuses as in transit, cancelled as an exception", () => {
     expect(states("InInternationalTransit")[3]).toBe("current");
     expect(buildProgress("Cancelled").exception).toBe("cancelled");
+  });
+
+  it("claims no current step for an unknown status", () => {
+    const p = buildProgress("SomethingNew");
+    expect(p.exception).toBeNull();
+    expect(p.steps.every((s) => s.state === "upcoming")).toBe(true);
   });
 });

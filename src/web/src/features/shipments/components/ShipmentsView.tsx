@@ -23,6 +23,12 @@ import { ShipmentFilterBar } from "./ShipmentFilterBar";
 
 const money = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
 
+function totalDescription(total: number, filtered: boolean): string {
+  const n = total.toLocaleString("en-US");
+  if (filtered) return total === 1 ? `${n} shipment matches these filters` : `${n} shipments match these filters`;
+  return `${n} ${total === 1 ? "shipment" : "shipments"} in your branch scope`;
+}
+
 export function ShipmentsView() {
   const router = useRouter();
   const pathname = usePathname();
@@ -99,7 +105,7 @@ export function ShipmentsView() {
     <div className="space-y-5">
       <PageHeader
         title="Shipments"
-        description={data ? `${data.totalCount.toLocaleString("en-US")} shipments in your branch scope` : undefined}
+        description={data ? totalDescription(data.totalCount, filtered) : undefined}
         actions={
           canCreate && (
             <Button className="gap-1.5" onClick={() => openCreate()}>

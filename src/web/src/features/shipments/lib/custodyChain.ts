@@ -53,3 +53,11 @@ export function formatDuration(fromIso: string, toIso: string | null, now: Date 
   if (hours > 0) return `${hours} h ${mins} m`;
   return `${mins} m`;
 }
+
+// When custody started: the time alone for today, otherwise the date and time (a parcel held
+// since an earlier day must not read as if it arrived this morning).
+export function formatCustodyStart(sinceIso: string, now: Date = new Date()): string {
+  const since = new Date(sinceIso);
+  const time = since.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  return since.toDateString() === now.toDateString() ? time : `${since.toLocaleDateString([], { day: "numeric", month: "short" })}, ${time}`;
+}

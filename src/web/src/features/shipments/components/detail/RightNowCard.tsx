@@ -1,6 +1,6 @@
 import { MapPin } from "lucide-react";
 import { usePeopleNames } from "@/features/shipments/hooks/usePeopleNames";
-import { formatDuration } from "@/features/shipments/lib/custodyChain";
+import { formatCustodyStart, formatDuration } from "@/features/shipments/lib/custodyChain";
 import type { Shipment } from "@/features/shipments/types";
 
 function Fact({ label, value }: { label: string; value: string }) {
@@ -30,7 +30,7 @@ export function RightNowCard({ shipment, since }: { shipment: Shipment; since: s
         <Fact label="Owning branch" value={shipment.currentBranchId ? names.branchName(shipment.currentBranchId) : "In transit"} />
         <Fact
           label="In custody since"
-          value={since ? `${new Date(since).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} · ${formatDuration(since, null)}` : "—"}
+          value={since ? `${formatCustodyStart(since)} · ${formatDuration(since, null)}` : "—"}
         />
         <Fact label="Destination branch" value={names.branchName(shipment.destinationBranchId)} />
       </div>

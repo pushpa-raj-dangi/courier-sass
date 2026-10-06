@@ -36,7 +36,8 @@ export function buildProgress(status: string): {
     exception = "cancelled";
     reached = 0;
   } else {
-    reached = STEP_INDEX[status] ?? 3;
+    // An unknown status claims no step at all rather than guessing a position.
+    reached = STEP_INDEX[status] ?? -1;
   }
 
   const delivered = exception === null && reached === 6;
