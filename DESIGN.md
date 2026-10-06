@@ -283,8 +283,7 @@ The table itself sits in its own bordered container — `rounded-xl border borde
 Camera-first continuous barcode scanning. Manual and keyboard-wedge input always available (live
 input field under the camera view, unfocused between scans). One result card with `aria-live="polite"`
 per scan (accepted = teal tint + check icon; rejected = destructive tint + server message). Session
-log (newest first, time · AWB · mode · result) beneath. Mode switcher (segmented control or tabs)
-showing only available modes; unavailable modes hidden, not disabled.
+log (newest first, time · AWB · mode · result) beneath. Mode switcher (Tabs) showing only available modes; unavailable modes hidden, not disabled.
 
 ### Progress stepper (F15 R2)
 Seven forward steps (Booked, Picked up, Origin hub, In transit, Destination, Out for delivery, Delivered);
