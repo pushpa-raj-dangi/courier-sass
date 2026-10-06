@@ -279,6 +279,26 @@ Sticky, `h-16`, hairline bottom border, `bg-card`: sidebar trigger, a breadcrumb
 ### Data Table
 The table itself sits in its own bordered container — `rounded-xl border border-border bg-card` (`overflow-hidden` to clip the corners), the same corner radius as a Card, with a `bg-surface-sunken` header row so it reads as a lifted card on the sand page (F15 R1; it replaced the earlier `bg-muted/40` fill, needed only while card and page shared a value). `DataTable` accepts an optional `selectedRowId` to highlight the row whose Sheet is open. Header row + body rows keep the shadcn `Table` default 1px hairline row separators inside that container, no zebra striping, no row hover highlight beyond the default. Below the table, outside the bordered container: a plain-text "Page X of Y (N total)" caption on the left, numbered `PaginationLink`s with ellipsis collapsing plus Previous/Next controls (disabled at the bounds) on the right — this superseded an earlier Previous/Next-only design once real page counts made jump-ahead navigation worth the extra chrome. The bordered/rounded/tinted container itself is a standalone component, `BorderedTableContainer` (`components/data-table/`), promoted out of `DataTable` during the 2026-09-08 audit pass once a sixth hand-rolled copy of the same wrapper markup showed up across the app; `DataTable` and every non-`DataTable` table (`MerchantSettlementsTab` and the five merchant portal list pages — cod, kyc, pickups, staff, api-keys, none of which paginate since their list endpoints don't support it yet) now render through this one shared wrapper instead of copy-pasting the div.
 
+### Scan station (F15 R2)
+Camera-first continuous barcode scanning. Manual and keyboard-wedge input always available (live
+input field under the camera view, unfocused between scans). One result card with `aria-live="polite"`
+per scan (accepted = teal tint + check icon; rejected = destructive tint + server message). Session
+log (newest first, time · AWB · mode · result) beneath. Mode switcher (segmented control or tabs)
+showing only available modes; unavailable modes hidden, not disabled.
+
+### Progress stepper (F15 R2)
+Seven forward steps (Booked, Picked up, Origin hub, In transit, Destination, Out for delivery, Delivered);
+text labels always present beside or below icons (not color-only). Exception markers (NDR symbol, RTO symbol,
+or Cancelled) appear after the last forward step reached; NDR/RTO statuses never show a fake Delivered step.
+Current step carries `aria-current="step"`. Step progression is derived from the shipment's `currentStatus`
+alone; complete, current and upcoming states distinguished by icon color and opacity.
+
+### "Right now" custody card (F15 R2)
+Cobalt-tinted section (`bg-cobalt-tint`, `rounded-lg`) at the top of the shipment Sheet detail view.
+Shows: Custodian (rider display name or staff name or "—"), Owning branch (current branch name or
+"In transit"), In custody since (timestamp + elapsed duration like "2 h 18 m", or "—"), Destination branch.
+Derived from the most recent `ShipmentEvent` whose branch/user/rider holder differs from the prior event.
+
 ### Empty / Loading / Error States
 - **Empty:** dashed hairline border, `rounded-lg`, generous `p-12` padding, centered content — an optional circular `bg-muted` icon chip, a Space Grotesk `text-sm font-medium` title, an optional `muted-foreground` description, and an optional action below.
 - **Loading:** a stack of `Skeleton` bars (`h-10 w-full`, default 5 rows) inside the same `rounded-xl border border-border bg-card p-3` container the populated table uses, standing in for the eventual table/list shape — the container previews the exact shape the table pops into once data arrives, rather than skeleton bars sitting flush with the page and the framed card appearing out of nowhere on load. Never a full-page spinner for list content (a bare `Spinner` is reserved for page-level "nothing has rendered yet" waits, e.g. the shipments list's initial load).

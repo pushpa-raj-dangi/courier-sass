@@ -1182,6 +1182,16 @@ public `/track/{awb}` — tenantless — failed closed with 404 for both. Found 
 
 ---
 
+## 25. Branch scope on single-shipment reads (2026-10-05)
+
+`GET /api/v1/shipments/{awb}` previously checked tenant and merchant ownership but not staff
+branch scope, so a branch-restricted user could open any AWB in the organization. From F15 R2,
+staff single reads (and the new `/{awb}/events`) require the shipment's origin, destination or
+current branch to be in the caller's `shipment.read` scope — the same predicate the list uses.
+Out-of-scope returns 404, not 403, so AWB existence is not disclosed. Internal scan lookups
+(`GetScanInfoByAwbAsync`) are unchanged; scan and transition endpoints keep their own
+branch-access checks.
+
 ## Summary of schema additions implied by this document
 
 * `UserRole` (new entity) — resolves #1, carries `BranchScope` enum — resolves #6.

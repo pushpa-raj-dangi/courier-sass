@@ -18,6 +18,9 @@ Allow(action) IFF:
 See `CLARIFICATIONS.md` #1 and #6 for the `UserRole`/`UserBranch` schema this relies
 on. "Active" excludes `UserBranch` rows whose `ExpiresAt` has passed.
 
+Single-shipment reads (`GET /shipments/{awb}`, `/events`) apply the same origin/destination/
+current-branch predicate as the list; out-of-scope → 404 (F15 R2).
+
 `SuperAdmin` is the one documented exception: it operates with `OrganizationId = null`
 and bypasses tenant/branch scoping entirely, but every action is written to
 `AuditLog` with `IsCrossTenantAction = true` (`CLARIFICATIONS.md` #5).

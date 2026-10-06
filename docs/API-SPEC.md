@@ -174,6 +174,57 @@ the manifest's `ToBranchId`. Full internal endpoint catalog is enumerated per-mo
 as each module is implemented (`ROADMAP.md`), not upfront here, to avoid the
 catalog drifting from what's actually built.
 
+### 6.1 Shipments (staff list and detail)
+
+```http
+GET    /api/v1/shipments              # list/filter own-organization shipments (staff only)
+GET    /api/v1/shipments/{awb}        # fetch single shipment by AWB (staff + branch scope)
+GET    /api/v1/shipments/{awb}/events # fetch shipment events (staff only, branch-scoped)
+```
+
+#### `GET /api/v1/shipments`
+
+Staff only: requires `shipment.read`. Merchant callers accessing their own `merchantId`
+use the Merchant API endpoint (§3) instead. Query parameters (all optional, AND-combined):
+
+| Param | Type | Semantics |
+|---|---|---|
+| `status` | repeatable `ShipmentStatus` | `IN` match on `CurrentStatus`. Unknown value → `400 SHIPMENT_VALIDATION_FAILED`. |
+| `q` | string | Trimmed. Length < 2 → `400 SHIPMENT_VALIDATION_FAILED`. Matches AWB prefix (case-insensitive, `ILIKE 'q%'`) **or** recipient name contains (case-insensitive) **or** recipient phone contains. `%`/`_` in input are escaped. |
+| `merchantId` | Guid | Equality. Ignored-by-construction for merchant callers. |
+| `serviceTypeId` | Guid | Equality. |
+| `branchId` | Guid | Origin **or** destination **or** current branch equals it. If outside the caller's accessible set, the branch-scope predicate already excludes everything → empty page (no 403, no leak). |
+| `createdFrom`, `createdTo` | `DateTimeOffset` | Inclusive range on `CreatedAt`. `createdFrom > createdTo` → `400 SHIPMENT_VALIDATION_FAILED`. |
+
+Ordering: `CreatedAt desc, Id`. Pagination: cursor-based. Response: `{ data: [ShipmentResponse], nextCursor }`. `ShipmentResponse` gains `DateTimeOffset? LastEventAt` (the max `ShipmentEvent.Timestamp` for the shipment, or null if no events exist).
+
+#### `GET /api/v1/shipments/{awb}`
+
+Staff and branch-scoped: requires `shipment.read`. Resolves the shipment by AWB under tenant
+isolation. Staff callers outside the shipment's branch scope (origin, destination, or current
+branch) receive `404`. Merchant callers use the Merchant API endpoint instead.
+
+Response: `ShipmentResponse` including `LastEventAt`.
+
+#### `GET /api/v1/shipments/{awb}/events`
+
+Staff only: requires `shipment.read`; a merchant caller → `403`. Shipment resolved by AWB
+under tenant isolation and the branch-scope rule; not found or out of scope → `404`.
+
+Response: array ordered by `Timestamp` ascending, then `Id`:
+
+```json
+[{ "id": "…", "eventType": "ManifestReceived", "previousStatus": "InTransit",
+   "newStatus": "AtDestinationBranch", "branchId": "…", "userId": "…", "riderId": null,
+   "timestamp": "2026-10-05T08:15:00Z", "notes": "…" }]
+```
+
+Fields: `id`, `eventType` (serialized as a string), `previousStatus`, `newStatus` (both
+serialized as strings), `branchId`, `userId`, `riderId`, `timestamp`, `notes`.
+
+**Not exposed:** `Metadata`, `Latitude`, `Longitude`. Read-only; not audited (consistent
+with other reads).
+
 ## 7. International Shipments API (I3, extended I4)
 
 Staff-only (JWT + permission), not part of the Merchant API catalog in §3 — merchant-facing

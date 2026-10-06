@@ -1059,7 +1059,7 @@ serve renders `ComingSoonSlot`. Each sub-phase has its own spec → plan → imp
 | Sub-phase | Scope | Status |
 |---|---|---|
 | R1 — Console Foundation | Tokens, `ConsoleShell` (staff/merchant/platform), grouped dark rail, header (breadcrumb, AD/BS date, notifications slot), page primitives, table/badge restyle | Done — spec `docs/superpowers/specs/2026-09-30-f15-r1-console-foundation-design.md` |
-| R2 — Staff operations | Dashboard, Shipments + detail Sheet, `/scan` Scan station | Planned |
+| R2 — Staff operations | Dashboard, Shipments + detail Sheet, `/scan` Scan station | Done — spec `docs/superpowers/specs/2026-10-05-f15-r2-staff-operations-design.md` |
 | R3 — Staff finance & network | COD, manifests, NDR, RTO, riders, live map, branches | Planned |
 | R4 — Rider PWA | Run screen, POD flow, scan, profile | Planned |
 | R5 — Merchant portal + public tracking | 7 merchant pages, `/track` | Planned |
@@ -1067,6 +1067,19 @@ serve renders `ComingSoonSlot`. Each sub-phase has its own spec → plan → imp
 
 **Backend follow-ups from R1:** notification feed (header bell); nav badge counts (e.g. open
 NDRs); plan/branch usage in the session payload (sidebar plan card).
+
+**Backend follow-ups from R2:**
+1. Hourly booked/delivered flow.
+2. Prior-period deltas for KPIs and pipeline.
+3. Needs-action counts: manifests with missing parcels, riders holding cash > 24 h, SLA risk.
+4. Per-branch on-hand / out-for-delivery counts.
+5. COD split: rider-held vs deposited-unverified.
+6. Per-shipment COD, delivery attempts, entity audit reads.
+7. Standalone sort operation + sort bins.
+8. "Next expected" (run stop, attempt N of M) for the custody card.
+9. Bulk CSV shipment upload; label printing; rider reassignment.
+10. Server-side actor display names on events.
+11. "Needs action" shipments filter.
 
 ## Later
 
