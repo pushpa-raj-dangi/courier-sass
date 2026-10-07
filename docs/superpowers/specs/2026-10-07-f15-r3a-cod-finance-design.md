@@ -208,9 +208,12 @@ at, Branch state ("Reconciled" when `branchCashSettlementId` set, else "Awaiting
 - Breakdown (pure `buildSettlementBreakdown(settlement, adjustments)`):
   - "N delivered COD parcels" = Σ `codAmount`
   - "Delivery charges (booking-time prices)" = − Σ `courierFee`
-  - "Other deductions" = − Σ `otherDeductions`
-  - "Approved adjustments" = Σ (`afterValue − beforeValue`) of applied adjustments whose
-    `entityType == "MerchantSettlementItem"` and `entityId` ∈ this settlement's item ids
+  - "Other deductions" = − Σ `otherDeductions` (already includes approved adjustments — applying
+    an adjustment rewrites the item's `otherDeductions`, `netPayable` and the settlement's
+    `totalPayable` server-side, so adjustments are never a separate subtracted line)
+  - Caption under it, only when non-zero: "Includes Rs N from approved adjustments", N = Σ
+    (`afterValue − beforeValue`) of applied adjustments whose `entityType ==
+    "MerchantSettlementItem"` and `entityId` ∈ this settlement's item ids
   - **Merchant payable** = server `totalPayable`.
   - If Σ`netPayable` of items ≠ `totalPayable`, show a warning row "Lines don't add up to the
     payable — contact finance" with both figures. Never silently reconcile.
