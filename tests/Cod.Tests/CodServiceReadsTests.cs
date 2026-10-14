@@ -135,7 +135,7 @@ public class CodServiceReadsTests
         await SeedCollectionAsync(dbContext, organizationId, Guid.NewGuid(), otherBranchId, CodCollectionStatus.CodExpected, null);
         var service = CreateService(dbContext, organizationId, new RestrictedBranchAuthorizationChecker(accessibleBranchId));
 
-        var results = await service.ListCollectionsAsync(null, null, null, null, null, null, StaffActingUser(Guid.NewGuid()));
+        var results = await service.ListCollectionsAsync(null, null, null, null, null, null, null, null, StaffActingUser(Guid.NewGuid()));
 
         var result = Assert.Single(results.Items);
         Assert.Equal(accessible.Id, result.Id);
@@ -151,7 +151,7 @@ public class CodServiceReadsTests
         await SeedCollectionAsync(dbContext, organizationId, Guid.NewGuid(), Guid.NewGuid(), CodCollectionStatus.CodExpected, null);
         var service = CreateService(dbContext, organizationId, new AllBranchesAuthorizationChecker());
 
-        var results = await service.ListCollectionsAsync(null, null, null, null, null, null, MerchantActingUser(merchantId));
+        var results = await service.ListCollectionsAsync(null, null, null, null, null, null, null, null, MerchantActingUser(merchantId));
 
         var result = Assert.Single(results.Items);
         Assert.Equal(own.Id, result.Id);
@@ -251,7 +251,7 @@ public class CodServiceReadsTests
         await SeedCollectionAsync(dbContext, foreignOrganizationId, Guid.NewGuid(), Guid.NewGuid(), CodCollectionStatus.CodExpected, null);
         var service = CreateService(dbContext, organizationId, new AllBranchesAuthorizationChecker());
 
-        var results = await service.ListCollectionsAsync(null, null, null, null, null, null, StaffActingUser(Guid.NewGuid()));
+        var results = await service.ListCollectionsAsync(null, null, null, null, null, null, null, null, StaffActingUser(Guid.NewGuid()));
 
         var result = Assert.Single(results.Items);
         Assert.Equal(own.Id, result.Id);
@@ -284,7 +284,7 @@ public class CodServiceReadsTests
         await SeedMerchantSettlementAsync(dbContext, foreignOrganizationId, Guid.NewGuid());
         var service = CreateService(dbContext, organizationId, new AllBranchesAuthorizationChecker());
 
-        var results = await service.ListMerchantSettlementsAsync(null, StaffActingUser(Guid.NewGuid()));
+        var results = await service.ListMerchantSettlementsAsync(null, null, null, StaffActingUser(Guid.NewGuid()));
 
         var result = Assert.Single(results);
         Assert.Equal(own.Id, result.Id);
@@ -302,5 +302,65 @@ public class CodServiceReadsTests
         var result = await service.GetMerchantSettlementByIdAsync(foreignSettlement.Id, StaffActingUser(Guid.NewGuid()));
 
         Assert.Null(result);
+    }
+
+    // ---- Date-range filters on /cod list tabs ----
+
+    [Fact]
+    public async Task ListCollectionsAsync_DateRange_FiltersOnCreatedAt()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var recent = await SeedCollectionAsync(dbContext, organizationId, Guid.NewGuid(), Guid.NewGuid(), CodCollectionStatus.CodExpected, null);
+        var old = await SeedCollectionAsync(dbContext, organizationId, Guid.NewGuid(), Guid.NewGuid(), CodCollectionStatus.CodExpected, null);
+        recent.CreatedAt = DateTimeOffset.UtcNow.AddDays(-1);
+        old.CreatedAt = DateTimeOffset.UtcNow.AddDays(-30);
+        await dbContext.SaveChangesAsync();
+        var service = CreateService(dbContext, organizationId, new AllBranchesAuthorizationChecker());
+
+        var results = await service.ListCollectionsAsync(null, null, null, null, DateTimeOffset.UtcNow.AddDays(-7), DateTimeOffset.UtcNow, null, null, StaffActingUser(Guid.NewGuid()));
+
+        var result = Assert.Single(results.Items);
+        Assert.Equal(recent.Id, result.Id);
+    }
+
+    [Fact]
+    public async Task ListCollectionsAsync_InvertedRange_ThrowsValidation()
+    {
+        await using var dbContext = CreateContext();
+        var service = CreateService(dbContext, Guid.NewGuid(), new AllBranchesAuthorizationChecker());
+
+        await Assert.ThrowsAsync<CodValidationException>(() =>
+            service.ListCollectionsAsync(null, null, null, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddDays(-1), null, null, StaffActingUser(Guid.NewGuid())));
+    }
+
+    [Fact]
+    public async Task ListMerchantSettlementsAsync_DateRange_KeepsPeriodsThatOverlapTheRange()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var overlapping = await SeedMerchantSettlementAsync(dbContext, organizationId, Guid.NewGuid());
+        var old = await SeedMerchantSettlementAsync(dbContext, organizationId, Guid.NewGuid());
+        overlapping.PeriodFrom = DateTimeOffset.UtcNow.AddDays(-10);
+        overlapping.PeriodTo = DateTimeOffset.UtcNow.AddDays(-5);
+        old.PeriodFrom = DateTimeOffset.UtcNow.AddDays(-40);
+        old.PeriodTo = DateTimeOffset.UtcNow.AddDays(-31);
+        await dbContext.SaveChangesAsync();
+        var service = CreateService(dbContext, organizationId, new AllBranchesAuthorizationChecker());
+
+        var results = await service.ListMerchantSettlementsAsync(null, DateTimeOffset.UtcNow.AddDays(-7), DateTimeOffset.UtcNow, StaffActingUser(Guid.NewGuid()));
+
+        var result = Assert.Single(results);
+        Assert.Equal(overlapping.Id, result.Id);
+    }
+
+    [Fact]
+    public async Task ListMerchantSettlementsAsync_InvertedRange_ThrowsValidation()
+    {
+        await using var dbContext = CreateContext();
+        var service = CreateService(dbContext, Guid.NewGuid(), new AllBranchesAuthorizationChecker());
+
+        await Assert.ThrowsAsync<CodValidationException>(() =>
+            service.ListMerchantSettlementsAsync(null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddDays(-1), StaffActingUser(Guid.NewGuid())));
     }
 }

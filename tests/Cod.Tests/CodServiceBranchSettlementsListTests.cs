@@ -129,7 +129,7 @@ public class CodServiceBranchSettlementsListTests
         await SeedAsync(dbContext, foreignOrganizationId, Guid.NewGuid());
         var service = CreateService(dbContext, organizationId, new AllBranchesAuthorizationChecker());
 
-        var result = await service.ListBranchSettlementsAsync(null, null, null, null, ActingUser(Guid.NewGuid()));
+        var result = await service.ListBranchSettlementsAsync(null, null, null, null, null, null, ActingUser(Guid.NewGuid()));
 
         var single = Assert.Single(result.Items);
         Assert.Equal(own.Id, single.Id);
@@ -146,7 +146,7 @@ public class CodServiceBranchSettlementsListTests
         await SeedAsync(dbContext, organizationId, otherBranchId);
         var service = CreateService(dbContext, organizationId, new RestrictedBranchAuthorizationChecker(accessibleBranchId));
 
-        var result = await service.ListBranchSettlementsAsync(null, null, null, null, ActingUser(Guid.NewGuid()));
+        var result = await service.ListBranchSettlementsAsync(null, null, null, null, null, null, ActingUser(Guid.NewGuid()));
 
         var single = Assert.Single(result.Items);
         Assert.Equal(accessible.Id, single.Id);
@@ -162,7 +162,7 @@ public class CodServiceBranchSettlementsListTests
         await VerifyAsync(dbContext, organizationId, verified.Id);
         var service = CreateService(dbContext, organizationId, new AllBranchesAuthorizationChecker());
 
-        var result = await service.ListBranchSettlementsAsync(null, true, null, null, ActingUser(Guid.NewGuid()));
+        var result = await service.ListBranchSettlementsAsync(null, true, null, null, null, null, ActingUser(Guid.NewGuid()));
 
         var single = Assert.Single(result.Items);
         Assert.Equal(unverified.Id, single.Id);
@@ -184,9 +184,28 @@ public class CodServiceBranchSettlementsListTests
         await dbContext.SaveChangesAsync();
         var service = CreateService(dbContext, organizationId, new AllBranchesAuthorizationChecker());
 
-        var result = await service.ListBranchSettlementsAsync(null, null, null, null, ActingUser(Guid.NewGuid()));
+        var result = await service.ListBranchSettlementsAsync(null, null, null, null, null, null, ActingUser(Guid.NewGuid()));
 
         var single = Assert.Single(result.Items);
         Assert.Equal(riderSettlement.Id, Assert.Single(single.RiderCashSettlementIds));
+    }
+
+    [Fact]
+    public async Task ListBranchSettlementsAsync_DateRange_FiltersOnReconciledAt()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var recent = await SeedAsync(dbContext, organizationId, Guid.NewGuid());
+        var old = await SeedAsync(dbContext, organizationId, Guid.NewGuid());
+        old.ReconciledAt = DateTimeOffset.UtcNow.AddDays(-30);
+        await dbContext.SaveChangesAsync();
+        var service = CreateService(dbContext, organizationId, new AllBranchesAuthorizationChecker());
+
+        var result = await service.ListBranchSettlementsAsync(null, null, DateTimeOffset.UtcNow.AddDays(-7), DateTimeOffset.UtcNow.AddMinutes(1), null, null, ActingUser(Guid.NewGuid()));
+
+        var item = Assert.Single(result.Items);
+        Assert.Equal(recent.Id, item.Id);
+        await Assert.ThrowsAsync<CodValidationException>(() =>
+            service.ListBranchSettlementsAsync(null, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddDays(-1), null, null, ActingUser(Guid.NewGuid())));
     }
 }

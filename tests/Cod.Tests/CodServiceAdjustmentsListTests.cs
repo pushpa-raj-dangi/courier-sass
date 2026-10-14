@@ -110,7 +110,7 @@ public class CodServiceAdjustmentsListTests
         await SeedAsync(dbContext, foreignOrganizationId, applied: false);
         var service = CreateService(dbContext, organizationId);
 
-        var result = await service.ListAdjustmentsAsync(null, null, null, null, ActingUser(Guid.NewGuid()));
+        var result = await service.ListAdjustmentsAsync(null, null, null, null, null, null, ActingUser(Guid.NewGuid()));
 
         var single = Assert.Single(result.Items);
         Assert.Equal(own.Id, single.Id);
@@ -125,7 +125,7 @@ public class CodServiceAdjustmentsListTests
         await SeedAsync(dbContext, organizationId, applied: true);
         var service = CreateService(dbContext, organizationId);
 
-        var result = await service.ListAdjustmentsAsync(false, null, null, null, ActingUser(Guid.NewGuid()));
+        var result = await service.ListAdjustmentsAsync(false, null, null, null, null, null, ActingUser(Guid.NewGuid()));
 
         var single = Assert.Single(result.Items);
         Assert.Equal(pending.Id, single.Id);
@@ -140,7 +140,7 @@ public class CodServiceAdjustmentsListTests
         var applied = await SeedAsync(dbContext, organizationId, applied: true);
         var service = CreateService(dbContext, organizationId);
 
-        var result = await service.ListAdjustmentsAsync(true, null, null, null, ActingUser(Guid.NewGuid()));
+        var result = await service.ListAdjustmentsAsync(true, null, null, null, null, null, ActingUser(Guid.NewGuid()));
 
         var single = Assert.Single(result.Items);
         Assert.Equal(applied.Id, single.Id);
@@ -155,7 +155,7 @@ public class CodServiceAdjustmentsListTests
         await SeedAsync(dbContext, organizationId, applied: true);
         var service = CreateService(dbContext, organizationId);
 
-        var result = await service.ListAdjustmentsAsync(null, null, null, null, ActingUser(Guid.NewGuid()));
+        var result = await service.ListAdjustmentsAsync(null, null, null, null, null, null, ActingUser(Guid.NewGuid()));
 
         Assert.Equal(2, result.TotalCount);
     }
@@ -196,14 +196,33 @@ public class CodServiceAdjustmentsListTests
         await SeedAsync(dbContext, foreignOrganizationId, applied: true, entityId: foreignItem.Id);
         var service = CreateService(dbContext, organizationId);
 
-        var result = await service.ListAdjustmentsAsync(true, target.Id, null, null, ActingUser(Guid.NewGuid()));
+        var result = await service.ListAdjustmentsAsync(true, target.Id, null, null, null, null, ActingUser(Guid.NewGuid()));
 
         var single = Assert.Single(result.Items);
         Assert.Equal(wanted.Id, single.Id);
         Assert.Equal(1, result.TotalCount);
 
         // Another organization's settlement id yields nothing from this tenant's scope.
-        var foreign = await service.ListAdjustmentsAsync(null, foreignSettlement.Id, null, null, ActingUser(Guid.NewGuid()));
+        var foreign = await service.ListAdjustmentsAsync(null, foreignSettlement.Id, null, null, null, null, ActingUser(Guid.NewGuid()));
         Assert.Empty(foreign.Items);
+    }
+
+    [Fact]
+    public async Task ListAdjustmentsAsync_DateRange_FiltersOnRequestedAt()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var recent = await SeedAsync(dbContext, organizationId, applied: false);
+        var old = await SeedAsync(dbContext, organizationId, applied: false);
+        old.RequestedAt = DateTimeOffset.UtcNow.AddDays(-30);
+        await dbContext.SaveChangesAsync();
+        var service = CreateService(dbContext, organizationId);
+
+        var result = await service.ListAdjustmentsAsync(null, null, DateTimeOffset.UtcNow.AddDays(-7), DateTimeOffset.UtcNow.AddMinutes(1), null, null, ActingUser(Guid.NewGuid()));
+
+        var item = Assert.Single(result.Items);
+        Assert.Equal(recent.Id, item.Id);
+        await Assert.ThrowsAsync<CodValidationException>(() =>
+            service.ListAdjustmentsAsync(null, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddDays(-1), null, null, ActingUser(Guid.NewGuid())));
     }
 }
