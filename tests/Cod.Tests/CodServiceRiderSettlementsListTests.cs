@@ -77,6 +77,7 @@ public class CodServiceRiderSettlementsListTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.ApplyConfiguration(new RiderCashSettlementConfiguration());
+            modelBuilder.ApplyConfiguration(new CODCollectionConfiguration());
         }
     }
 
@@ -94,17 +95,28 @@ public class CodServiceRiderSettlementsListTests
         dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), new AlwaysTrueBranchLookup(),
         branchAuthorizationChecker, new AlwaysTrueMerchantLookup(), new AlwaysTrueShipmentAwbLookup(), new NoopOutboxWriter());
 
-    private static async Task<RiderCashSettlement> SeedAsync(TestDbContext dbContext, Guid organizationId, Guid riderId, Guid branchId, Guid? branchCashSettlementId = null)
+    private static async Task<RiderCashSettlement> SeedAsync(TestDbContext dbContext, Guid organizationId, Guid riderId, Guid branchId, Guid? branchCashSettlementId = null, DateTimeOffset? settledAt = null, decimal declaredAmount = 2500m)
     {
         var settlement = new RiderCashSettlement
         {
             Id = Guid.NewGuid(), OrganizationId = organizationId, RiderId = riderId, BranchId = branchId,
-            DeclaredAmount = 2500m, ShipmentCount = 1, SettledAt = DateTimeOffset.UtcNow,
+            DeclaredAmount = declaredAmount, ShipmentCount = 1, SettledAt = settledAt ?? DateTimeOffset.UtcNow,
             ConfirmedByUserId = Guid.NewGuid(), BranchCashSettlementId = branchCashSettlementId
         };
         dbContext.Set<RiderCashSettlement>().Add(settlement);
         await dbContext.SaveChangesAsync();
         return settlement;
+    }
+
+    private static async Task SeedLinkedCollectionAsync(TestDbContext dbContext, Guid organizationId, Guid branchId, Guid riderCashSettlementId, decimal collectedAmount)
+    {
+        dbContext.Set<CODCollection>().Add(new CODCollection
+        {
+            Id = Guid.NewGuid(), ShipmentId = Guid.NewGuid(), OrganizationId = organizationId, MerchantId = Guid.NewGuid(),
+            BranchId = branchId, ExpectedAmount = collectedAmount, ShipmentTotalCharge = 150m, CollectedAmount = collectedAmount,
+            CollectedAt = DateTimeOffset.UtcNow, Status = CodCollectionStatus.RiderDeposited, RiderCashSettlementId = riderCashSettlementId
+        });
+        await dbContext.SaveChangesAsync();
     }
 
     [Fact]
@@ -117,7 +129,7 @@ public class CodServiceRiderSettlementsListTests
         await SeedAsync(dbContext, foreignOrganizationId, Guid.NewGuid(), Guid.NewGuid());
         var service = CreateService(dbContext, organizationId, new AllBranchesAuthorizationChecker());
 
-        var result = await service.ListRiderSettlementsAsync(null, null, null, null, null, ActingUser(Guid.NewGuid()));
+        var result = await service.ListRiderSettlementsAsync(null, null, null, null, null, null, null, ActingUser(Guid.NewGuid()));
 
         var single = Assert.Single(result.Items);
         Assert.Equal(own.Id, single.Id);
@@ -134,7 +146,7 @@ public class CodServiceRiderSettlementsListTests
         await SeedAsync(dbContext, organizationId, Guid.NewGuid(), otherBranchId);
         var service = CreateService(dbContext, organizationId, new RestrictedBranchAuthorizationChecker(accessibleBranchId));
 
-        var result = await service.ListRiderSettlementsAsync(null, null, null, null, null, ActingUser(Guid.NewGuid()));
+        var result = await service.ListRiderSettlementsAsync(null, null, null, null, null, null, null, ActingUser(Guid.NewGuid()));
 
         var single = Assert.Single(result.Items);
         Assert.Equal(accessible.Id, single.Id);
@@ -150,7 +162,7 @@ public class CodServiceRiderSettlementsListTests
         await SeedAsync(dbContext, organizationId, Guid.NewGuid(), branchId, branchCashSettlementId: Guid.NewGuid());
         var service = CreateService(dbContext, organizationId, new AllBranchesAuthorizationChecker());
 
-        var result = await service.ListRiderSettlementsAsync(null, null, true, null, null, ActingUser(Guid.NewGuid()));
+        var result = await service.ListRiderSettlementsAsync(null, null, true, null, null, null, null, ActingUser(Guid.NewGuid()));
 
         var single = Assert.Single(result.Items);
         Assert.Equal(unreconciled.Id, single.Id);
@@ -166,9 +178,79 @@ public class CodServiceRiderSettlementsListTests
         await SeedAsync(dbContext, organizationId, Guid.NewGuid(), Guid.NewGuid());
         var service = CreateService(dbContext, organizationId, new AllBranchesAuthorizationChecker());
 
-        var result = await service.ListRiderSettlementsAsync(null, targetRiderId, null, null, null, ActingUser(Guid.NewGuid()));
+        var result = await service.ListRiderSettlementsAsync(null, targetRiderId, null, null, null, null, null, ActingUser(Guid.NewGuid()));
 
         var single = Assert.Single(result.Items);
         Assert.Equal(target.Id, single.Id);
+    }
+
+    [Fact]
+    public async Task ListRiderSettlementsAsync_ComputesExpectedAndVariance()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var branchId = Guid.NewGuid();
+        var exact = await SeedAsync(dbContext, organizationId, Guid.NewGuid(), branchId, declaredAmount: 3000m);
+        await SeedLinkedCollectionAsync(dbContext, organizationId, branchId, exact.Id, 1000m);
+        await SeedLinkedCollectionAsync(dbContext, organizationId, branchId, exact.Id, 2000m);
+        var shortSettlement = await SeedAsync(dbContext, organizationId, Guid.NewGuid(), branchId, declaredAmount: 2000m);
+        await SeedLinkedCollectionAsync(dbContext, organizationId, branchId, shortSettlement.Id, 2500m);
+        var over = await SeedAsync(dbContext, organizationId, Guid.NewGuid(), branchId, declaredAmount: 2700m);
+        await SeedLinkedCollectionAsync(dbContext, organizationId, branchId, over.Id, 2500m);
+        var service = CreateService(dbContext, organizationId, new AllBranchesAuthorizationChecker());
+
+        var result = await service.ListRiderSettlementsAsync(null, null, null, null, null, null, null, ActingUser(Guid.NewGuid()));
+
+        var byId = result.Items.ToDictionary(r => r.Id);
+        Assert.Equal(3000m, byId[exact.Id].ExpectedAmount);
+        Assert.Equal(0m, byId[exact.Id].Variance);
+        Assert.Equal(2500m, byId[shortSettlement.Id].ExpectedAmount);
+        Assert.Equal(-500m, byId[shortSettlement.Id].Variance);
+        Assert.Equal(200m, byId[over.Id].Variance);
+    }
+
+    [Fact]
+    public async Task ListRiderSettlementsAsync_SettlementWithNoLinkedCollections_ExpectedIsZero()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var legacy = await SeedAsync(dbContext, organizationId, Guid.NewGuid(), Guid.NewGuid(), declaredAmount: 1200m);
+        var service = CreateService(dbContext, organizationId, new AllBranchesAuthorizationChecker());
+
+        var result = await service.ListRiderSettlementsAsync(null, null, null, null, null, null, null, ActingUser(Guid.NewGuid()));
+
+        var single = Assert.Single(result.Items);
+        Assert.Equal(legacy.Id, single.Id);
+        Assert.Equal(0m, single.ExpectedAmount);
+        Assert.Equal(1200m, single.Variance);
+    }
+
+    [Fact]
+    public async Task ListRiderSettlementsAsync_FromTo_FiltersOnSettledAt_NormalisedToUtc()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var branchId = Guid.NewGuid();
+        var inRange = await SeedAsync(dbContext, organizationId, Guid.NewGuid(), branchId, settledAt: new DateTimeOffset(2026, 10, 5, 12, 0, 0, TimeSpan.Zero));
+        await SeedAsync(dbContext, organizationId, Guid.NewGuid(), branchId, settledAt: new DateTimeOffset(2026, 10, 1, 12, 0, 0, TimeSpan.Zero));
+        var service = CreateService(dbContext, organizationId, new AllBranchesAuthorizationChecker());
+        var nepal = TimeSpan.FromMinutes(345);
+
+        var result = await service.ListRiderSettlementsAsync(null, null, null,
+            new DateTimeOffset(2026, 10, 5, 5, 45, 0, nepal), new DateTimeOffset(2026, 10, 6, 5, 44, 59, nepal),
+            null, null, ActingUser(Guid.NewGuid()));
+
+        var single = Assert.Single(result.Items);
+        Assert.Equal(inRange.Id, single.Id);
+    }
+
+    [Fact]
+    public async Task ListRiderSettlementsAsync_FromAfterTo_Throws()
+    {
+        await using var dbContext = CreateContext();
+        var service = CreateService(dbContext, Guid.NewGuid(), new AllBranchesAuthorizationChecker());
+
+        await Assert.ThrowsAsync<CodValidationException>(() => service.ListRiderSettlementsAsync(null, null, null,
+            DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddDays(-1), null, null, ActingUser(Guid.NewGuid())));
     }
 }

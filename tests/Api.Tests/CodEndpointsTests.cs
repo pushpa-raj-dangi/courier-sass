@@ -609,4 +609,44 @@ public class CodEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
+
+    // ---- F15 R3a: rider-settlement variance, date filter, collections-by-settlement ----
+
+    private static string UtcParam(DateTimeOffset value) => Uri.EscapeDataString(value.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ"));
+
+    [Fact]
+    public async Task RiderSettlement_ShortDeposit_ReportsExpectedAndVariance_AndFiltersByDate()
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "cod-r3a-variance");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (originBranchId, destinationBranchId, serviceTypeId) = await SeedBranchesAsync(client);
+        var merchantId = await CreateMerchantAsync(client);
+        var pickupRiderId = await CreateRiderAsync(client, originBranchId, RiderRoleType.PickupRider);
+        var deliveryRiderId = await CreateRiderAsync(client, destinationBranchId, RiderRoleType.DeliveryRider);
+        var shipment = await BookAndCompleteCodDeliveryAsync(client, merchantId, originBranchId, destinationBranchId, serviceTypeId, pickupRiderId, deliveryRiderId, 2500m);
+
+        var createResponse = await client.PostAsJsonAsync("/api/v1/cod/rider-settlements", new CreateRiderSettlementRequest(deliveryRiderId, destinationBranchId, 2400m));
+        createResponse.EnsureSuccessStatusCode();
+        var created = await createResponse.Content.ReadFromJsonAsync<RiderCashSettlementResponse>();
+        Assert.Equal(2500m, created!.ExpectedAmount);
+        Assert.Equal(-100m, created.Variance);
+
+        var inRange = await (await client.GetAsync($"/api/v1/cod/rider-settlements?from={UtcParam(DateTimeOffset.UtcNow.AddDays(-1))}&to={UtcParam(DateTimeOffset.UtcNow.AddDays(1))}"))
+            .Content.ReadFromJsonAsync<PagedResult<RiderCashSettlementResponse>>();
+        var listed = Assert.Single(inRange!.Items, r => r.Id == created.Id);
+        Assert.Equal(-100m, listed.Variance);
+
+        var future = await (await client.GetAsync($"/api/v1/cod/rider-settlements?from={UtcParam(DateTimeOffset.UtcNow.AddDays(1))}"))
+            .Content.ReadFromJsonAsync<PagedResult<RiderCashSettlementResponse>>();
+        Assert.DoesNotContain(future!.Items, r => r.Id == created.Id);
+
+        var inverted = await client.GetAsync($"/api/v1/cod/rider-settlements?from={UtcParam(DateTimeOffset.UtcNow)}&to={UtcParam(DateTimeOffset.UtcNow.AddDays(-1))}");
+        Assert.Equal(HttpStatusCode.BadRequest, inverted.StatusCode);
+
+        var bySettlement = await (await client.GetAsync($"/api/v1/cod/collections?riderCashSettlementId={created.Id}"))
+            .Content.ReadFromJsonAsync<PagedResult<CodCollectionResponse>>();
+        var parcel = Assert.Single(bySettlement!.Items);
+        Assert.Equal(shipment.Id, parcel.ShipmentId);
+    }
 }

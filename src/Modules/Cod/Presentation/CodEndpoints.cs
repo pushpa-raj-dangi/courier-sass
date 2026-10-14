@@ -16,8 +16,8 @@ public static class CodEndpoints
         .WithTags("COD Management")
         .RequireAuthorization();
 
-        group.MapGet("/collections", async (CodCollectionStatus? status, Guid? branchId, Guid? merchantId, int? page, int? pageSize, CodService service, HttpContext httpContext) =>
-            Results.Ok(await service.ListCollectionsAsync(status, branchId, merchantId, page, pageSize, httpContext.User, httpContext.RequestAborted)))
+        group.MapGet("/collections", async (CodCollectionStatus? status, Guid? branchId, Guid? merchantId, Guid? riderCashSettlementId, int? page, int? pageSize, CodService service, HttpContext httpContext) =>
+            Results.Ok(await service.ListCollectionsAsync(status, branchId, merchantId, riderCashSettlementId, page, pageSize, httpContext.User, httpContext.RequestAborted)))
             .RequirePermission("cod.read");
 
         group.MapGet("/summary", async (ICodReportingLookupService lookupService, IBranchAuthorizationChecker branchAuthorizationChecker, HttpContext httpContext) =>
@@ -37,8 +37,8 @@ public static class CodEndpoints
             Results.Ok(await service.GetReconciliationSummaryAsync(branchId, merchantId, from, to, httpContext.User, httpContext.RequestAborted)))
             .RequirePermission("cod.read");
 
-        group.MapGet("/rider-settlements", async (Guid? branchId, Guid? riderId, bool? unreconciledOnly, int? page, int? pageSize, CodService service, HttpContext httpContext) =>
-            Results.Ok(await service.ListRiderSettlementsAsync(branchId, riderId, unreconciledOnly, page, pageSize, httpContext.User, httpContext.RequestAborted)))
+        group.MapGet("/rider-settlements", async (Guid? branchId, Guid? riderId, bool? unreconciledOnly, DateTimeOffset? from, DateTimeOffset? to, int? page, int? pageSize, CodService service, HttpContext httpContext) =>
+            await HandleAsync(() => service.ListRiderSettlementsAsync(branchId, riderId, unreconciledOnly, from, to, page, pageSize, httpContext.User, httpContext.RequestAborted)))
             .RequirePermission("cod.read");
 
         group.MapPost("/rider-settlements", async (CreateRiderSettlementRequest request, CodService service, HttpContext httpContext) =>

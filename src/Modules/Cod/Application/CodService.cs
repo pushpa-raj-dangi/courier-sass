@@ -49,6 +49,19 @@ public partial class CodService : ICodCollectionCreationService, ICodCollectionS
         }
     }
 
+    // R3a: every Cod date filter is normalised to UTC (an offset like +05:45 must never reach
+    // Npgsql's timestamptz as a non-UTC value) and an inverted range is a 400, never a 500.
+    private static (DateTimeOffset? From, DateTimeOffset? To) NormalizeRange(DateTimeOffset? from, DateTimeOffset? to)
+    {
+        var fromUtc = from?.ToUniversalTime();
+        var toUtc = to?.ToUniversalTime();
+        if (fromUtc is DateTimeOffset f && toUtc is DateTimeOffset t && f > t)
+        {
+            throw new CodValidationException("'from' must be on or before 'to'.");
+        }
+        return (fromUtc, toUtc);
+    }
+
     private static CodCollectionResponse ToResponse(CODCollection collection) => new(
         collection.Id, collection.ShipmentId, collection.MerchantId, collection.BranchId, collection.ExpectedAmount,
         collection.ShipmentTotalCharge, collection.CollectedAmount, collection.Status, collection.CollectedByRiderId,

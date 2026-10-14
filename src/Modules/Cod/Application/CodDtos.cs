@@ -11,7 +11,8 @@ public record CreateRiderSettlementRequest(Guid RiderId, Guid BranchId, decimal 
 
 public record RiderCashSettlementResponse(
     Guid Id, Guid RiderId, Guid BranchId, decimal DeclaredAmount, int ShipmentCount,
-    DateTimeOffset SettledAt, Guid ConfirmedByUserId, Guid? BranchCashSettlementId);
+    DateTimeOffset SettledAt, Guid ConfirmedByUserId, Guid? BranchCashSettlementId,
+    decimal ExpectedAmount, decimal Variance);
 
 public record CreateBranchSettlementRequest(Guid BranchId, List<Guid> RiderCashSettlementIds, decimal ConfirmedAmount);
 

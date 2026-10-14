@@ -70,7 +70,7 @@ public partial class CodService
             }
 
             await _auditLogger.LogAsync(new AuditEntry(organizationId, actingUserId, "cod.rider_settlement_created", "RiderCashSettlement", settlement.Id.ToString()), cancellationToken);
-            return ToRiderSettlementResponse(settlement);
+            return ToRiderSettlementResponse(settlement, collections.Sum(c => c.CollectedAmount ?? 0m));
         }
         catch
         {
@@ -86,9 +86,10 @@ public partial class CodService
         }
     }
 
-    private static RiderCashSettlementResponse ToRiderSettlementResponse(RiderCashSettlement settlement) => new(
+    private static RiderCashSettlementResponse ToRiderSettlementResponse(RiderCashSettlement settlement, decimal expectedAmount) => new(
         settlement.Id, settlement.RiderId, settlement.BranchId, settlement.DeclaredAmount, settlement.ShipmentCount,
-        settlement.SettledAt, settlement.ConfirmedByUserId, settlement.BranchCashSettlementId);
+        settlement.SettledAt, settlement.ConfirmedByUserId, settlement.BranchCashSettlementId,
+        expectedAmount, settlement.DeclaredAmount - expectedAmount);
 
     // Transactional, same reasoning as CreateRiderSettlementAsync — parent-row insert
     // (BranchCashSettlement) plus a bulk FK-stamp on every named RiderCashSettlement plus a bulk
