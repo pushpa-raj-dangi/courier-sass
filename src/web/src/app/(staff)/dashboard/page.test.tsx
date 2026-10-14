@@ -73,7 +73,7 @@ describe("DashboardPage", () => {
     const cash = screen.getByLabelText("Cash in hand");
     expect(within(cash).getByText("Rider-held (now)")).toBeInTheDocument();
     expect(within(cash).getByText("Deposited, not yet verified")).toBeInTheDocument();
-    expect(within(cash).getAllByText(/^NPR.2,000$/)).toHaveLength(2);
+    expect(within(cash).getAllByText("Rs 2,000")).toHaveLength(2);
     expect(screen.queryByText("Rider-held vs deposited")).toBeNull();
   });
 
