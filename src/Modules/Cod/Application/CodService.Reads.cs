@@ -37,22 +37,33 @@ public partial class CodService
             }
         }
 
-        return ToResponse(collection);
+        var awbs = await _shipmentAwbLookupService.GetAwbsByShipmentIdsAsync(new HashSet<Guid> { collection.ShipmentId }, cancellationToken);
+        return ToResponse(collection, awbs);
     }
 
     // BranchId lives directly on CODCollection (this plan's eager-creation snapshot design) — a
     // single SQL WHERE clause, unlike Ndr.Application.NdrService.ListAsync's per-row
     // IShipmentTransitionService.GetScanInfoAsync lookup loop (Phase 9), which needed one because
     // NDR has no branch column of its own.
-    public async Task<PagedResult<CodCollectionResponse>> ListCollectionsAsync(CodCollectionStatus? status, Guid? branchId, Guid? merchantId, Guid? riderCashSettlementId, int? page, int? pageSize, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
+    public async Task<PagedResult<CodCollectionResponse>> ListCollectionsAsync(CodCollectionStatus? status, Guid? branchId, Guid? merchantId, Guid? riderCashSettlementId, DateTimeOffset? from, DateTimeOffset? to, int? page, int? pageSize, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
         var organizationId = _currentTenantProvider.OrganizationId
             ?? throw new CodValidationException("No active organization context.");
 
+        var (fromUtc, toUtc) = NormalizeRange(from, to);
         var query = _dbContext.Set<CODCollection>().Where(c => c.OrganizationId == organizationId);
         if (status is not null)
         {
             query = query.Where(c => c.Status == status);
+        }
+        // Same CreatedAt field the /cod/flow strip filters on, so the tab and the strip agree.
+        if (fromUtc is DateTimeOffset createdFrom)
+        {
+            query = query.Where(c => c.CreatedAt >= createdFrom);
+        }
+        if (toUtc is DateTimeOffset createdTo)
+        {
+            query = query.Where(c => c.CreatedAt <= createdTo);
         }
         if (riderCashSettlementId is Guid requestedSettlementId)
         {
@@ -93,7 +104,9 @@ public partial class CodService
             .Take(normalizedPageSize)
             .ToListAsync(cancellationToken);
 
-        return new PagedResult<CodCollectionResponse>(collections.Select(ToResponse).ToList(), normalizedPage, normalizedPageSize, totalCount);
+        // One batched AWB lookup per page (same pattern as ListMerchantSettlementsAsync).
+        var awbs = await _shipmentAwbLookupService.GetAwbsByShipmentIdsAsync(collections.Select(c => c.ShipmentId).ToHashSet(), cancellationToken);
+        return new PagedResult<CodCollectionResponse>(collections.Select(c => ToResponse(c, awbs)).ToList(), normalizedPage, normalizedPageSize, totalCount);
     }
 
     // CLAUDE.md §23's reconciliation figures, computed over whatever scope ListCollectionsAsync
@@ -161,11 +174,12 @@ public partial class CodService
         return new CodReconciliationSummaryResponse(expectedCod, collectedCod, riderDepositedCod, branchReceivedCod, merchantPayableCod, totalCourierFees);
     }
 
-    public async Task<List<MerchantSettlementResponse>> ListMerchantSettlementsAsync(Guid? merchantId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
+    public async Task<List<MerchantSettlementResponse>> ListMerchantSettlementsAsync(Guid? merchantId, DateTimeOffset? from, DateTimeOffset? to, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
         var organizationId = _currentTenantProvider.OrganizationId
             ?? throw new CodValidationException("No active organization context.");
 
+        var (fromUtc, toUtc) = NormalizeRange(from, to);
         var query = _dbContext.Set<MerchantSettlement>().Where(m => m.OrganizationId == organizationId);
         if (actingUser.GetMerchantId() is Guid callerMerchantId)
         {
@@ -174,6 +188,15 @@ public partial class CodService
         else if (merchantId is Guid requestedMerchantId)
         {
             query = query.Where(m => m.MerchantId == requestedMerchantId);
+        }
+        // A settlement covers a period, so it is in range when that period overlaps the range.
+        if (fromUtc is DateTimeOffset rangeFrom)
+        {
+            query = query.Where(m => m.PeriodTo >= rangeFrom);
+        }
+        if (toUtc is DateTimeOffset rangeTo)
+        {
+            query = query.Where(m => m.PeriodFrom <= rangeTo);
         }
 
         var settlements = await query.ToListAsync(cancellationToken);
@@ -282,16 +305,25 @@ public partial class CodService
     // yet" — mirrors CreateFinanceVerificationAsync's own alreadyVerified pre-check. Drives the
     // Branch Settlements tab's "unverified only" filter (Frontend Phase F7).
     public async Task<PagedResult<BranchCashSettlementResponse>> ListBranchSettlementsAsync(
-        Guid? branchId, bool? unverifiedOnly, int? page, int? pageSize,
+        Guid? branchId, bool? unverifiedOnly, DateTimeOffset? from, DateTimeOffset? to, int? page, int? pageSize,
         ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
         var organizationId = _currentTenantProvider.OrganizationId
             ?? throw new CodValidationException("No active organization context.");
 
+        var (fromUtc, toUtc) = NormalizeRange(from, to);
         var query = _dbContext.Set<BranchCashSettlement>().Where(b => b.OrganizationId == organizationId);
         if (branchId is Guid requestedBranchId)
         {
             query = query.Where(b => b.BranchId == requestedBranchId);
+        }
+        if (fromUtc is DateTimeOffset reconciledFrom)
+        {
+            query = query.Where(b => b.ReconciledAt >= reconciledFrom);
+        }
+        if (toUtc is DateTimeOffset reconciledTo)
+        {
+            query = query.Where(b => b.ReconciledAt <= reconciledTo);
         }
         if (unverifiedOnly == true)
         {
@@ -337,16 +369,25 @@ public partial class CodService
     // MerchantSettlementItem, which has no BranchId either (cod.settle/cod.adjust are org-wide
     // permissions, same precedent as CreateFinanceVerificationAsync/CreateMerchantSettlementAsync).
     public async Task<PagedResult<AdjustmentResponse>> ListAdjustmentsAsync(
-        bool? applied, Guid? merchantSettlementId, int? page, int? pageSize,
+        bool? applied, Guid? merchantSettlementId, DateTimeOffset? from, DateTimeOffset? to, int? page, int? pageSize,
         ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
         var organizationId = _currentTenantProvider.OrganizationId
             ?? throw new CodValidationException("No active organization context.");
 
+        var (fromUtc, toUtc) = NormalizeRange(from, to);
         var query = _dbContext.Set<Adjustment>().Where(a => a.OrganizationId == organizationId);
         if (applied is bool requestedApplied)
         {
             query = query.Where(a => a.Applied == requestedApplied);
+        }
+        if (fromUtc is DateTimeOffset requestedFrom)
+        {
+            query = query.Where(a => a.RequestedAt >= requestedFrom);
+        }
+        if (toUtc is DateTimeOffset requestedTo)
+        {
+            query = query.Where(a => a.RequestedAt <= requestedTo);
         }
         if (merchantSettlementId is Guid settlementId)
         {

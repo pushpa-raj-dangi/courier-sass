@@ -6,8 +6,8 @@ import type { Shipment } from "@/features/shipments/types";
 function Fact({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="text-[11.5px] text-muted-foreground">{label}</span>
-      <span className="text-[13.5px] font-semibold text-foreground">{value}</span>
+      <span className="text-2xs text-muted-foreground">{label}</span>
+      <span className="text-sm font-semibold text-foreground">{value}</span>
     </div>
   );
 }

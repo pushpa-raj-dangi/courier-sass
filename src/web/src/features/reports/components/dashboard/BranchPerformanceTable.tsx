@@ -35,7 +35,7 @@ export function BranchPerformanceTable({ data }: { data: Record<string, BranchPe
                     <TableCell>
                       <div className="flex flex-col">
                         <span className="font-medium">{branch?.name ?? "Unknown branch"}</span>
-                        <span className="font-mono text-[11px] text-muted-foreground">{branch?.code ?? ""}</span>
+                        <span className="font-mono text-2xs text-muted-foreground">{branch?.code ?? ""}</span>
                       </div>
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{b.shipmentVolume}</TableCell>

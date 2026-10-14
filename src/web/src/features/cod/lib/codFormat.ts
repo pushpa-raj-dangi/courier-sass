@@ -11,6 +11,11 @@ export function formatRs(amount: number): string {
   return `Rs ${paise % 100 === 0 ? wholeRupees.format(paise / 100) : withPaise.format(paise / 100)}`;
 }
 
+/** The parcel's AWB; the short shipment id only if the AWB lookup missed. */
+export function collectionLabel(collection: { awb: string | null; shipmentId: string }): string {
+  return collection.awb ?? collection.shipmentId.slice(0, 8);
+}
+
 export function formatDate(iso: string): string {
   return dateFormat.format(new Date(iso));
 }

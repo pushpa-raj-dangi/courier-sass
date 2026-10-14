@@ -17,6 +17,8 @@ export interface CodCollection {
   riderCashSettlementId: string | null;
   merchantSettlementItemId: string | null;
   createdAt: string;
+  // Null only when the shipment lookup misses.
+  awb: string | null;
 }
 
 export interface RiderCashSettlement {

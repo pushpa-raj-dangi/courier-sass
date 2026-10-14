@@ -32,7 +32,7 @@ export function SectionCard({
             {description && <p className="text-xs text-muted-foreground">{description}</p>}
           </div>
         </div>
-        {action && <div className="shrink-0 text-[13px]">{action}</div>}
+        {action && <div className="shrink-0 text-sm">{action}</div>}
       </CardHeader>
       <CardContent className="flex-1 p-5 pt-0">{children}</CardContent>
     </Card>

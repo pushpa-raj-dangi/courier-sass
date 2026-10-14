@@ -62,7 +62,7 @@ export function LifecycleRail({
             <span
               key={stop.label}
               className={
-                index === activeIndex ? "text-[10px] font-medium text-marketing-fg" : "text-[10px] text-marketing-muted-fg"
+                index === activeIndex ? "text-2xs font-medium text-marketing-fg" : "text-2xs text-marketing-muted-fg"
               }
             >
               {stop.label}

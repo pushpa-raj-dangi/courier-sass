@@ -36,7 +36,7 @@ export function ComingSoonSlot({
       </span>
       <p className="font-display text-sm font-semibold text-foreground">{title}</p>
       <p className="max-w-sm text-sm text-muted-foreground">{description}</p>
-      <span className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-muted-foreground">
+      <span className="font-mono text-2xs uppercase tracking-[0.12em] text-muted-foreground">
         {t("needsBackend")}
       </span>
     </section>

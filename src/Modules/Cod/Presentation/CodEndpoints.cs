@@ -16,8 +16,8 @@ public static class CodEndpoints
         .WithTags("COD Management")
         .RequireAuthorization();
 
-        group.MapGet("/collections", async (CodCollectionStatus? status, Guid? branchId, Guid? merchantId, Guid? riderCashSettlementId, int? page, int? pageSize, CodService service, HttpContext httpContext) =>
-            Results.Ok(await service.ListCollectionsAsync(status, branchId, merchantId, riderCashSettlementId, page, pageSize, httpContext.User, httpContext.RequestAborted)))
+        group.MapGet("/collections", async (CodCollectionStatus? status, Guid? branchId, Guid? merchantId, Guid? riderCashSettlementId, DateTimeOffset? from, DateTimeOffset? to, int? page, int? pageSize, CodService service, HttpContext httpContext) =>
+            await HandleAsync(() => service.ListCollectionsAsync(status, branchId, merchantId, riderCashSettlementId, from, to, page, pageSize, httpContext.User, httpContext.RequestAborted)))
             .RequirePermission("cod.read");
 
         group.MapGet("/summary", async (ICodReportingLookupService lookupService, IBranchAuthorizationChecker branchAuthorizationChecker, HttpContext httpContext) =>
@@ -64,8 +64,8 @@ public static class CodEndpoints
             await HandleAsync(() => service.CreateRiderSettlementAsync(request, httpContext.User, httpContext.RequestAborted)))
             .RequirePermission("cod.reconcile");
 
-        group.MapGet("/branch-settlements", async (Guid? branchId, bool? unverifiedOnly, int? page, int? pageSize, CodService service, HttpContext httpContext) =>
-            Results.Ok(await service.ListBranchSettlementsAsync(branchId, unverifiedOnly, page, pageSize, httpContext.User, httpContext.RequestAborted)))
+        group.MapGet("/branch-settlements", async (Guid? branchId, bool? unverifiedOnly, DateTimeOffset? from, DateTimeOffset? to, int? page, int? pageSize, CodService service, HttpContext httpContext) =>
+            await HandleAsync(() => service.ListBranchSettlementsAsync(branchId, unverifiedOnly, from, to, page, pageSize, httpContext.User, httpContext.RequestAborted)))
             .RequirePermission("cod.read");
 
         group.MapPost("/branch-settlements", async (CreateBranchSettlementRequest request, CodService service, HttpContext httpContext) =>
@@ -80,8 +80,8 @@ public static class CodEndpoints
             await HandleAsync(() => service.CreateMerchantSettlementAsync(request, httpContext.User, httpContext.RequestAborted)))
             .RequirePermission("cod.settle");
 
-        group.MapGet("/merchant-settlements", async (Guid? merchantId, CodService service, HttpContext httpContext) =>
-            Results.Ok(await service.ListMerchantSettlementsAsync(merchantId, httpContext.User, httpContext.RequestAborted)))
+        group.MapGet("/merchant-settlements", async (Guid? merchantId, DateTimeOffset? from, DateTimeOffset? to, CodService service, HttpContext httpContext) =>
+            await HandleAsync(() => service.ListMerchantSettlementsAsync(merchantId, from, to, httpContext.User, httpContext.RequestAborted)))
             .RequirePermission("cod.read");
 
         group.MapGet("/merchant-settlements/{id:guid}", async (Guid id, CodService service, HttpContext httpContext) =>
@@ -94,8 +94,8 @@ public static class CodEndpoints
             await HandleAsync(() => service.SettleMerchantSettlementAsync(id, httpContext.User, httpContext.RequestAborted)))
             .RequirePermission("cod.settle");
 
-        group.MapGet("/adjustments", async (bool? applied, Guid? merchantSettlementId, int? page, int? pageSize, CodService service, HttpContext httpContext) =>
-            Results.Ok(await service.ListAdjustmentsAsync(applied, merchantSettlementId, page, pageSize, httpContext.User, httpContext.RequestAborted)))
+        group.MapGet("/adjustments", async (bool? applied, Guid? merchantSettlementId, DateTimeOffset? from, DateTimeOffset? to, int? page, int? pageSize, CodService service, HttpContext httpContext) =>
+            await HandleAsync(() => service.ListAdjustmentsAsync(applied, merchantSettlementId, from, to, page, pageSize, httpContext.User, httpContext.RequestAborted)))
             .RequirePermission("cod.read");
 
         group.MapPost("/adjustments", async (RequestAdjustmentRequest request, CodService service, HttpContext httpContext) =>
@@ -118,7 +118,7 @@ public static class CodEndpoints
             .WithTags("COD Management");
 
         merchantGroup.MapGet("/", async (CodService service, HttpContext httpContext) =>
-            Results.Ok(await service.ListMerchantSettlementsAsync(null, httpContext.User, httpContext.RequestAborted)))
+            Results.Ok(await service.ListMerchantSettlementsAsync(null, null, null, httpContext.User, httpContext.RequestAborted)))
             .RequireMerchantPermissionAnyCredential(MerchantPermissionCatalog.CodSettlementsRead);
 
         merchantGroup.MapGet("/{id:guid}", async (Guid id, CodService service, HttpContext httpContext) =>

@@ -40,7 +40,7 @@ export const ManualScanInput = forwardRef<HTMLInputElement, { disabled: boolean;
           }}
           className="h-auto min-w-0 flex-1 border-0 bg-transparent px-0 py-0 font-mono text-lg shadow-none focus-visible:ring-0 sm:text-xl md:text-xl"
         />
-        <span className="hidden text-[11.5px] text-muted-foreground sm:block">Enter submits · Esc clears</span>
+        <span className="hidden text-2xs text-muted-foreground sm:block">Enter submits · Esc clears</span>
       </label>
     );
   }

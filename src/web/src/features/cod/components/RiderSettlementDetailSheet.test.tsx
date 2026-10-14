@@ -16,7 +16,7 @@ vi.mock("@/features/cod/hooks/useRiderSettlements", () => ({
 const parcel = (id: string, amount: number) => ({
   id, shipmentId: `s-${id}`, merchantId: "m1", branchId: "b1", expectedAmount: amount, shipmentTotalCharge: 150,
   collectedAmount: amount, status: "RiderDeposited", collectedByRiderId: "r1", collectedAt: "2026-10-07T09:00:00Z",
-  deliveryProofId: null, riderCashSettlementId: "rs1", merchantSettlementItemId: null, createdAt: "2026-10-07T08:00:00Z",
+  deliveryProofId: null, riderCashSettlementId: "rs1", merchantSettlementItemId: null, createdAt: "2026-10-07T08:00:00Z", awb: `AWB-${id.toUpperCase()}`,
 });
 let parcelsResult: unknown;
 const refetchParcels = vi.fn();
@@ -51,6 +51,7 @@ describe("RiderSettlementDetailSheet", () => {
   it("lists the deposit's parcels without a partial-count note when all are shown", () => {
     render(<RiderSettlementDetailSheet />);
     expect(screen.getByText(formatRs(2000))).toBeInTheDocument();
+    expect(screen.getByText("AWB-C2")).toBeInTheDocument();
     expect(screen.queryByText(/Showing/)).toBeNull();
   });
 

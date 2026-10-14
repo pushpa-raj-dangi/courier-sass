@@ -22,11 +22,11 @@ export function ScanResultCard({ entry }: { entry: ScanLogEntry | null }) {
             {entry.ok ? <Check className="h-6 w-6" aria-hidden="true" /> : <X className="h-6 w-6" aria-hidden="true" />}
           </span>
           <div className="flex min-w-0 flex-col gap-1">
-            <span className={cn("text-[13px] font-semibold", entry.ok ? "text-status-delivered" : "text-destructive")}>
+            <span className={cn("text-sm font-semibold", entry.ok ? "text-status-delivered" : "text-destructive")}>
               {entry.ok ? "Accepted" : "Rejected"}
             </span>
             <span className="truncate font-mono text-xl font-medium sm:text-2xl">{entry.awb}</span>
-            <span className="text-[12.5px] text-foreground/80">{entry.text}</span>
+            <span className="text-sm text-foreground/80">{entry.text}</span>
           </div>
         </>
       )}

@@ -655,6 +655,25 @@ public class CodEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
             .Content.ReadFromJsonAsync<PagedResult<CodCollectionResponse>>();
         var parcel = Assert.Single(bySettlement!.Items);
         Assert.Equal(shipment.Id, parcel.ShipmentId);
+        Assert.Equal(shipment.Awb, parcel.Awb);
+    }
+
+    [Theory]
+    [InlineData("collections")]
+    [InlineData("branch-settlements")]
+    [InlineData("merchant-settlements")]
+    [InlineData("adjustments")]
+    public async Task ListTabs_InvertedDateRange_Returns400_AndValidRangeReturns200(string path)
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, $"cod-range-{path}");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+
+        var inverted = await client.GetAsync($"/api/v1/cod/{path}?from={UtcParam(DateTimeOffset.UtcNow)}&to={UtcParam(DateTimeOffset.UtcNow.AddDays(-1))}");
+        Assert.Equal(HttpStatusCode.BadRequest, inverted.StatusCode);
+
+        var valid = await client.GetAsync($"/api/v1/cod/{path}?from={UtcParam(DateTimeOffset.UtcNow.AddDays(-7))}&to={UtcParam(DateTimeOffset.UtcNow)}");
+        Assert.Equal(HttpStatusCode.OK, valid.StatusCode);
     }
 
     private record FlowStage(string Key, decimal Amount, int Count);

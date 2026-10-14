@@ -6,7 +6,7 @@ import { DetailSkeleton } from "@/components/states/DetailSkeleton";
 import { StatusBadge } from "@/components/status-badge/StatusBadge";
 import { useCodCollection } from "@/features/cod/hooks/useCodCollection";
 import { useCodPanelStore } from "@/features/cod/store/codPanelStore";
-import { formatRs } from "@/features/cod/lib/codFormat";
+import { collectionLabel, formatRs } from "@/features/cod/lib/codFormat";
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
@@ -50,7 +50,7 @@ export function CollectionDetailSheet() {
                 <span className="text-xs text-muted-foreground">Status</span>
                 <StatusBadge status={collection.status} namespace="Cod" />
               </div>
-              <Field label="Shipment" value={collection.shipmentId} />
+              <Field label="AWB" value={collectionLabel(collection)} />
               <Field label="Expected Amount" value={formatAmount(collection.expectedAmount)} />
               <Field label="Collected Amount" value={formatAmount(collection.collectedAmount)} />
               <Field label="Collected At" value={collection.collectedAt ? new Date(collection.collectedAt).toLocaleString() : "—"} />

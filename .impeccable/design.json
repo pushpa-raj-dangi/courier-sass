@@ -1,45 +1,509 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-08-29T00:00:00Z",
+  "generatedAt": "2026-10-14T14:48:18.670Z",
   "title": "Design System: Courier Platform",
   "extensions": {
     "colorMeta": {
-      "ink": { "role": "primary", "displayName": "Deep Indigo Ink", "canonical": "hsl(229.1 20.0% 10.8%)", "tonalRamp": ["#1f212e", "#393e56", "#52597a", "#6c759d", "#9198b6", "#b6bace", "#dadde7", "#f3f4f7"] },
-      "paper": { "role": "neutral", "displayName": "Lokta Paper", "canonical": "hsl(37.5 44.4% 96.5%)", "tonalRamp": ["#372a15", "#674f28", "#937139", "#bb924e", "#ccad7a", "#ddc9a7", "#eee4d3", "#f9f6f0"] },
-      "marigold-tint": { "role": "secondary", "displayName": "Warm Marigold Tint", "canonical": "hsl(38 78% 94%)", "tonalRamp": ["#442e08", "#7f5610", "#b67b16", "#e49e25", "#ebb65c", "#f2cf92", "#f8e7c9", "#fdf7ed"] },
-      "slate-mist": { "role": "secondary", "displayName": "Cool Slate Mist", "canonical": "hsl(230 10% 92%)", "tonalRamp": ["#22242a", "#40434f", "#5c5f70", "#787c91", "#9a9dac", "#bcbec8", "#dddee3", "#f4f4f6"] },
-      "terracotta": { "role": "destructive", "displayName": "Terracotta Alert", "canonical": "hsl(9.1 64.7% 40.0%)", "tonalRamp": ["#3f150e", "#762719", "#a83824", "#d44d35", "#df7a68", "#e9a69a", "#f4d3cd", "#fbf0ee"] },
-      "status-neutral": { "role": "status", "displayName": "Status Neutral (Created / Cancelled)", "canonical": "hsl(234.3 8.2% 50.0%)", "tonalRamp": ["#232429", "#42434d", "#5e5f6e", "#7b7c8f", "#9c9dab", "#bdbec7", "#dedee3", "#f4f4f6"] },
-      "status-in-transit": { "role": "status", "displayName": "Marigold (In Transit / Merchant Payable)", "canonical": "hsl(35.3 71.2% 42.2%)", "tonalRamp": ["#412b0b", "#7a5015", "#af731d", "#dc942d", "#e5af62", "#edc996", "#f6e4cb", "#fcf6ee"] },
-      "status-out-for-delivery": { "role": "status", "displayName": "Bright Marigold (Out for Delivery)", "canonical": "hsl(38.0 78.9% 57.3%)", "tonalRamp": ["#442e08", "#80560f", "#b67b16", "#e59e24", "#ecb75b", "#f2cf92", "#f9e7c8", "#fdf7ed"] },
-      "status-delivered": { "role": "status", "displayName": "Deep Pine Teal (Delivered)", "canonical": "hsl(175.3 77.4% 26.1%)", "tonalRamp": ["#09443f", "#107f76", "#17b5a9", "#26e3d4", "#5ceadf", "#92f1ea", "#c9f8f4", "#edfdfb"] },
-      "status-ndr": { "role": "status", "displayName": "Vermillion (NDR)", "canonical": "hsl(8.9 63.3% 48.0%)", "tonalRamp": ["#3e150e", "#75281a", "#a73925", "#d24e37", "#dd7a69", "#e9a79b", "#f4d3cd", "#fbf0ee"] },
-      "status-rto": { "role": "status", "displayName": "Muted Brick Rose (RTO)", "canonical": "hsl(351.1 23.9% 38.6%)", "tonalRamp": ["#2f1d20", "#58363b", "#7e4e55", "#a26770", "#b98d94", "#d0b3b8", "#e8d9db", "#f7f2f3"] },
-      "status-sealed": { "role": "status", "displayName": "Manifest Blue (Sealed)", "canonical": "hsl(221.0 65.0% 45.0%)", "tonalRamp": ["#0d1d3f", "#193676", "#244ea8", "#3567d4", "#688ddf", "#9ab3ea", "#cdd9f4", "#eef2fb"] },
-      "status-received": { "role": "status", "displayName": "Sky Cyan (Received)", "canonical": "hsl(195.0 90.0% 50.0%)", "tonalRamp": ["#043749", "#076888", "#0a94c2", "#16bcf3", "#51cdf6", "#8bddf9", "#c5eefc", "#ecf9fe"] }
+      "paper": {
+        "role": "neutral",
+        "displayName": "Lokta Paper",
+        "canonical": "oklch(99.4% 0.006 84.6)",
+        "tonalRamp": [
+          "#0c0b0a",
+          "#262523",
+          "#434240",
+          "#62615f",
+          "#83827f",
+          "#a6a5a2",
+          "#cbc9c5",
+          "#f0eeea"
+        ]
+      },
+      "sand": {
+        "role": "neutral",
+        "displayName": "Sand",
+        "canonical": "oklch(95.9% 0.010 87.5)",
+        "tonalRamp": [
+          "#0c0b09",
+          "#262522",
+          "#43423e",
+          "#63615d",
+          "#84827d",
+          "#a7a59f",
+          "#ccc9c3",
+          "#f1eee7"
+        ]
+      },
+      "surface-sunken": {
+        "role": "neutral",
+        "displayName": "Surface Sunken",
+        "canonical": "oklch(95.0% 0.010 87.5)",
+        "tonalRamp": [
+          "#0c0b09",
+          "#262522",
+          "#43423e",
+          "#63615d",
+          "#84827d",
+          "#a7a59f",
+          "#ccc9c3",
+          "#f1eee7"
+        ]
+      },
+      "console-rail": {
+        "role": "neutral",
+        "displayName": "Console Rail",
+        "canonical": "oklch(21.1% 0.018 275.0)",
+        "tonalRamp": [
+          "#090b13",
+          "#22252e",
+          "#3f414b",
+          "#5e616a",
+          "#80828b",
+          "#a2a5ad",
+          "#c7c9d1",
+          "#eceef5"
+        ]
+      },
+      "console-rail-muted": {
+        "role": "neutral",
+        "displayName": "Console Rail Muted",
+        "canonical": "oklch(64.7% 0.028 278.5)",
+        "tonalRamp": [
+          "#090a14",
+          "#222430",
+          "#3f414f",
+          "#5e6070",
+          "#7e8193",
+          "#a1a4b6",
+          "#c5c8da",
+          "#eaedfe"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Deep Indigo Ink",
+        "canonical": "oklch(21.1% 0.018 275.0)",
+        "tonalRamp": [
+          "#090b13",
+          "#22252e",
+          "#3f414b",
+          "#5e616a",
+          "#80828b",
+          "#a2a5ad",
+          "#c7c9d1",
+          "#eceef5"
+        ]
+      },
+      "courier-cobalt": {
+        "role": "primary",
+        "displayName": "Courier Cobalt",
+        "canonical": "oklch(30.6% 0.105 270.9)",
+        "tonalRamp": [
+          "#040132",
+          "#141d56",
+          "#2f3d77",
+          "#4e5d96",
+          "#6f7fb6",
+          "#93a3d7",
+          "#b8c7f9",
+          "#deedff"
+        ]
+      },
+      "cobalt-tint": {
+        "role": "secondary",
+        "displayName": "Cobalt Tint",
+        "canonical": "oklch(94.2% 0.016 278.5)",
+        "tonalRamp": [
+          "#0a0b0f",
+          "#24252a",
+          "#404148",
+          "#5f6168",
+          "#80828a",
+          "#a3a4ae",
+          "#c7c8d3",
+          "#eceefa"
+        ]
+      },
+      "slate-mist": {
+        "role": "neutral",
+        "displayName": "Cool Slate Mist",
+        "canonical": "oklch(93.5% 0.005 286.3)",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#252527",
+          "#424244",
+          "#616163",
+          "#828285",
+          "#a5a5a8",
+          "#c9c9cc",
+          "#eeeef2"
+        ]
+      },
+      "fog": {
+        "role": "neutral",
+        "displayName": "Fog",
+        "canonical": "oklch(95.2% 0.003 264.5)",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#252526",
+          "#414243",
+          "#606162",
+          "#818284",
+          "#a4a5a7",
+          "#c8c9cb",
+          "#edeef0"
+        ]
+      },
+      "fog-ink": {
+        "role": "neutral",
+        "displayName": "Fog Ink",
+        "canonical": "oklch(48.0% 0.018 277.5)",
+        "tonalRamp": [
+          "#0a0b11",
+          "#23242d",
+          "#40414b",
+          "#5e606b",
+          "#80828c",
+          "#a2a4af",
+          "#c7c8d2",
+          "#eceef7"
+        ]
+      },
+      "terracotta": {
+        "role": "destructive",
+        "displayName": "Terracotta",
+        "canonical": "oklch(50.0% 0.151 32.4)",
+        "tonalRamp": [
+          "#2d0000",
+          "#530000",
+          "#7b1402",
+          "#a53622",
+          "#c85d49",
+          "#eb846f",
+          "#ffab97",
+          "#ffd3c0"
+        ]
+      },
+      "hairline": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "oklch(89.5% 0.007 277.2)",
+        "tonalRamp": [
+          "#0b0b0d",
+          "#242527",
+          "#414245",
+          "#606164",
+          "#818286",
+          "#a4a5a9",
+          "#c8c9cd",
+          "#edeef3"
+        ]
+      },
+      "focus-ring": {
+        "role": "primary",
+        "displayName": "Focus Ring (Courier Cobalt)",
+        "canonical": "oklch(30.6% 0.105 270.9)",
+        "tonalRamp": [
+          "#040132",
+          "#141d56",
+          "#2f3d77",
+          "#4e5d96",
+          "#6f7fb6",
+          "#93a3d7",
+          "#b8c7f9",
+          "#deedff"
+        ]
+      },
+      "status-neutral": {
+        "role": "status",
+        "displayName": "Status Neutral",
+        "canonical": "oklch(57.4% 0.029 280.7)",
+        "tonalRamp": [
+          "#090a14",
+          "#232431",
+          "#3f4150",
+          "#5e6071",
+          "#7f8194",
+          "#a1a4b6",
+          "#c6c8d9",
+          "#ebedfe"
+        ]
+      },
+      "status-in-transit": {
+        "role": "status",
+        "displayName": "Marigold — In Transit",
+        "canonical": "oklch(62.8% 0.125 70.0)",
+        "tonalRamp": [
+          "#200000",
+          "#411700",
+          "#653400",
+          "#8a5300",
+          "#b17318",
+          "#d4974b",
+          "#f7bd77",
+          "#ffe3a3"
+        ]
+      },
+      "status-out-for-delivery": {
+        "role": "status",
+        "displayName": "Bright Marigold — Out for Delivery",
+        "canonical": "oklch(77.6% 0.141 77.1)",
+        "tonalRamp": [
+          "#1e0200",
+          "#3e1b00",
+          "#613800",
+          "#865600",
+          "#ac7601",
+          "#d4982d",
+          "#fabd58",
+          "#ffe489"
+        ]
+      },
+      "status-delivered": {
+        "role": "status",
+        "displayName": "Deep Pine Teal — Delivered",
+        "canonical": "oklch(51.1% 0.086 186.4)",
+        "tonalRamp": [
+          "#001310",
+          "#00302b",
+          "#004f49",
+          "#057169",
+          "#40928a",
+          "#6bb5ac",
+          "#95d8d0",
+          "#bffdf5"
+        ]
+      },
+      "status-ndr": {
+        "role": "status",
+        "displayName": "Vermillion — NDR",
+        "canonical": "oklch(56.9% 0.172 32.2)",
+        "tonalRamp": [
+          "#2f0000",
+          "#570000",
+          "#800600",
+          "#aa2e19",
+          "#d4523b",
+          "#f77b64",
+          "#ffa48c",
+          "#ffcdb6"
+        ]
+      },
+      "status-rto": {
+        "role": "status",
+        "displayName": "Muted Brick Rose — RTO",
+        "canonical": "oklch(46.9% 0.064 10.2)",
+        "tonalRamp": [
+          "#1c0206",
+          "#3c181f",
+          "#5e343a",
+          "#815259",
+          "#a2747a",
+          "#c5979d",
+          "#e8bcc1",
+          "#ffe3e7"
+        ]
+      },
+      "status-sealed": {
+        "role": "status",
+        "displayName": "Manifest Blue — Sealed",
+        "canonical": "oklch(48.6% 0.169 263.0)",
+        "tonalRamp": [
+          "#010043",
+          "#00166a",
+          "#0f3894",
+          "#2a59bf",
+          "#4e7edf",
+          "#74a3ff",
+          "#9bc8ff",
+          "#c3eeff"
+        ]
+      },
+      "status-received": {
+        "role": "status",
+        "displayName": "Sky Cyan — Received",
+        "canonical": "oklch(73.6% 0.144 229.7)",
+        "tonalRamp": [
+          "#000d2a",
+          "#002b4c",
+          "#004a72",
+          "#006c99",
+          "#008fc2",
+          "#00b4ed",
+          "#58d9ff",
+          "#8dffff"
+        ]
+      },
+      "marketing-bg": {
+        "role": "marketing",
+        "displayName": "Marketing Bg",
+        "canonical": "hsl(228 20% 97%)",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#252526",
+          "#424243",
+          "#616162",
+          "#828284",
+          "#a4a5a7",
+          "#c8c9cb",
+          "#eeeef1"
+        ]
+      },
+      "marketing-bg-elevated": {
+        "role": "marketing",
+        "displayName": "Marketing Bg Elevated",
+        "canonical": "hsl(228 18% 93%)",
+        "tonalRamp": [
+          "#0b0b0d",
+          "#242527",
+          "#414244",
+          "#606164",
+          "#818286",
+          "#a4a5a9",
+          "#c8c9cd",
+          "#edeef3"
+        ]
+      },
+      "marketing-fg": {
+        "role": "marketing",
+        "displayName": "Marketing Fg",
+        "canonical": "hsl(229.1 20.0% 10.8%)",
+        "tonalRamp": [
+          "#090b13",
+          "#22252e",
+          "#3f414b",
+          "#5e616a",
+          "#80828b",
+          "#a2a5ad",
+          "#c7c9d1",
+          "#eceef5"
+        ]
+      },
+      "marketing-muted-fg": {
+        "role": "marketing",
+        "displayName": "Marketing Muted Fg",
+        "canonical": "hsl(230.8 6.7% 38.2%)",
+        "tonalRamp": [
+          "#0a0b11",
+          "#23242d",
+          "#40414b",
+          "#5e606c",
+          "#80828c",
+          "#a2a4af",
+          "#c7c8d2",
+          "#eceef7"
+        ]
+      },
+      "marketing-accent": {
+        "role": "marketing",
+        "displayName": "Marketing Accent",
+        "canonical": "hsl(236.0 73.0% 46.0%)",
+        "tonalRamp": [
+          "#11005e",
+          "#11008a",
+          "#1a1ab9",
+          "#2f4adf",
+          "#4e73fe",
+          "#729bff",
+          "#98c2ff",
+          "#c0e9ff"
+        ]
+      },
+      "marketing-border": {
+        "role": "marketing",
+        "displayName": "Marketing Border",
+        "canonical": "hsl(228 15% 55%)",
+        "tonalRamp": [
+          "#070a18",
+          "#202436",
+          "#3c4156",
+          "#5a6078",
+          "#7a819c",
+          "#9da4bf",
+          "#c1c8e2",
+          "#e7edff"
+        ]
+      }
     },
     "typographyMeta": {
-      "display": { "displayName": "Display (Space Grotesk)", "purpose": "Page titles, card/section headers, and the two authentication surfaces (login, session-expired). Never Sheet titles, dropdown content, body, or stat values." },
-      "body": { "displayName": "Body (IBM Plex Sans)", "purpose": "All running content: table cells, form values, descriptions, Sheet titles, dropdown menus." },
-      "label": { "displayName": "Label / Caption (IBM Plex Sans, small)", "purpose": "Field labels' captions, stat-tile labels, record-field labels, pagination text." },
-      "data-mono": { "displayName": "Data Mono (IBM Plex Mono)", "purpose": "Reserved, not yet applied anywhere — intended for AWB/tracking-code style data." }
+      "display": {
+        "displayName": "Display (Space Grotesk)",
+        "purpose": "Page titles, card/section titles, and the auth-gate surfaces (login, register, accept-invite, session-expired). Never Sheet titles, body, or stat values."
+      },
+      "body": {
+        "displayName": "Body (IBM Plex Sans)",
+        "purpose": "All running content: table cells, form values, descriptions, Sheet titles, dropdown menus; stat values pushed large and bold."
+      },
+      "label": {
+        "displayName": "Label / Caption (IBM Plex Sans, text-xs)",
+        "purpose": "Field-label captions, stat-tile labels, record-field labels, pagination text, card descriptions."
+      },
+      "micro": {
+        "displayName": "Micro Label (text-2xs, 11px)",
+        "purpose": "The one step below text-xs: sidebar group headers, badge/chip text, step numbers, dense mono captions. Nothing smaller (On-Scale Rule)."
+      },
+      "data-mono": {
+        "displayName": "Data Mono (IBM Plex Mono)",
+        "purpose": "AWB, tracking-number and manifest-code data: shipment list and Sheet titles, manifest scan lists, CommandPalette results, public tracking, API keys."
+      }
     },
     "shadows": [
-      { "name": "ambient-rest", "value": "0 1px 2px 0 rgb(0 0 0 / 0.05)", "purpose": "Tailwind default `shadow` — Cards, primary/secondary/destructive buttons at rest." },
-      { "name": "ambient-subtle", "value": "0 1px 2px 0 rgb(0 0 0 / 0.05)", "purpose": "Tailwind `shadow-sm` — Inputs, Select triggers, outline Button." },
-      { "name": "overlay-lifted", "value": "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)", "purpose": "Tailwind `shadow-lg`/`shadow-md` — the Sheet panel and dropdown/select popovers, reserved for floating overlays." },
-      { "name": "auth-gate-lift", "value": "0 20px 25px -5px rgb(22 24 33 / 0.05), 0 8px 10px -6px rgb(22 24 33 / 0.05)", "purpose": "`shadow-xl shadow-primary/5` — the Login card and the session-expired Dialog only. The one ink-tinted, more dramatic shadow in the system; never used on ordinary in-page cards." }
+      {
+        "name": "ambient-rest",
+        "value": "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)",
+        "purpose": "Tailwind `shadow` — Cards, primary/secondary/destructive buttons at rest."
+      },
+      {
+        "name": "ambient-subtle",
+        "value": "0 1px 2px 0 rgb(0 0 0 / 0.05)",
+        "purpose": "Tailwind `shadow-sm` — Input, Select trigger, outline Button."
+      },
+      {
+        "name": "overlay",
+        "value": "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)",
+        "purpose": "`shadow-md`/`shadow-lg` — dropdown/select popovers and the Sheet panel; only surfaces that float above the page."
+      },
+      {
+        "name": "auth-gate-lift",
+        "value": "0 20px 25px -5px rgb(29 40 99 / 0.05), 0 8px 10px -6px rgb(29 40 99 / 0.05)",
+        "purpose": "`shadow-xl shadow-primary/5` — Login, Register, Accept-Invite cards and the session-expired Dialog only; cobalt-tinted."
+      }
     ],
     "motion": [
-      { "name": "sheet-open", "value": "500ms ease-in-out", "purpose": "Sheet slide-in on open." },
-      { "name": "sheet-close", "value": "300ms ease-in-out", "purpose": "Sheet slide-out on close — deliberately faster than open." },
-      { "name": "color-transition", "value": "150ms ease (Tailwind `transition-colors` default)", "purpose": "All hover/active background and text-color shifts (buttons, nav items, badges, dropdown items) — the system's primary motion vocabulary besides the Sheet slide." },
-      { "name": "login-cta-nudge", "value": "transform 150ms ease (Tailwind `transition-transform`, translate-x-0.5 on hover)", "purpose": "The login button's trailing arrow icon nudges right on hover — a confirmed one-off for the single highest-stakes action in the app, not a general button pattern." }
+      {
+        "name": "sheet-open",
+        "value": "500ms ease-in-out",
+        "purpose": "Sheet slide-in from the right."
+      },
+      {
+        "name": "sheet-close",
+        "value": "300ms ease-in-out",
+        "purpose": "Sheet slide-out — deliberately faster than open."
+      },
+      {
+        "name": "color-transition",
+        "value": "150ms ease",
+        "purpose": "Hover/active background and text-colour shifts (buttons, rail items, tabs, menu items) — the primary motion vocabulary; nothing elevates on hover."
+      },
+      {
+        "name": "login-cta-nudge",
+        "value": "transform 150ms ease",
+        "purpose": "The login button's trailing arrow nudges right on hover — a confirmed one-off, not a general button pattern."
+      }
     ],
     "breakpoints": [
-      { "name": "sm", "value": "640px" },
-      { "name": "md", "value": "768px" },
-      { "name": "lg", "value": "1024px" }
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      }
     ]
   },
   "components": [
@@ -47,107 +511,140 @@
       "name": "Primary Button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "The single highest-priority action on a screen.",
-      "html": "<button class=\"ds-btn-primary\">New Shipment</button>",
-      "css": ".ds-btn-primary { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 16px; background: #161821; color: #faf7f2; font-family: 'IBM Plex Sans', Arial, sans-serif; font-size: 14px; font-weight: 500; border: none; border-radius: 6px; box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); cursor: pointer; transition: background 150ms ease; } .ds-btn-primary:hover { background: rgba(22,24,33,0.9); } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 2px #faf7f2, 0 0 0 4px #3d435c; }"
+      "description": "The one action on a screen: Courier Cobalt fill, paper text, 6px corners.",
+      "html": "<button class=\"ds-btn-primary\">New shipment</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 16px; background: #1d2863; color: #fffdf9; font-family: 'IBM Plex Sans', Arial, Helvetica, sans-serif; font-size: 14px; font-weight: 500; border: none; border-radius: 6px; box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1); cursor: pointer; transition: background 150ms ease; } .ds-btn-primary:hover { background: rgb(29 40 99 / 0.9); } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 2px #fffdf9, 0 0 0 4px #1d2863; }"
     },
     {
       "name": "Outline Button",
       "kind": "button",
       "refersTo": "button-outline",
-      "description": "Default choice for secondary, non-destructive actions (Retry, pagination, Cancel).",
+      "description": "Default non-destructive secondary action (Retry, Cancel, pagination); cobalt-tint hover.",
       "html": "<button class=\"ds-btn-outline\">Retry</button>",
-      "css": ".ds-btn-outline { display: inline-flex; align-items: center; height: 32px; padding: 0 12px; background: #faf7f2; color: #161821; font-family: 'IBM Plex Sans', Arial, sans-serif; font-size: 13px; font-weight: 500; border: 1px solid #dbdce1; border-radius: 6px; box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); cursor: pointer; transition: background 150ms ease; } .ds-btn-outline:hover { background: #fcf3e4; } .ds-btn-outline:focus-visible { outline: none; box-shadow: 0 0 0 2px #faf7f2, 0 0 0 4px #3d435c; }"
+      "css": ".ds-btn-outline { display: inline-flex; align-items: center; height: 32px; padding: 0 12px; background: #fffdf9; color: #161821; font-family: 'IBM Plex Sans', Arial, Helvetica, sans-serif; font-size: 14px; font-weight: 500; border: 1px solid #dbdce1; border-radius: 6px; box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); cursor: pointer; transition: background 150ms ease; } .ds-btn-outline:hover { background: #e9ebf7; } .ds-btn-outline:focus-visible { outline: none; box-shadow: 0 0 0 2px #fffdf9, 0 0 0 4px #1d2863; }"
     },
     {
       "name": "Status Badge",
       "kind": "chip",
       "refersTo": "status-badge",
-      "description": "Signature component: a neutral pill with a color-coded dot, never a saturated fill — status is always confirmed by the adjacent text label, not by color alone.",
+      "description": "Neutral slate-mist pill, status-colour dot, label always present (Label-Always Rule).",
       "html": "<span class=\"ds-status-badge\"><span class=\"ds-status-dot\"></span>Delivered</span>",
-      "css": ".ds-status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; background: #e9e9ed; color: #161821; font-family: 'IBM Plex Sans', Arial, sans-serif; font-size: 12px; font-weight: 600; border-radius: 4px; } .ds-status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 9999px; background: #0f766e; }"
+      "css": ".ds-status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; background: #e9e9ed; color: #161821; font-family: 'IBM Plex Sans', Arial, Helvetica, sans-serif; font-size: 12px; font-weight: 600; border-radius: 4px; } .ds-status-dot { width: 8px; height: 8px; border-radius: 9999px; background: #0f766e; }"
     },
     {
-      "name": "Icon-Decorated Input",
+      "name": "Input",
       "kind": "input",
       "refersTo": "input",
-      "description": "The auth-surface field style: a leading icon inside the field, hairline border, thin focus ring. Not yet used outside Login/reauth.",
-      "html": "<div class=\"ds-input-wrap\"><svg class=\"ds-input-icon\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#5b5d68\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"2\" y=\"4\" width=\"20\" height=\"16\" rx=\"2\"/><path d=\"m2 7 10 6 10-6\"/></svg><input class=\"ds-input ds-input-icon-pad\" type=\"email\" placeholder=\"Email\" /></div>",
-      "css": ".ds-input-wrap { position: relative; } .ds-input { display: block; width: 100%; height: 36px; padding: 0 12px; background: transparent; color: #161821; font-family: 'IBM Plex Sans', Arial, sans-serif; font-size: 14px; border: 1px solid #dbdce1; border-radius: 4px; box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); transition: box-shadow 150ms ease; } .ds-input-icon-pad { padding-left: 36px; } .ds-input::placeholder { color: #5b5d68; } .ds-input:focus-visible { outline: none; box-shadow: 0 0 0 1px #3d435c; } .ds-input-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); pointer-events: none; }"
+      "description": "Transparent field, hairline border, 4px corners, thin cobalt focus ring.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Search AWB\" />",
+      "css": ".ds-input { display: block; width: 100%; height: 36px; padding: 0 12px; background: transparent; color: #161821; font-family: 'IBM Plex Sans', Arial, Helvetica, sans-serif; font-size: 14px; border: 1px solid #dbdce1; border-radius: 4px; box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); } .ds-input::placeholder { color: #5b5d68; } .ds-input:focus-visible { outline: none; box-shadow: 0 0 0 1px #1d2863; }"
     },
     {
       "name": "Section Card",
       "kind": "card",
       "refersTo": "card",
-      "description": "Standard dashboard/section container: icon-chip + Space Grotesk title + muted caption, 12px corners (an intentional exception to the 6px control scale). Uses the plain ambient shadow, not the auth-gate lift.",
-      "html": "<div class=\"ds-card\"><div class=\"ds-card-header\"><span class=\"ds-card-icon\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#5b5d68\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"2\"/><path d=\"M3 9h18M9 21V9\"/></svg></span><div><div class=\"ds-card-title\">Key Rates</div><div class=\"ds-card-desc\">Last 30 days</div></div></div><div class=\"ds-card-body\">Card content goes here.</div></div>",
-      "css": ".ds-card { background: #faf7f2; border: 1px solid #dbdce1; border-radius: 12px; box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); overflow: hidden; } .ds-card-header { display: flex; align-items: center; gap: 12px; padding: 24px 24px 0 24px; } .ds-card-icon { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 6px; background: #eeeff1; flex-shrink: 0; } .ds-card-title { font-family: 'Space Grotesk', 'IBM Plex Sans', sans-serif; font-size: 16px; font-weight: 600; color: #161821; } .ds-card-desc { font-family: 'IBM Plex Sans', Arial, sans-serif; font-size: 12px; color: #5b5d68; margin-top: 2px; } .ds-card-body { padding: 24px; font-family: 'IBM Plex Sans', Arial, sans-serif; font-size: 14px; color: #161821; }"
+      "description": "Lokta-paper card on the sand page, 12px corners, icon-chip header with a time-window caption.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-header\"><span class=\"ds-card-icon\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#5b5d68\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"2\"/><path d=\"M3 9h18M9 21V9\"/></svg></span><div><div class=\"ds-card-title\">COD</div><div class=\"ds-card-desc\">Last 7 days</div></div></div><div class=\"ds-card-body\">Expected <b>Rs 12,48,500</b></div></div>",
+      "css": ".ds-card { background: #fffdf9; border: 1px solid #dbdce1; border-radius: 12px; box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1); overflow: hidden; } .ds-card-header { display: flex; align-items: center; gap: 12px; padding: 24px 24px 0; } .ds-card-icon { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 6px; background: #eeeff1; } .ds-card-title { font-family: 'Space Grotesk', 'IBM Plex Sans', sans-serif; font-size: 16px; font-weight: 600; color: #161821; } .ds-card-desc { font-family: 'IBM Plex Sans', Arial, Helvetica, sans-serif; font-size: 12px; color: #5b5d68; margin-top: 2px; } .ds-card-body { padding: 24px; font-family: 'IBM Plex Sans', Arial, Helvetica, sans-serif; font-size: 14px; color: #161821; }"
     },
     {
-      "name": "Highlighted Metric Panel",
-      "kind": "custom",
-      "refersTo": "status-badge",
-      "description": "The escalated single-metric callout (e.g. COD summary's 'Merchant Payable'): accent-tinted panel, status-tinted square icon badge, larger status-colored value. Note the icon badge here is a rounded square, not the circle RateTiles uses for its tinted icons — a confirmed open inconsistency, don't treat either as the one true shape yet.",
-      "html": "<div class=\"ds-metric-panel\"><span class=\"ds-metric-icon\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#b8791f\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"2\" y=\"6\" width=\"20\" height=\"14\" rx=\"2\"/><path d=\"M16 12h.01M2 10h20\"/></svg></span><div><div class=\"ds-metric-label\">Merchant Payable</div><div class=\"ds-metric-value\">NPR 42.3K</div></div></div>",
-      "css": ".ds-metric-panel { display: flex; align-items: center; gap: 12px; padding: 16px; border-radius: 6px; background: #fcf3e4; } .ds-metric-icon { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 6px; background: rgba(184,121,31,0.15); flex-shrink: 0; } .ds-metric-label { font-family: 'IBM Plex Sans', Arial, sans-serif; font-size: 12px; color: rgba(22,24,33,0.7); } .ds-metric-value { font-family: 'IBM Plex Sans', Arial, sans-serif; font-size: 20px; font-weight: 600; color: #b8791f; margin-top: 2px; }"
-    },
-    {
-      "name": "Sidebar Nav Item",
+      "name": "Console Rail Nav",
       "kind": "nav",
-      "refersTo": "button-secondary",
-      "description": "Flat nav list item (no nested groups) with icon + label; active state resolves to the marigold-tint accent.",
-      "html": "<div class=\"ds-nav-item ds-nav-item-active\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"3\" width=\"7\" height=\"7\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"7\"/><rect x=\"14\" y=\"14\" width=\"7\" height=\"7\"/><rect x=\"3\" y=\"14\" width=\"7\" height=\"7\"/></svg><span>Dashboard</span></div>",
-      "css": ".ds-nav-item { display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 8px; border-radius: 6px; font-family: 'IBM Plex Sans', Arial, sans-serif; font-size: 14px; color: #161821; cursor: pointer; transition: background 150ms ease; } .ds-nav-item:hover { background: #fcf3e4; } .ds-nav-item-active { background: #fcf3e4; font-weight: 500; }"
+      "refersTo": "console-rail",
+      "description": "Dark console rail: mono-caps micro-label group heading, muted items, accent-filled active item.",
+      "html": "<nav class=\"ds-rail\"><div class=\"ds-rail-group\">Operations</div><a class=\"ds-rail-item ds-rail-item-active\" aria-current=\"page\">Dashboard</a><a class=\"ds-rail-item\">Shipments</a><a class=\"ds-rail-item\">Scan station</a></nav>",
+      "css": ".ds-rail { display: flex; flex-direction: column; gap: 2px; width: 220px; padding: 12px; background: #161821; border-radius: 8px; } .ds-rail-group { padding: 8px 8px 4px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; line-height: 16px; letter-spacing: 0.08em; text-transform: uppercase; color: #8a8da0; } .ds-rail-item { display: flex; align-items: center; height: 32px; padding: 0 8px; border-radius: 6px; font-family: 'IBM Plex Sans', Arial, Helvetica, sans-serif; font-size: 14px; color: #8a8da0; cursor: pointer; transition: background 150ms ease, color 150ms ease; } .ds-rail-item:hover { color: #ffffff; background: rgb(255 255 255 / 0.06); } .ds-rail-item-active { background: #2a2e42; color: #ffffff; font-weight: 500; } .ds-rail-item:focus-visible { outline: 2px solid #4f58e3; outline-offset: 1px; }"
     },
     {
-      "name": "User Menu Trigger",
+      "name": "Money-Flow Step",
       "kind": "custom",
-      "refersTo": "button-secondary",
-      "description": "Header avatar + name + chevron trigger for the one dropdown menu in the app. Avatar is initials-only on a secondary-tinted circle with a hairline ring.",
-      "html": "<button class=\"ds-user-trigger\"><span class=\"ds-avatar\">PR</span><span class=\"ds-user-name\">Pushpa Raj</span><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#5b5d68\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"m6 9 6 6 6-6\"/></svg></button>",
-      "css": ".ds-user-trigger { display: inline-flex; align-items: center; gap: 8px; padding: 4px 8px 4px 4px; border-radius: 9999px; background: transparent; border: none; cursor: pointer; transition: background 150ms ease; } .ds-user-trigger:hover { background: #fcf3e4; } .ds-avatar { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 9999px; background: #e9e9ed; color: #161821; font-family: 'IBM Plex Sans', Arial, sans-serif; font-size: 12px; font-weight: 600; box-shadow: 0 0 0 1px #dbdce1; } .ds-user-name { font-family: 'IBM Plex Sans', Arial, sans-serif; font-size: 14px; font-weight: 500; color: #161821; }"
+      "refersTo": "pipeline-strip",
+      "description": "One connected stage card of the COD flow strip; the bottleneck stage gets the cobalt fill.",
+      "html": "<div class=\"ds-flow\"><button class=\"ds-flow-step\"><span class=\"ds-flow-num\">01</span><span class=\"ds-flow-label\">Expected</span><span class=\"ds-flow-amt\">Rs 12,48,500</span><span class=\"ds-flow-count\">482 parcels</span></button><button class=\"ds-flow-step ds-flow-step-hot\"><span class=\"ds-flow-num\">02</span><span class=\"ds-flow-label\">Collected</span><span class=\"ds-flow-amt\">Rs 9,86,200</span><span class=\"ds-flow-count\">391 parcels</span></button></div>",
+      "css": ".ds-flow { display: flex; gap: 4px; } .ds-flow-step { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 150px; padding: 12px 14px; background: #fffdf9; color: #161821; border: 1px solid #dbdce1; border-radius: 6px; text-align: left; cursor: pointer; transition: background 150ms ease; } .ds-flow-step:hover { background: #e9ebf7; } .ds-flow-step:focus-visible { outline: none; box-shadow: 0 0 0 2px #fffdf9, 0 0 0 4px #1d2863; } .ds-flow-step-hot { background: #1d2863; color: #fffdf9; border-color: #1d2863; } .ds-flow-step-hot:hover { background: rgb(29 40 99 / 0.9); } .ds-flow-num { font-family: 'IBM Plex Mono', monospace; font-size: 11px; line-height: 16px; opacity: 0.7; } .ds-flow-label { font-family: 'IBM Plex Sans', Arial, Helvetica, sans-serif; font-size: 12px; } .ds-flow-amt { font-family: 'IBM Plex Sans', Arial, Helvetica, sans-serif; font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; } .ds-flow-count { font-family: 'IBM Plex Sans', Arial, Helvetica, sans-serif; font-size: 12px; opacity: 0.75; }"
+    },
+    {
+      "name": "Coming Soon Slot",
+      "kind": "custom",
+      "refersTo": "coming-soon-slot",
+      "description": "Stands in for data the API does not serve yet (No-Fake-Numbers Rule) — never sample values.",
+      "html": "<div class=\"ds-soon\"><span class=\"ds-soon-tag\">Needs backend</span><div class=\"ds-soon-title\">Ledger</div><div class=\"ds-soon-desc\">Every COD money movement with before/after values and export.</div></div>",
+      "css": ".ds-soon { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 160px; padding: 24px; text-align: center; background: #f1eee7; border: 1px dashed #dbdce1; border-radius: 12px; } .ds-soon-tag { padding: 0 8px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; line-height: 16px; text-transform: uppercase; letter-spacing: 0.08em; color: #5b5d68; border: 1px solid #dbdce1; border-radius: 4px; } .ds-soon-title { font-family: 'Space Grotesk', 'IBM Plex Sans', sans-serif; font-size: 14px; font-weight: 600; color: #161821; } .ds-soon-desc { max-width: 320px; font-family: 'IBM Plex Sans', Arial, Helvetica, sans-serif; font-size: 12px; color: #5b5d68; }"
     },
     {
       "name": "Empty State",
       "kind": "custom",
       "refersTo": "card",
-      "description": "Dashed-border placeholder for a list/table with nothing to show — icon chip, title, description, optional action.",
+      "description": "Dashed hairline frame, circular muted icon chip, display-face title.",
       "html": "<div class=\"ds-empty\"><span class=\"ds-empty-icon\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#5b5d68\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M21 8l-9-5-9 5v8l9 5 9-5V8z\"/><path d=\"M3 8l9 5 9-5M12 13v8\"/></svg></span><div class=\"ds-empty-title\">No shipments yet</div><div class=\"ds-empty-desc\">Book your first shipment to get started.</div></div>",
-      "css": ".ds-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 48px; text-align: center; border: 1px dashed #dbdce1; border-radius: 6px; } .ds-empty-icon { display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 9999px; background: #eeeff1; } .ds-empty-title { font-family: 'Space Grotesk', 'IBM Plex Sans', sans-serif; font-size: 14px; font-weight: 500; color: #161821; } .ds-empty-desc { font-family: 'IBM Plex Sans', Arial, sans-serif; font-size: 14px; color: #5b5d68; max-width: 320px; }"
+      "css": ".ds-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 48px; text-align: center; border: 1px dashed #dbdce1; border-radius: 6px; } .ds-empty-icon { display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 9999px; background: #eeeff1; } .ds-empty-title { font-family: 'Space Grotesk', 'IBM Plex Sans', sans-serif; font-size: 14px; font-weight: 500; color: #161821; } .ds-empty-desc { max-width: 320px; font-family: 'IBM Plex Sans', Arial, Helvetica, sans-serif; font-size: 14px; color: #5b5d68; }"
     }
   ],
   "narrative": {
     "northStar": "The Ledger Counter",
-    "overview": "This is the visual language of a courier branch counter's paper ledger, digitized: a warm, unbleached paper background, deep-indigo ink for text, and a restrained set of status colors that behave like rubber-stamp categories, not marketing accents. It exists to be read quickly and correctly under time pressure by dispatchers, counter staff, and finance clerks — not to persuade or delight. Density and legibility come first; the main \"expression\" the system allows itself is Space Grotesk's slightly more geometric, confident display face on titles, section headers, and the two authentication surfaces (login, session-expired), which keeps the interface from reading as generic gray SaaS while staying almost entirely out of the way in working content.\n\nThe palette is deliberately calmer than a typical categorical status system: every status hue was tuned to clear WCAG AA contrast and CVD-safe adjacent-pair separation first, vivid-and-legible-as-a-swatch second. Status is never carried by color alone — every colored dot or badge ships with its text label next to it, because color is a confirmation signal here, not the message itself.\n\nTwo rejections are explicit and confirmed, not just absent: no camera/scanner chrome or courier-brand marketing gloss (this is Operate-mode software, not a storefront for the courier company), and no invented brand identity — the product has no confirmed name or logo yet, so this system stays intentionally generic/white-label rather than pretending to a personality it hasn't earned.\n\nThis system is still mid-build, and it shows two small, real seams rather than one seamless language, both called out honestly rather than papered over: dashboards use two different shapes for a tinted-emphasis icon badge, and the global header search bar is a visual placeholder with no function behind it yet.",
+    "overview": "This is the visual language of a courier branch counter's paper ledger, digitized: a warm, unbleached paper background, deep-indigo ink for text, a confident cobalt-blue brand accent for everything actionable, and a restrained set of status colors that behave like rubber-stamp categories, not marketing accents. It exists to be read quickly and correctly under time pressure by dispatchers, counter staff, and finance clerks — not to persuade or delight. Density and legibility come first; the main \"expression\" the system allows itself is Space Grotesk's slightly more geometric, confident display face on titles, section headers, and the auth-gate surfaces (login, register, accept-invite, session-expired), plus Courier Cobalt carrying every interactive surface, which keeps the interface from reading as generic gray SaaS while staying almost entirely out of the way in working content.\n\nThe palette is deliberately calmer than a typical categorical status system: every status hue was tuned to clear WCAG AA contrast and CVD-safe adjacent-pair separation first, vivid-and-legible-as-a-swatch second (`src/app/globals.css`'s header comment; verified with the dataviz skill's contrast validator). Status is never carried by color alone — every colored dot or badge ships with its text label next to it, because color is a confirmation signal here, not the message itself. Courier Cobalt, the interactive/brand hue introduced in the 2026-09-02 color pass, was checked the same way against every status hue before shipping — see the Colors section and `globals.css`'s header comment for the one accepted trade-off (dark-mode separation from Sealed/Received).\n\nTwo rejections are explicit and confirmed, not just absent: no camera/scanner chrome or courier-brand marketing gloss (this is Operate-mode software, not a storefront for the courier company), and no invented brand *name* — the product has no confirmed market name or logo yet (`PRODUCT.md`), so nothing here claims to be a logo or wordmark. Courier Cobalt is a color decision, not a naming one, and doesn't change that white-label status.\n\nThis system is still mid-build (Phases F0–F4 of nine staff-portal phases; see `docs/FRONTEND-ROADMAP.md`), and it shows small, real seams rather than one seamless language, called out honestly below instead of papered over — see Colors' Named Rules and the Components section for specifics as they're found and closed.",
     "keyCharacteristics": [
       "Warm paper background + deep indigo ink, not black-on-white or cool gray-on-white.",
+      "Courier Cobalt — a single brand-blue hue, sharing ink's hue family — carries every interactive surface: primary buttons, links, focus rings, and KPI-highlight accents.",
       "A muted, WCAG-AA-first status palette — legible over loud, colorblind-safe over saturated.",
       "Space Grotesk display type for titles, section headers, and the two auth surfaces; IBM Plex Sans everywhere else, including Sheet titles.",
-      "Almost flat: one soft default shadow for in-page surfaces, a second tinted lift reserved for the two auth surfaces.",
+      "Almost flat: one soft default shadow for in-page surfaces, a second tinted lift reserved for the two auth surfaces, no elevation ladder beyond that.",
       "Every detail/create view opens as a right-side Sheet, never a routed page."
     ],
     "rules": [
-      { "name": "The Label-Always Rule", "body": "No status is ever communicated by color alone. StatusBadge always pairs its colored dot with the status's text label.", "section": "colors" },
-      { "name": "The Tint-From-Token Rule", "body": "A colored icon-chip or highlight-panel background is always an existing status or accent token at reduced opacity, never a new ad hoc hex value. The chip's shape (circle vs. square) is not yet settled across dashboard components — a known open inconsistency, not a hidden rule.", "section": "colors" },
-      { "name": "The Sheet-Stays-Plain Rule", "body": "Sheet titles use the plain body face, not Space Grotesk, with no exceptions in shipped code. The session-expired Dialog is a different surface type and does use the display face — don't generalize its choice back onto Sheets.", "section": "typography" },
-      { "name": "The Flat-Ledger Rule", "body": "Depth exists only to separate an overlay (Sheet, dialog, dropdown) from the page beneath it, or to mark the two authentication gate surfaces (login, session-expired) with a tinted shadow. A surface in the normal document flow never gains a shadow it didn't already have at rest.", "section": "elevation" }
+      {
+        "name": "The Label-Always Rule",
+        "body": "No status is ever communicated by color alone. `StatusBadge` always pairs its colored dot with the status's text label, and any bare-dot use (funnel tiles) sits directly beside the same label — confirmed as the system's own mitigation for status hues that read calmer than a fully saturated categorical palette.",
+        "section": "colors"
+      },
+      {
+        "name": "The Tint-From-Token Rule",
+        "body": "A colored icon-chip or highlight-panel background is always an existing status or accent token at reduced opacity (`/15`) or the `accent` role, never a new ad hoc hex value introduced for one component. The chip's *shape* was unsettled between the org dashboard's rate tiles (`RateTiles`) and the branch dashboard's \"Merchant Payable\" highlight panel (`FinancialSummary`) until a 2026-09-11 audit pass standardized both on a rounded square (`rounded-lg`) — matching the neutral `h-9 w-9 rounded-lg bg-muted` section-header icon chip every dashboard Card already uses, so tinted and neutral chips now share one shape. `rounded-full` is no longer used for this treatment anywhere in the app.",
+        "section": "colors"
+      },
+      {
+        "name": "The Two-Room Rule",
+        "body": "Marketing and the ledger back-office never borrow each other's palette. A `--marketing-*` token never appears in `(staff)`/`merchant`/`platform`/`rider` surfaces, and the ledger's paper/ink/status tokens never appear on `/`. Shared type family and component primitives are the seam that keeps them one product; the color system is the seam that keeps them two distinct rooms.",
+        "section": "colors"
+      },
+      {
+        "name": "The On-Scale Rule",
+        "body": "Font sizes come only from the scale above (`text-2xs` through `text-2xl`); no arbitrary `text-[13px]`-style values. A size the scale lacks is a DESIGN.md change first, not a one-off class.",
+        "section": "typography"
+      },
+      {
+        "name": "The Sheet-Stays-Plain Rule",
+        "body": "Sheet titles use the plain body face, not Space Grotesk, with no exceptions in the shipped code — Sheets are working surfaces layered over a page, not their own destination that needs a brand moment. The session-expired Dialog is a different surface type (a full-screen gate, not a task panel) and does opt into the display face; don't generalize its choice back onto Sheets.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat-Ledger Rule",
+        "body": "Depth exists only to separate an overlay (Sheet, dialog, dropdown) from the page beneath it, or to mark the two authentication gate surfaces. A surface sitting in the normal document flow — card, tile, table row — never gains a shadow, tinted or otherwise, that it didn't already have at rest.",
+        "section": "elevation"
+      },
+      {
+        "name": "The No-Fake-Numbers Rule",
+        "body": "Data the API does not serve yet renders `ComingSoonSlot` (`src/components/page/ComingSoonSlot.tsx`, `data-coming-soon`), never mock or sample values on a product screen.",
+        "section": "components"
+      }
     ],
     "dos": [
-      "Do use Space Grotesk for page titles, card/section titles, and the two authentication surfaces; every other piece of text — including Sheet and dropdown content — stays in IBM Plex Sans.",
-      "Do pair every status color with its text label — never color as the sole signal.",
+      "Do use Space Grotesk for page titles, card/section titles, and the auth-gate surfaces (login, register, accept-invite, session-expired); every other piece of text — including Sheet and dropdown content — stays in IBM Plex Sans.",
+      "Do pair every status color with its text label (dot + label in `StatusBadge`, dot + label in funnel tiles) — never color as the sole signal.",
       "Do source any tinted icon-chip or highlight-panel background from an existing status or accent token at reduced opacity, never a new hex value.",
       "Do open every detail/create/edit view as a right-side Sheet backed by a Zustand panel store; reserve routed pages for list/index views, and the centered Dialog exclusively for app-level interruptions like session expiry.",
-      "Do verify a new status or semantic color against WCAG AA contrast and CVD-safe adjacent-pair separation before adding it — this is a binding standard, not best-effort.",
-      "Do hide a nav item or gated action entirely when the user lacks the permission, rather than showing it disabled.",
-      "Do wire up real search functionality before extending the header search bar's visual treatment — it renders today but does nothing."
+      "Do verify a new status or semantic color against WCAG AA contrast and CVD-safe adjacent-pair separation before adding it (the dataviz validator this system was built with) — this is a binding standard per `PRODUCT.md`, not best-effort.",
+      "Do hide a nav item or gated action entirely (`return null`) when the user lacks the permission, rather than showing it disabled.",
+      "Do extend `CommandPalette`'s entity search (`useGlobalSearch`) to new record types as they ship, rather than building a second, page-local search input — it's the one search surface in the app."
     ],
     "donts": [
-      "Don't add a shadow to an at-rest surface (card, tile, table row) that doesn't already have one — depth is reserved for overlays and the two auth-gate surfaces only.",
-      "Don't introduce a second monospace or display typeface; IBM Plex Mono is already reserved (unused) for AWB/tracking-code data.",
-      "Don't give Cards the base 6px --radius scale; their 12px rounded-xl is an intentional, confirmed exception.",
-      "Don't invent a brand name, logo, or marketing personality for this product — it is confirmed unnamed/white-label.",
-      "Don't build nested/collapsible sidebar nav groups speculatively — the flat list is deliberate until a real feature needs sub-items.",
-      "Don't copy the tinted-emphasis icon badge's shape from just one existing dashboard component and assume it's settled — RateTiles (circle) and FinancialSummary (square) disagree; pick one deliberately."
+      "Don't add a shadow to an at-rest surface (card, tile, table row) that doesn't already have one — depth is reserved for overlays (Sheet, dialog, dropdown) and the two auth-gate surfaces only.",
+      "Don't introduce a second monospace or display typeface; IBM Plex Mono is the one face for AWB/tracking-code/manifest-code data (see Typography), and Space Grotesk is the only display face.",
+      "Don't give Cards the base 6px `--radius` scale; their 12px `rounded-xl` is an intentional, confirmed exception, not a value to \"fix\" into consistency with buttons/inputs.",
+      "Don't invent a brand name, logo, or marketing personality for this product — it is confirmed unnamed/white-label (`PRODUCT.md`); keep the system generic until that changes.",
+      "Don't make section headings collapsible or add sub-items — headings are labels, not groups.",
+      "Don't reintroduce a `rounded-full` tinted-emphasis icon badge for a stat/metric tile — `RateTiles` and `FinancialSummary` disagreed on this until a 2026-09-11 audit pass standardized both on `rounded-lg`, matching the rest of the icon-chip system; `rounded-full` stays reserved for avatars, status dots, and the header's icon-only buttons (see Shapes).",
+      "Don't assume the ledger palette applies to the public marketing landing page — `/` intentionally runs a separate, distinct `--marketing-*` token system (\"Night Dispatch\"; see Colors → Marketing System) as the one confirmed exception to Product Principle 4."
     ]
   }
 }

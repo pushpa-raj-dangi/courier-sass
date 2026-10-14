@@ -4,24 +4,26 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DataTable, type ColumnDef } from "@/components/data-table/DataTable";
 import { useBranchSettlements } from "@/features/cod/hooks/useBranchSettlements";
+import { useFilterPage } from "@/features/cod/hooks/useFilterPage";
 import { useCodPanelStore } from "@/features/cod/store/codPanelStore";
 import { useBranches } from "@/features/branches/hooks/useBranches";
 import { usePermission } from "@/features/auth/hooks/usePermission";
 import { formatDate, formatRs } from "@/features/cod/lib/codFormat";
 import type { BranchCashSettlement } from "@/features/cod/types";
 
-export function BranchSettlementsTab() {
-  const [branchId, setBranchId] = useState<string | "all">("all");
+// Branch and date range come from the /cod page header, like the flow strip.
+export function BranchSettlementsTab({ branchId, from, to }: { branchId?: string; from?: string; to?: string }) {
   const [unverifiedOnly, setUnverifiedOnly] = useState(false);
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useFilterPage([unverifiedOnly, branchId, from, to].join("|"));
   const pageSize = 20;
 
   const { data: branches } = useBranches();
   const { data, isLoading } = useBranchSettlements({
-    branchId: branchId === "all" ? undefined : branchId,
+    branchId,
+    from,
+    to,
     unverifiedOnly: unverifiedOnly || undefined,
     page,
     pageSize,
@@ -50,26 +52,13 @@ export function BranchSettlementsTab() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <Select value={branchId} onValueChange={(v) => { setBranchId(v); setPage(1); }}>
-            <SelectTrigger className="w-48" aria-label="Filter by branch">
-              <SelectValue placeholder="All branches" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All branches</SelectItem>
-              {branches?.map((b) => (
-                <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="unverified-only"
-              checked={unverifiedOnly}
-              onCheckedChange={(checked) => { setUnverifiedOnly(checked === true); setPage(1); }}
-            />
-            <Label htmlFor="unverified-only">Unverified only</Label>
-          </div>
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="unverified-only"
+            checked={unverifiedOnly}
+            onCheckedChange={(checked) => setUnverifiedOnly(checked === true)}
+          />
+          <Label htmlFor="unverified-only">Unverified only</Label>
         </div>
         {canReconcile && <Button type="button" onClick={openCreate}>New Settlement</Button>}
       </div>

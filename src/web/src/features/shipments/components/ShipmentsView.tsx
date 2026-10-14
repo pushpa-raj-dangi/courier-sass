@@ -71,7 +71,7 @@ export function ShipmentsView() {
           <button type="button" onClick={() => openDetail(s.awb)} className="w-fit font-mono font-medium text-foreground hover:underline">
             {s.awb}
           </button>
-          <span className="text-[11.5px] text-muted-foreground">{new Date(s.createdAt).toLocaleString()}</span>
+          <span className="text-2xs text-muted-foreground">{new Date(s.createdAt).toLocaleString()}</span>
         </div>
       ),
     },
@@ -82,7 +82,7 @@ export function ShipmentsView() {
       render: (s) => (
         <div className="flex flex-col">
           <span>{s.recipientName}</span>
-          <span className="text-[11.5px] text-muted-foreground">{s.recipientAddressLine}</span>
+          <span className="text-2xs text-muted-foreground">{s.recipientAddressLine}</span>
         </div>
       ),
     },
@@ -124,7 +124,7 @@ export function ShipmentsView() {
               <TabsTrigger key={tab.id} value={tab.id} className="gap-2">
                 {tab.label}
                 {count !== undefined && (
-                  <span className="rounded-full bg-muted px-1.5 text-[11.5px] tabular-nums text-muted-foreground">{count.toLocaleString("en-US")}</span>
+                  <span className="rounded-full bg-muted px-1.5 text-2xs tabular-nums text-muted-foreground">{count.toLocaleString("en-US")}</span>
                 )}
               </TabsTrigger>
             );

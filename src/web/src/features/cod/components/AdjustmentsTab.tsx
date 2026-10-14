@@ -4,19 +4,25 @@ import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DataTable, type ColumnDef } from "@/components/data-table/DataTable";
 import { useAdjustments } from "@/features/cod/hooks/useAdjustments";
+import { useFilterPage } from "@/features/cod/hooks/useFilterPage";
+import { MerchantLevelNote } from "@/features/cod/components/MerchantLevelNote";
 import { useCodPanelStore } from "@/features/cod/store/codPanelStore";
 import { formatDate, formatRs } from "@/features/cod/lib/codFormat";
 import { usePeopleNames } from "@/features/shipments/hooks/usePeopleNames";
 import type { Adjustment } from "@/features/cod/types";
 
-export function AdjustmentsTab() {
+// Adjustments target merchant settlement lines, which have no branch — only the page's date
+// range applies (on RequestedAt).
+export function AdjustmentsTab({ branchFiltered = false, from, to }: { branchFiltered?: boolean; from?: string; to?: string }) {
   const names = usePeopleNames();
   const [applied, setApplied] = useState<"all" | "pending" | "applied">("all");
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useFilterPage([applied, from, to].join("|"));
   const pageSize = 20;
 
   const { data, isLoading } = useAdjustments({
     applied: applied === "all" ? undefined : applied === "applied",
+    from,
+    to,
     page,
     pageSize,
   });
@@ -42,16 +48,19 @@ export function AdjustmentsTab() {
 
   return (
     <div className="space-y-4">
-      <Select value={applied} onValueChange={(v) => { setApplied(v as "all" | "pending" | "applied"); setPage(1); }}>
-        <SelectTrigger className="w-48" aria-label="Filter by status">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All</SelectItem>
-          <SelectItem value="pending">Pending</SelectItem>
-          <SelectItem value="applied">Applied</SelectItem>
-        </SelectContent>
-      </Select>
+      <div className="flex flex-wrap items-center gap-3">
+        <Select value={applied} onValueChange={(v) => setApplied(v as "all" | "pending" | "applied")}>
+          <SelectTrigger className="w-48" aria-label="Filter by status">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All</SelectItem>
+            <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="applied">Applied</SelectItem>
+          </SelectContent>
+        </Select>
+        {branchFiltered && <MerchantLevelNote />}
+      </div>
       <DataTable
         columns={columns}
         data={data}

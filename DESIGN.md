@@ -49,6 +49,12 @@ typography:
     fontWeight: 400
     lineHeight: 1.4
     letterSpacing: "normal"
+  micro:
+    fontFamily: "IBM Plex Sans, Arial, Helvetica, sans-serif"
+    fontSize: "0.6875rem"
+    fontWeight: 500
+    lineHeight: 1.45
+    letterSpacing: "normal"
   data-mono:
     fontFamily: "IBM Plex Mono, monospace"
     fontSize: "0.875rem"
@@ -187,8 +193,11 @@ Every marketing color was computed and verified against WCAG AA (4.5:1 text, 3:1
 - **Body** (IBM Plex Sans, 400, `text-sm` / 0.875rem): the default for table cells, form values, descriptions.
 - **Stat Value** (IBM Plex Sans, 600, `text-lg`–`text-2xl` depending on context): tile numbers (rate tiles, funnel counts, exception counts) — the one place body-family text gets pushed large and bold instead of switching to display. Occasionally takes a semantic status color instead of ink (an NDR count in vermillion) when the number itself embodies that status.
 - **Label/Caption** (IBM Plex Sans, 400, `text-xs` / 0.75rem, `muted-foreground`): field labels' sibling captions, stat-tile labels, table pagination text, card descriptions, record-field labels.
+- **Micro Label** (IBM Plex Sans or Mono, `text-2xs` / 0.6875rem = 11px, line-height 1rem): the one project step below `text-xs`, defined in `tailwind.config.ts` — sidebar group headers, badge/chip text, step numbers, dense mono captions. Nothing smaller.
 
 ### Named Rules
+**The On-Scale Rule.** Font sizes come only from the scale above (`text-2xs` through `text-2xl`); no arbitrary `text-[13px]`-style values. A size the scale lacks is a DESIGN.md change first, not a one-off class.
+
 **The Sheet-Stays-Plain Rule.** Sheet titles use the plain body face, not Space Grotesk, with no exceptions in the shipped code — Sheets are working surfaces layered over a page, not their own destination that needs a brand moment. The session-expired Dialog is a different surface type (a full-screen gate, not a task panel) and does opt into the display face; don't generalize its choice back onto Sheets.
 
 ## Layout
@@ -319,7 +328,7 @@ Derived from the most recent `ShipmentEvent` whose branch/user/rider holder diff
 
 ### Don't:
 - **Don't** add a shadow to an at-rest surface (card, tile, table row) that doesn't already have one — depth is reserved for overlays (Sheet, dialog, dropdown) and the two auth-gate surfaces only.
-- **Don't** introduce a second monospace or display typeface; IBM Plex Mono is already reserved (unused) for future AWB/tracking-code data, and Space Grotesk is the only display face.
+- **Don't** introduce a second monospace or display typeface; IBM Plex Mono is the one face for AWB/tracking-code/manifest-code data (see Typography), and Space Grotesk is the only display face.
 - **Don't** give Cards the base 6px `--radius` scale; their 12px `rounded-xl` is an intentional, confirmed exception, not a value to "fix" into consistency with buttons/inputs.
 - **Don't** invent a brand name, logo, or marketing personality for this product — it is confirmed unnamed/white-label (`PRODUCT.md`); keep the system generic until that changes.
 - **Don't** make section headings collapsible or add sub-items — headings are labels, not groups.

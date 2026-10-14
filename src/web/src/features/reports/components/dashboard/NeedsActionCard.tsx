@@ -59,7 +59,7 @@ export function NeedsActionCard() {
                     {r.count === undefined ? "…" : r.count}
                   </span>
                   <span className="flex flex-1 flex-col">
-                    <span className={cn("text-[13.5px] font-medium", r.count === 0 && "text-muted-foreground")}>{r.label}</span>
+                    <span className={cn("text-sm font-medium", r.count === 0 && "text-muted-foreground")}>{r.label}</span>
                     <span className="text-xs text-muted-foreground">{r.description}</span>
                   </span>
                   <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />

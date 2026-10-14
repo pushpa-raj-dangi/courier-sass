@@ -26,7 +26,7 @@ export function ReconciliationPanel({ manifest }: { manifest: Manifest }) {
 
   return (
     <section aria-label="Manifest reconciliation" className="space-y-4 rounded-xl border border-border bg-card p-5">
-      <h2 className="font-display text-[15px] font-semibold">Manifest reconciliation</h2>
+      <h2 className="font-display text-base font-semibold">Manifest reconciliation</h2>
       {missing.isLoading && <Skeleton className="h-24 w-full" />}
       {missing.isError && <ErrorState title="Couldn't load missing parcels" description="Reconciliation is unavailable right now." onRetry={() => missing.refetch()} />}
       {missing.data && (
@@ -43,7 +43,7 @@ export function ReconciliationPanel({ manifest }: { manifest: Manifest }) {
               <h3 className="text-sm font-semibold">Still expected</h3>
               <span className="text-xs text-muted-foreground">{pending.length} parcels</span>
             </div>
-            <ul className="text-[12.5px]">
+            <ul className="text-sm">
               {visible.map((p) => (
                 <li key={p.shipmentId} className="border-b border-dashed border-border py-1.5 font-mono">
                   {p.awb}
@@ -51,7 +51,7 @@ export function ReconciliationPanel({ manifest }: { manifest: Manifest }) {
               ))}
             </ul>
             {!showAll && pending.length > 5 && (
-              <Button type="button" variant="link" className="h-auto p-0 text-[12.5px]" onClick={() => setShowAll(true)}>
+              <Button type="button" variant="link" className="h-auto p-0 text-sm" onClick={() => setShowAll(true)}>
                 {`Show all ${pending.length}`}
               </Button>
             )}

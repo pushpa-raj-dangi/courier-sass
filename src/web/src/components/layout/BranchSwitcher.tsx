@@ -49,8 +49,8 @@ export function BranchSwitcher() {
         >
           <Building2 className="h-4 w-4 shrink-0 text-sidebar-primary" strokeWidth={2} aria-hidden="true" />
           <span className="flex min-w-0 flex-1 flex-col">
-            <span className="text-[11px] font-normal text-sidebar-foreground">{t("branchScope")}</span>
-            <span className="truncate text-[13px] font-medium">{active?.branchName ?? t("selectBranch")}</span>
+            <span className="text-2xs font-normal text-sidebar-foreground">{t("branchScope")}</span>
+            <span className="truncate text-sm font-medium">{active?.branchName ?? t("selectBranch")}</span>
           </span>
           <ChevronDown className="h-3.5 w-3.5 shrink-0 text-sidebar-muted" strokeWidth={2} aria-hidden="true" />
         </Button>

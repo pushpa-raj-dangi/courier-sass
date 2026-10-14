@@ -20,5 +20,11 @@ describe("AdjustmentsTab", () => {
     expect(screen.getByText("Ramesh Shrestha")).toBeInTheDocument();
     expect(screen.getByText("Pending")).toBeInTheDocument();
     expect(screen.queryByText(/Rs\. /)).toBeNull();
+    expect(screen.queryByText(/not filtered by branch/)).toBeNull();
+  });
+
+  it("says it is merchant-level when the page has a branch selected", () => {
+    render(<AdjustmentsTab branchFiltered />);
+    expect(screen.getByText("Merchant-level — not filtered by branch")).toBeInTheDocument();
   });
 });

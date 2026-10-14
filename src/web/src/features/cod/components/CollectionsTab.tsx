@@ -5,10 +5,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { StatusBadge } from "@/components/status-badge/StatusBadge";
 import { DataTable, type ColumnDef } from "@/components/data-table/DataTable";
 import { useCodCollections } from "@/features/cod/hooks/useCodCollections";
+import { useFilterPage } from "@/features/cod/hooks/useFilterPage";
 import { useCodPanelStore } from "@/features/cod/store/codPanelStore";
-import { useBranches } from "@/features/branches/hooks/useBranches";
 import { useMerchants } from "@/features/shipments/hooks/useMerchants";
-import { formatDate, formatRs } from "@/features/cod/lib/codFormat";
+import { collectionLabel, formatDate, formatRs } from "@/features/cod/lib/codFormat";
 import type { CodCollection, CodCollectionStatus } from "@/features/cod/types";
 
 const STATUS_OPTIONS: CodCollectionStatus[] = [
@@ -19,18 +19,19 @@ function formatAmount(value: number | null): string {
   return value === null ? "—" : formatRs(value);
 }
 
-export function CollectionsTab() {
+// Branch and date range come from the /cod page header, like the flow strip.
+export function CollectionsTab({ branchId, from, to }: { branchId?: string; from?: string; to?: string }) {
   const [status, setStatus] = useState<CodCollectionStatus | "all">("all");
-  const [branchId, setBranchId] = useState<string | "all">("all");
   const [merchantId, setMerchantId] = useState<string | "all">("all");
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useFilterPage([status, merchantId, branchId, from, to].join("|"));
   const pageSize = 20;
 
-  const { data: branches } = useBranches();
   const { data: merchants } = useMerchants();
   const { data, isLoading } = useCodCollections({
     status: status === "all" ? undefined : status,
-    branchId: branchId === "all" ? undefined : branchId,
+    branchId,
+    from,
+    to,
     merchantId: merchantId === "all" ? undefined : merchantId,
     page,
     pageSize,
@@ -39,11 +40,11 @@ export function CollectionsTab() {
 
   const columns: ColumnDef<CodCollection>[] = [
     {
-      key: "shipmentId",
-      header: "Shipment",
+      key: "awb",
+      header: "AWB",
       render: (c) => (
-        <button type="button" onClick={() => openDetail(c.id)} className="font-medium text-foreground hover:underline">
-          {c.shipmentId.slice(0, 8)}
+        <button type="button" onClick={() => openDetail(c.id)} className="font-mono font-medium text-foreground hover:underline">
+          {collectionLabel(c)}
         </button>
       ),
     },
@@ -56,7 +57,7 @@ export function CollectionsTab() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <Select value={status} onValueChange={(v) => { setStatus(v as CodCollectionStatus | "all"); setPage(1); }}>
+        <Select value={status} onValueChange={(v) => setStatus(v as CodCollectionStatus | "all")}>
           <SelectTrigger className="w-48" aria-label="Filter by status">
             <SelectValue />
           </SelectTrigger>
@@ -67,18 +68,7 @@ export function CollectionsTab() {
             ))}
           </SelectContent>
         </Select>
-        <Select value={branchId} onValueChange={(v) => { setBranchId(v); setPage(1); }}>
-          <SelectTrigger className="w-48" aria-label="Filter by branch">
-            <SelectValue placeholder="All branches" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All branches</SelectItem>
-            {branches?.map((b) => (
-              <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={merchantId} onValueChange={(v) => { setMerchantId(v); setPage(1); }}>
+        <Select value={merchantId} onValueChange={setMerchantId}>
           <SelectTrigger className="w-48" aria-label="Filter by merchant">
             <SelectValue placeholder="All merchants" />
           </SelectTrigger>

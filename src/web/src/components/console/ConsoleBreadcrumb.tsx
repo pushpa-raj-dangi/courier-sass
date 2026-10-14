@@ -21,7 +21,7 @@ export function ConsoleBreadcrumb({ nav }: { nav: ConsoleNavGroup[] }) {
   }
   return (
     <Breadcrumb aria-label={t("breadcrumb")} className="hidden sm:block">
-      <BreadcrumbList className="text-[13px]">
+      <BreadcrumbList className="text-sm">
         <BreadcrumbItem>{active.group.label}</BreadcrumbItem>
         <BreadcrumbSeparator />
         <BreadcrumbItem>

@@ -17,11 +17,16 @@ vi.mock("@/features/auth/hooks/useSession", () => ({ useSession: () => ({ data: 
 vi.mock("@/features/branches/hooks/useBranches", () => ({
   useBranches: () => ({ data: [{ id: "b1", name: "Lalitpur Branch" }, { id: "b2", name: "Pokhara Hub" }] }),
 }));
-vi.mock("@/features/cod/components/CollectionsTab", () => ({ CollectionsTab: () => <div>collections-tab</div> }));
-vi.mock("@/features/cod/components/RiderDepositsTab", () => ({ RiderDepositsTab: () => <div>rider-deposits-tab</div> }));
-vi.mock("@/features/cod/components/BranchSettlementsTab", () => ({ BranchSettlementsTab: () => <div>branch-tab</div> }));
-vi.mock("@/features/cod/components/MerchantSettlementsTab", () => ({ MerchantSettlementsTab: () => <div>merchant-tab</div> }));
-vi.mock("@/features/cod/components/AdjustmentsTab", () => ({ AdjustmentsTab: () => <div>adjustments-tab</div> }));
+const { tabProps, tab } = vi.hoisted(() => {
+  const tabProps: Record<string, unknown> = {};
+  const tab = (name: string, label: string) => (props: unknown) => { tabProps[name] = props; return label; };
+  return { tabProps, tab };
+});
+vi.mock("@/features/cod/components/CollectionsTab", () => ({ CollectionsTab: tab("collections", "collections-tab") }));
+vi.mock("@/features/cod/components/RiderDepositsTab", () => ({ RiderDepositsTab: tab("riderDeposits", "rider-deposits-tab") }));
+vi.mock("@/features/cod/components/BranchSettlementsTab", () => ({ BranchSettlementsTab: tab("branchSettlements", "branch-tab") }));
+vi.mock("@/features/cod/components/MerchantSettlementsTab", () => ({ MerchantSettlementsTab: tab("merchantSettlements", "merchant-tab") }));
+vi.mock("@/features/cod/components/AdjustmentsTab", () => ({ AdjustmentsTab: tab("adjustments", "adjustments-tab") }));
 vi.mock("@/features/cod/components/CollectionDetailSheet", () => ({ CollectionDetailSheet: () => null }));
 vi.mock("@/features/cod/components/RiderSettlementCreateSheet", () => ({ RiderSettlementCreateSheet: () => null }));
 vi.mock("@/features/cod/components/RiderSettlementDetailSheet", () => ({ RiderSettlementDetailSheet: () => null }));
@@ -67,6 +72,20 @@ describe("CodPage", () => {
     session = { hasAllBranchesScope: false, branches: [{ branchId: "b1" }, { branchId: "b2" }] };
     render(<CodPage />);
     expect(screen.getByRole("combobox", { name: "Branch" })).toBeInTheDocument();
+  });
+
+  it("scopes every tab to the page branch and range; merchant-level tabs get the range only", () => {
+    for (const urlTab of ["collections", "rider-deposits", "branch-settlements", "merchant-settlements", "adjustments"]) {
+      search = `branch=b1&tab=${urlTab}`;
+      render(<CodPage />);
+    }
+    const { from, to } = useCodFlow.mock.calls[0][0] as { from: string; to: string };
+    for (const name of ["collections", "riderDeposits", "branchSettlements"]) {
+      expect(tabProps[name]).toEqual({ branchId: "b1", from, to });
+    }
+    for (const name of ["merchantSettlements", "adjustments"]) {
+      expect(tabProps[name]).toEqual({ branchFiltered: true, from, to });
+    }
   });
 
   it("passes the URL branch to the flow query", () => {
