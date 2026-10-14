@@ -31,7 +31,7 @@ export function RiderSettlementDetailSheet() {
   // already in cache from the deposits tab's own query in the common case, and refetching the
   // unfiltered first page is a reasonable, cheap fallback otherwise (this list is small in practice:
   // one row per rider per settlement run).
-  const { data, isLoading, isError, refetch } = useRiderSettlements({ pageSize: 200 });
+  const { data, isLoading, isError, refetch } = useRiderSettlements({ pageSize: 200 }, { enabled: isOpen });
   const settlement = data?.items.find((r) => r.id === id);
   const names = usePeopleNames();
   const parcels = useCodCollections({ riderCashSettlementId: id, pageSize: 200 }, { enabled: isOpen && Boolean(id) });
@@ -67,8 +67,20 @@ export function RiderSettlementDetailSheet() {
               </div>
               <div className="space-y-2">
                 <h3 className="text-sm font-medium">Parcels in this deposit</h3>
+                {/* The collection payload carries no AWB (only shipmentId), so rows stay date + amount. */}
                 {parcels.isLoading && <DetailSkeleton fieldRows={1} />}
-                {parcels.data && (
+                {parcels.isError && (
+                  <ErrorState title="Couldn't load parcels" description="Something went wrong." onRetry={() => parcels.refetch()} />
+                )}
+                {parcels.data && parcels.data.items.length === 0 && (
+                  <p className="rounded-lg border border-border p-3 text-sm text-muted-foreground">No parcels linked to this deposit.</p>
+                )}
+                {parcels.data && parcels.data.items.length > 0 && parcels.data.items.length < settlement.shipmentCount && (
+                  <p className="text-xs text-muted-foreground">
+                    Showing {parcels.data.items.length} of {settlement.shipmentCount} parcels
+                  </p>
+                )}
+                {parcels.data && parcels.data.items.length > 0 && (
                   <ul className="divide-y divide-border rounded-lg border border-border text-sm">
                     {parcels.data.items.map((c) => (
                       <li key={c.id} className="flex items-center justify-between px-3 py-2">

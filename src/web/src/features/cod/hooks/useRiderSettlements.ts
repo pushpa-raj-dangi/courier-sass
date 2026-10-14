@@ -5,7 +5,10 @@ import { clientFetch } from "@/lib/api/clientFetch";
 import type { PagedResult } from "@/components/data-table/DataTable";
 import type { RiderCashSettlement } from "@/features/cod/types";
 
-export function useRiderSettlements(params: { branchId?: string; riderId?: string; unreconciledOnly?: boolean; from?: string; to?: string; page?: number; pageSize?: number } = {}) {
+export function useRiderSettlements(
+  params: { branchId?: string; riderId?: string; unreconciledOnly?: boolean; from?: string; to?: string; page?: number; pageSize?: number } = {},
+  options: { enabled?: boolean } = {},
+) {
   const { branchId, riderId, unreconciledOnly, from, to, page, pageSize } = params;
   const query = new URLSearchParams();
   if (branchId) query.set("branchId", branchId);
@@ -20,5 +23,6 @@ export function useRiderSettlements(params: { branchId?: string; riderId?: strin
   return useQuery({
     queryKey: ["cod", "rider-settlements", branchId ?? null, riderId ?? null, unreconciledOnly ?? null, from ?? null, to ?? null, page ?? null, pageSize ?? null],
     queryFn: () => clientFetch<PagedResult<RiderCashSettlement>>(`/api/cod/rider-settlements${search ? `?${search}` : ""}`),
+    enabled: options.enabled ?? true,
   });
 }
