@@ -337,7 +337,7 @@ public partial class CodService
     // MerchantSettlementItem, which has no BranchId either (cod.settle/cod.adjust are org-wide
     // permissions, same precedent as CreateFinanceVerificationAsync/CreateMerchantSettlementAsync).
     public async Task<PagedResult<AdjustmentResponse>> ListAdjustmentsAsync(
-        bool? applied, int? page, int? pageSize,
+        bool? applied, Guid? merchantSettlementId, int? page, int? pageSize,
         ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
         var organizationId = _currentTenantProvider.OrganizationId
@@ -347,6 +347,16 @@ public partial class CodService
         if (applied is bool requestedApplied)
         {
             query = query.Where(a => a.Applied == requestedApplied);
+        }
+        if (merchantSettlementId is Guid settlementId)
+        {
+            // Additive read-only narrowing (F15 R3a I2). MerchantSettlementItem has no own
+            // OrganizationId, so the item ids are sourced through the org-scoped parent settlement.
+            var itemIds = from i in _dbContext.Set<MerchantSettlementItem>()
+                          join m in _dbContext.Set<MerchantSettlement>() on i.MerchantSettlementId equals m.Id
+                          where m.Id == settlementId && m.OrganizationId == organizationId
+                          select i.Id;
+            query = query.Where(a => a.EntityType == AdjustableEntityType && itemIds.Contains(a.EntityId));
         }
 
         var (normalizedPage, normalizedPageSize) = PaginationDefaults.Normalize(page, pageSize);

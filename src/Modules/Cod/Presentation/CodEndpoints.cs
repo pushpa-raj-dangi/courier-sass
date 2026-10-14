@@ -94,8 +94,8 @@ public static class CodEndpoints
             await HandleAsync(() => service.SettleMerchantSettlementAsync(id, httpContext.User, httpContext.RequestAborted)))
             .RequirePermission("cod.settle");
 
-        group.MapGet("/adjustments", async (bool? applied, int? page, int? pageSize, CodService service, HttpContext httpContext) =>
-            Results.Ok(await service.ListAdjustmentsAsync(applied, page, pageSize, httpContext.User, httpContext.RequestAborted)))
+        group.MapGet("/adjustments", async (bool? applied, Guid? merchantSettlementId, int? page, int? pageSize, CodService service, HttpContext httpContext) =>
+            Results.Ok(await service.ListAdjustmentsAsync(applied, merchantSettlementId, page, pageSize, httpContext.User, httpContext.RequestAborted)))
             .RequirePermission("cod.read");
 
         group.MapPost("/adjustments", async (RequestAdjustmentRequest request, CodService service, HttpContext httpContext) =>

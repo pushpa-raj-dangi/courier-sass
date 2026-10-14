@@ -418,6 +418,13 @@ public class CodEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
         Assert.DoesNotContain(afterApprovePending!.Items, a => a.Id == adjustment.Id);
         var afterApproveApplied = await (await client.GetAsync("/api/v1/cod/adjustments?applied=true")).Content.ReadFromJsonAsync<PagedResult<AdjustmentResponse>>();
         Assert.Contains(afterApproveApplied!.Items, a => a.Id == adjustment.Id);
+
+        // merchantSettlementId narrows to this settlement's item adjustments only (F15 R3a I2).
+        var forSettlement = await (await client.GetAsync($"/api/v1/cod/adjustments?applied=true&merchantSettlementId={settlement.Id}")).Content.ReadFromJsonAsync<PagedResult<AdjustmentResponse>>();
+        var only = Assert.Single(forSettlement!.Items);
+        Assert.Equal(adjustment.Id, only.Id);
+        var forUnknownSettlement = await (await client.GetAsync($"/api/v1/cod/adjustments?merchantSettlementId={Guid.NewGuid()}")).Content.ReadFromJsonAsync<PagedResult<AdjustmentResponse>>();
+        Assert.Empty(forUnknownSettlement!.Items);
     }
 
     [Fact]
