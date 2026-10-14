@@ -18,6 +18,10 @@ vi.mock("@/features/branches/hooks/useBranches", () => ({ useBranches: () => ({ 
 vi.mock("@/features/shipments/hooks/usePeopleNames", () => ({
   usePeopleNames: () => ({ riderName: () => "Rider", userName: () => "Staff", branchName: () => "Kathmandu Hub" }),
 }));
+const codFlow = vi.fn();
+vi.mock("@/features/cod/hooks/useCodFlow", () => ({ useCodFlow: (p: unknown, o: unknown) => codFlow(p, o) }));
+const riderCash = vi.fn();
+vi.mock("@/features/cod/hooks/useRiderCash", () => ({ useRiderCash: (p: unknown, o: unknown) => riderCash(p, o) }));
 let perms = new Set(["report.read", "ndr.read", "rto.read", "manifest.read", "cod.read", "shipment.create"]);
 vi.mock("@/features/auth/hooks/usePermission", () => ({ usePermission: (p: string) => perms.has(p) }));
 vi.mock("@/features/shipments/store/shipmentPanelStore", () => ({
@@ -46,6 +50,45 @@ describe("DashboardPage", () => {
     useOrgDashboard.mockReset().mockReturnValue({ data: summary, isLoading: false, isError: false, refetch: vi.fn() });
     ndr.mockReturnValue({ data: { Open: 3, Resolved: 9 }, isLoading: false, isError: false });
     shipmentsSummary.mockReturnValue({ data: { Created: 2, InTransit: 7, OutForDelivery: 6 }, isLoading: false, isError: false });
+    codFlow.mockClear();
+    riderCash.mockClear();
+    codFlow.mockReturnValue({
+      data: { stages: [
+        { key: "expected", amount: 10000, count: 4 }, { key: "collected", amount: 8000, count: 3 }, { key: "riderDeposited", amount: 6000, count: 2 },
+        { key: "branchReconciled", amount: 5000, count: 2 }, { key: "financeVerified", amount: 4000, count: 1 }, { key: "settled", amount: 1000, count: 1 },
+      ] },
+      isLoading: false, isError: false,
+    });
+    riderCash.mockReturnValue({
+      data: { items: [
+        { riderId: "r1", branchId: "b1", parcelCount: 2, amount: 1500, oldestCollectedAt: new Date(Date.now() - 30 * 3_600_000).toISOString(), latestCollectedAt: new Date().toISOString() },
+        { riderId: "r2", branchId: "b1", parcelCount: 1, amount: 500, oldestCollectedAt: new Date(Date.now() - 2 * 3_600_000).toISOString(), latestCollectedAt: new Date().toISOString() },
+      ] },
+      isLoading: false, isError: false,
+    });
+  });
+
+  it("shows rider-held and deposited-unverified COD from the new reads", () => {
+    renderWithIntl(<DashboardPage />);
+    const cash = screen.getByLabelText("Cash in hand");
+    expect(within(cash).getByText("Rider-held")).toBeInTheDocument();
+    expect(within(cash).getByText("Deposited, not yet verified")).toBeInTheDocument();
+    expect(within(cash).getAllByText(/^NPR.2,000$/)).toHaveLength(2);
+    expect(screen.queryByText("Rider-held vs deposited")).toBeNull();
+  });
+
+  it("lists riders holding cash over 24 h in Needs action", () => {
+    renderWithIntl(<DashboardPage />);
+    const link = screen.getByRole("link", { name: /Riders holding cash > 24 h/ });
+    expect(link).toHaveAttribute("href", "/cod?tab=rider-deposits");
+    expect(within(link).getByText("1")).toBeInTheDocument();
+  });
+
+  it("does not fetch COD reads without cod.read", () => {
+    perms.delete("cod.read");
+    renderWithIntl(<DashboardPage />);
+    expect(riderCash.mock.calls.every(([, o]) => (o as { enabled: boolean }).enabled === false)).toBe(true);
+    expect(screen.queryByText(/Riders holding cash/)).toBeNull();
   });
 
   it("renders the pipeline from current WIP plus delivered in range", () => {

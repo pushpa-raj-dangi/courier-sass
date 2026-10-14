@@ -9,6 +9,8 @@ import { usePermission } from "@/features/auth/hooks/usePermission";
 import { useNdrsSummary } from "@/features/ndr/hooks/useNdrsSummary";
 import { useReturnShipmentsSummary } from "@/features/ndr/hooks/useReturnShipmentsSummary";
 import { useManifestsSummary } from "@/features/manifests/hooks/useManifestsSummary";
+import { useRiderCash } from "@/features/cod/hooks/useRiderCash";
+import { HELD_WARNING_HOURS, hoursHeld } from "@/features/cod/lib/codFormat";
 import { openNdrCount } from "@/features/reports/lib/dashboardModel";
 
 interface Row {
@@ -27,11 +29,21 @@ export function NeedsActionCard() {
   const ndrs = useNdrsSummary({ enabled: canNdr });
   const rtos = useReturnShipmentsSummary({ enabled: canRto });
   const manifests = useManifestsSummary({ enabled: canManifest });
+  const canCod = usePermission("cod.read");
+  const riderCash = useRiderCash({}, { enabled: canCod });
 
   const rows: Row[] = [
     { key: "ndr", label: "Open NDRs", description: "Delivery failed, awaiting resolution", href: "/ndrs", count: ndrs.data ? openNdrCount(ndrs.data) : undefined, visible: canNdr && !ndrs.isError },
     { key: "rto", label: "RTOs awaiting merchant sign-off", description: "Returned to origin, not confirmed", href: "/return-shipments", count: rtos.data?.pendingConfirmation, visible: canRto && !rtos.isError },
     { key: "manifests", label: "Manifests in transit", description: "Dispatched and on the road", href: "/manifests", count: manifests.data?.InTransit ?? (manifests.data ? 0 : undefined), visible: canManifest && !manifests.isError },
+    {
+      key: "cod-cash",
+      label: "Riders holding cash > 24 h",
+      description: "Collected COD not yet deposited",
+      href: "/cod?tab=rider-deposits",
+      count: riderCash.data ? riderCash.data.items.filter((h) => hoursHeld(h.oldestCollectedAt) >= HELD_WARNING_HOURS).length : undefined,
+      visible: canCod && !riderCash.isError,
+    },
   ];
 
   return (
@@ -58,7 +70,7 @@ export function NeedsActionCard() {
         <ComingSoonSlot
           className="mt-3 p-4"
           title="More exceptions"
-          description="Manifests with missing parcels, riders holding cash past 24 h, and express parcels at SLA risk."
+          description="Manifests with missing parcels and express parcels at SLA risk."
         />
       </SectionCard>
     </section>
