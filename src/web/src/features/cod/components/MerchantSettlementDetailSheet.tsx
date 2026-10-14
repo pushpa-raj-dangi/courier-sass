@@ -111,7 +111,11 @@ export function MerchantSettlementDetailSheet() {
   const canSettle = usePermission("cod.settle");
 
   const { data: settlement, isLoading, isError, refetch } = useMerchantSettlement(id);
-  const { data: adjustments } = useAdjustments({ applied: true, pageSize: 200 });
+  // Server-narrowed to this settlement's item adjustments, so the caption never under-reports.
+  const { data: adjustments, isError: adjustmentsError } = useAdjustments(
+    { merchantSettlementId: id, applied: true, pageSize: 200 },
+    { enabled: isOpen && Boolean(id) },
+  );
   const { data: merchants } = useMerchants();
   const settleMutation = useSettleMerchantSettlement(id);
 
@@ -153,14 +157,23 @@ export function MerchantSettlementDetailSheet() {
 
               <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_240px]">
                 <ul aria-label="Payable breakdown" className="text-sm">
-                  <BreakdownRow label={`${breakdown.parcelCount} delivered COD parcels`} value={formatRs(breakdown.codTotal)} />
+                  <BreakdownRow
+                    label={`${breakdown.parcelCount} delivered COD ${breakdown.parcelCount === 1 ? "parcel" : "parcels"}`}
+                    value={formatRs(breakdown.codTotal)}
+                  />
                   <BreakdownRow label="Delivery charges (booking-time prices)" value={`− ${formatRs(breakdown.courierFees)}`} />
                   <BreakdownRow label="Other deductions" value={`− ${formatRs(breakdown.otherDeductions)}`} />
-                  {breakdown.adjustmentsIncluded !== 0 && (
+                  {adjustmentsError ? (
+                    <li className="border-b border-border pb-2 text-xs text-muted-foreground">Adjustment total unavailable</li>
+                  ) : adjustments && breakdown.adjustmentsIncluded > 0 ? (
                     <li className="border-b border-border pb-2 text-xs text-muted-foreground">
                       Includes {formatRs(breakdown.adjustmentsIncluded)} from approved adjustments
                     </li>
-                  )}
+                  ) : adjustments && breakdown.adjustmentsIncluded < 0 ? (
+                    <li className="border-b border-border pb-2 text-xs text-muted-foreground">
+                      Reduces deductions by {formatRs(-breakdown.adjustmentsIncluded)}
+                    </li>
+                  ) : null}
                   <BreakdownRow label="Merchant payable" value={formatRs(breakdown.payable)} strong />
                   {breakdown.mismatch && (
                     <li role="alert" className="mt-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
@@ -183,34 +196,38 @@ export function MerchantSettlementDetailSheet() {
 
               <div className="space-y-2">
                 <h3 className="text-sm font-medium">Line items</h3>
-                <ul className="divide-y divide-border rounded-lg border border-border">
-                  {settlement.items.map((item) => (
-                    <li key={item.id} className="p-3 text-sm">
-                      <div className="flex flex-wrap items-center gap-3">
-                        <button
-                          type="button"
-                          aria-label={`Trace ${item.shipmentAwb}`}
-                          onClick={() => setTracedItemId(item.id)}
-                          className="font-mono font-medium text-foreground hover:underline"
-                        >
-                          {item.shipmentAwb}
-                        </button>
-                        <span className="ml-auto grid grid-cols-4 gap-3 text-right tabular-nums text-muted-foreground">
-                          <span>{formatRs(item.codAmount)}</span>
-                          <span>− {formatRs(item.courierFee)}</span>
-                          <span>− {formatRs(item.otherDeductions)}</span>
-                          <span className="font-medium text-foreground">{formatRs(item.netPayable)}</span>
-                        </span>
-                        {canAdjust && settlement.status === "Created" && adjustingItemId !== item.id && (
-                          <Button type="button" size="sm" variant="outline" onClick={() => setAdjustingItemId(item.id)}>
-                            Request adjustment
-                          </Button>
-                        )}
-                      </div>
-                      {adjustingItemId === item.id && <AdjustmentForm item={item} onDone={() => setAdjustingItemId(null)} />}
-                    </li>
-                  ))}
-                </ul>
+                {settlement.items.length === 0 ? (
+                  <p className="rounded-lg border border-border p-3 text-sm text-muted-foreground">No parcels in this settlement.</p>
+                ) : (
+                  <ul className="divide-y divide-border rounded-lg border border-border">
+                    {settlement.items.map((item) => (
+                      <li key={item.id} className="p-3 text-sm">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <button
+                            type="button"
+                            aria-label={`Trace ${item.shipmentAwb}`}
+                            onClick={() => setTracedItemId(item.id)}
+                            className="font-mono font-medium text-foreground hover:underline"
+                          >
+                            {item.shipmentAwb}
+                          </button>
+                          <span className="ml-auto grid grid-cols-4 gap-3 text-right tabular-nums text-muted-foreground">
+                            <span>{formatRs(item.codAmount)}</span>
+                            <span>− {formatRs(item.courierFee)}</span>
+                            <span>− {formatRs(item.otherDeductions)}</span>
+                            <span className="font-medium text-foreground">{formatRs(item.netPayable)}</span>
+                          </span>
+                          {canAdjust && settlement.status === "Created" && adjustingItemId !== item.id && (
+                            <Button type="button" size="sm" variant="outline" onClick={() => setAdjustingItemId(item.id)}>
+                              Request adjustment
+                            </Button>
+                          )}
+                        </div>
+                        {adjustingItemId === item.id && <AdjustmentForm item={item} onDone={() => setAdjustingItemId(null)} />}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
 
               {canSettle && (

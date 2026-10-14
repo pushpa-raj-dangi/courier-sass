@@ -7,8 +7,17 @@ let settlement: unknown;
 vi.mock("@/features/cod/hooks/useMerchantSettlement", () => ({
   useMerchantSettlement: () => ({ data: settlement, isLoading: false, isError: false, refetch: vi.fn() }),
 }));
+const adjustment = (beforeValue: number, afterValue: number) => ({
+  id: "a1", entityType: "MerchantSettlementItem", entityId: "i1", beforeValue, afterValue, reason: "Damaged",
+  requestedByUserId: "u", requestedAt: "2026-10-06T00:00:00Z", approvedByUserId: "u2", approvedAt: "2026-10-06T01:00:00Z", applied: true,
+});
+let adjustmentsResult: unknown;
+const useAdjustmentsSpy = vi.fn();
 vi.mock("@/features/cod/hooks/useAdjustments", () => ({
-  useAdjustments: () => ({ data: { items: [{ id: "a1", entityType: "MerchantSettlementItem", entityId: "i1", beforeValue: 0, afterValue: 50, reason: "Damaged", requestedByUserId: "u", requestedAt: "2026-10-06T00:00:00Z", approvedByUserId: "u2", approvedAt: "2026-10-06T01:00:00Z", applied: true }] } }),
+  useAdjustments: (...args: unknown[]) => {
+    useAdjustmentsSpy(...args);
+    return adjustmentsResult;
+  },
 }));
 vi.mock("@/features/shipments/hooks/useMerchants", () => ({ useMerchants: () => ({ data: [{ id: "m1", displayName: "Everest Organics" }] }) }));
 const settle = vi.fn();
@@ -37,6 +46,8 @@ function renderSheet() {
 beforeEach(() => {
   perms = new Set(["cod.read", "cod.settle", "cod.adjust"]);
   settlement = { ...base, totalPayable: 3200 };
+  adjustmentsResult = { data: { items: [adjustment(0, 50)] }, isError: false };
+  useAdjustmentsSpy.mockReset();
 });
 
 describe("MerchantSettlementDetailSheet", () => {
@@ -52,10 +63,58 @@ describe("MerchantSettlementDetailSheet", () => {
     expect(screen.queryByText(/don't add up/)).toBeNull();
   });
 
-  it("warns when lines don't add up to the payable", () => {
+  it("asks the server only for this settlement's applied adjustments", () => {
+    renderSheet();
+    expect(useAdjustmentsSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ merchantSettlementId: "ms1", applied: true }),
+      { enabled: true },
+    );
+  });
+
+  it("explains a net reduction in deductions", () => {
+    adjustmentsResult = { data: { items: [adjustment(80, 50)] }, isError: false };
+    renderSheet();
+    expect(screen.getByText(`Reduces deductions by ${formatRs(30)}`)).toBeInTheDocument();
+    expect(screen.queryByText(/from approved adjustments/)).toBeNull();
+  });
+
+  it("says the adjustment total is unavailable when the lookup fails", () => {
+    adjustmentsResult = { data: undefined, isError: true };
+    renderSheet();
+    expect(screen.getByText("Adjustment total unavailable")).toBeInTheDocument();
+    expect(screen.queryByText(/from approved adjustments/)).toBeNull();
+    expect(screen.queryByText(/Reduces deductions/)).toBeNull();
+  });
+
+  it("uses the singular for one parcel", () => {
+    settlement = { ...base, items: [base.items[1]], totalPayable: 900 };
+    adjustmentsResult = { data: { items: [] }, isError: false };
+    renderSheet();
+    expect(within(screen.getByRole("list", { name: "Payable breakdown" })).getByText("1 delivered COD parcel")).toBeInTheDocument();
+  });
+
+  it("renders a settlement with no items without inventing a trace", () => {
+    settlement = { ...base, items: [], totalPayable: 0 };
+    adjustmentsResult = { data: { items: [] }, isError: false };
+    renderSheet();
+    expect(screen.getByText("0 delivered COD parcels")).toBeInTheDocument();
+    expect(screen.getByText("No parcels in this settlement.")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Trace one line" })).toBeNull();
+    expect(screen.queryByText(/don't add up/)).toBeNull();
+  });
+
+  it("warns when lines don't add up to the payable, naming both figures", () => {
     settlement = { ...base, totalPayable: 3000 };
     renderSheet();
-    expect(screen.getByText(/Lines don't add up to the payable/)).toBeInTheDocument();
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent(/Lines don't add up to the payable/);
+    expect(alert).toHaveTextContent(`Lines total ${formatRs(3200)}; payable is ${formatRs(3000)}.`);
+  });
+
+  it("shows settle and adjust actions with cod.settle and cod.adjust", () => {
+    renderSheet();
+    expect(screen.getByRole("button", { name: "Mark settled" })).toBeEnabled();
+    expect(screen.getAllByRole("button", { name: "Request adjustment" })).toHaveLength(2);
   });
 
   it("traces a selected line", () => {
