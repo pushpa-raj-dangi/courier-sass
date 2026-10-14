@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { Wallet, ReceiptText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,6 +12,7 @@ import { usePermission } from "@/features/auth/hooks/usePermission";
 import { usePeopleNames } from "@/features/shipments/hooks/usePeopleNames";
 import { useRiderCash } from "@/features/cod/hooks/useRiderCash";
 import { useRiderSettlements } from "@/features/cod/hooks/useRiderSettlements";
+import { useFilterPage } from "@/features/cod/hooks/useFilterPage";
 import { useCodPanelStore } from "@/features/cod/store/codPanelStore";
 import { HELD_WARNING_HOURS, formatHeldFor, formatRs, formatTime, formatDate, hoursHeld, sortHoldings } from "@/features/cod/lib/codFormat";
 import { VarianceBadge } from "@/features/cod/components/VarianceBadge";
@@ -38,7 +38,7 @@ export function RiderDepositsTab({ branchId, from, to }: { branchId?: string; fr
   const openCreate = useCodPanelStore((s) => s.openRiderSettlementCreate);
   const openDetail = useCodPanelStore((s) => s.openRiderSettlementDetail);
   const cash = useRiderCash({ branchId });
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useFilterPage([branchId, from, to].join("|"));
   const deposits = useRiderSettlements({ branchId, from, to, page, pageSize: 20 });
 
   const holdings = sortHoldings(cash.data?.items ?? []);

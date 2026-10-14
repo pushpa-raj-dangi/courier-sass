@@ -105,11 +105,11 @@ function CodPageContent() {
               <TabsTrigger key={t.key} value={t.key}>{t.label}</TabsTrigger>
             ))}
           </TabsList>
-          <TabsContent value="collections"><CollectionsTab /></TabsContent>
+          <TabsContent value="collections"><CollectionsTab branchId={branchId} from={from} to={to} /></TabsContent>
           <TabsContent value="rider-deposits"><RiderDepositsTab branchId={branchId} from={from} to={to} /></TabsContent>
-          <TabsContent value="branch-settlements"><BranchSettlementsTab /></TabsContent>
-          <TabsContent value="merchant-settlements"><MerchantSettlementsTab /></TabsContent>
-          <TabsContent value="adjustments"><AdjustmentsTab /></TabsContent>
+          <TabsContent value="branch-settlements"><BranchSettlementsTab branchId={branchId} from={from} to={to} /></TabsContent>
+          <TabsContent value="merchant-settlements"><MerchantSettlementsTab branchFiltered={Boolean(branchId)} from={from} to={to} /></TabsContent>
+          <TabsContent value="adjustments"><AdjustmentsTab branchFiltered={Boolean(branchId)} from={from} to={to} /></TabsContent>
           <TabsContent value="ledger">
             <ComingSoonSlot title="Ledger" description="Every COD money movement with before/after values and export." minHeight={220} />
           </TabsContent>
