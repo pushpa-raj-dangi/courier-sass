@@ -230,4 +230,93 @@ public class CodServiceFlowTests
         var single = Assert.Single(cash.Items);
         Assert.Equal(mine, single.BranchId);
     }
+
+    [Fact]
+    public async Task GetRiderCashAsync_ExcludesOtherTenant()
+    {
+        await using var db = CreateContext();
+        var org = Guid.NewGuid();
+        var branch = Guid.NewGuid();
+        var rider = Guid.NewGuid();
+        Seed(db, org, branch, CodCollectionStatus.CodCollected, 1000m, 1000m, rider);
+        Seed(db, Guid.NewGuid(), branch, CodCollectionStatus.CodCollected, 9999m, 9999m, rider); // other tenant, same ids
+        await db.SaveChangesAsync();
+
+        var cash = await CreateService(db, org, new ScopedBranchAuthorizationChecker()).GetRiderCashAsync(null, Staff());
+
+        var single = Assert.Single(cash.Items);
+        Assert.Equal(1000m, single.Amount);
+        Assert.Equal(1, single.ParcelCount);
+    }
+
+    [Fact]
+    public async Task GetRiderCashAsync_ExcludesCollectionsWithoutRider()
+    {
+        await using var db = CreateContext();
+        var org = Guid.NewGuid();
+        var branch = Guid.NewGuid();
+        var rider = Guid.NewGuid();
+        Seed(db, org, branch, CodCollectionStatus.CodCollected, 1000m, 1000m, rider);
+        Seed(db, org, branch, CodCollectionStatus.CodCollected, 500m, 500m, riderId: null);
+        await db.SaveChangesAsync();
+
+        var cash = await CreateService(db, org, new ScopedBranchAuthorizationChecker()).GetRiderCashAsync(null, Staff());
+
+        var single = Assert.Single(cash.Items);
+        Assert.Equal(rider, single.RiderId);
+        Assert.Equal(1000m, single.Amount);
+    }
+
+    // Held amount must equal what CreateRiderSettlementAsync sweeps (every CodCollected row for the
+    // rider at the branch), including a row whose CollectedAt is missing — its CreatedAt stands in.
+    [Fact]
+    public async Task GetRiderCashAsync_IncludesRowsWithNullCollectedAt_FallingBackToCreatedAt()
+    {
+        await using var db = CreateContext();
+        var org = Guid.NewGuid();
+        var branch = Guid.NewGuid();
+        var rider = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow;
+        var createdLongAgo = now.AddHours(-40);
+        Seed(db, org, branch, CodCollectionStatus.CodCollected, 1000m, 1000m, rider, collectedAt: now.AddHours(-2));
+        db.Set<CODCollection>().Add(new CODCollection
+        {
+            Id = Guid.NewGuid(), ShipmentId = Guid.NewGuid(), OrganizationId = org, MerchantId = Guid.NewGuid(),
+            BranchId = branch, ExpectedAmount = 700m, ShipmentTotalCharge = 150m, CollectedAmount = 700m,
+            CollectedByRiderId = rider, CollectedAt = null, Status = CodCollectionStatus.CodCollected, CreatedAt = createdLongAgo
+        });
+        await db.SaveChangesAsync();
+
+        var cash = await CreateService(db, org, new ScopedBranchAuthorizationChecker()).GetRiderCashAsync(null, Staff());
+
+        var single = Assert.Single(cash.Items);
+        Assert.Equal(2, single.ParcelCount);
+        Assert.Equal(1700m, single.Amount);
+        Assert.Equal(createdLongAgo, single.OldestCollectedAt);
+        Assert.Equal(now.AddHours(-2), single.LatestCollectedAt);
+    }
+
+    [Fact]
+    public async Task GetRiderCashAsync_TiesOnOldestBreakByRiderThenBranch()
+    {
+        await using var db = CreateContext();
+        var org = Guid.NewGuid();
+        var at = DateTimeOffset.UtcNow.AddHours(-3);
+        var riders = Enumerable.Range(0, 3).Select(_ => Guid.NewGuid()).ToList();
+        var branches = Enumerable.Range(0, 2).Select(_ => Guid.NewGuid()).ToList();
+        foreach (var rider in riders)
+        {
+            foreach (var branch in branches)
+            {
+                Seed(db, org, branch, CodCollectionStatus.CodCollected, 100m, 100m, rider, collectedAt: at);
+            }
+        }
+        await db.SaveChangesAsync();
+
+        var cash = await CreateService(db, org, new ScopedBranchAuthorizationChecker()).GetRiderCashAsync(null, Staff());
+
+        var expected = riders.SelectMany(r => branches.Select(b => (Rider: r, Branch: b)))
+            .OrderBy(x => x.Rider).ThenBy(x => x.Branch).ToList();
+        Assert.Equal(expected, cash.Items.Select(i => (Rider: i.RiderId, Branch: i.BranchId)).ToList());
+    }
 }

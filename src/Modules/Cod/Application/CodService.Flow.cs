@@ -7,8 +7,8 @@ namespace Courier.Cod.Application;
 // F15 R3a read slice. "Reached" (cumulative) semantics: a collection counts in every stage it has
 // reached so far. Parcel counts never increase left to right; amounts never increase from collected
 // onward; expected (ExpectedAmount) can be below collected when riders collect more than expected
-// (overages). Each gap is money waiting at that step. Distinct from GetReconciliationSummaryAsync's outstanding-only ExpectedCod
-// (CLARIFICATIONS: COD flow stages).
+// (overages). Each gap is money waiting at that step. Distinct from
+// GetReconciliationSummaryAsync's outstanding-only ExpectedCod (CLARIFICATIONS: COD flow stages).
 public partial class CodService
 {
     private static readonly CodCollectionStatus[] CollectedOrLater =
@@ -38,7 +38,7 @@ public partial class CodService
             query = query.Where(c => c.CreatedAt <= toDate);
         }
 
-        // One grouped SQL query (at most 7 statuses × 2 rows) — never materialises collections.
+        // One grouped SQL query (one row per status, at most 7) — never materialises collections.
         var groups = await query
             .GroupBy(c => c.Status)
             .Select(g => new { Status = g.Key, Count = g.Count(), Expected = g.Sum(c => c.ExpectedAmount), CollectedSum = g.Sum(c => c.CollectedAmount ?? 0m) })
@@ -62,8 +62,11 @@ public partial class CodService
             ?? throw new CodValidationException("No active organization context.");
 
         var query = await StaffScopedCollectionsAsync(organizationId, branchId, actingUser, cancellationToken);
+        // Same row set CreateRiderSettlementAsync sweeps (CodCollected + this rider + this branch),
+        // so "held" always equals what a deposit will cover. CollectedAt should be set on every
+        // CodCollected row; CreatedAt stands in if it is ever missing rather than dropping the cash.
         var rows = await query
-            .Where(c => c.Status == CodCollectionStatus.CodCollected && c.CollectedByRiderId != null && c.CollectedAt != null)
+            .Where(c => c.Status == CodCollectionStatus.CodCollected && c.CollectedByRiderId != null)
             .GroupBy(c => new { RiderId = c.CollectedByRiderId!.Value, c.BranchId })
             .Select(g => new
             {
@@ -71,13 +74,13 @@ public partial class CodService
                 g.Key.BranchId,
                 Count = g.Count(),
                 Amount = g.Sum(c => c.CollectedAmount ?? 0m),
-                Oldest = g.Min(c => c.CollectedAt!.Value),
-                Latest = g.Max(c => c.CollectedAt!.Value),
+                Oldest = g.Min(c => c.CollectedAt ?? c.CreatedAt),
+                Latest = g.Max(c => c.CollectedAt ?? c.CreatedAt),
             })
             .ToListAsync(cancellationToken);
 
         return new RiderCashResponse(rows
-            .OrderBy(r => r.Oldest)
+            .OrderBy(r => r.Oldest).ThenBy(r => r.RiderId).ThenBy(r => r.BranchId)
             .Select(r => new RiderCashHoldingResponse(r.RiderId, r.BranchId, r.Count, r.Amount, r.Oldest, r.Latest))
             .ToList());
     }
