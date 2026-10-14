@@ -62,9 +62,9 @@ public partial class CodService : ICodCollectionCreationService, ICodCollectionS
         return (fromUtc, toUtc);
     }
 
-    private static CodCollectionResponse ToResponse(CODCollection collection) => new(
+    private static CodCollectionResponse ToResponse(CODCollection collection, IReadOnlyDictionary<Guid, string> awbsByShipmentId) => new(
         collection.Id, collection.ShipmentId, collection.MerchantId, collection.BranchId, collection.ExpectedAmount,
         collection.ShipmentTotalCharge, collection.CollectedAmount, collection.Status, collection.CollectedByRiderId,
         collection.CollectedAt, collection.DeliveryProofId, collection.RiderCashSettlementId, collection.MerchantSettlementItemId,
-        collection.CreatedAt);
+        collection.CreatedAt, awbsByShipmentId.GetValueOrDefault(collection.ShipmentId));
 }

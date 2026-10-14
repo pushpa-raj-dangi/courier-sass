@@ -37,7 +37,8 @@ public partial class CodService
             }
         }
 
-        return ToResponse(collection);
+        var awbs = await _shipmentAwbLookupService.GetAwbsByShipmentIdsAsync(new HashSet<Guid> { collection.ShipmentId }, cancellationToken);
+        return ToResponse(collection, awbs);
     }
 
     // BranchId lives directly on CODCollection (this plan's eager-creation snapshot design) — a
@@ -103,7 +104,9 @@ public partial class CodService
             .Take(normalizedPageSize)
             .ToListAsync(cancellationToken);
 
-        return new PagedResult<CodCollectionResponse>(collections.Select(ToResponse).ToList(), normalizedPage, normalizedPageSize, totalCount);
+        // One batched AWB lookup per page (same pattern as ListMerchantSettlementsAsync).
+        var awbs = await _shipmentAwbLookupService.GetAwbsByShipmentIdsAsync(collections.Select(c => c.ShipmentId).ToHashSet(), cancellationToken);
+        return new PagedResult<CodCollectionResponse>(collections.Select(c => ToResponse(c, awbs)).ToList(), normalizedPage, normalizedPageSize, totalCount);
     }
 
     // CLAUDE.md §23's reconciliation figures, computed over whatever scope ListCollectionsAsync

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeVariance, formatHeldFor, formatRs, hoursHeld, sortHoldings } from "./codFormat";
+import { collectionLabel, describeVariance, formatHeldFor, formatRs, hoursHeld, sortHoldings } from "./codFormat";
 
 describe("formatRs", () => {
   it("uses Nepali/Indian digit grouping with an Rs prefix and no decimals for whole rupees", () => {
@@ -52,5 +52,12 @@ describe("held time", () => {
       { riderId: "c", branchId: "b", parcelCount: 1, amount: 1, oldestCollectedAt: "2026-10-05T10:00:00Z", latestCollectedAt: "2026-10-05T10:00:00Z" },
     ];
     expect(sortHoldings(items).map((i) => i.riderId)).toEqual(["c", "a"]);
+  });
+});
+
+describe("collectionLabel", () => {
+  it("prefers the AWB and falls back to the short shipment id", () => {
+    expect(collectionLabel({ awb: "KTM-000123", shipmentId: "0f8e2a6c-1111-2222-3333-444455556666" })).toBe("KTM-000123");
+    expect(collectionLabel({ awb: null, shipmentId: "0f8e2a6c-1111-2222-3333-444455556666" })).toBe("0f8e2a6c");
   });
 });

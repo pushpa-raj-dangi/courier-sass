@@ -9,7 +9,7 @@ import { useCodCollections } from "@/features/cod/hooks/useCodCollections";
 import { useCodPanelStore } from "@/features/cod/store/codPanelStore";
 import { usePeopleNames } from "@/features/shipments/hooks/usePeopleNames";
 import { VarianceBadge } from "@/features/cod/components/VarianceBadge";
-import { formatDate, formatRs, formatTime } from "@/features/cod/lib/codFormat";
+import { collectionLabel, formatDate, formatRs, formatTime } from "@/features/cod/lib/codFormat";
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
@@ -67,7 +67,6 @@ export function RiderSettlementDetailSheet() {
               </div>
               <div className="space-y-2">
                 <h3 className="text-sm font-medium">Parcels in this deposit</h3>
-                {/* The collection payload carries no AWB (only shipmentId), so rows stay date + amount. */}
                 {parcels.isLoading && <DetailSkeleton fieldRows={1} />}
                 {parcels.isError && (
                   <ErrorState title="Couldn't load parcels" description="Something went wrong." onRetry={() => parcels.refetch()} />
@@ -83,8 +82,11 @@ export function RiderSettlementDetailSheet() {
                 {parcels.data && parcels.data.items.length > 0 && (
                   <ul className="divide-y divide-border rounded-lg border border-border text-sm">
                     {parcels.data.items.map((c) => (
-                      <li key={c.id} className="flex items-center justify-between px-3 py-2">
-                        <span className="text-muted-foreground">{c.collectedAt ? `${formatDate(c.collectedAt)} ${formatTime(c.collectedAt)}` : "—"}</span>
+                      <li key={c.id} className="flex items-center justify-between gap-3 px-3 py-2">
+                        <span className="flex flex-col">
+                          <span className="font-mono font-medium">{collectionLabel(c)}</span>
+                          <span className="text-xs text-muted-foreground">{c.collectedAt ? `${formatDate(c.collectedAt)} ${formatTime(c.collectedAt)}` : "—"}</span>
+                        </span>
                         <span className="tabular-nums">{c.collectedAmount === null ? "—" : formatRs(c.collectedAmount)}</span>
                         <Button type="button" size="sm" variant="ghost" onClick={() => openCollection(c.id)}>View</Button>
                       </li>

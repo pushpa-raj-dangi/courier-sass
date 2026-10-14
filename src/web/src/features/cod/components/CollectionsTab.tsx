@@ -8,7 +8,7 @@ import { useCodCollections } from "@/features/cod/hooks/useCodCollections";
 import { useFilterPage } from "@/features/cod/hooks/useFilterPage";
 import { useCodPanelStore } from "@/features/cod/store/codPanelStore";
 import { useMerchants } from "@/features/shipments/hooks/useMerchants";
-import { formatDate, formatRs } from "@/features/cod/lib/codFormat";
+import { collectionLabel, formatDate, formatRs } from "@/features/cod/lib/codFormat";
 import type { CodCollection, CodCollectionStatus } from "@/features/cod/types";
 
 const STATUS_OPTIONS: CodCollectionStatus[] = [
@@ -40,11 +40,11 @@ export function CollectionsTab({ branchId, from, to }: { branchId?: string; from
 
   const columns: ColumnDef<CodCollection>[] = [
     {
-      key: "shipmentId",
-      header: "Shipment",
+      key: "awb",
+      header: "AWB",
       render: (c) => (
-        <button type="button" onClick={() => openDetail(c.id)} className="font-medium text-foreground hover:underline">
-          {c.shipmentId.slice(0, 8)}
+        <button type="button" onClick={() => openDetail(c.id)} className="font-mono font-medium text-foreground hover:underline">
+          {collectionLabel(c)}
         </button>
       ),
     },

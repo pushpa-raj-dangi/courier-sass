@@ -60,8 +60,10 @@ file class AlwaysTrueMerchantLookup : IMerchantLookupService
 
 file class AlwaysTrueShipmentAwbLookup : IShipmentAwbLookupService
 {
+    public static string AwbFor(Guid shipmentId) => $"AWB-{shipmentId:N}"[..12];
+
     public Task<IReadOnlyDictionary<Guid, string>> GetAwbsByShipmentIdsAsync(IReadOnlySet<Guid> shipmentIds, CancellationToken cancellationToken = default) =>
-        Task.FromResult<IReadOnlyDictionary<Guid, string>>(new Dictionary<Guid, string>());
+        Task.FromResult<IReadOnlyDictionary<Guid, string>>(shipmentIds.ToDictionary(id => id, AwbFor));
 }
 
 file class NoopOutboxWriter : IOutboxWriter
@@ -362,5 +364,20 @@ public class CodServiceReadsTests
 
         await Assert.ThrowsAsync<CodValidationException>(() =>
             service.ListMerchantSettlementsAsync(null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddDays(-1), StaffActingUser(Guid.NewGuid())));
+    }
+
+    [Fact]
+    public async Task CollectionReads_IncludeTheShipmentAwb()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var collection = await SeedCollectionAsync(dbContext, organizationId, Guid.NewGuid(), Guid.NewGuid(), CodCollectionStatus.CodExpected, null);
+        var service = CreateService(dbContext, organizationId, new AllBranchesAuthorizationChecker());
+
+        var listed = await service.ListCollectionsAsync(null, null, null, null, null, null, null, null, StaffActingUser(Guid.NewGuid()));
+        var single = await service.GetCollectionByIdAsync(collection.Id, StaffActingUser(Guid.NewGuid()));
+
+        Assert.Equal(AlwaysTrueShipmentAwbLookup.AwbFor(collection.ShipmentId), Assert.Single(listed.Items).Awb);
+        Assert.Equal(AlwaysTrueShipmentAwbLookup.AwbFor(collection.ShipmentId), single!.Awb);
     }
 }

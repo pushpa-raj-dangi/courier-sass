@@ -655,6 +655,7 @@ public class CodEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
             .Content.ReadFromJsonAsync<PagedResult<CodCollectionResponse>>();
         var parcel = Assert.Single(bySettlement!.Items);
         Assert.Equal(shipment.Id, parcel.ShipmentId);
+        Assert.Equal(shipment.Awb, parcel.Awb);
     }
 
     [Theory]
