@@ -649,4 +649,58 @@ public class CodEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
         var parcel = Assert.Single(bySettlement!.Items);
         Assert.Equal(shipment.Id, parcel.ShipmentId);
     }
+
+    private record FlowStage(string Key, decimal Amount, int Count);
+    private record FlowBody(List<FlowStage> Stages);
+    private record RiderCashItem(Guid RiderId, Guid BranchId, int ParcelCount, decimal Amount, DateTimeOffset OldestCollectedAt, DateTimeOffset LatestCollectedAt);
+    private record RiderCashBody(List<RiderCashItem> Items);
+
+    [Fact]
+    public async Task FlowAndRiderCash_TrackCashFromDoorstepToDeposit()
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "cod-r3a-flow");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (originBranchId, destinationBranchId, serviceTypeId) = await SeedBranchesAsync(client);
+        var merchantId = await CreateMerchantAsync(client);
+        var pickupRiderId = await CreateRiderAsync(client, originBranchId, RiderRoleType.PickupRider);
+        var deliveryRiderId = await CreateRiderAsync(client, destinationBranchId, RiderRoleType.DeliveryRider);
+        await BookAndCompleteCodDeliveryAsync(client, merchantId, originBranchId, destinationBranchId, serviceTypeId, pickupRiderId, deliveryRiderId, 2500m);
+
+        var flowResponse = await client.GetAsync("/api/v1/cod/flow");
+        Assert.Equal(HttpStatusCode.OK, flowResponse.StatusCode);
+        var flow = await flowResponse.Content.ReadFromJsonAsync<FlowBody>();
+        Assert.Equal(new[] { "expected", "collected", "riderDeposited", "branchReconciled", "financeVerified", "settled" }, flow!.Stages.Select(s => s.Key));
+        Assert.Equal(2500m, flow.Stages[1].Amount);
+        Assert.Equal(0m, flow.Stages[2].Amount);
+
+        var holding = await (await client.GetAsync("/api/v1/cod/rider-cash")).Content.ReadFromJsonAsync<RiderCashBody>();
+        var row = Assert.Single(holding!.Items);
+        Assert.Equal(deliveryRiderId, row.RiderId);
+        Assert.Equal(destinationBranchId, row.BranchId);
+        Assert.Equal(2500m, row.Amount);
+
+        (await client.PostAsJsonAsync("/api/v1/cod/rider-settlements", new CreateRiderSettlementRequest(deliveryRiderId, destinationBranchId, 2500m))).EnsureSuccessStatusCode();
+
+        var afterDeposit = await (await client.GetAsync("/api/v1/cod/rider-cash")).Content.ReadFromJsonAsync<RiderCashBody>();
+        Assert.Empty(afterDeposit!.Items);
+        var flowAfter = await (await client.GetAsync("/api/v1/cod/flow")).Content.ReadFromJsonAsync<FlowBody>();
+        Assert.Equal(2500m, flowAfter!.Stages[2].Amount);
+
+        var inverted = await client.GetAsync($"/api/v1/cod/flow?from={UtcParam(DateTimeOffset.UtcNow)}&to={UtcParam(DateTimeOffset.UtcNow.AddDays(-1))}");
+        Assert.Equal(HttpStatusCode.BadRequest, inverted.StatusCode);
+    }
+
+    [Fact]
+    public async Task FlowAndRiderCash_MerchantCaller_Returns403()
+    {
+        var staffClient = _factory.CreateClient();
+        var org = await RegisterOrgAsync(staffClient, "cod-r3a-merchant");
+        staffClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (_, ownerEmail, password) = await CreateMerchantWithLoginAsync(staffClient, "r3a");
+        var merchantClient = await LoginMerchantAsync(ownerEmail, password);
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await merchantClient.GetAsync("/api/v1/cod/flow")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await merchantClient.GetAsync("/api/v1/cod/rider-cash")).StatusCode);
+    }
 }

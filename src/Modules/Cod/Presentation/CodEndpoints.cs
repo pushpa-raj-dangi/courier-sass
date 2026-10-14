@@ -37,6 +37,25 @@ public static class CodEndpoints
             Results.Ok(await service.GetReconciliationSummaryAsync(branchId, merchantId, from, to, httpContext.User, httpContext.RequestAborted)))
             .RequirePermission("cod.read");
 
+        // F15 R3a staff-only reads — merchant callers are rejected outright (403), never scoped.
+        group.MapGet("/flow", async (Guid? branchId, DateTimeOffset? from, DateTimeOffset? to, CodService service, HttpContext httpContext) =>
+        {
+            if (httpContext.User.GetMerchantId() is not null)
+            {
+                return Results.Forbid();
+            }
+            return await HandleAsync(() => service.GetFlowAsync(branchId, from, to, httpContext.User, httpContext.RequestAborted));
+        }).RequirePermission("cod.read");
+
+        group.MapGet("/rider-cash", async (Guid? branchId, CodService service, HttpContext httpContext) =>
+        {
+            if (httpContext.User.GetMerchantId() is not null)
+            {
+                return Results.Forbid();
+            }
+            return await HandleAsync(() => service.GetRiderCashAsync(branchId, httpContext.User, httpContext.RequestAborted));
+        }).RequirePermission("cod.read");
+
         group.MapGet("/rider-settlements", async (Guid? branchId, Guid? riderId, bool? unreconciledOnly, DateTimeOffset? from, DateTimeOffset? to, int? page, int? pageSize, CodService service, HttpContext httpContext) =>
             await HandleAsync(() => service.ListRiderSettlementsAsync(branchId, riderId, unreconciledOnly, from, to, page, pageSize, httpContext.User, httpContext.RequestAborted)))
             .RequirePermission("cod.read");

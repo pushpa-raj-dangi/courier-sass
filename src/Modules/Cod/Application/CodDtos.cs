@@ -48,3 +48,12 @@ public record AdjustmentResponse(
 public record CodReconciliationSummaryResponse(
     decimal ExpectedCod, decimal CollectedCod, decimal RiderDepositedCod, decimal BranchReceivedCod,
     decimal MerchantPayableCod, decimal TotalCourierFees);
+
+public record CodFlowStageResponse(string Key, decimal Amount, int Count);
+
+public record CodFlowResponse(List<CodFlowStageResponse> Stages);
+
+public record RiderCashHoldingResponse(
+    Guid RiderId, Guid BranchId, int ParcelCount, decimal Amount, DateTimeOffset OldestCollectedAt, DateTimeOffset LatestCollectedAt);
+
+public record RiderCashResponse(List<RiderCashHoldingResponse> Items);
