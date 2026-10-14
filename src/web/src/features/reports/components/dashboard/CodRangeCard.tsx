@@ -56,7 +56,7 @@ export function CodRangeCard({ financial, rangeLabel, range }: { financial: CodF
       {canCod && (
         <dl aria-label="Cash in hand" className="mt-3 grid grid-cols-2 gap-3 rounded-lg border border-border p-3">
           {[
-            { label: "Rider-held", value: riderHeld, loading: cash.isLoading, error: cash.isError },
+            { label: "Rider-held (now)", value: riderHeld, loading: cash.isLoading, error: cash.isError },
             { label: "Deposited, not yet verified", value: unverified, loading: flow.isLoading, error: flow.isError },
           ].map((cell) => (
             <div key={cell.label} className="flex flex-col gap-1">

@@ -71,7 +71,7 @@ describe("DashboardPage", () => {
   it("shows rider-held and deposited-unverified COD from the new reads", () => {
     renderWithIntl(<DashboardPage />);
     const cash = screen.getByLabelText("Cash in hand");
-    expect(within(cash).getByText("Rider-held")).toBeInTheDocument();
+    expect(within(cash).getByText("Rider-held (now)")).toBeInTheDocument();
     expect(within(cash).getByText("Deposited, not yet verified")).toBeInTheDocument();
     expect(within(cash).getAllByText(/^NPR.2,000$/)).toHaveLength(2);
     expect(screen.queryByText("Rider-held vs deposited")).toBeNull();
