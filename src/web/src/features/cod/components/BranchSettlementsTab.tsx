@@ -10,6 +10,7 @@ import { useBranchSettlements } from "@/features/cod/hooks/useBranchSettlements"
 import { useCodPanelStore } from "@/features/cod/store/codPanelStore";
 import { useBranches } from "@/features/branches/hooks/useBranches";
 import { usePermission } from "@/features/auth/hooks/usePermission";
+import { formatDate, formatRs } from "@/features/cod/lib/codFormat";
 import type { BranchCashSettlement } from "@/features/cod/types";
 
 export function BranchSettlementsTab() {
@@ -41,9 +42,9 @@ export function BranchSettlementsTab() {
         </button>
       ),
     },
-    { key: "confirmedAmount", header: "Confirmed Amount", render: (b) => `Rs. ${b.confirmedAmount.toFixed(2)}` },
-    { key: "riderCount", header: "Rider Settlements", render: (b) => String(b.riderCashSettlementIds.length) },
-    { key: "reconciledAt", header: "Reconciled At", render: (b) => new Date(b.reconciledAt).toLocaleDateString() },
+    { key: "confirmedAmount", header: "Confirmed", render: (b) => formatRs(b.confirmedAmount) },
+    { key: "riderCount", header: "Rider deposits", render: (b) => String(b.riderCashSettlementIds.length) },
+    { key: "reconciledAt", header: "Reconciled on", render: (b) => formatDate(b.reconciledAt) },
   ];
 
   return (

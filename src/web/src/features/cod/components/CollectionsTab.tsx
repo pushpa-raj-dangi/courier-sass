@@ -8,6 +8,7 @@ import { useCodCollections } from "@/features/cod/hooks/useCodCollections";
 import { useCodPanelStore } from "@/features/cod/store/codPanelStore";
 import { useBranches } from "@/features/branches/hooks/useBranches";
 import { useMerchants } from "@/features/shipments/hooks/useMerchants";
+import { formatDate, formatRs } from "@/features/cod/lib/codFormat";
 import type { CodCollection, CodCollectionStatus } from "@/features/cod/types";
 
 const STATUS_OPTIONS: CodCollectionStatus[] = [
@@ -15,7 +16,7 @@ const STATUS_OPTIONS: CodCollectionStatus[] = [
 ];
 
 function formatAmount(value: number | null): string {
-  return value === null ? "—" : `Rs. ${value.toFixed(2)}`;
+  return value === null ? "—" : formatRs(value);
 }
 
 export function CollectionsTab() {
@@ -46,10 +47,10 @@ export function CollectionsTab() {
         </button>
       ),
     },
-    { key: "expectedAmount", header: "Expected Amount", render: (c) => formatAmount(c.expectedAmount) },
-    { key: "collectedAmount", header: "Collected Amount", render: (c) => formatAmount(c.collectedAmount) },
+    { key: "expectedAmount", header: "Expected", render: (c) => formatAmount(c.expectedAmount) },
+    { key: "collectedAmount", header: "Collected", render: (c) => formatAmount(c.collectedAmount) },
     { key: "status", header: "Status", render: (c) => <StatusBadge status={c.status} namespace="Cod" /> },
-    { key: "collectedAt", header: "Collected At", render: (c) => (c.collectedAt ? new Date(c.collectedAt).toLocaleDateString() : "—") },
+    { key: "collectedAt", header: "Collected on", render: (c) => (c.collectedAt ? formatDate(c.collectedAt) : "—") },
   ];
 
   return (
