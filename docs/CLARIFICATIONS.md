@@ -1192,6 +1192,15 @@ Out-of-scope returns 404, not 403, so AWB existence is not disclosed. Internal s
 (`GetScanInfoByAwbAsync`) are unchanged; scan and transition endpoints keep their own
 branch-access checks.
 
+## 26. COD flow stages are cumulative and keyed on creation date (2026-10-07)
+
+`GET /cod/flow` counts a collection in every stage it has *reached* (e.g. a Settled parcel counts
+in collected, rider deposited, branch reconciled, finance verified and settled), and its date range
+filters on the collection's `CreatedAt` ("parcels booked in this period, and how far their money
+got"). `GET /cod/reconciliation`'s `expectedCod` is different on purpose: it sums only collections
+still at `CodExpected` (outstanding), filtered by `CollectedAt`. The two endpoints answer different
+questions and both remain.
+
 ## Summary of schema additions implied by this document
 
 * `UserRole` (new entity) — resolves #1, carries `BranchScope` enum — resolves #6.
