@@ -1091,6 +1091,14 @@ NDRs); plan/branch usage in the session payload (sidebar plan card).
 6. Link COD collections to delivery runs (run id on deposits).
 7. Separate COD handling-fee line on merchant settlement items.
 
+**Post-R3a fix pass (2026-10-14, branch `fix/console-followups`):** closed the open R1–R3a
+items — dashboard COD card uses the `Rs` formatter; every `/cod` tab follows the header branch +
+range (new `from`/`to` on collections, branch/merchant settlements, adjustments; merchant-level tabs
+say they ignore branch); COD collections carry `awb` (Collections tab, deposit parcels, collection
+Sheet); `tsc --noEmit` is clean (0 errors — "no new errors" is no longer the bar); every console
+font size is on the scale (new `text-2xs` 11px step, DESIGN.md On-Scale Rule);
+`.impeccable/design.json` regenerated from DESIGN.md.
+
 ## Later
 
 All frontend phases planned through F14 are complete. Any further frontend

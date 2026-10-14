@@ -251,6 +251,17 @@ deposited (`CodCollected`), one row per rider + branch:
   `COD_VALIDATION_FAILED`). Each row gains `expectedAmount` (Σ collected amount of the settlement's
   linked collections) and `variance` (`declaredAmount − expectedAmount`; negative = short).
 - `GET /api/v1/cod/collections` takes a `riderCashSettlementId` filter.
+- Date range on the other `/cod` list tabs (post-R3a follow-up): `from` / `to` (inclusive, UTC
+  normalised, `from > to` → 400 `COD_VALIDATION_FAILED`) on
+  - `GET /api/v1/cod/collections` — on `CreatedAt` (the same field `/cod/flow` uses);
+  - `GET /api/v1/cod/branch-settlements` — on `ReconciledAt`;
+  - `GET /api/v1/cod/merchant-settlements` — settlements whose period overlaps the range
+    (`PeriodTo >= from` and `PeriodFrom <= to`);
+  - `GET /api/v1/cod/adjustments` — on `RequestedAt`.
+  Merchant settlements and adjustments have no branch, so they take no `branchId`. The merchant
+  route `GET /api/v1/cod/settlements` is unchanged.
+- Every COD collection response (`GET /api/v1/cod/collections`, `/collections/{id}`) gains `awb`
+  (string, `null` only if the shipment lookup misses), loaded with one batched lookup per page.
 
 ## 7. International Shipments API (I3, extended I4)
 
