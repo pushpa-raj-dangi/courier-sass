@@ -1,14 +1,22 @@
 "use client";
 
-import { useState } from "react";
-import { Wallet, CheckCircle2, Clock, Landmark, Building2 } from "lucide-react";
+import { Suspense } from "react";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { SummaryStatsBar, type StatTile } from "@/components/summary-stats/SummaryStatsBar";
-import { useCodSummary } from "@/features/cod/hooks/useCodSummary";
-import type { CodFinancialSummary } from "@/features/reports/types";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { PageHeader } from "@/components/page/PageHeader";
+import { ComingSoonSlot } from "@/components/page/ComingSoonSlot";
+import { useSession } from "@/features/auth/hooks/useSession";
+import { useBranches } from "@/features/branches/hooks/useBranches";
+import { useCodFlow } from "@/features/cod/hooks/useCodFlow";
+import { useCodUrlState } from "@/features/cod/hooks/useCodUrlState";
+import { COD_TABS, RANGE_LABELS, RANGE_PRESETS, parseCodTab, parseRangePreset } from "@/features/cod/lib/codTabs";
+import { presetDays, toUtcRange } from "@/lib/dates/rangePresets";
+import { CodFlowStrip } from "@/features/cod/components/CodFlowStrip";
 import { CollectionsTab } from "@/features/cod/components/CollectionsTab";
 import { CollectionDetailSheet } from "@/features/cod/components/CollectionDetailSheet";
-import { RiderSettlementsTab } from "@/features/cod/components/RiderSettlementsTab";
+import { RiderDepositsTab } from "@/features/cod/components/RiderDepositsTab";
 import { RiderSettlementCreateSheet } from "@/features/cod/components/RiderSettlementCreateSheet";
 import { RiderSettlementDetailSheet } from "@/features/cod/components/RiderSettlementDetailSheet";
 import { BranchSettlementsTab } from "@/features/cod/components/BranchSettlementsTab";
@@ -19,73 +27,111 @@ import { MerchantSettlementCreateSheet } from "@/features/cod/components/Merchan
 import { MerchantSettlementDetailSheet } from "@/features/cod/components/MerchantSettlementDetailSheet";
 import { AdjustmentsTab } from "@/features/cod/components/AdjustmentsTab";
 import { AdjustmentDetailSheet } from "@/features/cod/components/AdjustmentDetailSheet";
-import { ReconciliationTab } from "@/features/cod/components/ReconciliationTab";
 
-const currencyFormatter = new Intl.NumberFormat("en-NP", {
-  style: "currency",
-  currency: "NPR",
-  notation: "compact",
-  maximumFractionDigits: 1,
-});
+const ALL_BRANCHES = "all";
 
-function buildTiles(summary: CodFinancialSummary): StatTile[] {
-  return [
-    { label: "Expected", value: currencyFormatter.format(summary.expected), icon: Wallet, badgeClass: "bg-muted text-muted-foreground" },
-    { label: "Collected", value: currencyFormatter.format(summary.collected), icon: CheckCircle2, badgeClass: "bg-status-delivered/15 text-status-delivered" },
-    { label: "Pending", value: currencyFormatter.format(summary.pending), icon: Clock, badgeClass: "bg-accent text-primary", highlight: true },
-    { label: "Settled", value: currencyFormatter.format(summary.settled), icon: Landmark, badgeClass: "bg-status-received/15 text-status-received" },
-    { label: "Merchant Payable", value: currencyFormatter.format(summary.merchantPayable), icon: Building2, badgeClass: "bg-status-sealed/15 text-status-sealed" },
-  ];
+function NeedsBackendButton({ label }: { label: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span tabIndex={0}>
+          <Button type="button" variant="outline" disabled>
+            {label}
+          </Button>
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>Needs backend</TooltipContent>
+    </Tooltip>
+  );
 }
 
-// This file grows additively — new tabs, their own `TabsContent`, and their own Sheet(s) appended
-// at the bottom, never restructured.
-const TABS = [
-  { key: "collections", label: "Collections" },
-  { key: "rider-settlements", label: "Rider Settlements" },
-  { key: "branch-settlements", label: "Branch Settlements" },
-  { key: "merchant-settlements", label: "Merchant Settlements" },
-  { key: "adjustments", label: "Adjustments" },
-  { key: "reconciliation", label: "Reconciliation" },
-] as const;
+function CodPageContent() {
+  const { tab, range, branchId, setTab, setRange, setBranch } = useCodUrlState();
+  const days = presetDays(range);
+  const { from, to } = toUtcRange(days.from, days.to);
+  const flow = useCodFlow({ branchId, from, to });
 
-type TabKey = (typeof TABS)[number]["key"];
-
-export default function CodPage() {
-  const [activeTab, setActiveTab] = useState<TabKey>("collections");
-  const summary = useCodSummary();
+  const { data: session } = useSession();
+  const { data: branches } = useBranches();
+  const scopedBranches = (branches ?? []).filter(
+    (b) => session?.hasAllBranchesScope || session?.branches.some((s) => s.branchId === b.id),
+  );
+  const showBranchPicker = Boolean(session?.hasAllBranchesScope) || scopedBranches.length > 1;
+  const branchLabel = branchId ? scopedBranches.find((b) => b.id === branchId)?.name ?? "Selected branch" : "All my branches";
 
   return (
-    <div className="space-y-4">
-      <h1 className="font-display text-xl font-semibold">COD</h1>
-      <SummaryStatsBar
-        tiles={summary.data ? buildTiles(summary.data) : []}
-        isLoading={summary.isLoading}
-        isError={summary.isError}
-        skeletonCount={5}
-      />
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)}>
-        <TabsList>
-          {TABS.map((tab) => (
-            <TabsTrigger key={tab.key} value={tab.key}>{tab.label}</TabsTrigger>
-          ))}
-        </TabsList>
-        <TabsContent value="collections"><CollectionsTab /></TabsContent>
-        <TabsContent value="rider-settlements"><RiderSettlementsTab /></TabsContent>
-        <TabsContent value="branch-settlements"><BranchSettlementsTab /></TabsContent>
-        <TabsContent value="merchant-settlements"><MerchantSettlementsTab /></TabsContent>
-        <TabsContent value="adjustments"><AdjustmentsTab /></TabsContent>
-        <TabsContent value="reconciliation"><ReconciliationTab /></TabsContent>
-      </Tabs>
+    <TooltipProvider>
+      <div className="space-y-5">
+        <PageHeader
+          eyebrow="Finance"
+          title="COD reconciliation"
+          description={`${branchLabel} · ${RANGE_LABELS[range]}`}
+          actions={
+            <div className="flex flex-wrap items-center gap-2">
+              {showBranchPicker && (
+                <Select value={branchId ?? ALL_BRANCHES} onValueChange={(v) => setBranch(v === ALL_BRANCHES ? undefined : v)}>
+                  <SelectTrigger className="w-48" aria-label="Branch">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ALL_BRANCHES}>All my branches</SelectItem>
+                    {scopedBranches.map((b) => (
+                      <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <Select value={range} onValueChange={(v) => setRange(parseRangePreset(v))}>
+                <SelectTrigger className="w-36" aria-label="Date range">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {RANGE_PRESETS.map((p) => (
+                    <SelectItem key={p} value={p}>{RANGE_LABELS[p]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <NeedsBackendButton label="Download ledger" />
+              <NeedsBackendButton label="Close branch day" />
+            </div>
+          }
+        />
 
-      <CollectionDetailSheet />
-      <RiderSettlementCreateSheet />
-      <RiderSettlementDetailSheet />
-      <BranchSettlementCreateSheet />
-      <BranchSettlementDetailSheet />
-      <MerchantSettlementCreateSheet />
-      <MerchantSettlementDetailSheet />
-      <AdjustmentDetailSheet />
-    </div>
+        <CodFlowStrip flow={flow.data} isLoading={flow.isLoading} isError={flow.isError} onRetry={() => flow.refetch()} onSelectTab={setTab} />
+
+        <Tabs value={tab} onValueChange={(v) => setTab(parseCodTab(v))}>
+          <TabsList>
+            {COD_TABS.map((t) => (
+              <TabsTrigger key={t.key} value={t.key}>{t.label}</TabsTrigger>
+            ))}
+          </TabsList>
+          <TabsContent value="collections"><CollectionsTab /></TabsContent>
+          <TabsContent value="rider-deposits"><RiderDepositsTab branchId={branchId} from={from} to={to} /></TabsContent>
+          <TabsContent value="branch-settlements"><BranchSettlementsTab /></TabsContent>
+          <TabsContent value="merchant-settlements"><MerchantSettlementsTab /></TabsContent>
+          <TabsContent value="adjustments"><AdjustmentsTab /></TabsContent>
+          <TabsContent value="ledger">
+            <ComingSoonSlot title="Ledger" description="Every COD money movement with before/after values and export." minHeight={220} />
+          </TabsContent>
+        </Tabs>
+
+        <CollectionDetailSheet />
+        <RiderSettlementCreateSheet />
+        <RiderSettlementDetailSheet />
+        <BranchSettlementCreateSheet />
+        <BranchSettlementDetailSheet />
+        <MerchantSettlementCreateSheet />
+        <MerchantSettlementDetailSheet />
+        <AdjustmentDetailSheet />
+      </div>
+    </TooltipProvider>
+  );
+}
+
+export default function CodPage() {
+  return (
+    <Suspense>
+      <CodPageContent />
+    </Suspense>
   );
 }
