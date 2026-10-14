@@ -49,6 +49,12 @@ typography:
     fontWeight: 400
     lineHeight: 1.4
     letterSpacing: "normal"
+  micro:
+    fontFamily: "IBM Plex Sans, Arial, Helvetica, sans-serif"
+    fontSize: "0.6875rem"
+    fontWeight: 500
+    lineHeight: 1.45
+    letterSpacing: "normal"
   data-mono:
     fontFamily: "IBM Plex Mono, monospace"
     fontSize: "0.875rem"
@@ -322,7 +328,7 @@ Derived from the most recent `ShipmentEvent` whose branch/user/rider holder diff
 
 ### Don't:
 - **Don't** add a shadow to an at-rest surface (card, tile, table row) that doesn't already have one — depth is reserved for overlays (Sheet, dialog, dropdown) and the two auth-gate surfaces only.
-- **Don't** introduce a second monospace or display typeface; IBM Plex Mono is already reserved (unused) for future AWB/tracking-code data, and Space Grotesk is the only display face.
+- **Don't** introduce a second monospace or display typeface; IBM Plex Mono is the one face for AWB/tracking-code/manifest-code data (see Typography), and Space Grotesk is the only display face.
 - **Don't** give Cards the base 6px `--radius` scale; their 12px `rounded-xl` is an intentional, confirmed exception, not a value to "fix" into consistency with buttons/inputs.
 - **Don't** invent a brand name, logo, or marketing personality for this product — it is confirmed unnamed/white-label (`PRODUCT.md`); keep the system generic until that changes.
 - **Don't** make section headings collapsible or add sub-items — headings are labels, not groups.
