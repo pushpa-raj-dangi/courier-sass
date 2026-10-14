@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from "vitest";
-import { NextRequest } from "next/server";
 
 vi.mock("@/lib/auth/apiFetch", () => ({ apiFetch: vi.fn() }));
 
@@ -14,7 +13,7 @@ describe("GET /api/shipments/summary", () => {
       json: async () => ({ Created: 2, Delivered: 5 }),
     } as Response);
 
-    const response = await GET(new NextRequest("http://localhost/api/shipments/summary"));
+    const response = await GET();
 
     expect(apiFetch).toHaveBeenCalledWith("/api/v1/shipments/summary");
     expect(response.status).toBe(200);
@@ -23,7 +22,7 @@ describe("GET /api/shipments/summary", () => {
   it("returns 401 when apiFetch throws NOT_AUTHENTICATED", async () => {
     vi.mocked(apiFetch).mockRejectedValue(new Error("NOT_AUTHENTICATED"));
 
-    const response = await GET(new NextRequest("http://localhost/api/shipments/summary"));
+    const response = await GET();
 
     expect(response.status).toBe(401);
   });
