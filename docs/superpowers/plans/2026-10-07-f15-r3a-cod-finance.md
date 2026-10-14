@@ -2943,7 +2943,9 @@ Staff only (`cod.read`); merchant callers → 403. Query: `branchId` (narrows wi
 `COD_VALIDATION_FAILED`). Returns six cumulative ("reached") stages, in order:
 `expected, collected, riderDeposited, branchReconciled, financeVerified, settled`, each
 `{ key, amount, count }`. `expected` sums `ExpectedAmount` over all rows; later stages sum
-`CollectedAmount` over rows that reached that status or later. Totals never increase left to right.
+`CollectedAmount` over rows that reached that status or later. Parcel counts never increase left
+to right; amounts never increase from `collected` onward (`expected` can be below `collected`
+when riders collect more than expected).
 
 ### GET /api/v1/cod/rider-cash
 
