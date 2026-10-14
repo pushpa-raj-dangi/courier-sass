@@ -38,8 +38,8 @@ describe("AdjustmentDetailSheet", () => {
     render(<AdjustmentDetailSheet />);
 
     expect(screen.getByText("Damaged parcel deduction")).toBeInTheDocument();
-    expect(screen.getByText("Rs. 0.00")).toBeInTheDocument();
-    expect(screen.getByText("Rs. 100.00")).toBeInTheDocument();
+    expect(screen.getByText("Rs 0")).toBeInTheDocument();
+    expect(screen.getByText("Rs 100")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /approve/i }));
 

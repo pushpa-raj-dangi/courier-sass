@@ -1,12 +1,14 @@
 import type { RiderCashHolding } from "@/features/cod/types";
 
-const grouping = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 });
+const wholeRupees = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 });
+const withPaise = new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const dateFormat = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" });
 const timeFormat = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit" });
 
-/** "Rs 12,48,500" — Nepali/Indian lakh grouping, up to 2 decimals. */
+/** "Rs 12,48,500" — Nepali/Indian lakh grouping; "Rs 2,350.50" only when there are non-zero paise. */
 export function formatRs(amount: number): string {
-  return `Rs ${grouping.format(amount)}`;
+  const paise = Math.round(amount * 100) + 0; // + 0 turns -0 into 0
+  return `Rs ${paise % 100 === 0 ? wholeRupees.format(paise / 100) : withPaise.format(paise / 100)}`;
 }
 
 export function formatDate(iso: string): string {

@@ -33,7 +33,7 @@ describe("BranchSettlementCreateSheet", () => {
 
     fireEvent.click(screen.getByLabelText("Branch"));
     fireEvent.click(await screen.findByRole("option", { name: "Kathmandu Hub" }));
-    fireEvent.click(await screen.findByLabelText(/LIC-001/));
+    fireEvent.click(await screen.findByLabelText("LIC-001 — Rs 2,500"));
     fireEvent.change(screen.getByLabelText("Confirmed Amount"), { target: { value: "2500" } });
     fireEvent.click(screen.getByRole("button", { name: /create settlement/i }));
 

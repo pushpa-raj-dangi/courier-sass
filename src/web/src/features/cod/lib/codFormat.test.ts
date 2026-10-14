@@ -1,13 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { describeVariance, formatHeldFor, formatRs, hoursHeld, sortHoldings } from "./codFormat";
 
-const grouping = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 });
-
 describe("formatRs", () => {
-  it("uses Nepali/Indian digit grouping with an Rs prefix", () => {
-    expect(formatRs(1248500)).toBe(`Rs ${grouping.format(1248500)}`);
+  it("uses Nepali/Indian digit grouping with an Rs prefix and no decimals for whole rupees", () => {
     expect(formatRs(1248500)).toBe("Rs 12,48,500");
-    expect(formatRs(2350.5)).toBe("Rs 2,350.5");
+    expect(formatRs(0)).toBe("Rs 0");
+    expect(formatRs(2350)).toBe("Rs 2,350");
+  });
+
+  it("shows two decimals whenever there are non-zero paise", () => {
+    expect(formatRs(2350.5)).toBe("Rs 2,350.50");
+    expect(formatRs(1248500.05)).toBe("Rs 12,48,500.05");
+    expect(formatRs(-12.3)).toBe("Rs -12.30");
+  });
+
+  it("treats sub-paisa float noise as whole rupees", () => {
+    expect(formatRs(0.1 + 0.2 - 0.3 + 100)).toBe("Rs 100");
+    expect(formatRs(-0.001)).toBe("Rs 0");
   });
 });
 

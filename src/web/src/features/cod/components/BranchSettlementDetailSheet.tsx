@@ -17,6 +17,7 @@ import { useBranches } from "@/features/branches/hooks/useBranches";
 import { useRiders } from "@/features/riders/hooks/useRiders";
 import { usePermission } from "@/features/auth/hooks/usePermission";
 import { codErrorMessage } from "@/features/cod/lib/codErrorMessage";
+import { formatRs } from "@/features/cod/lib/codFormat";
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
@@ -78,7 +79,7 @@ export function BranchSettlementDetailSheet() {
             <>
               <div className="grid grid-cols-2 gap-4">
                 <Field label="Branch" value={branch?.name ?? settlement.branchId} />
-                <Field label="Confirmed Amount" value={`Rs. ${settlement.confirmedAmount.toFixed(2)}`} />
+                <Field label="Confirmed Amount" value={formatRs(settlement.confirmedAmount)} />
                 <Field label="Reconciled At" value={new Date(settlement.reconciledAt).toLocaleString()} />
                 <Field label="Verified" value={isVerified ? "Yes" : "Not yet"} />
               </div>
@@ -89,7 +90,7 @@ export function BranchSettlementDetailSheet() {
                     const riderSettlement = riderSettlementsById.get(rsId);
                     return (
                       <li key={rsId} className="text-foreground">
-                        {riderSettlement ? `${ridersById.get(riderSettlement.riderId) ?? riderSettlement.riderId} — Rs. ${riderSettlement.declaredAmount.toFixed(2)}` : rsId}
+                        {riderSettlement ? `${ridersById.get(riderSettlement.riderId) ?? riderSettlement.riderId} — ${formatRs(riderSettlement.declaredAmount)}` : rsId}
                       </li>
                     );
                   })}

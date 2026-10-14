@@ -15,6 +15,7 @@ import { useRiderSettlements } from "@/features/cod/hooks/useRiderSettlements";
 import { useCreateBranchSettlement } from "@/features/cod/hooks/useCreateBranchSettlement";
 import { useCodPanelStore } from "@/features/cod/store/codPanelStore";
 import { codErrorMessage } from "@/features/cod/lib/codErrorMessage";
+import { formatRs } from "@/features/cod/lib/codFormat";
 
 export function BranchSettlementCreateSheet() {
   const panel = useCodPanelStore((s) => s.panel);
@@ -115,7 +116,7 @@ export function BranchSettlementCreateSheet() {
                       onCheckedChange={() => toggle(r.id)}
                     />
                     <Label htmlFor={`rider-settlement-${r.id}`}>
-                      {ridersById.get(r.riderId) ?? r.riderId} — Rs. {r.declaredAmount.toFixed(2)}
+                      {ridersById.get(r.riderId) ?? r.riderId} — {formatRs(r.declaredAmount)}
                     </Label>
                   </div>
                 ))}
