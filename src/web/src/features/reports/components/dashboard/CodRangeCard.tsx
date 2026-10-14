@@ -3,15 +3,24 @@
 import Link from "next/link";
 import { ReceiptText } from "lucide-react";
 import { SectionCard } from "@/components/page/SectionCard";
-import { ComingSoonSlot } from "@/components/page/ComingSoonSlot";
+import { Skeleton } from "@/components/ui/skeleton";
 import { usePermission } from "@/features/auth/hooks/usePermission";
 import { codSegments } from "@/features/reports/lib/dashboardModel";
+import { useCodFlow } from "@/features/cod/hooks/useCodFlow";
+import { useRiderCash } from "@/features/cod/hooks/useRiderCash";
+import { stageAmount } from "@/features/cod/lib/flowModel";
 import type { CodFinancialSummary } from "@/features/reports/types";
 
 const npr = new Intl.NumberFormat("en-NP", { style: "currency", currency: "NPR", maximumFractionDigits: 0 });
 
-export function CodRangeCard({ financial, rangeLabel }: { financial: CodFinancialSummary; rangeLabel: string }) {
+export function CodRangeCard({ financial, rangeLabel, range }: { financial: CodFinancialSummary; rangeLabel: string; range: { from?: string; to?: string } }) {
   const canCod = usePermission("cod.read");
+  const flow = useCodFlow(range, { enabled: canCod });
+  const cash = useRiderCash({}, { enabled: canCod });
+  const riderHeld = cash.data ? cash.data.items.reduce((t, h) => t + h.amount, 0) : undefined;
+  const deposited = stageAmount(flow.data, "riderDeposited");
+  const verified = stageAmount(flow.data, "financeVerified");
+  const unverified = deposited !== undefined && verified !== undefined ? deposited - verified : undefined;
   const segments = codSegments(financial);
   const total = segments.reduce((t, s) => t + s.value, 0);
   return (
@@ -44,7 +53,21 @@ export function CodRangeCard({ financial, rangeLabel }: { financial: CodFinancia
           </Link>
         )}
       </div>
-      <ComingSoonSlot className="mt-3 p-4" title="Rider-held vs deposited" description="How much collected cash riders still hold versus deposited but unverified." />
+      {canCod && (
+        <dl aria-label="Cash in hand" className="mt-3 grid grid-cols-2 gap-3 rounded-lg border border-border p-3">
+          {[
+            { label: "Rider-held (now)", value: riderHeld, loading: cash.isLoading, error: cash.isError },
+            { label: "Deposited, not yet verified", value: unverified, loading: flow.isLoading, error: flow.isError },
+          ].map((cell) => (
+            <div key={cell.label} className="flex flex-col gap-1">
+              <dt className="text-xs text-muted-foreground">{cell.label}</dt>
+              <dd className="text-base font-semibold tabular-nums">
+                {cell.loading ? <Skeleton className="h-5 w-20" /> : cell.error || cell.value === undefined ? "—" : npr.format(cell.value)}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
     </SectionCard>
   );
 }

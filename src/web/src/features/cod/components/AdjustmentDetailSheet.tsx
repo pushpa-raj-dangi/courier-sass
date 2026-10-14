@@ -12,6 +12,7 @@ import { useApproveAdjustment } from "@/features/cod/hooks/useApproveAdjustment"
 import { useCodPanelStore } from "@/features/cod/store/codPanelStore";
 import { usePermission } from "@/features/auth/hooks/usePermission";
 import { codErrorMessage } from "@/features/cod/lib/codErrorMessage";
+import { formatRs } from "@/features/cod/lib/codFormat";
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
@@ -63,8 +64,8 @@ export function AdjustmentDetailSheet() {
             <>
               <div className="grid grid-cols-2 gap-4">
                 <Field label="Entity Type" value={adjustment.entityType} />
-                <Field label="Before Value" value={`Rs. ${adjustment.beforeValue.toFixed(2)}`} />
-                <Field label="After Value" value={`Rs. ${adjustment.afterValue.toFixed(2)}`} />
+                <Field label="Before Value" value={formatRs(adjustment.beforeValue)} />
+                <Field label="After Value" value={formatRs(adjustment.afterValue)} />
                 <Field label="Requested By" value={adjustment.requestedByUserId} />
                 <Field label="Requested At" value={new Date(adjustment.requestedAt).toLocaleString()} />
               </div>

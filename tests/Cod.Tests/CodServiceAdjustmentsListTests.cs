@@ -67,6 +67,8 @@ public class CodServiceAdjustmentsListTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.ApplyConfiguration(new AdjustmentConfiguration());
+            modelBuilder.ApplyConfiguration(new MerchantSettlementConfiguration());
+            modelBuilder.ApplyConfiguration(new MerchantSettlementItemConfiguration());
         }
     }
 
@@ -84,11 +86,11 @@ public class CodServiceAdjustmentsListTests
         dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), new AlwaysTrueBranchLookup(),
         new AllBranchesAuthorizationChecker(), new AlwaysTrueMerchantLookup(), new AlwaysTrueShipmentAwbLookup(), new NoopOutboxWriter());
 
-    private static async Task<Adjustment> SeedAsync(TestDbContext dbContext, Guid organizationId, bool applied)
+    private static async Task<Adjustment> SeedAsync(TestDbContext dbContext, Guid organizationId, bool applied, Guid? entityId = null, string entityType = "MerchantSettlementItem")
     {
         var adjustment = new Adjustment
         {
-            Id = Guid.NewGuid(), OrganizationId = organizationId, EntityType = "MerchantSettlementItem", EntityId = Guid.NewGuid(),
+            Id = Guid.NewGuid(), OrganizationId = organizationId, EntityType = entityType, EntityId = entityId ?? Guid.NewGuid(),
             BeforeValue = 0m, AfterValue = 100m, Reason = "Damaged parcel deduction",
             RequestedByUserId = Guid.NewGuid(), RequestedAt = DateTimeOffset.UtcNow,
             ApprovedByUserId = applied ? Guid.NewGuid() : null, ApprovedAt = applied ? DateTimeOffset.UtcNow : null, Applied = applied
@@ -108,7 +110,7 @@ public class CodServiceAdjustmentsListTests
         await SeedAsync(dbContext, foreignOrganizationId, applied: false);
         var service = CreateService(dbContext, organizationId);
 
-        var result = await service.ListAdjustmentsAsync(null, null, null, ActingUser(Guid.NewGuid()));
+        var result = await service.ListAdjustmentsAsync(null, null, null, null, ActingUser(Guid.NewGuid()));
 
         var single = Assert.Single(result.Items);
         Assert.Equal(own.Id, single.Id);
@@ -123,7 +125,7 @@ public class CodServiceAdjustmentsListTests
         await SeedAsync(dbContext, organizationId, applied: true);
         var service = CreateService(dbContext, organizationId);
 
-        var result = await service.ListAdjustmentsAsync(false, null, null, ActingUser(Guid.NewGuid()));
+        var result = await service.ListAdjustmentsAsync(false, null, null, null, ActingUser(Guid.NewGuid()));
 
         var single = Assert.Single(result.Items);
         Assert.Equal(pending.Id, single.Id);
@@ -138,7 +140,7 @@ public class CodServiceAdjustmentsListTests
         var applied = await SeedAsync(dbContext, organizationId, applied: true);
         var service = CreateService(dbContext, organizationId);
 
-        var result = await service.ListAdjustmentsAsync(true, null, null, ActingUser(Guid.NewGuid()));
+        var result = await service.ListAdjustmentsAsync(true, null, null, null, ActingUser(Guid.NewGuid()));
 
         var single = Assert.Single(result.Items);
         Assert.Equal(applied.Id, single.Id);
@@ -153,8 +155,55 @@ public class CodServiceAdjustmentsListTests
         await SeedAsync(dbContext, organizationId, applied: true);
         var service = CreateService(dbContext, organizationId);
 
-        var result = await service.ListAdjustmentsAsync(null, null, null, ActingUser(Guid.NewGuid()));
+        var result = await service.ListAdjustmentsAsync(null, null, null, null, ActingUser(Guid.NewGuid()));
 
         Assert.Equal(2, result.TotalCount);
+    }
+
+    private static async Task<(MerchantSettlement Settlement, MerchantSettlementItem Item)> SeedSettlementAsync(TestDbContext dbContext, Guid organizationId)
+    {
+        var settlement = new MerchantSettlement
+        {
+            Id = Guid.NewGuid(), OrganizationId = organizationId, MerchantId = Guid.NewGuid(),
+            PeriodFrom = DateTimeOffset.UtcNow.AddDays(-7), PeriodTo = DateTimeOffset.UtcNow, TotalPayable = 900m,
+            Status = MerchantSettlementStatus.Created
+        };
+        var item = new MerchantSettlementItem
+        {
+            Id = Guid.NewGuid(), MerchantSettlementId = settlement.Id, ShipmentId = Guid.NewGuid(),
+            CODAmount = 1000m, CourierFee = 100m, OtherDeductions = 0m, NetPayable = 900m
+        };
+        dbContext.Set<MerchantSettlement>().Add(settlement);
+        dbContext.Set<MerchantSettlementItem>().Add(item);
+        await dbContext.SaveChangesAsync();
+        return (settlement, item);
+    }
+
+    [Fact]
+    public async Task ListAdjustmentsAsync_FilteredByMerchantSettlementId_ReturnsOnlyThatSettlementsItemAdjustments()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var foreignOrganizationId = Guid.NewGuid();
+        var (target, targetItem) = await SeedSettlementAsync(dbContext, organizationId);
+        var (_, otherItem) = await SeedSettlementAsync(dbContext, organizationId);
+        var (foreignSettlement, foreignItem) = await SeedSettlementAsync(dbContext, foreignOrganizationId);
+        var wanted = await SeedAsync(dbContext, organizationId, applied: true, entityId: targetItem.Id);
+        await SeedAsync(dbContext, organizationId, applied: true, entityId: otherItem.Id);
+        await SeedAsync(dbContext, organizationId, applied: true, entityId: targetItem.Id, entityType: "SomethingElse");
+        // A foreign-org adjustment pointing at the target's item id must still be excluded.
+        await SeedAsync(dbContext, foreignOrganizationId, applied: true, entityId: targetItem.Id);
+        await SeedAsync(dbContext, foreignOrganizationId, applied: true, entityId: foreignItem.Id);
+        var service = CreateService(dbContext, organizationId);
+
+        var result = await service.ListAdjustmentsAsync(true, target.Id, null, null, ActingUser(Guid.NewGuid()));
+
+        var single = Assert.Single(result.Items);
+        Assert.Equal(wanted.Id, single.Id);
+        Assert.Equal(1, result.TotalCount);
+
+        // Another organization's settlement id yields nothing from this tenant's scope.
+        var foreign = await service.ListAdjustmentsAsync(null, foreignSettlement.Id, null, null, ActingUser(Guid.NewGuid()));
+        Assert.Empty(foreign.Items);
     }
 }

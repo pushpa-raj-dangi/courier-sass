@@ -20,6 +20,13 @@ describe("useCodPanelStore", () => {
     expect(useCodPanelStore.getState().panel).toEqual({ mode: "rider-settlement-create" });
   });
 
+  it("opens the rider-settlement create sheet with an optional prefill", () => {
+    useCodPanelStore.getState().openRiderSettlementCreate({ riderId: "r1", branchId: "b1" });
+    expect(useCodPanelStore.getState().panel).toEqual({ mode: "rider-settlement-create", prefill: { riderId: "r1", branchId: "b1" } });
+    useCodPanelStore.getState().openRiderSettlementCreate();
+    expect(useCodPanelStore.getState().panel).toEqual({ mode: "rider-settlement-create", prefill: undefined });
+  });
+
   it("openAdjustmentDetail sets adjustment-detail mode with the given id", () => {
     useCodPanelStore.getState().openAdjustmentDetail("a1");
     expect(useCodPanelStore.getState().panel).toEqual({ mode: "adjustment-detail", id: "a1" });

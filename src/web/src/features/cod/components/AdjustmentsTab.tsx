@@ -5,9 +5,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DataTable, type ColumnDef } from "@/components/data-table/DataTable";
 import { useAdjustments } from "@/features/cod/hooks/useAdjustments";
 import { useCodPanelStore } from "@/features/cod/store/codPanelStore";
+import { formatDate, formatRs } from "@/features/cod/lib/codFormat";
+import { usePeopleNames } from "@/features/shipments/hooks/usePeopleNames";
 import type { Adjustment } from "@/features/cod/types";
 
 export function AdjustmentsTab() {
+  const names = usePeopleNames();
   const [applied, setApplied] = useState<"all" | "pending" | "applied">("all");
   const [page, setPage] = useState(1);
   const pageSize = 20;
@@ -29,10 +32,11 @@ export function AdjustmentsTab() {
         </button>
       ),
     },
-    { key: "beforeValue", header: "Before Value", render: (a) => `Rs. ${a.beforeValue.toFixed(2)}` },
-    { key: "afterValue", header: "After Value", render: (a) => `Rs. ${a.afterValue.toFixed(2)}` },
+    { key: "beforeValue", header: "Before", render: (a) => formatRs(a.beforeValue) },
+    { key: "afterValue", header: "After", render: (a) => formatRs(a.afterValue) },
     { key: "reason", header: "Reason", render: (a) => a.reason },
-    { key: "requestedAt", header: "Requested At", render: (a) => new Date(a.requestedAt).toLocaleDateString() },
+    { key: "requestedBy", header: "Requested by", render: (a) => names.userName(a.requestedByUserId) },
+    { key: "requestedAt", header: "Requested on", render: (a) => formatDate(a.requestedAt) },
     { key: "applied", header: "Status", render: (a) => (a.applied ? "Applied" : "Pending") },
   ];
 

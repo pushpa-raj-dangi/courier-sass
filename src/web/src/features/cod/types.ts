@@ -28,6 +28,8 @@ export interface RiderCashSettlement {
   settledAt: string;
   confirmedByUserId: string;
   branchCashSettlementId: string | null;
+  expectedAmount: number;
+  variance: number;
 }
 
 export interface CreateRiderSettlementInput {
@@ -113,4 +115,29 @@ export interface CodReconciliationSummary {
   branchReceivedCod: number;
   merchantPayableCod: number;
   totalCourierFees: number;
+}
+
+export type CodFlowStageKey = "expected" | "collected" | "riderDeposited" | "branchReconciled" | "financeVerified" | "settled";
+
+export interface CodFlowStage {
+  key: CodFlowStageKey;
+  amount: number;
+  count: number;
+}
+
+export interface CodFlow {
+  stages: CodFlowStage[];
+}
+
+export interface RiderCashHolding {
+  riderId: string;
+  branchId: string;
+  parcelCount: number;
+  amount: number;
+  oldestCollectedAt: string;
+  latestCollectedAt: string;
+}
+
+export interface RiderCash {
+  items: RiderCashHolding[];
 }

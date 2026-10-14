@@ -224,6 +224,34 @@ serialized as strings), `branchId`, `userId`, `riderId`, `timestamp`, `notes`.
 **Not exposed:** `Metadata`, `Latitude`, `Longitude`. Read-only; not audited (consistent
 with other reads).
 
+### 6.2 COD (staff)
+
+Staff endpoints for the COD finance console (F15 R3a). Merchant callers use §3 instead.
+
+#### `GET /api/v1/cod/flow`
+
+Staff only (`cod.read`); merchant callers → 403. Query: `branchId` (narrows within scope), `from`,
+`to` (inclusive, on COD collection `CreatedAt`, normalised to UTC; `from > to` → 400
+`COD_VALIDATION_FAILED`). Returns six cumulative ("reached") stages, in order:
+`expected, collected, riderDeposited, branchReconciled, financeVerified, settled`, each
+`{ key, amount, count }`. `expected` sums `ExpectedAmount` over all rows; later stages sum
+`CollectedAmount` over rows that reached that status or later. Parcel counts never increase left
+to right; amounts never increase from `collected` onward (`expected` can be below `collected`
+when riders collect more than expected).
+
+#### `GET /api/v1/cod/rider-cash`
+
+Staff only (`cod.read`); merchant callers → 403. Query: `branchId`. Cash collected but not yet
+deposited (`CodCollected`), one row per rider + branch:
+`{ riderId, branchId, parcelCount, amount, oldestCollectedAt, latestCollectedAt }`, oldest first.
+
+#### Changes to existing COD staff endpoints
+
+- `GET /api/v1/cod/rider-settlements` takes `from` / `to` (on `SettledAt`, UTC; `from > to` → 400
+  `COD_VALIDATION_FAILED`). Each row gains `expectedAmount` (Σ collected amount of the settlement's
+  linked collections) and `variance` (`declaredAmount − expectedAmount`; negative = short).
+- `GET /api/v1/cod/collections` takes a `riderCashSettlementId` filter.
+
 ## 7. International Shipments API (I3, extended I4)
 
 Staff-only (JWT + permission), not part of the Merchant API catalog in §3 — merchant-facing

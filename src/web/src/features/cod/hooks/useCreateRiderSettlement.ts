@@ -14,8 +14,7 @@ export function useCreateRiderSettlement() {
         body: JSON.stringify(input),
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["cod", "rider-settlements"] });
-      queryClient.invalidateQueries({ queryKey: ["cod", "collections"] });
+      queryClient.invalidateQueries({ queryKey: ["cod"] });
     },
   });
 }

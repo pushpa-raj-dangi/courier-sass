@@ -105,7 +105,7 @@ export default function DashboardPage() {
       {org.data && (
         <>
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
-            <CodRangeCard financial={org.data.financial} rangeLabel={label} />
+            <CodRangeCard financial={org.data.financial} rangeLabel={label} range={rangeToApi(range)} />
             <BranchPerformanceTable data={org.data.branchPerformance} />
           </div>
           <RiderPerformanceTable data={org.data.riderPerformance} />

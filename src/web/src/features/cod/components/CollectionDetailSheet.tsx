@@ -6,6 +6,7 @@ import { DetailSkeleton } from "@/components/states/DetailSkeleton";
 import { StatusBadge } from "@/components/status-badge/StatusBadge";
 import { useCodCollection } from "@/features/cod/hooks/useCodCollection";
 import { useCodPanelStore } from "@/features/cod/store/codPanelStore";
+import { formatRs } from "@/features/cod/lib/codFormat";
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
@@ -17,7 +18,7 @@ function Field({ label, value }: { label: string; value: string }) {
 }
 
 function formatAmount(value: number | null): string {
-  return value === null ? "—" : `Rs. ${value.toFixed(2)}`;
+  return value === null ? "—" : formatRs(value);
 }
 
 export function CollectionDetailSheet() {

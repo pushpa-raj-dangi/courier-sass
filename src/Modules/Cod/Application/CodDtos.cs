@@ -11,7 +11,8 @@ public record CreateRiderSettlementRequest(Guid RiderId, Guid BranchId, decimal 
 
 public record RiderCashSettlementResponse(
     Guid Id, Guid RiderId, Guid BranchId, decimal DeclaredAmount, int ShipmentCount,
-    DateTimeOffset SettledAt, Guid ConfirmedByUserId, Guid? BranchCashSettlementId);
+    DateTimeOffset SettledAt, Guid ConfirmedByUserId, Guid? BranchCashSettlementId,
+    decimal ExpectedAmount, decimal Variance);
 
 public record CreateBranchSettlementRequest(Guid BranchId, List<Guid> RiderCashSettlementIds, decimal ConfirmedAmount);
 
@@ -47,3 +48,12 @@ public record AdjustmentResponse(
 public record CodReconciliationSummaryResponse(
     decimal ExpectedCod, decimal CollectedCod, decimal RiderDepositedCod, decimal BranchReceivedCod,
     decimal MerchantPayableCod, decimal TotalCourierFees);
+
+public record CodFlowStageResponse(string Key, decimal Amount, int Count);
+
+public record CodFlowResponse(List<CodFlowStageResponse> Stages);
+
+public record RiderCashHoldingResponse(
+    Guid RiderId, Guid BranchId, int ParcelCount, decimal Amount, DateTimeOffset OldestCollectedAt, DateTimeOffset LatestCollectedAt);
+
+public record RiderCashResponse(List<RiderCashHoldingResponse> Items);

@@ -298,6 +298,9 @@ Shows: Custodian (rider display name or staff name or "—"), Owning branch (cur
 "In transit"), In custody since (timestamp + elapsed duration like "2 h 18 m", or "—"), Destination branch.
 Derived from the most recent `ShipmentEvent` whose branch/user/rider holder differs from the prior event.
 
+- **Money-flow strip** — six cumulative COD stages as connected cards (step number, label, `Rs` amount, parcel count); exactly one card highlighted cobalt: the stage before the largest drop. Cards switch to the tab that moves that money on. Loading = skeleton, error = ErrorState — never zeros.
+- **Variance wording** — always text: "Matched", "Short − Rs N", "Over + Rs N"; the status-colour dot is secondary. Previews computed in the browser are labelled "(preview)".
+
 ### Empty / Loading / Error States
 - **Empty:** dashed hairline border, `rounded-lg`, generous `p-12` padding, centered content — an optional circular `bg-muted` icon chip, a Space Grotesk `text-sm font-medium` title, an optional `muted-foreground` description, and an optional action below.
 - **Loading:** a stack of `Skeleton` bars (`h-10 w-full`, default 5 rows) inside the same `rounded-xl border border-border bg-card p-3` container the populated table uses, standing in for the eventual table/list shape — the container previews the exact shape the table pops into once data arrives, rather than skeleton bars sitting flush with the page and the framed card appearing out of nowhere on load. Never a full-page spinner for list content (a bare `Spinner` is reserved for page-level "nothing has rendered yet" waits, e.g. the shipments list's initial load).

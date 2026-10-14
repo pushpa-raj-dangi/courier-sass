@@ -44,7 +44,7 @@ public partial class CodService
     // single SQL WHERE clause, unlike Ndr.Application.NdrService.ListAsync's per-row
     // IShipmentTransitionService.GetScanInfoAsync lookup loop (Phase 9), which needed one because
     // NDR has no branch column of its own.
-    public async Task<PagedResult<CodCollectionResponse>> ListCollectionsAsync(CodCollectionStatus? status, Guid? branchId, Guid? merchantId, int? page, int? pageSize, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
+    public async Task<PagedResult<CodCollectionResponse>> ListCollectionsAsync(CodCollectionStatus? status, Guid? branchId, Guid? merchantId, Guid? riderCashSettlementId, int? page, int? pageSize, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
         var organizationId = _currentTenantProvider.OrganizationId
             ?? throw new CodValidationException("No active organization context.");
@@ -53,6 +53,10 @@ public partial class CodService
         if (status is not null)
         {
             query = query.Where(c => c.Status == status);
+        }
+        if (riderCashSettlementId is Guid requestedSettlementId)
+        {
+            query = query.Where(c => c.RiderCashSettlementId == requestedSettlementId);
         }
 
         if (actingUser.GetMerchantId() is Guid callerMerchantId)
@@ -215,11 +219,12 @@ public partial class CodService
     // unreconciledOnly drives the Branch Settlements create-Sheet's rider-settlement picker
     // (Frontend Phase F7).
     public async Task<PagedResult<RiderCashSettlementResponse>> ListRiderSettlementsAsync(
-        Guid? branchId, Guid? riderId, bool? unreconciledOnly, int? page, int? pageSize,
+        Guid? branchId, Guid? riderId, bool? unreconciledOnly, DateTimeOffset? from, DateTimeOffset? to, int? page, int? pageSize,
         ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
         var organizationId = _currentTenantProvider.OrganizationId
             ?? throw new CodValidationException("No active organization context.");
+        var (fromUtc, toUtc) = NormalizeRange(from, to);
 
         var query = _dbContext.Set<RiderCashSettlement>().Where(r => r.OrganizationId == organizationId);
         if (branchId is Guid requestedBranchId)
@@ -233,6 +238,14 @@ public partial class CodService
         if (unreconciledOnly == true)
         {
             query = query.Where(r => r.BranchCashSettlementId == null);
+        }
+        if (fromUtc is DateTimeOffset fromDate)
+        {
+            query = query.Where(r => r.SettledAt >= fromDate);
+        }
+        if (toUtc is DateTimeOffset toDate)
+        {
+            query = query.Where(r => r.SettledAt <= toDate);
         }
 
         var accessibleBranchIds = await _branchAuthorizationChecker.GetAccessibleBranchIdsAsync(actingUser, "cod.read", cancellationToken);
@@ -250,7 +263,19 @@ public partial class CodService
             .Take(normalizedPageSize)
             .ToListAsync(cancellationToken);
 
-        return new PagedResult<RiderCashSettlementResponse>(settlements.Select(ToRiderSettlementResponse).ToList(), normalizedPage, normalizedPageSize, totalCount);
+        // One grouped query for the whole page (no N+1): each settlement's expected amount is the
+        // sum of what its linked collections actually collected.
+        var pageIds = settlements.Select(r => r.Id).ToArray();
+        var expectedById = await _dbContext.Set<CODCollection>()
+            .Where(c => c.OrganizationId == organizationId && c.RiderCashSettlementId != null && pageIds.Contains(c.RiderCashSettlementId.Value))
+            .GroupBy(c => c.RiderCashSettlementId!.Value)
+            .Select(g => new { SettlementId = g.Key, Expected = g.Sum(c => c.CollectedAmount ?? 0m) })
+            .ToDictionaryAsync(x => x.SettlementId, x => x.Expected, cancellationToken);
+
+        var items = settlements
+            .Select(r => ToRiderSettlementResponse(r, expectedById.TryGetValue(r.Id, out var expected) ? expected : 0m))
+            .ToList();
+        return new PagedResult<RiderCashSettlementResponse>(items, normalizedPage, normalizedPageSize, totalCount);
     }
 
     // unverifiedOnly means "no FinancialTransaction row references this BranchCashSettlement.Id
@@ -312,7 +337,7 @@ public partial class CodService
     // MerchantSettlementItem, which has no BranchId either (cod.settle/cod.adjust are org-wide
     // permissions, same precedent as CreateFinanceVerificationAsync/CreateMerchantSettlementAsync).
     public async Task<PagedResult<AdjustmentResponse>> ListAdjustmentsAsync(
-        bool? applied, int? page, int? pageSize,
+        bool? applied, Guid? merchantSettlementId, int? page, int? pageSize,
         ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
         var organizationId = _currentTenantProvider.OrganizationId
@@ -322,6 +347,16 @@ public partial class CodService
         if (applied is bool requestedApplied)
         {
             query = query.Where(a => a.Applied == requestedApplied);
+        }
+        if (merchantSettlementId is Guid settlementId)
+        {
+            // Additive read-only narrowing (F15 R3a I2). MerchantSettlementItem has no own
+            // OrganizationId, so the item ids are sourced through the org-scoped parent settlement.
+            var itemIds = from i in _dbContext.Set<MerchantSettlementItem>()
+                          join m in _dbContext.Set<MerchantSettlement>() on i.MerchantSettlementId equals m.Id
+                          where m.Id == settlementId && m.OrganizationId == organizationId
+                          select i.Id;
+            query = query.Where(a => a.EntityType == AdjustableEntityType && itemIds.Contains(a.EntityId));
         }
 
         var (normalizedPage, normalizedPageSize) = PaginationDefaults.Normalize(page, pageSize);

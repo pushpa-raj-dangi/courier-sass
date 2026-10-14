@@ -12,6 +12,7 @@ import { useMerchantSettlements } from "@/features/cod/hooks/useMerchantSettleme
 import { useCodPanelStore } from "@/features/cod/store/codPanelStore";
 import { useMerchants } from "@/features/shipments/hooks/useMerchants";
 import { usePermission } from "@/features/auth/hooks/usePermission";
+import { formatDate, formatRs } from "@/features/cod/lib/codFormat";
 
 // MerchantSettlement's list endpoint is a plain, non-paginated array (Global Constraints) — this
 // tab renders the raw Table primitives directly instead of DataTable, which assumes a PagedResult.
@@ -65,10 +66,10 @@ export function MerchantSettlementsTab() {
                       {merchantsById.get(s.merchantId) ?? s.merchantId}
                     </button>
                   </TableCell>
-                  <TableCell>{new Date(s.periodFrom).toLocaleDateString()} – {new Date(s.periodTo).toLocaleDateString()}</TableCell>
-                  <TableCell>Rs. {s.totalPayable.toFixed(2)}</TableCell>
+                  <TableCell>{formatDate(s.periodFrom)} – {formatDate(s.periodTo)}</TableCell>
+                  <TableCell>{formatRs(s.totalPayable)}</TableCell>
                   <TableCell><StatusBadge status={s.status} namespace="MerchantSettlement" /></TableCell>
-                  <TableCell>{s.settledAt ? new Date(s.settledAt).toLocaleDateString() : "—"}</TableCell>
+                  <TableCell>{s.settledAt ? formatDate(s.settledAt) : "—"}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

@@ -85,7 +85,7 @@ Response:
 | Stage | Rows | Amount |
 |---|---|---|
 | expected | all rows | `ExpectedAmount` |
-| collected | `CollectedAmount != null` | `CollectedAmount` |
+| collected | status ∈ {CodCollected, RiderDeposited, BranchReconciled, FinanceVerified, MerchantSettlementCreated, Settled} | `CollectedAmount` |
 | riderDeposited | status ∈ {RiderDeposited, BranchReconciled, FinanceVerified, MerchantSettlementCreated, Settled} | `CollectedAmount` |
 | branchReconciled | status ∈ {BranchReconciled, FinanceVerified, MerchantSettlementCreated, Settled} | `CollectedAmount` |
 | financeVerified | status ∈ {FinanceVerified, MerchantSettlementCreated, Settled} | `CollectedAmount` |
@@ -93,8 +93,10 @@ Response:
 
 `from`/`to` filter on `CODCollection.CreatedAt` (inclusive), normalised to UTC like the R2
 shipment list filters; `from > to` → 400. Omitted range = all time. Aggregation is pushed to SQL
-(one grouped query or per-stage `SumAsync`/`CountAsync`; never materialise rows). Counts and
-amounts are monotonically non-increasing left to right by construction. The existing
+(one grouped query or per-stage `SumAsync`/`CountAsync`; never materialise rows). Parcel
+counts never increase left to right; amounts never increase from `collected` onward. `expected`
+can sit below `collected` when riders collect more than expected (overages, CLAUDE.md §23) —
+that gap is real and is shown, not hidden. The existing
 `/cod/reconciliation` and `/cod/summary` endpoints are unchanged.
 
 ### 3.2 `GET /api/v1/cod/rider-cash?branchId=` (new)
