@@ -19,12 +19,12 @@ export function TimelineTab({ events }: { events: ShipmentEvent[] }) {
             </div>
             <div className="flex flex-1 flex-col gap-0.5 pb-3.5">
               <div className="flex justify-between gap-3">
-                <span className="text-[13.5px] font-semibold">{eventTitle(e.eventType)}</span>
+                <span className="text-sm font-semibold">{eventTitle(e.eventType)}</span>
                 <time dateTime={e.timestamp} className="whitespace-nowrap text-xs text-muted-foreground">
                   {new Date(e.timestamp).toLocaleString()}
                 </time>
               </div>
-              <span className="text-[12.5px] text-foreground/80">{e.branchId ? names.branchName(e.branchId) : "—"}</span>
+              <span className="text-sm text-foreground/80">{e.branchId ? names.branchName(e.branchId) : "—"}</span>
               <span className="text-xs text-muted-foreground">{actor}</span>
               {e.notes && <span className="text-xs text-muted-foreground">{e.notes}</span>}
             </div>

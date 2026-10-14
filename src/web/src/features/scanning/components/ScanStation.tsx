@@ -136,7 +136,7 @@ export function ScanStation() {
             <div className="flex flex-col gap-1.5">
               <ScanContextPicker mode={mode} value={context} onChange={setContext} inScope={inScope} />
               {missingContext && (
-                <p className="text-[13px] text-muted-foreground">
+                <p className="text-sm text-muted-foreground">
                   {mode.context === "rider" ? "Choose a rider to start scanning." : "Choose a manifest to start scanning."}
                 </p>
               )}
@@ -153,16 +153,16 @@ export function ScanStation() {
               {mode.id === "receive" && manifest && <ReconciliationPanel manifest={manifest} />}
               {(mode.id === "dispatch" || mode.id === "rto") && manifest && (
                 <section aria-label="Manifest" className="space-y-2 rounded-xl border border-border bg-card p-5">
-                  <h2 className="font-display text-[15px] font-semibold">{manifest.code}</h2>
-                  <p className="text-[13px] text-muted-foreground">To {names.branchName(manifest.toBranchId)}</p>
+                  <h2 className="font-display text-base font-semibold">{manifest.code}</h2>
+                  <p className="text-sm text-muted-foreground">To {names.branchName(manifest.toBranchId)}</p>
                   <p className="text-2xl font-semibold tabular-nums">{manifest.shipmentCount} <span className="text-sm font-normal text-muted-foreground">scanned</span></p>
                   <Button type="button" variant="outline" size="sm" onClick={() => openManifest(manifest.id)}>Open manifest</Button>
                 </section>
               )}
               {mode.id === "handover" && context.kind === "rider" && (
                 <section aria-label="Rider" className="space-y-1 rounded-xl border border-border bg-card p-5">
-                  <h2 className="font-display text-[15px] font-semibold">{names.riderName(context.rider.id)}</h2>
-                  <p className="text-[13px] text-muted-foreground">Base branch · {names.branchName(context.rider.baseBranchId)}</p>
+                  <h2 className="font-display text-base font-semibold">{names.riderName(context.rider.id)}</h2>
+                  <p className="text-sm text-muted-foreground">Base branch · {names.branchName(context.rider.baseBranchId)}</p>
                 </section>
               )}
               {(mode.id === "receive" || mode.id === "dispatch") && (

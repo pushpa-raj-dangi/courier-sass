@@ -119,11 +119,11 @@ export function ShipmentDetailSheet() {
         {shipment && (
           <div className="flex items-center gap-2.5 border-t border-border bg-surface-sunken px-6 py-3.5">
             {receiveAtOrigin.isError ? (
-              <p role="alert" className="flex-1 text-[11.5px] text-destructive">
+              <p role="alert" className="flex-1 text-2xs text-destructive">
                 Couldn&apos;t receive at origin: {scanErrorMessage(receiveAtOrigin.error)}
               </p>
             ) : (
-              <span className="flex-1 text-[11.5px] text-muted-foreground">Status changes only through scans and rider actions</span>
+              <span className="flex-1 text-2xs text-muted-foreground">Status changes only through scans and rider actions</span>
             )}
             {canScan && shipment.currentStatus === "PickedUp" && (
               <Button size="sm" disabled={receiveAtOrigin.isPending} onClick={() => receiveAtOrigin.mutate()}>

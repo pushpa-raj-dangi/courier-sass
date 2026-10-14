@@ -68,7 +68,7 @@ export function ShipmentFilterBar({
 
   return (
     <div role="toolbar" aria-label="Shipment filters" className="flex flex-wrap items-center gap-2">
-      <label className="flex h-9 w-full items-center gap-2 rounded-md border border-input bg-card px-2.5 text-[13px] text-muted-foreground sm:w-72">
+      <label className="flex h-9 w-full items-center gap-2 rounded-md border border-input bg-card px-2.5 text-sm text-muted-foreground sm:w-72">
         <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
         <input
           type="search"

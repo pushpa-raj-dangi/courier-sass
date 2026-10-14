@@ -95,7 +95,7 @@ export function DataTable<T>({
           <TableHeader className="bg-surface-sunken">
             <TableRow className="hover:bg-transparent">
               {columns.map((col) => (
-                <TableHead key={col.key} className="h-10 text-[11.5px] font-medium text-muted-foreground">
+                <TableHead key={col.key} className="h-10 text-2xs font-medium text-muted-foreground">
                   {col.header}
                 </TableHead>
               ))}

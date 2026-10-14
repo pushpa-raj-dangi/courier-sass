@@ -56,7 +56,7 @@ export function ConsoleSidebar({
                 <Skeleton className="h-4 w-28 bg-sidebar-accent" data-testid="sidebar-brand-skeleton" />
               ) : (
                 <span className="flex min-w-0 flex-col">
-                  <span className="truncate font-display text-[15px] font-semibold tracking-tight text-sidebar-accent-foreground">
+                  <span className="truncate font-display text-base font-semibold tracking-tight text-sidebar-accent-foreground">
                     {brand.name}
                   </span>
                   {brand.subtitle && <span className="truncate text-xs text-sidebar-muted">{brand.subtitle}</span>}
@@ -87,7 +87,7 @@ export function ConsoleSidebar({
             .filter((group) => group.items.length > 0)
             .map((group) => (
               <SidebarGroup key={group.id}>
-                <SidebarGroupLabel className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-sidebar-muted">
+                <SidebarGroupLabel className="font-mono text-2xs uppercase tracking-[0.12em] text-sidebar-muted">
                   {group.label}
                 </SidebarGroupLabel>
                 <SidebarMenu>
@@ -96,7 +96,7 @@ export function ConsoleSidebar({
                     const active = item.href === activeHref;
                     return (
                       <SidebarMenuItem key={item.href}>
-                        <SidebarMenuButton asChild isActive={active} tooltip={item.label} className="h-[38px] text-[13.5px] [&>svg]:size-[18px]">
+                        <SidebarMenuButton asChild isActive={active} tooltip={item.label} className="h-[38px] text-sm [&>svg]:size-[18px]">
                           <Link href={item.href} onClick={onNavigate} aria-current={active ? "page" : undefined}>
                             <Icon strokeWidth={1.75} aria-hidden="true" />
                             <span>{item.label}</span>

@@ -33,7 +33,7 @@ export function FilterChip({
           type="button"
           variant="outline"
           size="sm"
-          className={cn("h-9 gap-1.5 border-dashed bg-transparent text-[12.5px] font-normal", selected && "border-solid")}
+          className={cn("h-9 gap-1.5 border-dashed bg-transparent text-sm font-normal", selected && "border-solid")}
         >
           {label}
           <span className="font-medium text-primary">{selected?.label ?? "Any"}</span>

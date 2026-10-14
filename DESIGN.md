@@ -187,8 +187,11 @@ Every marketing color was computed and verified against WCAG AA (4.5:1 text, 3:1
 - **Body** (IBM Plex Sans, 400, `text-sm` / 0.875rem): the default for table cells, form values, descriptions.
 - **Stat Value** (IBM Plex Sans, 600, `text-lg`–`text-2xl` depending on context): tile numbers (rate tiles, funnel counts, exception counts) — the one place body-family text gets pushed large and bold instead of switching to display. Occasionally takes a semantic status color instead of ink (an NDR count in vermillion) when the number itself embodies that status.
 - **Label/Caption** (IBM Plex Sans, 400, `text-xs` / 0.75rem, `muted-foreground`): field labels' sibling captions, stat-tile labels, table pagination text, card descriptions, record-field labels.
+- **Micro Label** (IBM Plex Sans or Mono, `text-2xs` / 0.6875rem = 11px, line-height 1rem): the one project step below `text-xs`, defined in `tailwind.config.ts` — sidebar group headers, badge/chip text, step numbers, dense mono captions. Nothing smaller.
 
 ### Named Rules
+**The On-Scale Rule.** Font sizes come only from the scale above (`text-2xs` through `text-2xl`); no arbitrary `text-[13px]`-style values. A size the scale lacks is a DESIGN.md change first, not a one-off class.
+
 **The Sheet-Stays-Plain Rule.** Sheet titles use the plain body face, not Space Grotesk, with no exceptions in the shipped code — Sheets are working surfaces layered over a page, not their own destination that needs a brand moment. The session-expired Dialog is a different surface type (a full-screen gate, not a task panel) and does opt into the display face; don't generalize its choice back onto Sheets.
 
 ## Layout

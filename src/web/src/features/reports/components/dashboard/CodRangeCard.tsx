@@ -32,7 +32,7 @@ export function CodRangeCard({ financial, rangeLabel, range }: { financial: CodF
       </div>
       <dl className="mt-3 space-y-1.5">
         {segments.map((s) => (
-          <div key={s.key} className="flex items-center justify-between text-[13px]">
+          <div key={s.key} className="flex items-center justify-between text-sm">
             <dt className="flex items-center gap-2 text-muted-foreground">
               <span className="h-2 w-2 rounded-full" style={{ backgroundColor: `hsl(var(--${s.token}))` }} aria-hidden="true" />
               {s.label}
@@ -45,10 +45,10 @@ export function CodRangeCard({ financial, rangeLabel, range }: { financial: CodF
         <ReceiptText className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
         <span className="flex flex-1 flex-col">
           <span className="text-xs text-muted-foreground">Merchant payable</span>
-          <span className="text-[15px] font-semibold tabular-nums">{formatRs(financial.merchantPayable)}</span>
+          <span className="text-base font-semibold tabular-nums">{formatRs(financial.merchantPayable)}</span>
         </span>
         {canCod && (
-          <Link href="/cod" className="text-[13px] font-medium text-primary hover:underline">
+          <Link href="/cod" className="text-sm font-medium text-primary hover:underline">
             Review
           </Link>
         )}

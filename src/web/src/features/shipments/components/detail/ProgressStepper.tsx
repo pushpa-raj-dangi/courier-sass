@@ -13,7 +13,7 @@ export function ProgressStepper({ status }: { status: string }) {
         <li key={step.key} aria-current={step.state === "current" ? "step" : undefined} className="flex min-w-0 flex-1 flex-col items-center gap-1.5">
           <span
             className={cn(
-              "flex h-[22px] w-[22px] items-center justify-center rounded-full border-2 text-[11px]",
+              "flex h-[22px] w-[22px] items-center justify-center rounded-full border-2 text-2xs",
               step.state === "complete" && "border-status-delivered bg-status-delivered text-white",
               step.state === "current" && "border-status-out-for-delivery bg-status-out-for-delivery",
               step.state === "upcoming" && "border-border bg-card"
@@ -21,12 +21,12 @@ export function ProgressStepper({ status }: { status: string }) {
           >
             {step.state === "complete" && <Check className="h-3 w-3" aria-hidden="true" />}
           </span>
-          <span className={cn("text-center text-[10.5px] leading-tight", step.state === "upcoming" ? "text-muted-foreground" : "text-foreground")}>
+          <span className={cn("text-center text-2xs leading-tight", step.state === "upcoming" ? "text-muted-foreground" : "text-foreground")}>
             {step.label}
             <span className="sr-only">{` (${step.state})`}</span>
           </span>
           {exception && i === exceptionAfter && (
-            <span className="flex items-center gap-1 rounded bg-destructive/10 px-1.5 text-[10.5px] font-medium text-destructive">
+            <span className="flex items-center gap-1 rounded bg-destructive/10 px-1.5 text-2xs font-medium text-destructive">
               {(() => {
                 const Icon = EXCEPTION_ICON[exception];
                 return <Icon className="h-3 w-3" aria-hidden="true" />;

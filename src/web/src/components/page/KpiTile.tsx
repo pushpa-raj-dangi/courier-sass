@@ -25,16 +25,16 @@ export function KpiTile({
 }) {
   return (
     <div className="flex flex-col gap-1.5 rounded-xl border border-border bg-card p-4">
-      <span className="text-[12.5px] text-muted-foreground">{label}</span>
+      <span className="text-sm text-muted-foreground">{label}</span>
       <div className="flex flex-wrap items-baseline gap-2">
-        <span className="text-2xl font-semibold tabular-nums tracking-tight text-foreground sm:text-[28px]">{value}</span>
+        <span className="text-2xl font-semibold tabular-nums tracking-tight text-foreground">{value}</span>
         {delta && (
           <span data-tone={delta.tone} className={cn("text-xs font-medium", TONE_CLASS[delta.tone])}>
             {delta.text}
           </span>
         )}
       </div>
-      {note && <span className="text-[11.5px] text-muted-foreground">{note}</span>}
+      {note && <span className="text-2xs text-muted-foreground">{note}</span>}
     </div>
   );
 }

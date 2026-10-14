@@ -35,7 +35,7 @@ function StageBody({ stage }: { stage: PipelineStage }) {
           />
         </span>
       )}
-      {stage.caption && <span className="text-[11.5px] text-muted-foreground">{stage.caption}</span>}
+      {stage.caption && <span className="text-2xs text-muted-foreground">{stage.caption}</span>}
     </>
   );
 }

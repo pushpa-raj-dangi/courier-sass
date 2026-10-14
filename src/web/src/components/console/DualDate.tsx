@@ -27,7 +27,7 @@ export function DualDate({ now }: { now?: Date }) {
   const { ad, bs } = formatDualDate(date, locale);
   return (
     <div className="hidden text-right leading-tight lg:block">
-      <div className="text-[12.5px] font-medium text-foreground">{ad}</div>
+      <div className="text-sm font-medium text-foreground">{ad}</div>
       {bs && (
         <div className="text-xs text-muted-foreground">
           {bs} {t("bsSuffix")}
