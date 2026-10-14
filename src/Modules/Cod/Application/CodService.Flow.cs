@@ -5,11 +5,14 @@ using Microsoft.EntityFrameworkCore;
 namespace Courier.Cod.Application;
 
 // F15 R3a read slice. "Reached" (cumulative) semantics: a collection counts in every stage it has
-// reached so far, so stage totals never increase left to right and each gap is money waiting at
-// that step. Distinct from GetReconciliationSummaryAsync's outstanding-only ExpectedCod
+// reached so far. Parcel counts never increase left to right; amounts never increase from collected
+// onward; expected (ExpectedAmount) can be below collected when riders collect more than expected
+// (overages). Each gap is money waiting at that step. Distinct from GetReconciliationSummaryAsync's outstanding-only ExpectedCod
 // (CLARIFICATIONS: COD flow stages).
 public partial class CodService
 {
+    private static readonly CodCollectionStatus[] CollectedOrLater =
+        { CodCollectionStatus.CodCollected, CodCollectionStatus.RiderDeposited, CodCollectionStatus.BranchReconciled, CodCollectionStatus.FinanceVerified, CodCollectionStatus.MerchantSettlementCreated, CodCollectionStatus.Settled };
     private static readonly CodCollectionStatus[] RiderDepositedOrLater =
         { CodCollectionStatus.RiderDeposited, CodCollectionStatus.BranchReconciled, CodCollectionStatus.FinanceVerified, CodCollectionStatus.MerchantSettlementCreated, CodCollectionStatus.Settled };
     private static readonly CodCollectionStatus[] BranchReconciledOrLater =
@@ -17,7 +20,7 @@ public partial class CodService
     private static readonly CodCollectionStatus[] FinanceVerifiedOrLater =
         { CodCollectionStatus.FinanceVerified, CodCollectionStatus.MerchantSettlementCreated, CodCollectionStatus.Settled };
 
-    private sealed record FlowGroup(CodCollectionStatus Status, bool Collected, int Count, decimal Expected, decimal CollectedSum);
+    private sealed record FlowGroup(CodCollectionStatus Status, int Count, decimal Expected, decimal CollectedSum);
 
     public async Task<CodFlowResponse> GetFlowAsync(Guid? branchId, DateTimeOffset? from, DateTimeOffset? to, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
@@ -37,15 +40,15 @@ public partial class CodService
 
         // One grouped SQL query (at most 7 statuses × 2 rows) — never materialises collections.
         var groups = await query
-            .GroupBy(c => new { c.Status, Collected = c.CollectedAmount != null })
-            .Select(g => new { g.Key.Status, g.Key.Collected, Count = g.Count(), Expected = g.Sum(c => c.ExpectedAmount), CollectedSum = g.Sum(c => c.CollectedAmount ?? 0m) })
+            .GroupBy(c => c.Status)
+            .Select(g => new { Status = g.Key, Count = g.Count(), Expected = g.Sum(c => c.ExpectedAmount), CollectedSum = g.Sum(c => c.CollectedAmount ?? 0m) })
             .ToListAsync(cancellationToken);
-        var rows = groups.Select(g => new FlowGroup(g.Status, g.Collected, g.Count, g.Expected, g.CollectedSum)).ToList();
+        var rows = groups.Select(g => new FlowGroup(g.Status, g.Count, g.Expected, g.CollectedSum)).ToList();
 
         return new CodFlowResponse(new List<CodFlowStageResponse>
         {
             new("expected", rows.Sum(r => r.Expected), rows.Sum(r => r.Count)),
-            Reached("collected", rows.Where(r => r.Collected)),
+            Reached("collected", rows.Where(r => CollectedOrLater.Contains(r.Status))),
             Reached("riderDeposited", rows.Where(r => RiderDepositedOrLater.Contains(r.Status))),
             Reached("branchReconciled", rows.Where(r => BranchReconciledOrLater.Contains(r.Status))),
             Reached("financeVerified", rows.Where(r => FinanceVerifiedOrLater.Contains(r.Status))),

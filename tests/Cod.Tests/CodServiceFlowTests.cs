@@ -117,6 +117,35 @@ public class CodServiceFlowTests
     }
 
     [Fact]
+    public async Task GetFlowAsync_Overage_ReportsExpectedBelowCollected()
+    {
+        await using var db = CreateContext();
+        var org = Guid.NewGuid();
+        Seed(db, org, Guid.NewGuid(), CodCollectionStatus.CodCollected, 1000m, 1200m, Guid.NewGuid());
+        await db.SaveChangesAsync();
+
+        var flow = await CreateService(db, org, new ScopedBranchAuthorizationChecker()).GetFlowAsync(null, null, null, Staff());
+
+        Assert.Equal(1000m, flow.Stages[0].Amount);
+        Assert.Equal(1200m, flow.Stages[1].Amount);
+        Assert.Equal(1, flow.Stages[0].Count);
+        Assert.Equal(1, flow.Stages[1].Count);
+    }
+
+    [Fact]
+    public async Task GetFlowAsync_DepositedRowWithNullCollectedAmount_StillCountsAsCollected()
+    {
+        await using var db = CreateContext();
+        var org = Guid.NewGuid();
+        Seed(db, org, Guid.NewGuid(), CodCollectionStatus.RiderDeposited, 1000m);
+        await db.SaveChangesAsync();
+
+        var flow = await CreateService(db, org, new ScopedBranchAuthorizationChecker()).GetFlowAsync(null, null, null, Staff());
+
+        Assert.Equal(new[] { 1, 1, 1, 0, 0, 0 }, flow.Stages.Select(s => s.Count));
+    }
+
+    [Fact]
     public async Task GetFlowAsync_EmptyScope_ReturnsSixZeroStages()
     {
         await using var db = CreateContext();
