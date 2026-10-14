@@ -73,7 +73,7 @@ export function RiderSettlementCreateSheet() {
     const ids = new Set<string>();
     riders?.filter((r) => r.isActive && r.baseBranchId === selectedBranchId).forEach((r) => ids.add(r.id));
     cash.data?.items.filter((h) => h.branchId === selectedBranchId).forEach((h) => ids.add(h.riderId));
-    return [...ids];
+    return Array.from(ids);
   }, [riders, cash.data, selectedBranchId]);
   const optionsSettled = Boolean(selectedBranchId) && !ridersQuery.isPending && !cash.isPending;
 
