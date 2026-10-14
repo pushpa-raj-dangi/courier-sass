@@ -7,7 +7,10 @@ export const createRiderSettlementSchema = z.object({
   // useForm<CreateRiderSettlementFormValues>'s output-inferred `number` (same gap
   // branches/schema.ts already documents). The input's onChange converts the raw string to a
   // number before it reaches the form instead.
-  declaredAmount: z.number({ error: "Declared amount is required." }).positive("Declared amount must be greater than zero."),
+  declaredAmount: z
+    .number({ error: "Declared amount is required." })
+    .positive("Declared amount must be greater than zero.")
+    .refine((v) => /^\d+(\.\d{1,2})?$/.test(String(v)), "Use at most 2 decimal places."),
 });
 
 export type CreateRiderSettlementFormValues = z.infer<typeof createRiderSettlementSchema>;

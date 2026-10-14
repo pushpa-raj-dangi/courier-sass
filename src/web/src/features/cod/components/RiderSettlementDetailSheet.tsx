@@ -1,12 +1,15 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ErrorState } from "@/components/states/ErrorState";
 import { DetailSkeleton } from "@/components/states/DetailSkeleton";
 import { useRiderSettlements } from "@/features/cod/hooks/useRiderSettlements";
+import { useCodCollections } from "@/features/cod/hooks/useCodCollections";
 import { useCodPanelStore } from "@/features/cod/store/codPanelStore";
-import { useRiders } from "@/features/riders/hooks/useRiders";
-import { useBranches } from "@/features/branches/hooks/useBranches";
+import { usePeopleNames } from "@/features/shipments/hooks/usePeopleNames";
+import { VarianceBadge } from "@/features/cod/components/VarianceBadge";
+import { formatDate, formatRs, formatTime } from "@/features/cod/lib/codFormat";
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
@@ -20,19 +23,18 @@ function Field({ label, value }: { label: string; value: string }) {
 export function RiderSettlementDetailSheet() {
   const panel = useCodPanelStore((s) => s.panel);
   const close = useCodPanelStore((s) => s.close);
+  const openCollection = useCodPanelStore((s) => s.openCollectionDetail);
   const isOpen = panel.mode === "rider-settlement-detail";
   const id = panel.mode === "rider-settlement-detail" ? panel.id : "";
 
   // No GET-by-id endpoint exists for a single RiderCashSettlement (only the list) — the list is
-  // already in cache from RiderSettlementsTab's own query in the common case, and refetching the
+  // already in cache from the deposits tab's own query in the common case, and refetching the
   // unfiltered first page is a reasonable, cheap fallback otherwise (this list is small in practice:
   // one row per rider per settlement run).
   const { data, isLoading, isError, refetch } = useRiderSettlements({ pageSize: 200 });
   const settlement = data?.items.find((r) => r.id === id);
-  const { data: riders } = useRiders();
-  const { data: branches } = useBranches();
-  const rider = riders?.find((r) => r.id === settlement?.riderId);
-  const branch = branches?.find((b) => b.id === settlement?.branchId);
+  const names = usePeopleNames();
+  const parcels = useCodCollections({ riderCashSettlementId: id, pageSize: 200 }, { enabled: isOpen && Boolean(id) });
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => { if (!open) close(); }}>
@@ -49,14 +51,36 @@ export function RiderSettlementDetailSheet() {
             <ErrorState title="Settlement not found" description="It may have been reconciled off the current page." onRetry={() => refetch()} />
           )}
           {settlement && (
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Rider" value={rider?.licenseNumber ?? settlement.riderId} />
-              <Field label="Branch" value={branch?.name ?? settlement.branchId} />
-              <Field label="Declared Amount" value={`Rs. ${settlement.declaredAmount.toFixed(2)}`} />
-              <Field label="Shipment Count" value={String(settlement.shipmentCount)} />
-              <Field label="Settled At" value={new Date(settlement.settledAt).toLocaleString()} />
-              <Field label="Reconciled" value={settlement.branchCashSettlementId ? "Yes" : "Not yet"} />
-            </div>
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Rider" value={names.riderName(settlement.riderId)} />
+                <Field label="Branch" value={names.branchName(settlement.branchId)} />
+                <Field label="Expected" value={formatRs(settlement.expectedAmount)} />
+                <Field label="Deposited" value={formatRs(settlement.declaredAmount)} />
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs text-muted-foreground">Variance</span>
+                  <VarianceBadge variance={settlement.variance} />
+                </div>
+                <Field label="Parcels" value={String(settlement.shipmentCount)} />
+                <Field label="Recorded at" value={`${formatDate(settlement.settledAt)} ${formatTime(settlement.settledAt)}`} />
+                <Field label="Reconciled" value={settlement.branchCashSettlementId ? "Reconciled" : "Awaiting branch"} />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium">Parcels in this deposit</h3>
+                {parcels.isLoading && <DetailSkeleton fieldRows={1} />}
+                {parcels.data && (
+                  <ul className="divide-y divide-border rounded-lg border border-border text-sm">
+                    {parcels.data.items.map((c) => (
+                      <li key={c.id} className="flex items-center justify-between px-3 py-2">
+                        <span className="text-muted-foreground">{c.collectedAt ? `${formatDate(c.collectedAt)} ${formatTime(c.collectedAt)}` : "—"}</span>
+                        <span className="tabular-nums">{c.collectedAmount === null ? "—" : formatRs(c.collectedAmount)}</span>
+                        <Button type="button" size="sm" variant="ghost" onClick={() => openCollection(c.id)}>View</Button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </>
           )}
         </div>
       </SheetContent>

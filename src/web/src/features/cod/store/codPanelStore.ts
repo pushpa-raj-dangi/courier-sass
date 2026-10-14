@@ -1,9 +1,11 @@
 import { create } from "zustand";
 
+type RiderDepositPrefill = { riderId: string; branchId: string };
+
 type CodPanelState =
   | { mode: "closed" }
   | { mode: "collection-detail"; id: string }
-  | { mode: "rider-settlement-create" }
+  | { mode: "rider-settlement-create"; prefill?: RiderDepositPrefill }
   | { mode: "rider-settlement-detail"; id: string }
   | { mode: "branch-settlement-create" }
   | { mode: "branch-settlement-detail"; id: string }
@@ -14,7 +16,7 @@ type CodPanelState =
 interface CodPanelStore {
   panel: CodPanelState;
   openCollectionDetail: (id: string) => void;
-  openRiderSettlementCreate: () => void;
+  openRiderSettlementCreate: (prefill?: RiderDepositPrefill) => void;
   openRiderSettlementDetail: (id: string) => void;
   openBranchSettlementCreate: () => void;
   openBranchSettlementDetail: (id: string) => void;
@@ -31,7 +33,7 @@ interface CodPanelStore {
 export const useCodPanelStore = create<CodPanelStore>((set) => ({
   panel: { mode: "closed" },
   openCollectionDetail: (id) => set({ panel: { mode: "collection-detail", id } }),
-  openRiderSettlementCreate: () => set({ panel: { mode: "rider-settlement-create" } }),
+  openRiderSettlementCreate: (prefill) => set({ panel: { mode: "rider-settlement-create", prefill } }),
   openRiderSettlementDetail: (id) => set({ panel: { mode: "rider-settlement-detail", id } }),
   openBranchSettlementCreate: () => set({ panel: { mode: "branch-settlement-create" } }),
   openBranchSettlementDetail: (id) => set({ panel: { mode: "branch-settlement-detail", id } }),
