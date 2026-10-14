@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Info } from "lucide-react";
@@ -12,6 +12,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { Spinner } from "@/components/ui/spinner";
 import { FieldError } from "@/components/ui/field-error";
 import { ComingSoonSlot } from "@/components/page/ComingSoonSlot";
+import { useSession } from "@/features/auth/hooks/useSession";
 import { useBranches } from "@/features/branches/hooks/useBranches";
 import { useRiders } from "@/features/riders/hooks/useRiders";
 import { usePeopleNames } from "@/features/shipments/hooks/usePeopleNames";
@@ -29,16 +30,23 @@ export function RiderSettlementCreateSheet() {
   const prefill = panel.mode === "rider-settlement-create" ? panel.prefill : undefined;
 
   const createSettlement = useCreateRiderSettlement();
+  const { data: session } = useSession();
   const { data: branches } = useBranches();
-  const { data: riders } = useRiders();
+  const ridersQuery = useRiders();
+  const riders = ridersQuery.data;
   const names = usePeopleNames();
   const [serverError, setServerError] = useState<string | null>(null);
+  // Same scope rule as the /cod page's branch picker; the server still enforces cod.reconcile scope.
+  const scopedBranches = (branches ?? []).filter(
+    (b) => session?.hasAllBranchesScope || session?.branches.some((s) => s.branchId === b.id),
+  );
 
   const {
     handleSubmit,
     control,
     watch,
     reset,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<CreateRiderSettlementFormValues>({ resolver: zodResolver(createRiderSettlementSchema) });
 
@@ -52,14 +60,36 @@ export function RiderSettlementCreateSheet() {
   const selectedBranchId = watch("branchId");
   const selectedRiderId = watch("riderId");
   const received = watch("declaredAmount");
-  const eligibleRiders = riders?.filter((r) => r.isActive && r.baseBranchId === selectedBranchId);
   const cash = useRiderCash({ branchId: selectedBranchId || undefined }, { enabled: isOpen && Boolean(selectedBranchId) });
+  const riderLabel = (id: string) => {
+    const name = names.riderName(id);
+    if (name !== "Rider") return name;
+    return riders?.find((r) => r.id === id)?.licenseNumber ?? `Rider ${id.slice(0, 8)}`;
+  };
+  // Rider-cash rows are keyed by the collection's branch, not the rider's base branch, so a rider
+  // holding cash here may be based elsewhere: offer both sets, de-duplicated.
+  const riderOptions = useMemo(() => {
+    if (!selectedBranchId) return [];
+    const ids = new Set<string>();
+    riders?.filter((r) => r.isActive && r.baseBranchId === selectedBranchId).forEach((r) => ids.add(r.id));
+    cash.data?.items.filter((h) => h.branchId === selectedBranchId).forEach((h) => ids.add(h.riderId));
+    return [...ids];
+  }, [riders, cash.data, selectedBranchId]);
+  const optionsSettled = Boolean(selectedBranchId) && !ridersQuery.isPending && !cash.isPending;
+
+  // Never submit a rider the select can't show: once the options for the chosen branch have
+  // loaded, drop a rider who isn't among them (e.g. after the branch was changed).
+  useEffect(() => {
+    if (!isOpen || !selectedRiderId || !optionsSettled) return;
+    if (!riderOptions.includes(selectedRiderId)) setValue("riderId", "");
+  }, [isOpen, selectedRiderId, optionsSettled, riderOptions, setValue]);
+
   const holding = cash.data?.items.find((h) => h.riderId === selectedRiderId && h.branchId === selectedBranchId);
   const preview = holding && typeof received === "number" && !Number.isNaN(received) ? describeVariance(received - holding.amount) : null;
-  const riderLabel = (id: string, license: string) => {
-    const name = names.riderName(id);
-    return name === "Rider" ? license : name;
-  };
+  const selectedBranchName = selectedBranchId
+    ? scopedBranches.find((b) => b.id === selectedBranchId)?.name ?? names.branchName(selectedBranchId)
+    : null;
+  const parcelWord = (n: number) => (n === 1 ? "COD parcel" : "COD parcels");
 
   async function onSubmit(values: CreateRiderSettlementFormValues) {
     setServerError(null);
@@ -78,8 +108,10 @@ export function RiderSettlementCreateSheet() {
           <SheetTitle>Record deposit</SheetTitle>
           <SheetDescription>
             {holding
-              ? `${names.riderName(holding.riderId)} · ${holding.parcelCount} COD parcels · last collected ${formatTime(holding.latestCollectedAt)}`
-              : "Count the cash a rider hands over and record it against their collections."}
+              ? `${riderLabel(holding.riderId)} at ${selectedBranchName} · ${holding.parcelCount} ${parcelWord(holding.parcelCount)} · last collected ${formatTime(holding.latestCollectedAt)}`
+              : selectedBranchName
+                ? `Count the cash a rider hands over at ${selectedBranchName} and record it against their collections.`
+                : "Count the cash a rider hands over and record it against their collections."}
           </SheetDescription>
         </SheetHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4" noValidate>
@@ -94,7 +126,7 @@ export function RiderSettlementCreateSheet() {
                     <SelectValue placeholder="Select branch" />
                   </SelectTrigger>
                   <SelectContent>
-                    {branches?.map((b) => (
+                    {scopedBranches.map((b) => (
                       <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
                     ))}
                   </SelectContent>
@@ -114,8 +146,8 @@ export function RiderSettlementCreateSheet() {
                     <SelectValue placeholder="Select rider" />
                   </SelectTrigger>
                   <SelectContent>
-                    {eligibleRiders?.map((r) => (
-                      <SelectItem key={r.id} value={r.id}>{riderLabel(r.id, r.licenseNumber)}</SelectItem>
+                    {riderOptions.map((riderId) => (
+                      <SelectItem key={riderId} value={riderId}>{riderLabel(riderId)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
