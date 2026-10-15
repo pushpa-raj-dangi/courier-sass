@@ -68,8 +68,7 @@ export function ManifestInTransitSection({ manifest }: { manifest: Manifest }) {
         </ul>
       )}
       <p className="text-xs text-muted-foreground">
-        This manifest moves to Received once every scanned shipment has been received, or you can
-        close it with missing shipments flagged.
+        Scan each parcel as it comes off the vehicle. You can close the manifest with parcels still missing.
       </p>
     </div>
   );

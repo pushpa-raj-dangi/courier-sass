@@ -1,77 +1,74 @@
 "use client";
 
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { ErrorState } from "@/components/states/ErrorState";
 import { DetailSkeleton } from "@/components/states/DetailSkeleton";
 import { StatusBadge } from "@/components/status-badge/StatusBadge";
-import { useBranches } from "@/features/branches/hooks/useBranches";
+import { SheetHeaderBlock } from "@/components/page/SheetHeaderBlock";
+import { usePermission } from "@/features/auth/hooks/usePermission";
+import { usePeopleNames } from "@/features/shipments/hooks/usePeopleNames";
 import { useManifest } from "@/features/manifests/hooks/useManifest";
 import { useManifestPanelStore } from "@/features/manifests/store/manifestPanelStore";
 import { ManifestDraftSection } from "@/features/manifests/components/ManifestDraftSection";
 import { ManifestSealedSection } from "@/features/manifests/components/ManifestSealedSection";
 import { ManifestInTransitSection } from "@/features/manifests/components/ManifestInTransitSection";
-import { ManifestReceivedSection } from "@/features/manifests/components/ManifestReceivedSection";
-
-function Field({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="text-sm font-medium text-foreground">{value}</span>
-    </div>
-  );
-}
+import { ManifestStepper } from "@/features/manifests/components/ManifestStepper";
+import { ManifestReconciliation } from "@/features/manifests/components/ManifestReconciliation";
+import { ManifestCloseAction } from "@/features/manifests/components/ManifestCloseAction";
 
 export function ManifestDetailSheet() {
   const panel = useManifestPanelStore((s) => s.panel);
   const close = useManifestPanelStore((s) => s.close);
   const isOpen = panel.mode === "detail";
   const id = panel.mode === "detail" ? panel.id : "";
+  const direction = panel.mode === "detail" ? panel.direction : undefined;
 
   const { data: manifest, isLoading, isError, refetch } = useManifest(id);
-  const { data: branches } = useBranches();
-  const branchName = (branchId: string) => branches?.find((b) => b.id === branchId)?.name ?? "—";
+  const names = usePeopleNames();
+  const canSeal = usePermission("manifest.seal");
+  const canDispatch = usePermission("manifest.dispatch");
+
+  const receiving = manifest?.status === "InTransit" || manifest?.status === "Received";
+  const reconciling = receiving || manifest?.status === "Closed";
+  const eyebrow = manifest
+    ? ["MANIFEST", direction?.toUpperCase(), manifest.purpose === "Return" ? "RTO" : "FORWARD"].filter(Boolean).join(" · ")
+    : "MANIFEST";
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => { if (!open) close(); }}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
-        <SheetHeader>
-          <SheetTitle className={manifest?.code ? "font-mono" : undefined}>{manifest?.code ?? "Manifest"}</SheetTitle>
-        </SheetHeader>
-        <div className="mt-6 space-y-6">
-          {isLoading && <DetailSkeleton fieldRows={2} />}
-          {isError && (
-            <ErrorState
-              title="Couldn't load this manifest"
-              description="It may not exist, or you may not have access to it."
-              onRetry={() => refetch()}
+      <SheetContent className="flex w-full flex-col gap-6 overflow-y-auto sm:max-w-xl">
+        {!manifest && <SheetTitle className="sr-only">Manifest</SheetTitle>}
+        {isLoading && <DetailSkeleton fieldRows={2} />}
+        {isError && (
+          <ErrorState
+            title="Couldn't load this manifest"
+            description="It may not exist, or you may not have access to it."
+            onRetry={() => refetch()}
+          />
+        )}
+        {manifest && (
+          <>
+            <SheetHeaderBlock
+              eyebrow={eyebrow}
+              title={manifest.code}
+              mono
+              status={<StatusBadge status={manifest.status} namespace="Manifest" />}
+              facts={[
+                { label: "From", value: names.branchName(manifest.fromBranchId) },
+                { label: "To", value: names.branchName(manifest.toBranchId) },
+                { label: "Vehicle", value: manifest.vehiclePlate ?? "Not assigned" },
+                { label: "Driver", value: manifest.driverId ? names.riderName(manifest.driverId) : "—" },
+              ]}
             />
-          )}
-          {manifest && (
-            <>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1">
-                  <span className="text-xs text-muted-foreground">Status</span>
-                  <StatusBadge status={manifest.status} namespace="Manifest" />
-                </div>
-                <Field label="Purpose" value={manifest.purpose} />
-                <Field label="From Branch" value={branchName(manifest.fromBranchId)} />
-                <Field label="To Branch" value={branchName(manifest.toBranchId)} />
-                <Field label="Shipment Count" value={String(manifest.shipmentCount)} />
-                <Field label="Created At" value={new Date(manifest.createdAt).toLocaleString()} />
-              </div>
+            <ManifestStepper status={manifest.status} />
 
-              {manifest.status === "Draft" && <ManifestDraftSection manifest={manifest} />}
-              {manifest.status === "Sealed" && <ManifestSealedSection manifest={manifest} />}
-              {manifest.status === "InTransit" && <ManifestInTransitSection manifest={manifest} />}
-              {manifest.status === "Received" && <ManifestReceivedSection manifest={manifest} />}
-              {manifest.status === "Closed" && (
-                <p className="text-sm text-muted-foreground">
-                  This manifest is closed. No further action is possible.
-                </p>
-              )}
-            </>
-          )}
-        </div>
+            {manifest.status === "Draft" && <ManifestDraftSection manifest={manifest} canSeal={canSeal} />}
+            {manifest.status === "Sealed" && <ManifestSealedSection manifest={manifest} canDispatch={canDispatch} />}
+            {receiving && <ManifestInTransitSection manifest={manifest} />}
+            {reconciling && <ManifestReconciliation manifest={manifest} />}
+            {receiving && <ManifestCloseAction manifest={manifest} />}
+          </>
+        )}
       </SheetContent>
     </Sheet>
   );

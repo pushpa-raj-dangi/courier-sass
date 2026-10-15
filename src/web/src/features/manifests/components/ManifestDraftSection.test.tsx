@@ -56,4 +56,9 @@ describe("ManifestDraftSection", () => {
 
     await waitFor(() => expect(screen.getByText(/no shipment matches that awb/i)).toBeInTheDocument());
   });
+
+  it("hides the seal button without manifest.seal", () => {
+    renderWithProviders(<ManifestDraftSection manifest={manifest} canSeal={false} />);
+    expect(screen.queryByRole("button", { name: /seal manifest/i })).not.toBeInTheDocument();
+  });
 });
