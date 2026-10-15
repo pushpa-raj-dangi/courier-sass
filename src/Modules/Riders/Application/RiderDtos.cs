@@ -48,3 +48,11 @@ public class RiderNotFoundException : Exception
 public record MyTaskResponse(Guid TaskId, Guid ShipmentId, DeliveryTaskType Type, int Sequence, string Awb, string RecipientName, string RecipientPhone, string RecipientAddressLine, int RecipientWardNumber, decimal CodAmount);
 
 public record MyTasksTodayResponse(Guid? DeliveryRunId, List<MyTaskResponse> Tasks);
+
+// F15 R3b-1 staff read of a shipment's attempt history (NDR Sheet). GPS is deliberately not
+// exposed — nothing on screen needs it. RiderId is Rider.Id, not a user id.
+public record DeliveryAttemptHistoryItem(
+    int AttemptNumber, DateTimeOffset AttemptedAt, bool Succeeded, DeliveryAttemptReason? Reason,
+    string? Notes, bool CustomerContacted, string? NextAction, Guid RiderId);
+
+public record DeliveryAttemptListResponse(IReadOnlyList<DeliveryAttemptHistoryItem> Items);

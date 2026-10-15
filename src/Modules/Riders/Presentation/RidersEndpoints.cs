@@ -25,6 +25,22 @@ public static class RidersEndpoints
         .WithTags("Vehicles Management")
         .RequireAuthorization();
 
+        // F15 R3b-1: staff read of one shipment's attempt history, under the shipment URL the NDR
+        // Sheet already knows. Staff only — merchants follow their parcels through /track.
+        var shipmentAttempts = app.MapGroup("/api/v1/shipments")
+        .WithTags("Rider Management")
+        .RequireAuthorization();
+
+        shipmentAttempts.MapGet("/{shipmentId:guid}/delivery-attempts", async (Guid shipmentId, RiderService service, HttpContext httpContext) =>
+        {
+            if (httpContext.User.GetMerchantId() is not null)
+            {
+                return Results.Forbid();
+            }
+            var result = await service.ListDeliveryAttemptsAsync(shipmentId, httpContext.User, httpContext.RequestAborted);
+            return result is null ? Results.NotFound() : Results.Ok(result);
+        }).RequirePermission("ndr.read");
+
         riders.MapPost("/", async (CreateRiderRequest request, RiderService service, HttpContext httpContext) =>
         {
             try

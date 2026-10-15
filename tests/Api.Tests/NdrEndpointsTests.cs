@@ -6,11 +6,13 @@ using Courier.Branches.Domain;
 using Courier.Geography.Application;
 using Courier.Geography.Infrastructure;
 using Courier.Identity.Application;
+using Courier.Identity.Domain;
 using Courier.Manifests.Application;
 using Courier.Manifests.Domain;
 using Courier.Merchants.Application;
 using Courier.Ndr.Application;
 using Courier.Ndr.Domain;
+using Courier.Persistence;
 using Courier.Pricing.Application;
 using Courier.Pricing.Domain;
 using Courier.Riders.Application;
@@ -19,6 +21,8 @@ using Courier.Shipments.Application;
 using Courier.Shipments.Domain;
 using Courier.SharedKernel;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace Courier.Api.Tests;
@@ -362,6 +366,178 @@ public class NdrEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
         var client = _factory.CreateClient();
 
         var response = await client.GetAsync("/api/v1/return-shipments/summary");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    private async Task<string> SeedScopedUserTokenAsync(
+        Guid organizationId, Guid ownerUserId, string permissionKey, params Guid[] grantedBranchIds)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var jwtTokenService = scope.ServiceProvider.GetRequiredService<IJwtTokenService>();
+
+        var permission = await dbContext.Set<Permission>().FirstAsync(p => p.Key == permissionKey);
+        var role = new Role
+        {
+            Id = Guid.NewGuid(),
+            OrganizationId = organizationId,
+            Name = $"ScopedRole-{permissionKey}-{Guid.NewGuid():N}",
+            IsSystemDefault = false
+        };
+        role.Permissions.Add(permission);
+        dbContext.Set<Role>().Add(role);
+
+        var scopedUserId = Guid.NewGuid();
+        var email = $"scoped-{scopedUserId:N}@example.com";
+        dbContext.Set<User>().Add(new User
+        {
+            Id = scopedUserId,
+            OrganizationId = organizationId,
+            Email = email,
+            PasswordHash = "not-used-in-this-test",
+            FullName = "Scoped User"
+        });
+        dbContext.Set<UserRole>().Add(new UserRole
+        {
+            Id = Guid.NewGuid(),
+            UserId = scopedUserId,
+            RoleId = role.Id,
+            OrganizationId = organizationId,
+            BranchScope = BranchScope.SpecificBranches,
+            AssignedAt = DateTimeOffset.UtcNow,
+            AssignedByUserId = ownerUserId
+        });
+        foreach (var branchId in grantedBranchIds)
+        {
+            dbContext.Set<UserBranch>().Add(new UserBranch
+            {
+                Id = Guid.NewGuid(),
+                UserId = scopedUserId,
+                BranchId = branchId,
+                OrganizationId = organizationId,
+                GrantedAt = DateTimeOffset.UtcNow,
+                GrantedByUserId = ownerUserId
+            });
+        }
+        await dbContext.SaveChangesAsync();
+
+        return jwtTokenService.IssueAccessToken(scopedUserId, organizationId, email);
+    }
+
+    private async Task<HttpClient> CreateMerchantClientAsync(HttpClient staffClient)
+    {
+        var ownerEmail = $"ndr-merchant-{Guid.NewGuid():N}@example.com";
+        var createResponse = await staffClient.PostAsJsonAsync("/api/v1/merchants", new CreateMerchantRequest(
+            "Attempts Shipper Pvt. Ltd.", "Attempts Shipper", "01-4444444", "attempts-shipper@example.com",
+            ownerEmail, "P@ssw0rd123!", "Owner",
+            KathmanduProvinceId, KathmanduDistrictId, KathmanduLocalLevelId, KathmanduWardNumber, "New Road, Kathmandu"));
+        createResponse.EnsureSuccessStatusCode();
+
+        var merchantClient = _factory.CreateClient();
+        var loginResponse = await merchantClient.PostAsJsonAsync("/api/v1/merchant/auth/login", new MerchantLoginRequest(ownerEmail, "P@ssw0rd123!"));
+        loginResponse.EnsureSuccessStatusCode();
+        var auth = await loginResponse.Content.ReadFromJsonAsync<MerchantAuthResult>();
+        merchantClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth!.AccessToken);
+        return merchantClient;
+    }
+
+    [Fact]
+    public async Task GetDeliveryAttempts_AfterAFailedAttempt_ReturnsIt()
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "attempts");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (originBranchId, destinationBranchId, serviceTypeId) = await SeedBranchesAsync(client);
+        var merchantId = await CreateMerchantAsync(client);
+        var pickupRiderId = await CreateRiderAsync(client, originBranchId, RiderRoleType.PickupRider);
+        var deliveryRiderId = await CreateRiderAsync(client, destinationBranchId, RiderRoleType.DeliveryRider);
+        var shipment = await BookAndFailDeliveryAsync(client, merchantId, originBranchId, destinationBranchId, serviceTypeId, pickupRiderId, deliveryRiderId);
+
+        var response = await client.GetAsync($"/api/v1/shipments/{shipment.Id}/delivery-attempts");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<DeliveryAttemptListResponse>();
+        var attempt = Assert.Single(body!.Items);
+        Assert.Equal(1, attempt.AttemptNumber);
+        Assert.False(attempt.Succeeded);
+        Assert.Equal(DeliveryAttemptReason.CustomerUnavailable, attempt.Reason);
+        Assert.Equal("No one home", attempt.Notes);
+        Assert.True(attempt.CustomerContacted);
+        Assert.Equal("Try tomorrow", attempt.NextAction);
+        Assert.Equal(deliveryRiderId, attempt.RiderId);
+        Assert.DoesNotContain("latitude", await response.Content.ReadAsStringAsync(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task GetDeliveryAttempts_UserOutsideBranchScope_Returns404()
+    {
+        var client = _factory.CreateClient();
+        var owner = await RegisterOrgAsync(client, "attempts-scope");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", owner.AccessToken);
+        var (originBranchId, destinationBranchId, serviceTypeId) = await SeedBranchesAsync(client);
+        var merchantId = await CreateMerchantAsync(client);
+        var pickupRiderId = await CreateRiderAsync(client, originBranchId, RiderRoleType.PickupRider);
+        var deliveryRiderId = await CreateRiderAsync(client, destinationBranchId, RiderRoleType.DeliveryRider);
+        var shipment = await BookAndFailDeliveryAsync(client, merchantId, originBranchId, destinationBranchId, serviceTypeId, pickupRiderId, deliveryRiderId);
+        var (unrelatedBranchId, _, _) = await SeedBranchesAsync(client);
+        var token = await SeedScopedUserTokenAsync(owner.OrganizationId, owner.UserId, "ndr.read", unrelatedBranchId);
+        var scopedClient = _factory.CreateClient();
+        scopedClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await scopedClient.GetAsync($"/api/v1/shipments/{shipment.Id}/delivery-attempts");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetDeliveryAttempts_WithoutNdrRead_Returns403()
+    {
+        var client = _factory.CreateClient();
+        var owner = await RegisterOrgAsync(client, "attempts-403");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", owner.AccessToken);
+        var (originBranchId, _, _) = await SeedBranchesAsync(client);
+        var token = await SeedScopedUserTokenAsync(owner.OrganizationId, owner.UserId, "shipment.read", originBranchId);
+        var scopedClient = _factory.CreateClient();
+        scopedClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await scopedClient.GetAsync($"/api/v1/shipments/{Guid.NewGuid()}/delivery-attempts");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetDeliveryAttempts_MerchantCaller_Returns403()
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "attempts-merchant");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        await SeedBranchesAsync(client);
+        var merchantClient = await CreateMerchantClientAsync(client);
+
+        var response = await merchantClient.GetAsync($"/api/v1/shipments/{Guid.NewGuid()}/delivery-attempts");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetDeliveryAttempts_UnknownShipment_Returns404()
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "attempts-404");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+
+        var response = await client.GetAsync($"/api/v1/shipments/{Guid.NewGuid()}/delivery-attempts");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetDeliveryAttempts_Unauthenticated_Returns401()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.GetAsync($"/api/v1/shipments/{Guid.NewGuid()}/delivery-attempts");
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
