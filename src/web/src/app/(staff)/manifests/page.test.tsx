@@ -117,6 +117,16 @@ describe("ManifestsPage", () => {
     expect(openDetail).toHaveBeenLastCalledWith("m1", "incoming");
   });
 
+  it("hints at picking a branch only for all-branches scope with no branch picked", () => {
+    const { unmount } = render(<ManifestsPage />);
+    expect(screen.getByText("Pick a branch to split incoming and outgoing.")).toBeInTheDocument();
+    unmount();
+
+    search = "branch=b2";
+    render(<ManifestsPage />);
+    expect(screen.queryByText("Pick a branch to split incoming and outgoing.")).toBeNull();
+  });
+
   it("shows an error state with retry when the list fails, and gates the header actions", () => {
     granted = [];
     useManifests.mockReturnValue({ data: undefined, isLoading: false, isError: true, refetch: vi.fn() });

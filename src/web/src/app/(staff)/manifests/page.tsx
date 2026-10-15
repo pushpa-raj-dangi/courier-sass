@@ -55,7 +55,8 @@ function ManifestsPageContent() {
   const scopedBranches = (branches ?? []).filter(
     (b) => session?.hasAllBranchesScope || session?.branches.some((s) => s.branchId === b.id),
   );
-  const showBranchPicker = Boolean(session?.hasAllBranchesScope) || scopedBranches.length > 1;
+  const showDirectionHint = Boolean(session?.hasAllBranchesScope) && !branchId;
+  const showBranchPicker =Boolean(session?.hasAllBranchesScope) || scopedBranches.length > 1;
   const branchLabel = branchId ? scopedBranches.find((b) => b.id === branchId)?.name ?? "Selected branch" : "All my branches";
 
   const list = useManifests(branchId, status, { direction: tab === "all" ? undefined : tab });
@@ -195,13 +196,16 @@ function ManifestsPageContent() {
       </section>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Tabs value={tab} onValueChange={(v) => update({ tab: parseManifestTab(v) === "incoming" ? undefined : v })}>
-          <TabsList>
-            {TABS.map((t) => (
-              <TabsTrigger key={t.key} value={t.key}>{t.label}</TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
+        <div className="flex flex-col gap-1.5">
+          <Tabs value={tab} onValueChange={(v) => update({ tab: parseManifestTab(v) === "incoming" ? undefined : v })}>
+            <TabsList>
+              {TABS.map((t) => (
+                <TabsTrigger key={t.key} value={t.key}>{t.label}</TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+          {showDirectionHint && <p className="text-xs text-muted-foreground">Pick a branch to split incoming and outgoing.</p>}
+        </div>
         {status && (
           <Button
             type="button"

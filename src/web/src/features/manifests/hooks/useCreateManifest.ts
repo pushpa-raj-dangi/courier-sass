@@ -15,6 +15,7 @@ export function useCreateManifest() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["manifests"] });
+      queryClient.invalidateQueries({ queryKey: ["manifests-summary"] });
     },
   });
 }

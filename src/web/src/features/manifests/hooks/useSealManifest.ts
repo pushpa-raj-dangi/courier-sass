@@ -10,6 +10,7 @@ export function useSealManifest(manifestId: string) {
     mutationFn: () => clientFetch<Manifest>(`/api/manifests/${manifestId}/seal`, { method: "POST" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["manifests"] });
+      queryClient.invalidateQueries({ queryKey: ["manifests-summary"] });
     },
   });
 }

@@ -509,6 +509,7 @@ public class NdrEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
     [Fact]
     public async Task GetDeliveryAttempts_MerchantCaller_Returns403()
     {
+        // Merchant tokens lack ndr.read, so RequirePermission returns 403 before the handler's merchant guard runs (the guard is defence in depth).
         var client = _factory.CreateClient();
         var org = await RegisterOrgAsync(client, "attempts-merchant");
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
