@@ -10,11 +10,20 @@ public partial class ManifestService
     public async Task<ManifestResponse?> GetByIdAsync(Guid manifestId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
         var manifest = await FindReadableAsync(manifestId, actingUser, cancellationToken);
-        return manifest is null ? null : ToResponse(manifest);
+        return manifest is null ? null : await ToResponseAsync(manifest, cancellationToken);
     }
 
-    public async Task<List<ManifestResponse>> ListAsync(Guid? branchId, ManifestStatus? status, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
+    // direction (F15 R3b-1): "incoming" keeps manifests headed TO the branch (the requested
+    // branchId, else any branch in the caller's scope); "outgoing" the same on FromBranchId;
+    // omitted keeps today's "touches the branch either way". It only narrows the scope filter.
+    public async Task<List<ManifestResponse>> ListAsync(Guid? branchId, ManifestStatus? status, string? direction, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
+        var normalizedDirection = string.IsNullOrWhiteSpace(direction) ? null : direction.Trim().ToLowerInvariant();
+        if (normalizedDirection is not (null or "incoming" or "outgoing"))
+        {
+            throw new ManifestValidationException("direction must be 'incoming' or 'outgoing'.");
+        }
+
         var query = _dbContext.Set<Manifest>().AsQueryable();
 
         // Scope to branches the caller can access for manifest.read. null means "no filter
@@ -22,9 +31,9 @@ public partial class ManifestService
         // contract — a non-null set restricts to manifests touching any of those branches as
         // sender or receiver, mirroring ShipmentService.Reads.cs's ListAsync's established shape.
         var accessibleBranchIds = await _branchAuthorizationChecker.GetAccessibleBranchIdsAsync(actingUser, "manifest.read", cancellationToken);
-        if (accessibleBranchIds is not null)
+        var accessibleBranchIdsArray = accessibleBranchIds?.ToArray();
+        if (accessibleBranchIdsArray is not null)
         {
-            var accessibleBranchIdsArray = accessibleBranchIds.ToArray();
             query = query.Where(m =>
                 accessibleBranchIdsArray.Contains(m.FromBranchId) ||
                 accessibleBranchIdsArray.Contains(m.ToBranchId));
@@ -32,15 +41,41 @@ public partial class ManifestService
 
         if (branchId is Guid requestedBranchId)
         {
-            query = query.Where(m => m.FromBranchId == requestedBranchId || m.ToBranchId == requestedBranchId);
+            query = normalizedDirection switch
+            {
+                "incoming" => query.Where(m => m.ToBranchId == requestedBranchId),
+                "outgoing" => query.Where(m => m.FromBranchId == requestedBranchId),
+                _ => query.Where(m => m.FromBranchId == requestedBranchId || m.ToBranchId == requestedBranchId)
+            };
         }
+        else if (accessibleBranchIdsArray is not null)
+        {
+            if (normalizedDirection == "incoming")
+            {
+                query = query.Where(m => accessibleBranchIdsArray.Contains(m.ToBranchId));
+            }
+            else if (normalizedDirection == "outgoing")
+            {
+                query = query.Where(m => accessibleBranchIdsArray.Contains(m.FromBranchId));
+            }
+        }
+
         if (status is ManifestStatus requestedStatus)
         {
             query = query.Where(m => m.Status == requestedStatus);
         }
 
         var manifests = await query.OrderByDescending(m => m.CreatedAt).ToListAsync(cancellationToken);
-        return manifests.Select(ToResponse).ToList();
+
+        // One grouped query for every listed manifest's received count — no per-row CountAsync.
+        var manifestIds = manifests.Select(m => m.Id).ToArray();
+        var receivedCounts = await _dbContext.Set<ManifestShipment>()
+            .Where(ms => manifestIds.Contains(ms.ManifestId) && ms.ReceivedAt != null)
+            .GroupBy(ms => ms.ManifestId)
+            .Select(g => new { ManifestId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.ManifestId, x => x.Count, cancellationToken);
+
+        return manifests.Select(m => ToResponse(m, receivedCounts.GetValueOrDefault(m.Id))).ToList();
     }
 
     // Meaningful once the manifest is Closed (a null ReceivedAt then IS the missing-shipment

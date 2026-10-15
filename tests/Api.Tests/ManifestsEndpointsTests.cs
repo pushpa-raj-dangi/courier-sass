@@ -173,6 +173,8 @@ public class ManifestsEndpointsTests : IClassFixture<WebApplicationFactory<Progr
         var closeResponse = await client.PostAsync($"/api/v1/manifests/{manifest.Id}/close", null);
         var closed = await closeResponse.Content.ReadFromJsonAsync<ManifestResponse>();
         Assert.Equal(ManifestStatus.Closed, closed!.Status);
+        Assert.Equal(1, closed.ReceivedCount);
+        Assert.Equal(2, closed.ShipmentCount);
 
         var missingResponse = await client.GetAsync($"/api/v1/manifests/{manifest.Id}/missing-shipments");
         var missingList = await missingResponse.Content.ReadFromJsonAsync<List<MissingShipmentResponse>>();
@@ -439,7 +441,7 @@ public class ManifestsEndpointsTests : IClassFixture<WebApplicationFactory<Progr
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var parcels = await response.Content.ReadFromJsonAsync<List<ManifestShipmentResponse>>();
         Assert.Equal(new[] { first.Awb, second.Awb }, parcels!.Select(p => p.Awb).ToArray());
-        Assert.All(parcels, p => Assert.Null(p.ReceivedAt));
+        Assert.All(parcels!, p => Assert.Null(p.ReceivedAt));
     }
 
     [Fact]
@@ -468,5 +470,42 @@ public class ManifestsEndpointsTests : IClassFixture<WebApplicationFactory<Progr
         var response = await client.GetAsync($"/api/v1/manifests/{Guid.NewGuid()}/shipments");
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetManifests_DirectionFilter_SplitsIncomingAndOutgoingForABranch()
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "direction");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (fromBranchId, toBranchId, _) = await SeedBranchesAsync(client);
+        var forward = await (await client.PostAsJsonAsync("/api/v1/manifests", new CreateManifestRequest(fromBranchId, toBranchId)))
+            .Content.ReadFromJsonAsync<ManifestResponse>();
+        var back = await (await client.PostAsJsonAsync("/api/v1/manifests", new CreateManifestRequest(toBranchId, fromBranchId)))
+            .Content.ReadFromJsonAsync<ManifestResponse>();
+
+        var incoming = await (await client.GetAsync($"/api/v1/manifests?branchId={toBranchId}&direction=incoming"))
+            .Content.ReadFromJsonAsync<List<ManifestResponse>>();
+        var outgoing = await (await client.GetAsync($"/api/v1/manifests?branchId={toBranchId}&direction=outgoing"))
+            .Content.ReadFromJsonAsync<List<ManifestResponse>>();
+
+        Assert.Contains(incoming!, m => m.Id == forward!.Id);
+        Assert.DoesNotContain(incoming!, m => m.Id == back!.Id);
+        Assert.Contains(outgoing!, m => m.Id == back!.Id);
+        Assert.DoesNotContain(outgoing!, m => m.Id == forward!.Id);
+        Assert.All(incoming!, m => Assert.Equal(0, m.ReceivedCount));
+    }
+
+    [Fact]
+    public async Task GetManifests_InvalidDirection_Returns400()
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "direction-400");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+
+        var response = await client.GetAsync("/api/v1/manifests?direction=sideways");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("MANIFEST_VALIDATION_FAILED", await response.Content.ReadAsStringAsync());
     }
 }

@@ -129,10 +129,17 @@ public partial class ManifestService
     private async Task<ManifestResponse> LoadResponseAsync(Guid manifestId, CancellationToken cancellationToken)
     {
         var manifest = await _dbContext.Set<Manifest>().FirstAsync(m => m.Id == manifestId, cancellationToken);
-        return ToResponse(manifest);
+        return await ToResponseAsync(manifest, cancellationToken);
     }
 
-    private static ManifestResponse ToResponse(Manifest manifest) => new(
+    private async Task<ManifestResponse> ToResponseAsync(Manifest manifest, CancellationToken cancellationToken)
+    {
+        var receivedCount = await _dbContext.Set<ManifestShipment>()
+            .CountAsync(ms => ms.ManifestId == manifest.Id && ms.ReceivedAt != null, cancellationToken);
+        return ToResponse(manifest, receivedCount);
+    }
+
+    private static ManifestResponse ToResponse(Manifest manifest, int receivedCount) => new(
         manifest.Id, manifest.Code, manifest.FromBranchId, manifest.ToBranchId, manifest.Purpose,
-        manifest.VehiclePlate, manifest.DriverId, manifest.Status, manifest.ShipmentCount, manifest.CreatedAt);
+        manifest.VehiclePlate, manifest.DriverId, manifest.Status, manifest.ShipmentCount, manifest.CreatedAt, receivedCount);
 }

@@ -50,7 +50,7 @@ public partial class ManifestService
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         await _auditLogger.LogAsync(new AuditEntry(organizationId, actingUser.GetUserId(), "manifest.dispatched", "Manifest", manifestId.ToString()), cancellationToken);
-        return ToResponse(manifest);
+        return await ToResponseAsync(manifest, cancellationToken);
     }
 
     public async Task<ManifestShipmentResponse> ReceiveScanAsync(Guid manifestId, ScanShipmentRequest request, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
@@ -165,6 +165,6 @@ public partial class ManifestService
         manifest.Status = ManifestStatus.Closed;
         await _dbContext.SaveChangesAsync(cancellationToken);
         await _auditLogger.LogAsync(new AuditEntry(organizationId, actingUser.GetUserId(), "manifest.closed", "Manifest", manifestId.ToString()), cancellationToken);
-        return ToResponse(manifest);
+        return await ToResponseAsync(manifest, cancellationToken);
     }
 }

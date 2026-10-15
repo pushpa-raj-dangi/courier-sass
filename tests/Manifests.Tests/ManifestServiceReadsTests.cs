@@ -217,4 +217,19 @@ public class ManifestServiceReadsTests
 
         Assert.Null(await service.ListShipmentsAsync(Guid.NewGuid(), ActingUser()));
     }
+
+    [Fact]
+    public async Task GetByIdAsync_ReturnsReceivedCount()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var manifest = await SeedManifestAsync(dbContext, organizationId, Guid.NewGuid(), Guid.NewGuid(), ManifestStatus.Received);
+        await SeedParcelAsync(dbContext, manifest.Id, DateTimeOffset.UtcNow, receivedAt: DateTimeOffset.UtcNow);
+        await SeedParcelAsync(dbContext, manifest.Id, DateTimeOffset.UtcNow);
+        var service = CreateService(dbContext, organizationId, null, new FakeShipmentReportingLookup());
+
+        var result = await service.GetByIdAsync(manifest.Id, ActingUser());
+
+        Assert.Equal(1, result!.ReceivedCount);
+    }
 }
