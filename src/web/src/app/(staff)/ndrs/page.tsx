@@ -1,111 +1,191 @@
 "use client";
 
-import { useState } from "react";
-import { AlertTriangle, Phone, CheckCircle2, RotateCcw, Undo2 } from "lucide-react";
+import { Suspense } from "react";
+import { X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { PageHeader } from "@/components/page/PageHeader";
+import { PipelineStrip, type PipelineStage } from "@/components/page/PipelineStrip";
 import { ErrorState } from "@/components/states/ErrorState";
 import { StatusBadge } from "@/components/status-badge/StatusBadge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DataTable, type ColumnDef } from "@/components/data-table/DataTable";
-import { SummaryStatsBar, type StatTile } from "@/components/summary-stats/SummaryStatsBar";
 import { useSession } from "@/features/auth/hooks/useSession";
+import { usePeopleNames } from "@/features/shipments/hooks/usePeopleNames";
 import { useNdrs } from "@/features/ndr/hooks/useNdrs";
 import { useNdrsSummary } from "@/features/ndr/hooks/useNdrsSummary";
 import { useNdrPanelStore } from "@/features/ndr/store/ndrPanelStore";
-import type { Ndr, NdrStatus } from "@/features/ndr/types";
+import { NdrRtoSwitch } from "@/features/ndr/components/NdrRtoSwitch";
+import {
+  NDR_REASONS, NDR_STAGES, isFollowUpOverdue, ndrReasonLabel, ndrStatusLabel, ownerLabel, parseAssigned, parseNdrReason, parseNdrStatus,
+} from "@/features/ndr/lib/ndrModel";
+import { AGE_WARNING_HOURS, ageHours, formatAge } from "@/lib/dates/age";
+import { useFilterPage } from "@/lib/hooks/useFilterPage";
+import { useSearchParamState } from "@/lib/hooks/useSearchParamState";
+import { cn } from "@/lib/utils";
+import type { Ndr, NdrAssignedFilter } from "@/features/ndr/types";
 
-const STATUS_OPTIONS: NdrStatus[] = ["Open", "Contacting", "CustomerConfirmed", "ReattemptScheduled", "RtoRequested", "Resolved"];
+const PAGE_SIZE = 20;
+const ANY_REASON = "any";
+const followUpFormat = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
-function buildTiles(counts: Record<string, number>): StatTile[] {
-  const value = (key: string) => (counts[key] ?? 0).toLocaleString();
-  return [
-    { label: "Open", value: value("Open"), icon: AlertTriangle, badgeClass: "bg-status-ndr/15 text-status-ndr" },
-    { label: "Contacting", value: value("Contacting"), icon: Phone, badgeClass: "bg-status-out-for-delivery/15 text-status-out-for-delivery" },
-    { label: "Customer Confirmed", value: value("CustomerConfirmed"), icon: CheckCircle2, badgeClass: "bg-status-received/15 text-status-received" },
-    { label: "Reattempt Scheduled", value: value("ReattemptScheduled"), icon: RotateCcw, badgeClass: "bg-status-sealed/15 text-status-sealed" },
-    { label: "RTO Requested", value: value("RtoRequested"), icon: Undo2, badgeClass: "bg-status-rto/15 text-status-rto" },
-    { label: "Resolved", value: value("Resolved"), icon: CheckCircle2, badgeClass: "bg-status-delivered/15 text-status-delivered", highlight: true },
-  ];
-}
+const OWNER_CHIPS: { key: NdrAssignedFilter; label: string }[] = [
+  { key: "me", label: "Assigned to me" },
+  { key: "unassigned", label: "Unassigned" },
+];
 
-export default function NdrsPage() {
-  const [status, setStatus] = useState<NdrStatus | "all">("all");
-  const [page, setPage] = useState(1);
-  const pageSize = 20;
-  const { data, isLoading, isError, refetch } = useNdrs({
-    status: status === "all" ? undefined : status,
-    page,
-    pageSize,
-  });
+function NdrsPageContent() {
+  const { params, update } = useSearchParamState();
+  const status = parseNdrStatus(params.get("status"));
+  const assigned = parseAssigned(params.get("assigned"));
+  const reason = parseNdrReason(params.get("reason"));
+  const [page, setPage] = useFilterPage(`${status ?? ""}|${assigned ?? ""}|${reason ?? ""}`);
+
+  const list = useNdrs({ status, assigned, reason, page, pageSize: PAGE_SIZE });
   const summary = useNdrsSummary();
-  const openDetail = useNdrPanelStore((s) => s.openDetail);
   const { data: session } = useSession();
+  const names = usePeopleNames();
+  const panel = useNdrPanelStore((s) => s.panel);
+  const openDetail = useNdrPanelStore((s) => s.openDetail);
+  const now = new Date();
+
+  const stages: PipelineStage[] = NDR_STAGES.map((s) => ({
+    key: s.status,
+    label: s.label,
+    token: s.token,
+    count: summary.data ? summary.data[s.status] ?? 0 : null,
+  }));
+  const highlight = summary.data && (summary.data.Open ?? 0) > 0 ? "Open" : undefined;
 
   const columns: ColumnDef<Ndr>[] = [
     {
       key: "awb",
       header: "AWB",
       render: (n) => (
-        <button type="button" onClick={() => openDetail(n.id)} className="font-medium text-foreground hover:underline">
+        <button type="button" onClick={() => openDetail(n.id)} className="font-mono text-sm font-medium text-foreground hover:underline">
           {n.awb}
         </button>
       ),
     },
-    { key: "reason", header: "Reason", render: (n) => n.reason },
-    { key: "status", header: "Status", render: (n) => <StatusBadge status={n.status} namespace="Ndr" /> },
-    { key: "createdAt", header: "Created At", render: (n) => new Date(n.createdAt).toLocaleDateString() },
+    { key: "reason", header: "Reason", render: (n) => <span className="text-sm">{ndrReasonLabel(n.reason)}</span> },
     {
-      key: "assignedStaff",
-      header: "Assigned Staff",
-      render: (n) =>
-        !n.assignedStaffUserId ? "—" : n.assignedStaffUserId === session?.userId ? "You" : "Assigned",
+      key: "age",
+      header: "Age",
+      render: (n) => (
+        <span className={cn("text-sm tabular-nums", ageHours(n.createdAt, now) >= AGE_WARNING_HOURS && "font-semibold text-destructive")}>
+          {formatAge(n.createdAt, now)}
+        </span>
+      ),
+    },
+    {
+      key: "owner",
+      header: "Owner",
+      render: (n) => <span className="text-sm">{ownerLabel(n.assignedStaffUserId, session?.userId, names.userName)}</span>,
+    },
+    {
+      key: "status",
+      header: "Status",
+      render: (n) => {
+        const overdue = isFollowUpOverdue(n, now);
+        return (
+          <div className="flex flex-col items-start gap-1">
+            <StatusBadge status={n.status} namespace="Ndr" />
+            {n.followUpAt && n.status !== "Resolved" && (
+              <span className={cn("text-xs", overdue ? "font-medium text-destructive" : "text-muted-foreground")}>
+                {`${overdue ? "Follow-up overdue · " : "Follow up "}${followUpFormat.format(new Date(n.followUpAt))}`}
+              </span>
+            )}
+          </div>
+        );
+      },
     },
   ];
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="font-display text-xl font-semibold">NDRs</h1>
-        <Select
-          value={status}
-          onValueChange={(v) => {
-            setStatus(v as NdrStatus | "all");
-            setPage(1);
-          }}
-        >
-          <SelectTrigger className="w-48" aria-label="Filter by status">
+    <div className="space-y-5">
+      <PageHeader eyebrow="Operations · NDR & RTO" title="Failed deliveries" actions={<NdrRtoSwitch active="ndr" />} />
+
+      {summary.isLoading && (
+        <div role="status" aria-label="Loading NDR counts" className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-6">
+          {NDR_STAGES.map((s) => (
+            <Skeleton key={s.status} className="h-20 rounded-lg" />
+          ))}
+        </div>
+      )}
+      {summary.isError && (
+        <ErrorState title="Couldn't load NDR counts" description="The status strip is unavailable right now." onRetry={() => summary.refetch()} />
+      )}
+      {summary.data && (
+        <PipelineStrip
+          ariaLabel="NDR status"
+          stages={stages}
+          highlightKey={highlight}
+          selectedKey={status}
+          onSelect={(key) => update({ status: key === status ? undefined : key })}
+        />
+      )}
+
+      <div className="flex flex-wrap items-center gap-2">
+        {OWNER_CHIPS.map((chip) => (
+          <Button
+            key={chip.key}
+            type="button"
+            size="sm"
+            variant={assigned === chip.key ? "secondary" : "outline"}
+            aria-pressed={assigned === chip.key}
+            onClick={() => update({ assigned: assigned === chip.key ? undefined : chip.key })}
+          >
+            {chip.label}
+          </Button>
+        ))}
+        <Select value={reason ?? ANY_REASON} onValueChange={(v) => update({ reason: v === ANY_REASON ? undefined : v })}>
+          <SelectTrigger className="h-9 w-60" aria-label="Reason">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            {STATUS_OPTIONS.map((s) => (
-              <SelectItem key={s} value={s}>{s}</SelectItem>
+            <SelectItem value={ANY_REASON}>Any reason</SelectItem>
+            {NDR_REASONS.map((r) => (
+              <SelectItem key={r} value={r}>{ndrReasonLabel(r)}</SelectItem>
             ))}
           </SelectContent>
         </Select>
+        {status && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            aria-label={`Clear status filter ${ndrStatusLabel(status)}`}
+            onClick={() => update({ status: undefined })}
+          >
+            {`Status: ${ndrStatusLabel(status)}`}
+            <X className="h-3.5 w-3.5" aria-hidden="true" />
+          </Button>
+        )}
       </div>
-      <SummaryStatsBar
-        tiles={summary.data ? buildTiles(summary.data) : []}
-        isLoading={summary.isLoading}
-        isError={summary.isError}
-        skeletonCount={6}
-      />
-      {isError ? (
-        <ErrorState
-          title="Couldn't load NDRs"
-          description="Something went wrong fetching the NDR queue."
-          onRetry={() => refetch()}
-        />
+
+      {list.isError ? (
+        <ErrorState title="Couldn't load NDRs" description="Something went wrong fetching the NDR queue." onRetry={() => list.refetch()} />
       ) : (
         <DataTable
           columns={columns}
-          data={data}
-          isLoading={isLoading}
-          emptyTitle="No NDRs"
-          emptyDescription="Failed deliveries that need follow-up will show up here."
+          data={list.data}
+          isLoading={list.isLoading}
+          emptyTitle="No failed deliveries here"
+          emptyDescription={assigned || reason || status ? "Nothing matches these filters." : "Failed deliveries that need follow-up show up here."}
           onPageChange={setPage}
           rowKey={(n) => n.id}
+          selectedRowId={panel.mode === "detail" ? panel.id : undefined}
         />
       )}
     </div>
+  );
+}
+
+export default function NdrsPage() {
+  return (
+    <Suspense>
+      <NdrsPageContent />
+    </Suspense>
   );
 }
