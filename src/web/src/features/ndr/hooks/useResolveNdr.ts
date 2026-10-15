@@ -15,7 +15,9 @@ export function useResolveNdr(id: string) {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ndrs"] });
+      queryClient.invalidateQueries({ queryKey: ["ndrs-summary"] });
       queryClient.invalidateQueries({ queryKey: ["return-shipments"] });
+      queryClient.invalidateQueries({ queryKey: ["return-shipments-summary"] });
     },
   });
 }
