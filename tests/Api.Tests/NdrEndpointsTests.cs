@@ -541,4 +541,48 @@ public class NdrEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
+
+    [Fact]
+    public async Task GetNdrs_AssignedAndReasonFilters_RoundTrip()
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "ndr-filters");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (originBranchId, destinationBranchId, serviceTypeId) = await SeedBranchesAsync(client);
+        var merchantId = await CreateMerchantAsync(client);
+        var pickupRiderId = await CreateRiderAsync(client, originBranchId, RiderRoleType.PickupRider);
+        var deliveryRiderId = await CreateRiderAsync(client, destinationBranchId, RiderRoleType.DeliveryRider);
+        var shipment = await BookAndFailDeliveryAsync(client, merchantId, originBranchId, destinationBranchId, serviceTypeId, pickupRiderId, deliveryRiderId);
+        var ndr = await GetOpenNdrForShipmentAsync(client, shipment.Id);
+
+        async Task<PagedResult<NdrResponse>> ListAsync(string query) =>
+            (await (await client.GetAsync($"/api/v1/ndrs?{query}")).Content.ReadFromJsonAsync<PagedResult<NdrResponse>>())!;
+
+        Assert.Contains((await ListAsync("assigned=unassigned")).Items, n => n.Id == ndr.Id);
+        Assert.DoesNotContain((await ListAsync("assigned=me")).Items, n => n.Id == ndr.Id);
+
+        // Any follow-up update makes the caller the owner (NdrService.UpdateAsync).
+        var update = await client.PostAsJsonAsync($"/api/v1/ndrs/{ndr.Id}/update", new UpdateNdrRequest(NdrStatus.Contacting, "Called once", null, null));
+        update.EnsureSuccessStatusCode();
+
+        Assert.Contains((await ListAsync("assigned=me")).Items, n => n.Id == ndr.Id);
+        Assert.DoesNotContain((await ListAsync("assigned=unassigned")).Items, n => n.Id == ndr.Id);
+        Assert.Contains((await ListAsync("reason=CustomerUnavailable")).Items, n => n.Id == ndr.Id);
+        Assert.DoesNotContain((await ListAsync("reason=WrongAddress")).Items, n => n.Id == ndr.Id);
+    }
+
+    [Fact]
+    public async Task GetNdrs_InvalidFilters_Return400()
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "ndr-filters-400");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+
+        var badAssigned = await client.GetAsync("/api/v1/ndrs?assigned=everyone");
+        var badReason = await client.GetAsync("/api/v1/ndrs?reason=Bogus");
+
+        Assert.Equal(HttpStatusCode.BadRequest, badAssigned.StatusCode);
+        Assert.Contains("NDR_VALIDATION_FAILED", await badAssigned.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.BadRequest, badReason.StatusCode);
+    }
 }
