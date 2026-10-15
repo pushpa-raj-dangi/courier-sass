@@ -1,91 +1,127 @@
 "use client";
 
-import { Undo2, Truck, PackageCheck, CheckCircle2, Clock } from "lucide-react";
-import { StatusBadge } from "@/components/status-badge/StatusBadge";
-import { DataTable, type ColumnDef, type PagedResult } from "@/components/data-table/DataTable";
+import { Suspense } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { PageHeader } from "@/components/page/PageHeader";
+import { PipelineStrip, type PipelineStage } from "@/components/page/PipelineStrip";
 import { ErrorState } from "@/components/states/ErrorState";
-import { SummaryStatsBar, type StatTile } from "@/components/summary-stats/SummaryStatsBar";
+import { StatusBadge } from "@/components/status-badge/StatusBadge";
+import { DataTable, type ColumnDef } from "@/components/data-table/DataTable";
 import { useBranches } from "@/features/branches/hooks/useBranches";
+import { branchCode } from "@/features/branches/lib/branchCode";
+import { usePeopleNames } from "@/features/shipments/hooks/usePeopleNames";
 import { useReturnShipments } from "@/features/ndr/hooks/useReturnShipments";
-import { useReturnShipmentsSummary, type ReturnShipmentSummary } from "@/features/ndr/hooks/useReturnShipmentsSummary";
+import { useReturnShipmentsSummary } from "@/features/ndr/hooks/useReturnShipmentsSummary";
 import { useReturnShipmentPanelStore } from "@/features/ndr/store/returnShipmentPanelStore";
+import { NdrRtoSwitch } from "@/features/ndr/components/NdrRtoSwitch";
+import { RETURN_STAGES, matchesReturnStage, parseReturnStage, returnStageCount } from "@/features/ndr/lib/returnModel";
+import { useFilterPage } from "@/lib/hooks/useFilterPage";
+import { useSearchParamState } from "@/lib/hooks/useSearchParamState";
+import { toClientPage } from "@/lib/paging/clientPage";
 import type { ReturnShipment } from "@/features/ndr/types";
 
-function buildTiles(summary: ReturnShipmentSummary): StatTile[] {
-  const stage = (key: string) => (summary.byRtoStage[key] ?? 0).toLocaleString();
-  return [
-    { label: "RTO Initiated", value: stage("RtoInitiated"), icon: Undo2, badgeClass: "bg-status-rto/15 text-status-rto" },
-    { label: "RTO In Transit", value: stage("RtoInTransit"), icon: Truck, badgeClass: "bg-status-rto/15 text-status-rto" },
-    { label: "RTO At Origin", value: stage("RtoAtOrigin"), icon: PackageCheck, badgeClass: "bg-status-rto/15 text-status-rto" },
-    { label: "RTO Delivered", value: stage("RtoDelivered"), icon: CheckCircle2, badgeClass: "bg-status-rto/15 text-status-rto" },
-    { label: "Merchant Confirmed", value: summary.merchantConfirmed.toLocaleString(), icon: CheckCircle2, badgeClass: "bg-status-delivered/15 text-status-delivered", highlight: true },
-    { label: "Pending Confirmation", value: summary.pendingConfirmation.toLocaleString(), icon: Clock, badgeClass: "bg-muted text-muted-foreground" },
-  ];
-}
+const PAGE_SIZE = 20;
+const confirmedFormat = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
-export default function ReturnShipmentsPage() {
-  const { data, isLoading, isError, refetch } = useReturnShipments();
+function ReturnShipmentsPageContent() {
+  const { params, update } = useSearchParamState();
+  const stage = parseReturnStage(params.get("stage"));
+  const [page, setPage] = useFilterPage(stage ?? "");
+
+  const list = useReturnShipments();
   const summary = useReturnShipmentsSummary();
   const { data: branches } = useBranches();
+  const names = usePeopleNames();
+  const panel = useReturnShipmentPanelStore((s) => s.panel);
   const openDetail = useReturnShipmentPanelStore((s) => s.openDetail);
 
-  const branchName = (id: string) => branches?.find((b) => b.id === id)?.name ?? "—";
+  const rows = list.data?.filter((r) => !stage || matchesReturnStage(r, stage));
+  const stages: PipelineStage[] = RETURN_STAGES.map((s) => ({
+    key: s.key,
+    label: s.label,
+    token: s.token,
+    count: summary.data ? returnStageCount(summary.data, s.key) : null,
+  }));
+  const highlight = summary.data && returnStageCount(summary.data, "RtoAtOrigin") > 0 ? "RtoAtOrigin" : undefined;
 
   const columns: ColumnDef<ReturnShipment>[] = [
     {
       key: "returnAwb",
       header: "Return AWB",
       render: (r) => (
-        <button type="button" onClick={() => openDetail(r.id)} className="font-medium text-foreground hover:underline">
-          {r.returnAwb}
+        <button type="button" onClick={() => openDetail(r.id)} className="flex flex-col items-start gap-0.5 text-left">
+          <span className="font-mono text-sm font-medium text-foreground hover:underline">{r.returnAwb}</span>
+          <span className="font-mono text-xs text-muted-foreground">{`from ${r.originalAwb || "—"}`}</span>
         </button>
       ),
     },
-    { key: "originalAwb", header: "Original AWB", render: (r) => r.originalAwb },
-    { key: "status", header: "Status", render: (r) => <StatusBadge status={r.currentStatus} /> },
-    { key: "originBranch", header: "Origin Branch", render: (r) => branchName(r.originBranchId) },
-    { key: "destinationBranch", header: "Destination Branch", render: (r) => branchName(r.destinationBranchId) },
+    { key: "reason", header: "Reason", render: (r) => <span className="line-clamp-2 max-w-56 text-sm">{r.rtoReason}</span> },
     {
-      key: "merchantConfirmedAt",
-      header: "Merchant Confirmed",
-      render: (r) => (r.merchantConfirmedAt ? new Date(r.merchantConfirmedAt).toLocaleDateString() : "—"),
+      key: "route",
+      header: "Route",
+      render: (r) => <span className="font-mono text-sm">{`${branchCode(branches, r.originBranchId)} → ${branchCode(branches, r.destinationBranchId)}`}</span>,
+    },
+    { key: "nowAt", header: "Now at", render: (r) => <span className="text-sm">{r.currentBranchId ? names.branchName(r.currentBranchId) : "In transit"}</span> },
+    {
+      key: "status",
+      header: "Status",
+      render: (r) => (
+        <div className="flex flex-col items-start gap-1">
+          <StatusBadge status={r.currentStatus} />
+          <span className="text-xs text-muted-foreground">
+            {r.merchantConfirmedAt ? `Merchant confirmed ${confirmedFormat.format(new Date(r.merchantConfirmedAt))}` : "Not confirmed"}
+          </span>
+        </div>
+      ),
     },
   ];
 
-  const pagedData: PagedResult<ReturnShipment> | undefined = data && {
-    items: data,
-    page: 1,
-    pageSize: data.length,
-    totalCount: data.length,
-    totalPages: 1,
-  };
-
   return (
-    <div className="space-y-4">
-      <h1 className="font-display text-xl font-semibold">Return Shipments</h1>
-      <SummaryStatsBar
-        tiles={summary.data ? buildTiles(summary.data) : []}
-        isLoading={summary.isLoading}
-        isError={summary.isError}
-        skeletonCount={6}
-      />
-      {isError ? (
-        <ErrorState
-          title="Couldn't load return shipments"
-          description="Something went wrong fetching the RTO list."
-          onRetry={() => refetch()}
+    <div className="space-y-5">
+      <PageHeader eyebrow="Operations · NDR & RTO" title="Returns to origin" actions={<NdrRtoSwitch active="returns" />} />
+
+      {summary.isLoading && (
+        <div role="status" aria-label="Loading return stages" className="grid grid-cols-2 gap-2.5 sm:grid-cols-5">
+          {RETURN_STAGES.map((s) => (
+            <Skeleton key={s.key} className="h-20 rounded-lg" />
+          ))}
+        </div>
+      )}
+      {summary.isError && (
+        <ErrorState title="Couldn't load return counts" description="The stage strip is unavailable right now." onRetry={() => summary.refetch()} />
+      )}
+      {summary.data && (
+        <PipelineStrip
+          ariaLabel="Return stages"
+          stages={stages}
+          highlightKey={highlight}
+          selectedKey={stage}
+          onSelect={(key) => update({ stage: key === stage ? undefined : key })}
         />
+      )}
+
+      {list.isError ? (
+        <ErrorState title="Couldn't load returns" description="Something went wrong fetching the return list." onRetry={() => list.refetch()} />
       ) : (
         <DataTable
           columns={columns}
-          data={pagedData}
-          isLoading={isLoading}
-          emptyTitle="No return shipments"
-          emptyDescription="Shipments resolved as RTO will show up here."
-          onPageChange={() => {}}
+          data={rows && toClientPage(rows, page, PAGE_SIZE)}
+          isLoading={list.isLoading}
+          emptyTitle="No returns here"
+          emptyDescription={stage ? "Nothing is at this stage right now." : "Shipments resolved as RTO show up here."}
+          onPageChange={setPage}
           rowKey={(r) => r.id}
+          selectedRowId={panel.mode === "detail" ? panel.id : undefined}
         />
       )}
     </div>
+  );
+}
+
+export default function ReturnShipmentsPage() {
+  return (
+    <Suspense>
+      <ReturnShipmentsPageContent />
+    </Suspense>
   );
 }

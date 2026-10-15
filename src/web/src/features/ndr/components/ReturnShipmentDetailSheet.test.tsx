@@ -1,61 +1,104 @@
-import { describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ReturnShipmentDetailSheet } from "./ReturnShipmentDetailSheet";
-import { useReturnShipmentPanelStore } from "@/features/ndr/store/returnShipmentPanelStore";
-import * as clientFetchModule from "@/lib/api/clientFetch";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, screen, within } from "@testing-library/react";
+import { renderWithIntl as render } from "@/test/renderWithIntl";
 import type { ReturnShipment } from "@/features/ndr/types";
+import type { Shipment, ShipmentEvent } from "@/features/shipments/types";
 
-const returnShipment: ReturnShipment = {
-  id: "rs1", originalShipmentId: "s1", originalAwb: "AWB001", returnAwb: "RTO-20260901-001",
-  rtoReason: "Customer refused", originBranchId: "b2", destinationBranchId: "b1",
-  currentStatus: "RtoInTransit", currentBranchId: null, merchantConfirmedAt: null,
+let returnQuery: { data?: ReturnShipment; isLoading: boolean; isError: boolean; refetch: () => void };
+vi.mock("@/features/ndr/hooks/useReturnShipment", () => ({ useReturnShipment: () => returnQuery }));
+const confirmMutate = vi.fn();
+vi.mock("@/features/ndr/hooks/useConfirmReturnShipment", () => ({ useConfirmReturnShipment: () => ({ mutate: confirmMutate, isPending: false, isError: false }) }));
+let shipmentQuery: { data?: Shipment; isError: boolean };
+vi.mock("@/features/shipments/hooks/useShipment", () => ({ useShipment: () => shipmentQuery }));
+const useShipmentEvents = vi.fn();
+vi.mock("@/features/shipments/hooks/useShipmentEvents", () => ({ useShipmentEvents: (awb: string) => useShipmentEvents(awb) }));
+vi.mock("@/features/shipments/hooks/useMerchants", () => ({ useMerchants: () => ({ data: [{ id: "mer1", displayName: "Daraz Seller", isActive: true }] }) }));
+vi.mock("@/features/shipments/components/detail/TimelineTab", () => ({
+  TimelineTab: ({ events }: { events: ShipmentEvent[] }) => <p>{`timeline with ${events.length} events`}</p>,
+}));
+vi.mock("@/features/shipments/hooks/usePeopleNames", () => ({
+  usePeopleNames: () => ({ branchName: (id: string | null) => (id === "b1" ? "Kathmandu Hub" : "Pokhara Hub"), userName: () => "Staff", riderName: () => "Rider" }),
+}));
+let granted: string[] = [];
+vi.mock("@/features/auth/hooks/usePermission", () => ({ usePermission: (p: string) => granted.includes(p) }));
+const openShipment = vi.fn();
+vi.mock("@/features/shipments/store/shipmentPanelStore", () => ({
+  useShipmentPanelStore: (selector: (s: unknown) => unknown) => selector({ openDetail: openShipment }),
+}));
+vi.mock("@/features/ndr/store/returnShipmentPanelStore", () => ({
+  useReturnShipmentPanelStore: (selector: (s: unknown) => unknown) => selector({ panel: { mode: "detail", id: "r1" }, close: vi.fn() }),
+}));
+
+import { ReturnShipmentDetailSheet } from "./ReturnShipmentDetailSheet";
+
+const base: ReturnShipment = {
+  id: "r1", originalShipmentId: "s1", originalAwb: "KTM-000301", returnAwb: "RTO-20261015-001", rtoReason: "Refused twice",
+  originBranchId: "b2", destinationBranchId: "b1", currentStatus: "RtoAtOrigin", currentBranchId: "b1", merchantConfirmedAt: null,
 };
 
-function mockSessionWithPermissions(permissions: string[]) {
-  global.fetch = vi.fn().mockResolvedValue({
-    ok: true,
-    status: 200,
-    json: async () => ({
-      userId: "u1", organizationId: "o1", email: "a@b.com", fullName: "A B",
-      permissions, hasAllBranchesScope: true, branches: [],
-    }),
-  }) as unknown as typeof fetch;
-}
-
-function renderWithProviders(ui: React.ReactElement) {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>);
-}
+beforeEach(() => {
+  confirmMutate.mockReset();
+  openShipment.mockReset();
+  granted = ["rto.manage"];
+  returnQuery = { data: base, isLoading: false, isError: false, refetch: vi.fn() };
+  shipmentQuery = { data: { awb: "KTM-000301", merchantId: "mer1" } as Shipment, isError: false };
+  useShipmentEvents.mockReset();
+  useShipmentEvents.mockReturnValue({ data: [{ id: "e1" }, { id: "e2" }], isLoading: false, isError: false, refetch: vi.fn() });
+});
 
 describe("ReturnShipmentDetailSheet", () => {
-  it("disables Confirm Return until the shipment reaches RtoAtOrigin", async () => {
-    mockSessionWithPermissions(["rto.manage"]);
-    vi.spyOn(clientFetchModule, "clientFetch").mockImplementation(async (path: unknown) => {
-      if (typeof path === "string" && path.startsWith("/api/return-shipments")) {
-        return returnShipment;
-      }
-      return [];
-    });
-    useReturnShipmentPanelStore.setState({ panel: { mode: "detail", id: "rs1" } });
-
-    renderWithProviders(<ReturnShipmentDetailSheet />);
-
-    await waitFor(() => expect(screen.getByRole("button", { name: /confirm return/i })).toBeDisabled());
+  it("renders the header with reason, back-to, now-at and merchant", () => {
+    render(<ReturnShipmentDetailSheet />);
+    expect(screen.getByText("RETURN · Refused twice")).toBeInTheDocument();
+    expect(screen.getByText("RTO-20261015-001", { selector: "h2" })).toBeInTheDocument();
+    expect(screen.getAllByText("Kathmandu Hub")).toHaveLength(2);
+    expect(screen.getByText("Daraz Seller")).toBeInTheDocument();
   });
 
-  it("enables Confirm Return once the shipment is RtoAtOrigin", async () => {
-    mockSessionWithPermissions(["rto.manage"]);
-    vi.spyOn(clientFetchModule, "clientFetch").mockImplementation(async (path: unknown) => {
-      if (typeof path === "string" && path.startsWith("/api/return-shipments")) {
-        return { ...returnShipment, currentStatus: "RtoAtOrigin" };
-      }
-      return [];
-    });
-    useReturnShipmentPanelStore.setState({ panel: { mode: "detail", id: "rs1" } });
+  it("links to the original shipment and tells its story from the original AWB", () => {
+    render(<ReturnShipmentDetailSheet />);
+    expect(useShipmentEvents).toHaveBeenCalledWith("KTM-000301");
+    expect(screen.getByText("timeline with 2 events")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Open original shipment KTM-000301" }));
+    expect(openShipment).toHaveBeenCalledWith("KTM-000301");
+  });
 
-    renderWithProviders(<ReturnShipmentDetailSheet />);
+  it("offers hand-back at origin with handover details as coming soon, behind a confirm", () => {
+    render(<ReturnShipmentDetailSheet />);
+    expect(screen.getByRole("region", { name: "Handover details" })).toHaveAttribute("data-coming-soon");
+    fireEvent.click(screen.getByRole("button", { name: "Confirm handover" }));
+    const dialog = screen.getByRole("alertdialog");
+    expect(confirmMutate).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Confirm handover" }));
+    expect(confirmMutate).toHaveBeenCalledTimes(1);
+  });
 
-    await waitFor(() => expect(screen.getByRole("button", { name: /confirm return/i })).toBeEnabled());
+  it("hides hand-back before origin, without rto.manage, and once confirmed", () => {
+    returnQuery = { ...returnQuery, data: { ...base, currentStatus: "RtoInTransit", currentBranchId: null } };
+    const first = render(<ReturnShipmentDetailSheet />);
+    expect(screen.queryByRole("button", { name: "Confirm handover" })).toBeNull();
+    expect(screen.getByText("In transit")).toBeInTheDocument();
+    expect(screen.getByText("Hand-back opens once the parcel is at the origin branch.")).toBeInTheDocument();
+    first.unmount();
+
+    granted = [];
+    returnQuery = { ...returnQuery, data: base };
+    const second = render(<ReturnShipmentDetailSheet />);
+    expect(screen.queryByRole("button", { name: "Confirm handover" })).toBeNull();
+    second.unmount();
+
+    granted = ["rto.manage"];
+    returnQuery = { ...returnQuery, data: { ...base, currentStatus: "RtoDelivered", merchantConfirmedAt: "2026-10-15T08:00:00Z" } };
+    render(<ReturnShipmentDetailSheet />);
+    expect(screen.queryByRole("button", { name: "Confirm handover" })).toBeNull();
+    expect(screen.getByText(/^Confirmed by merchant/)).toBeInTheDocument();
+  });
+
+  it("shows dashes and an error state when the original's reads fail", () => {
+    shipmentQuery = { data: undefined, isError: true };
+    useShipmentEvents.mockReturnValue({ data: undefined, isLoading: false, isError: true, refetch: vi.fn() });
+    render(<ReturnShipmentDetailSheet />);
+    expect(screen.getByText("Couldn't load the parcel history")).toBeInTheDocument();
+    expect(screen.queryByText("Daraz Seller")).toBeNull();
   });
 });
