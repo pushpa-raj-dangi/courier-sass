@@ -101,6 +101,7 @@ export function ReturnShipmentDetailSheet() {
               {events.data && <TimelineTab events={events.data} />}
             </SectionCard>
 
+            {confirm.isSuccess && <p role="status" className="text-sm font-medium text-foreground">Handed back to the merchant.</p>}
             {returnShipment.merchantConfirmedAt ? (
               <p className="text-sm text-foreground">{`Confirmed by merchant ${confirmedFormat.format(new Date(returnShipment.merchantConfirmedAt))}`}</p>
             ) : canManage && canHandBack(returnShipment) ? (

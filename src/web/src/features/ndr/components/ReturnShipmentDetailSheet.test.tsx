@@ -7,7 +7,8 @@ import type { Shipment, ShipmentEvent } from "@/features/shipments/types";
 let returnQuery: { data?: ReturnShipment; isLoading: boolean; isError: boolean; refetch: () => void };
 vi.mock("@/features/ndr/hooks/useReturnShipment", () => ({ useReturnShipment: () => returnQuery }));
 const confirmMutate = vi.fn();
-vi.mock("@/features/ndr/hooks/useConfirmReturnShipment", () => ({ useConfirmReturnShipment: () => ({ mutate: confirmMutate, isPending: false, isError: false }) }));
+const confirmState = { isSuccess: false };
+vi.mock("@/features/ndr/hooks/useConfirmReturnShipment", () => ({ useConfirmReturnShipment: () => ({ mutate: confirmMutate, isPending: false, isError: false, isSuccess: confirmState.isSuccess }) }));
 let shipmentQuery: { data?: Shipment; isError: boolean };
 vi.mock("@/features/shipments/hooks/useShipment", () => ({ useShipment: () => shipmentQuery }));
 const useShipmentEvents = vi.fn();
@@ -38,6 +39,7 @@ const base: ReturnShipment = {
 
 beforeEach(() => {
   confirmMutate.mockReset();
+  confirmState.isSuccess = false;
   openShipment.mockReset();
   granted = ["rto.manage"];
   returnQuery = { data: base, isLoading: false, isError: false, refetch: vi.fn() };
@@ -73,6 +75,17 @@ describe("ReturnShipmentDetailSheet", () => {
     expect(confirmMutate).toHaveBeenCalledTimes(1);
   });
 
+  it("announces a successful hand-back in a status line", () => {
+    const view = render(<ReturnShipmentDetailSheet />);
+    expect(screen.queryByRole("status")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Confirm handover" }));
+    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Confirm handover" }));
+    confirmState.isSuccess = true;
+    returnQuery = { ...returnQuery, data: { ...base, currentStatus: "RtoDelivered", merchantConfirmedAt: "2026-10-15T08:00:00Z" } };
+    view.rerender(<ReturnShipmentDetailSheet />);
+    expect(screen.getByRole("status")).toHaveTextContent("Handed back to the merchant.");
+  });
+
   it("hides hand-back before origin, without rto.manage, and once confirmed", () => {
     returnQuery = { ...returnQuery, data: { ...base, currentStatus: "RtoInTransit", currentBranchId: null } };
     const first = render(<ReturnShipmentDetailSheet />);
@@ -100,5 +113,6 @@ describe("ReturnShipmentDetailSheet", () => {
     render(<ReturnShipmentDetailSheet />);
     expect(screen.getByText("Couldn't load the parcel history")).toBeInTheDocument();
     expect(screen.queryByText("Daraz Seller")).toBeNull();
+    expect(screen.getByText("Merchant").parentElement).toHaveTextContent("—");
   });
 });
