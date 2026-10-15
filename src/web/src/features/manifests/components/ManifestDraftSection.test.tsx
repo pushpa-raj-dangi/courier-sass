@@ -16,6 +16,7 @@ const manifest: Manifest = {
   driverId: null,
   status: "Draft",
   shipmentCount: 0,
+  receivedCount: 0,
   createdAt: "2026-08-29T00:00:00Z",
 };
 

@@ -19,6 +19,20 @@ export interface Ndr {
   createdAt: string;
 }
 
+export type NdrAssignedFilter = "me" | "unassigned";
+
+// GET /api/v1/shipments/{shipmentId}/delivery-attempts. riderId is the Rider id (usePeopleNames().riderName).
+export interface DeliveryAttempt {
+  attemptNumber: number;
+  attemptedAt: string;
+  succeeded: boolean;
+  reason: NdrReason | null;
+  notes: string | null;
+  customerContacted: boolean;
+  nextAction: string | null;
+  riderId: string;
+}
+
 export interface UpdateNdrInput {
   status: NdrStatus;
   customerResponse?: string;
