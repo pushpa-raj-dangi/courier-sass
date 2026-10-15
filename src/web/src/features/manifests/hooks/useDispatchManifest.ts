@@ -15,6 +15,7 @@ export function useDispatchManifest(manifestId: string) {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["manifests"] });
+      queryClient.invalidateQueries({ queryKey: ["manifests-summary"] });
     },
   });
 }

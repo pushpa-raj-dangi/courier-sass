@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { DataTable, type ColumnDef } from "@/components/data-table/DataTable";
 import { useBranchSettlements } from "@/features/cod/hooks/useBranchSettlements";
-import { useFilterPage } from "@/features/cod/hooks/useFilterPage";
+import { useFilterPage } from "@/lib/hooks/useFilterPage";
 import { useCodPanelStore } from "@/features/cod/store/codPanelStore";
 import { useBranches } from "@/features/branches/hooks/useBranches";
 import { usePermission } from "@/features/auth/hooks/usePermission";

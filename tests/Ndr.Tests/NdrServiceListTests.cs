@@ -111,7 +111,7 @@ public class NdrServiceListTests
 
         var service = new NdrService(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), shipments, new RestrictedBranchAuthorizationChecker(accessibleBranchId));
 
-        var result = await service.ListAsync(null, null, null, null, ActingUser(Guid.NewGuid()));
+        var result = await service.ListAsync(null, null, null, null, null, null, ActingUser(Guid.NewGuid()));
 
         var single = Assert.Single(result.Items);
         Assert.Equal(accessibleNdr.Id, single.Id);
@@ -170,7 +170,7 @@ public class NdrServiceListTests
 
         var service = new NdrService(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), shipments, new AllBranchesAuthorizationChecker());
 
-        var result = await service.ListAsync(null, null, null, null, ActingUser(Guid.NewGuid()));
+        var result = await service.ListAsync(null, null, null, null, null, null, ActingUser(Guid.NewGuid()));
 
         Assert.Equal("AWB999", Assert.Single(result.Items).Awb);
     }
@@ -194,7 +194,7 @@ public class NdrServiceListTests
 
         var service = new NdrService(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), shipments, new AllBranchesAuthorizationChecker());
 
-        var result = await service.ListAsync(null, null, null, targetShipmentId, ActingUser(Guid.NewGuid()));
+        var result = await service.ListAsync(null, null, null, targetShipmentId, null, null, ActingUser(Guid.NewGuid()));
 
         Assert.Equal(targetNdr.Id, Assert.Single(result.Items).Id);
     }
@@ -252,5 +252,87 @@ public class NdrServiceListTests
         var result = await service.GetByIdAsync(ndr.Id);
 
         Assert.Equal("AWB998", result!.Awb);
+    }
+
+    private static NDR Ndr(Guid organizationId, Guid? owner, NdrReason reason = NdrReason.CustomerUnavailable, NdrStatus status = NdrStatus.Open) => new()
+    {
+        Id = Guid.NewGuid(), OrganizationId = organizationId, ShipmentId = Guid.NewGuid(), Reason = reason,
+        Status = status, AssignedStaffUserId = owner, CreatedAt = DateTimeOffset.UtcNow
+    };
+
+    private static NdrService AllBranchesService(TestDbContext dbContext, Guid organizationId) =>
+        new(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), new FakeShipmentTransitionService(), new AllBranchesAuthorizationChecker());
+
+    [Fact]
+    public async Task ListAsync_AssignedMe_ReturnsOnlyTheCallersNdrs()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var me = Guid.NewGuid();
+        var mine = Ndr(organizationId, me);
+        dbContext.Set<NDR>().AddRange(mine, Ndr(organizationId, Guid.NewGuid()), Ndr(organizationId, null));
+        await dbContext.SaveChangesAsync();
+
+        var result = await AllBranchesService(dbContext, organizationId).ListAsync(null, null, null, null, "me", null, ActingUser(me));
+
+        Assert.Equal(mine.Id, Assert.Single(result.Items).Id);
+        Assert.Equal(1, result.TotalCount);
+    }
+
+    [Fact]
+    public async Task ListAsync_AssignedMeWhenCallerOwnsNone_ReturnsAnEmptyPage()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        dbContext.Set<NDR>().AddRange(Ndr(organizationId, Guid.NewGuid()), Ndr(organizationId, null));
+        await dbContext.SaveChangesAsync();
+
+        var result = await AllBranchesService(dbContext, organizationId).ListAsync(null, null, null, null, "me", null, ActingUser(Guid.NewGuid()));
+
+        Assert.Empty(result.Items);
+        Assert.Equal(0, result.TotalCount);
+    }
+
+    [Fact]
+    public async Task ListAsync_Unassigned_ReturnsOnlyNdrsWithoutAnOwner()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var unowned = Ndr(organizationId, null);
+        dbContext.Set<NDR>().AddRange(unowned, Ndr(organizationId, Guid.NewGuid()));
+        await dbContext.SaveChangesAsync();
+
+        var result = await AllBranchesService(dbContext, organizationId).ListAsync(null, null, null, null, "Unassigned", null, ActingUser(Guid.NewGuid()));
+
+        Assert.Equal(unowned.Id, Assert.Single(result.Items).Id);
+    }
+
+    [Fact]
+    public async Task ListAsync_Reason_FiltersAndCombinesWithStatus()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var openWrongAddress = Ndr(organizationId, null, NdrReason.WrongAddress, NdrStatus.Open);
+        dbContext.Set<NDR>().AddRange(
+            openWrongAddress,
+            Ndr(organizationId, null, NdrReason.WrongAddress, NdrStatus.Contacting),
+            Ndr(organizationId, null, NdrReason.CustomerRefused, NdrStatus.Open));
+        await dbContext.SaveChangesAsync();
+        var service = AllBranchesService(dbContext, organizationId);
+
+        var byReason = await service.ListAsync(null, null, null, null, null, NdrReason.WrongAddress, ActingUser(Guid.NewGuid()));
+        var byReasonAndStatus = await service.ListAsync(NdrStatus.Open, null, null, null, null, NdrReason.WrongAddress, ActingUser(Guid.NewGuid()));
+
+        Assert.Equal(2, byReason.TotalCount);
+        Assert.Equal(openWrongAddress.Id, Assert.Single(byReasonAndStatus.Items).Id);
+    }
+
+    [Fact]
+    public async Task ListAsync_InvalidAssigned_Throws()
+    {
+        await using var dbContext = CreateContext();
+
+        await Assert.ThrowsAsync<NdrValidationException>(() =>
+            AllBranchesService(dbContext, Guid.NewGuid()).ListAsync(null, null, null, null, "everyone", null, ActingUser(Guid.NewGuid())));
     }
 }

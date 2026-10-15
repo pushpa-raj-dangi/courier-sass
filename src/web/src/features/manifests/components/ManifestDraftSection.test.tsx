@@ -16,6 +16,7 @@ const manifest: Manifest = {
   driverId: null,
   status: "Draft",
   shipmentCount: 0,
+  receivedCount: 0,
   createdAt: "2026-08-29T00:00:00Z",
 };
 
@@ -54,5 +55,10 @@ describe("ManifestDraftSection", () => {
     await user.type(input, "BADAWB{Enter}");
 
     await waitFor(() => expect(screen.getByText(/no shipment matches that awb/i)).toBeInTheDocument());
+  });
+
+  it("hides the seal button without manifest.seal", () => {
+    renderWithProviders(<ManifestDraftSection manifest={manifest} canSeal={false} />);
+    expect(screen.queryByRole("button", { name: /seal manifest/i })).not.toBeInTheDocument();
   });
 });

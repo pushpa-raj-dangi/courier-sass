@@ -98,7 +98,7 @@ public class ManifestServiceCreationTests
 
     private static ManifestService CreateService(TestDbContext dbContext, Guid organizationId, Guid fromBranchId, Guid toBranchId, IBranchAuthorizationChecker? branchAuthorizationChecker = null) =>
         new(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), new StubShipmentTransitionService(),
-            branchAuthorizationChecker ?? new AllBranchesAuthorizationChecker(), new FakeBranchLookup(fromBranchId, toBranchId));
+            branchAuthorizationChecker ?? new AllBranchesAuthorizationChecker(), new FakeBranchLookup(fromBranchId, toBranchId), new FakeShipmentReportingLookup());
 
     [Fact]
     public async Task CreateManifestAsync_ValidRequest_CreatesDraftManifestWithGeneratedCode()

@@ -150,6 +150,6 @@ public partial class ManifestService
         manifest.Status = ManifestStatus.Sealed;
         await _dbContext.SaveChangesAsync(cancellationToken);
         await _auditLogger.LogAsync(new AuditEntry(organizationId, actingUser.GetUserId(), "manifest.sealed", "Manifest", manifestId.ToString()), cancellationToken);
-        return ToResponse(manifest);
+        return await ToResponseAsync(manifest, cancellationToken);
     }
 }

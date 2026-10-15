@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { collectionLabel, describeVariance, formatHeldFor, formatRs, hoursHeld, sortHoldings } from "./codFormat";
+import { collectionLabel, describeVariance, formatRs, sortHoldings } from "./codFormat";
 
 describe("formatRs", () => {
   it("uses Nepali/Indian digit grouping with an Rs prefix and no decimals for whole rupees", () => {
@@ -32,20 +32,7 @@ describe("describeVariance", () => {
   });
 });
 
-describe("held time", () => {
-  const now = new Date("2026-10-07T12:00:00Z");
-  it("computes hours and formats days", () => {
-    expect(hoursHeld("2026-10-07T09:00:00Z", now)).toBe(3);
-    expect(formatHeldFor("2026-10-07T11:30:00Z", now)).toBe("< 1 h");
-    expect(formatHeldFor("2026-10-07T09:00:00Z", now)).toBe("3 h");
-    expect(formatHeldFor("2026-10-06T10:00:00Z", now)).toBe("1 d 2 h");
-    expect(formatHeldFor("2026-10-05T12:00:00Z", now)).toBe("2 d");
-  });
-
-  it("never returns negative hours for clock skew", () => {
-    expect(hoursHeld("2026-10-07T13:00:00Z", now)).toBe(0);
-  });
-
+describe("sortHoldings", () => {
   it("sorts longest-held first", () => {
     const items = [
       { riderId: "a", branchId: "b", parcelCount: 1, amount: 1, oldestCollectedAt: "2026-10-07T10:00:00Z", latestCollectedAt: "2026-10-07T10:00:00Z" },

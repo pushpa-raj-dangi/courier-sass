@@ -1,82 +1,91 @@
 "use client";
 
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { ErrorState } from "@/components/states/ErrorState";
 import { DetailSkeleton } from "@/components/states/DetailSkeleton";
 import { StatusBadge } from "@/components/status-badge/StatusBadge";
-import { useSession } from "@/features/auth/hooks/useSession";
+import { SheetHeaderBlock } from "@/components/page/SheetHeaderBlock";
+import { formatRs } from "@/features/cod/lib/codFormat";
+import { useShipment } from "@/features/shipments/hooks/useShipment";
+import { useMerchants } from "@/features/shipments/hooks/useMerchants";
 import { useNdr } from "@/features/ndr/hooks/useNdr";
+import { useDeliveryAttempts } from "@/features/ndr/hooks/useDeliveryAttempts";
 import { useNdrPanelStore } from "@/features/ndr/store/ndrPanelStore";
-import { NdrUpdateSection } from "@/features/ndr/components/NdrUpdateSection";
-import { NdrReattemptSection } from "@/features/ndr/components/NdrReattemptSection";
-import { NdrRtoSection } from "@/features/ndr/components/NdrRtoSection";
-import { NdrResolveOtherAction } from "@/features/ndr/components/NdrResolveOtherAction";
+import { NdrAttemptsCard } from "@/features/ndr/components/NdrAttemptsCard";
+import { NdrFollowUpCard } from "@/features/ndr/components/NdrFollowUpCard";
+import { NdrResolveCard } from "@/features/ndr/components/NdrResolveCard";
 import { NdrResolvedSummary } from "@/features/ndr/components/NdrResolvedSummary";
+import { formatAge } from "@/lib/dates/age";
 
-function Field({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="text-sm font-medium text-foreground">{value}</span>
-    </div>
-  );
-}
+const openedFormat = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
 export function NdrDetailSheet() {
   const panel = useNdrPanelStore((s) => s.panel);
   const close = useNdrPanelStore((s) => s.close);
   const isOpen = panel.mode === "detail";
   const id = panel.mode === "detail" ? panel.id : "";
+  const [notice, setNotice] = useState<{ id: string; text: string } | null>(null);
 
   const { data: ndr, isLoading, isError, refetch } = useNdr(id);
-  const { data: session } = useSession();
+  // The NDR list does not serve recipient/merchant/COD (follow-up 5) — read them from the shipment.
+  const shipment = useShipment(ndr?.awb ?? "");
+  const attempts = useDeliveryAttempts(ndr?.shipmentId ?? "");
+  const { data: merchants } = useMerchants();
+
+  const noticeText = notice?.id === id ? notice.text : null;
+  const merchantName = shipment.data ? merchants?.find((m) => m.id === shipment.data!.merchantId)?.displayName ?? "—" : "—";
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => { if (!open) close(); }}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
-        <SheetHeader>
-          <SheetTitle>{ndr?.awb ?? "NDR"}</SheetTitle>
-        </SheetHeader>
-        <div className="mt-6 space-y-6">
-          {isLoading && <DetailSkeleton fieldRows={1} />}
-          {isError && (
-            <ErrorState
-              title="Couldn't load this NDR"
-              description="It may not exist, or you may not have access to it."
-              onRetry={() => refetch()}
-            />
-          )}
-          {ndr && (
-            <>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1">
-                  <span className="text-xs text-muted-foreground">Status</span>
-                  <StatusBadge status={ndr.status} namespace="Ndr" />
-                </div>
-                <Field label="Reason" value={ndr.reason} />
-                <Field
-                  label="Assigned Staff"
-                  value={
-                    !ndr.assignedStaffUserId
-                      ? "Unassigned"
-                      : ndr.assignedStaffUserId === session?.userId
-                        ? "You"
-                        : "Assigned"
-                  }
+        <TooltipProvider>
+          <div className="flex flex-col gap-6">
+            {!ndr && <SheetTitle className="sr-only">NDR</SheetTitle>}
+            {isLoading && <DetailSkeleton fieldRows={1} />}
+            {isError && (
+              <ErrorState title="Couldn't load this NDR" description="It may not exist, or you may not have access to it." onRetry={() => refetch()} />
+            )}
+            {ndr && (
+              <>
+                <SheetHeaderBlock
+                  eyebrow={`NDR · Opened ${openedFormat.format(new Date(ndr.createdAt))} · ${formatAge(ndr.createdAt)}`}
+                  title={ndr.awb}
+                  mono
+                  status={<StatusBadge status={ndr.status} namespace="Ndr" />}
+                  facts={[
+                    { label: "Recipient", value: shipment.data?.recipientName ?? "—" },
+                    { label: "Merchant", value: merchantName },
+                    { label: "COD", value: shipment.data ? formatRs(shipment.data.codAmount) : "—" },
+                    { label: "Attempts", value: attempts.data ? String(attempts.data.items.length) : "—" },
+                  ]}
                 />
-                <Field label="Created At" value={new Date(ndr.createdAt).toLocaleString()} />
-              </div>
+                {shipment.isError && (
+                  <p className="text-xs text-muted-foreground">
+                    Parcel details are unavailable.{" "}
+                    <Button type="button" variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => shipment.refetch()}>
+                      Retry
+                    </Button>
+                  </p>
+                )}
+                {noticeText && <p role="status" className="text-sm font-medium text-foreground">{noticeText}</p>}
 
-              {(ndr.status === "Open" || ndr.status === "Contacting" || ndr.status === "CustomerConfirmed") && (
-                <NdrUpdateSection ndr={ndr} />
-              )}
-              {ndr.status === "ReattemptScheduled" && <NdrReattemptSection ndr={ndr} />}
-              {ndr.status === "RtoRequested" && <NdrRtoSection ndr={ndr} />}
-              {ndr.status === "Resolved" && <NdrResolvedSummary ndr={ndr} />}
-              {ndr.status !== "Resolved" && <NdrResolveOtherAction ndr={ndr} />}
-            </>
-          )}
-        </div>
+                <NdrAttemptsCard shipmentId={ndr.shipmentId} />
+
+                {ndr.status === "Resolved" ? (
+                  <NdrResolvedSummary ndr={ndr} />
+                ) : (
+                  <>
+                    <NdrFollowUpCard key={`follow-up-${ndr.status}`} ndr={ndr} onSaved={() => setNotice({ id, text: "Follow-up saved." })} />
+                    <NdrResolveCard key={`resolve-${ndr.status}`} ndr={ndr} onResolved={() => setNotice({ id, text: "NDR resolved." })} />
+                  </>
+                )}
+              </>
+            )}
+          </div>
+        </TooltipProvider>
       </SheetContent>
     </Sheet>
   );

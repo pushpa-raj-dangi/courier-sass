@@ -99,7 +99,7 @@ public class ManifestServiceListTests
     private static async Task<ManifestResponse> CreateManifestAsync(TestDbContext dbContext, Guid organizationId, Guid fromBranchId, Guid toBranchId)
     {
         var service = new ManifestService(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(),
-            new StubShipmentTransitionService(), new AllBranchesAuthorizationChecker(), new FakeBranchLookup(fromBranchId, toBranchId));
+            new StubShipmentTransitionService(), new AllBranchesAuthorizationChecker(), new FakeBranchLookup(fromBranchId, toBranchId), new FakeShipmentReportingLookup());
         return await service.CreateManifestAsync(new CreateManifestRequest(fromBranchId, toBranchId), ActingUser(Guid.NewGuid()));
     }
 
@@ -118,9 +118,9 @@ public class ManifestServiceListTests
 
         var listService = new ManifestService(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(),
             new StubShipmentTransitionService(), new RestrictedBranchesAuthorizationChecker(accessibleBranchId1, accessibleBranchId2),
-            new FakeBranchLookup(accessibleBranchId1, accessibleBranchId2));
+            new FakeBranchLookup(accessibleBranchId1, accessibleBranchId2), new FakeShipmentReportingLookup());
 
-        var result = await listService.ListAsync(null, null, ActingUser(Guid.NewGuid()));
+        var result = await listService.ListAsync(null, null, null, ActingUser(Guid.NewGuid()));
 
         var resultIds = result.Select(m => m.Id).ToList();
         Assert.Contains(accessibleManifest.Id, resultIds);
@@ -142,9 +142,9 @@ public class ManifestServiceListTests
         await dbContext.SaveChangesAsync();
 
         var listService = new ManifestService(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(),
-            new StubShipmentTransitionService(), new AllBranchesAuthorizationChecker(), new FakeBranchLookup(fromBranchId, toBranchId));
+            new StubShipmentTransitionService(), new AllBranchesAuthorizationChecker(), new FakeBranchLookup(fromBranchId, toBranchId), new FakeShipmentReportingLookup());
 
-        var result = await listService.ListAsync(null, ManifestStatus.Sealed, ActingUser(Guid.NewGuid()));
+        var result = await listService.ListAsync(null, ManifestStatus.Sealed, null, ActingUser(Guid.NewGuid()));
 
         var resultIds = result.Select(m => m.Id).ToList();
         Assert.Contains(sealedManifest.Id, resultIds);
@@ -165,12 +165,110 @@ public class ManifestServiceListTests
         await CreateManifestAsync(dbContext, organizationId, branchC, branchD);
 
         var listService = new ManifestService(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(),
-            new StubShipmentTransitionService(), new AllBranchesAuthorizationChecker(), new FakeBranchLookup(branchA, branchB));
+            new StubShipmentTransitionService(), new AllBranchesAuthorizationChecker(), new FakeBranchLookup(branchA, branchB), new FakeShipmentReportingLookup());
 
-        var result = await listService.ListAsync(branchA, null, ActingUser(Guid.NewGuid()));
+        var result = await listService.ListAsync(branchA, null, null, ActingUser(Guid.NewGuid()));
 
         var resultIds = result.Select(m => m.Id).ToList();
         Assert.Contains(manifestAB.Id, resultIds);
         Assert.Single(result);
+    }
+
+    private static ManifestService ListService(TestDbContext dbContext, Guid organizationId, IBranchAuthorizationChecker checker) =>
+        new(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), new StubShipmentTransitionService(), checker,
+            new FakeBranchLookup(), new FakeShipmentReportingLookup());
+
+    [Fact]
+    public async Task ListAsync_DirectionWithBranch_SplitsIncomingFromOutgoing()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var (a, b, c) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+        var intoB = await CreateManifestAsync(dbContext, organizationId, a, b);
+        var outOfB = await CreateManifestAsync(dbContext, organizationId, b, c);
+        var service = ListService(dbContext, organizationId, new AllBranchesAuthorizationChecker());
+
+        var incoming = await service.ListAsync(b, null, "incoming", ActingUser(Guid.NewGuid()));
+        var outgoing = await service.ListAsync(b, null, "outgoing", ActingUser(Guid.NewGuid()));
+        var either = await service.ListAsync(b, null, null, ActingUser(Guid.NewGuid()));
+
+        Assert.Equal(intoB.Id, Assert.Single(incoming).Id);
+        Assert.Equal(outOfB.Id, Assert.Single(outgoing).Id);
+        Assert.Equal(2, either.Count);
+    }
+
+    [Fact]
+    public async Task ListAsync_DirectionWithoutBranch_UsesCallerScope()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var (a, b, c) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+        var intoB = await CreateManifestAsync(dbContext, organizationId, a, b);
+        var outOfB = await CreateManifestAsync(dbContext, organizationId, b, c);
+        var service = ListService(dbContext, organizationId, new RestrictedBranchesAuthorizationChecker(b));
+
+        var incoming = await service.ListAsync(null, null, "incoming", ActingUser(Guid.NewGuid()));
+        var outgoing = await service.ListAsync(null, null, "OUTGOING", ActingUser(Guid.NewGuid()));
+
+        Assert.Equal(intoB.Id, Assert.Single(incoming).Id);
+        Assert.Equal(outOfB.Id, Assert.Single(outgoing).Id);
+    }
+
+    [Fact]
+    public async Task ListAsync_DirectionAllBranchesScopeNoBranch_DoesNotRestrict()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        await CreateManifestAsync(dbContext, organizationId, Guid.NewGuid(), Guid.NewGuid());
+        await CreateManifestAsync(dbContext, organizationId, Guid.NewGuid(), Guid.NewGuid());
+        var service = ListService(dbContext, organizationId, new AllBranchesAuthorizationChecker());
+
+        var incoming = await service.ListAsync(null, null, "incoming", ActingUser(Guid.NewGuid()));
+
+        Assert.Equal(2, incoming.Count);
+    }
+
+    [Fact]
+    public async Task ListAsync_DirectionWithBranchOutsideScope_ReturnsEmpty()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var (a, b, c) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+        await CreateManifestAsync(dbContext, organizationId, b, c);
+        var service = ListService(dbContext, organizationId, new RestrictedBranchesAuthorizationChecker(a));
+
+        var incoming = await service.ListAsync(c, null, "incoming", ActingUser(Guid.NewGuid()));
+
+        Assert.Empty(incoming);
+    }
+
+    [Fact]
+    public async Task ListAsync_InvalidDirection_Throws()
+    {
+        await using var dbContext = CreateContext();
+        var service = ListService(dbContext, Guid.NewGuid(), new AllBranchesAuthorizationChecker());
+
+        await Assert.ThrowsAsync<ManifestValidationException>(() => service.ListAsync(null, null, "sideways", ActingUser(Guid.NewGuid())));
+    }
+
+    [Fact]
+    public async Task ListAsync_ReceivedCount_CountsReceivedParcelsPerManifest()
+    {
+        await using var dbContext = CreateContext();
+        var organizationId = Guid.NewGuid();
+        var withParcels = await CreateManifestAsync(dbContext, organizationId, Guid.NewGuid(), Guid.NewGuid());
+        var empty = await CreateManifestAsync(dbContext, organizationId, Guid.NewGuid(), Guid.NewGuid());
+        var now = DateTimeOffset.UtcNow;
+        dbContext.Set<ManifestShipment>().AddRange(
+            new ManifestShipment { Id = Guid.NewGuid(), ManifestId = withParcels.Id, ShipmentId = Guid.NewGuid(), ScannedAt = now, ReceivedAt = now },
+            new ManifestShipment { Id = Guid.NewGuid(), ManifestId = withParcels.Id, ShipmentId = Guid.NewGuid(), ScannedAt = now, ReceivedAt = now },
+            new ManifestShipment { Id = Guid.NewGuid(), ManifestId = withParcels.Id, ShipmentId = Guid.NewGuid(), ScannedAt = now, ReceivedAt = null });
+        await dbContext.SaveChangesAsync();
+        var service = ListService(dbContext, organizationId, new AllBranchesAuthorizationChecker());
+
+        var result = await service.ListAsync(null, null, null, ActingUser(Guid.NewGuid()));
+
+        Assert.Equal(2, result.Single(m => m.Id == withParcels.Id).ReceivedCount);
+        Assert.Equal(0, result.Single(m => m.Id == empty.Id).ReceivedCount);
     }
 }

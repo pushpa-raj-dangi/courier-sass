@@ -111,7 +111,7 @@ public class ManifestServiceScanningTests
         var toBranchId = Guid.NewGuid();
         var shipments = new ScanningFakeShipmentTransitionService();
         var service = new ManifestService(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), shipments,
-            new AllBranchesAuthorizationChecker(), new FakeBranchLookup(fromBranchId, toBranchId));
+            new AllBranchesAuthorizationChecker(), new FakeBranchLookup(fromBranchId, toBranchId), new FakeShipmentReportingLookup());
 
         var manifest = await service.CreateManifestAsync(new CreateManifestRequest(fromBranchId, toBranchId), ActingUser(Guid.NewGuid()));
         return (service, shipments, manifest.Id, fromBranchId, toBranchId);
@@ -200,7 +200,7 @@ public class ManifestServiceScanningTests
         await using var dbContext = CreateContext();
         var shipments = new ScanningFakeShipmentTransitionService();
         var service = new ManifestService(dbContext, new FixedTenantProvider(Guid.NewGuid()), new NoopAuditLogger(), shipments,
-            new AllBranchesAuthorizationChecker(), new FakeBranchLookup());
+            new AllBranchesAuthorizationChecker(), new FakeBranchLookup(), new FakeShipmentReportingLookup());
 
         await Assert.ThrowsAsync<ManifestNotFoundException>(() =>
             service.ScanAsync(Guid.NewGuid(), new ScanShipmentRequest("AWB001"), ActingUser(Guid.NewGuid())));

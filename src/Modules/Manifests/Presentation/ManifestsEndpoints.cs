@@ -28,9 +28,17 @@ public static class ManifestsEndpoints
             }
         }).RequirePermission("manifest.create");
 
-        group.MapGet("/", async (Guid? branchId, ManifestStatus? status, ManifestService service, HttpContext httpContext) =>
-            Results.Ok(await service.ListAsync(branchId, status, httpContext.User, httpContext.RequestAborted)))
-            .RequirePermission("manifest.read");
+        group.MapGet("/", async (Guid? branchId, ManifestStatus? status, string? direction, ManifestService service, HttpContext httpContext) =>
+        {
+            try
+            {
+                return Results.Ok(await service.ListAsync(branchId, status, direction, httpContext.User, httpContext.RequestAborted));
+            }
+            catch (ManifestValidationException ex)
+            {
+                return Results.BadRequest(new { error = new { code = "MANIFEST_VALIDATION_FAILED", message = ex.Message } });
+            }
+        }).RequirePermission("manifest.read");
 
         group.MapGet("/summary", async (IManifestReportingLookupService lookupService, IBranchAuthorizationChecker branchAuthorizationChecker, HttpContext httpContext) =>
         {
@@ -41,13 +49,19 @@ public static class ManifestsEndpoints
 
         group.MapGet("/{id:guid}", async (Guid id, ManifestService service, HttpContext httpContext) =>
         {
-            var result = await service.GetByIdAsync(id, httpContext.RequestAborted);
+            var result = await service.GetByIdAsync(id, httpContext.User, httpContext.RequestAborted);
             return result is null ? Results.NotFound() : Results.Ok(result);
         }).RequirePermission("manifest.read");
 
         group.MapGet("/{id:guid}/missing-shipments", async (Guid id, ManifestService service, HttpContext httpContext) =>
         {
-            var result = await service.GetMissingShipmentsAsync(id, httpContext.RequestAborted);
+            var result = await service.GetMissingShipmentsAsync(id, httpContext.User, httpContext.RequestAborted);
+            return result is null ? Results.NotFound() : Results.Ok(result);
+        }).RequirePermission("manifest.read");
+
+        group.MapGet("/{id:guid}/shipments", async (Guid id, ManifestService service, HttpContext httpContext) =>
+        {
+            var result = await service.ListShipmentsAsync(id, httpContext.User, httpContext.RequestAborted);
             return result is null ? Results.NotFound() : Results.Ok(result);
         }).RequirePermission("manifest.read");
 

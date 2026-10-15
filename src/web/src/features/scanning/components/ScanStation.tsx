@@ -62,6 +62,7 @@ export function ScanStation() {
     if (soundRef.current) playScanTone(outcome.ok);
     if (outcome.ok) {
       void queryClient.invalidateQueries({ queryKey: ["manifests"] });
+      void queryClient.invalidateQueries({ queryKey: ["manifests-summary"] });
       void queryClient.invalidateQueries({ queryKey: ["shipments"] });
       // Not under the ["shipments"] prefix — the dashboard pipeline counts.
       void queryClient.invalidateQueries({ queryKey: ["shipments-summary"] });

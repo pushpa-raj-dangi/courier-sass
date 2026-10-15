@@ -11,8 +11,11 @@ export interface Manifest {
   driverId: string | null;
   status: ManifestStatus;
   shipmentCount: number;
+  receivedCount: number;
   createdAt: string;
 }
+
+export type ManifestDirection = "incoming" | "outgoing";
 
 export interface CreateManifestInput {
   fromBranchId: string;

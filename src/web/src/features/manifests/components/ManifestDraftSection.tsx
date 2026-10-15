@@ -24,7 +24,7 @@ function parseScanError(error: unknown): string {
   return "Couldn't scan this shipment. Check the AWB and try again.";
 }
 
-export function ManifestDraftSection({ manifest }: { manifest: Manifest }) {
+export function ManifestDraftSection({ manifest, canSeal = true }: { manifest: Manifest; canSeal?: boolean }) {
   const [awbInput, setAwbInput] = useState("");
   const [scanned, setScanned] = useState<ManifestShipmentScan[]>([]);
   const [scanError, setScanError] = useState<string | null>(null);
@@ -71,13 +71,15 @@ export function ManifestDraftSection({ manifest }: { manifest: Manifest }) {
           ))}
         </ul>
       )}
-      <Button
-        type="button"
-        disabled={manifest.shipmentCount === 0 || sealManifest.isPending}
-        onClick={() => sealManifest.mutate()}
-      >
-        {sealManifest.isPending ? <Spinner className="h-4 w-4" /> : "Seal Manifest"}
-      </Button>
+      {canSeal && (
+        <Button
+          type="button"
+          disabled={manifest.shipmentCount === 0 || sealManifest.isPending}
+          onClick={() => sealManifest.mutate()}
+        >
+          {sealManifest.isPending ? <Spinner className="h-4 w-4" /> : "Seal Manifest"}
+        </Button>
+      )}
     </div>
   );
 }

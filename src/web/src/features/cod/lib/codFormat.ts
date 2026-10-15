@@ -34,21 +34,6 @@ export function describeVariance(variance: number): { tone: VarianceTone; label:
   return { tone: "over", label: `Over + ${formatRs(rounded)}`, token: "status-in-transit" };
 }
 
-export const HELD_WARNING_HOURS = 24;
-
-export function hoursHeld(oldestIso: string, now: Date = new Date()): number {
-  return Math.max(0, (now.getTime() - Date.parse(oldestIso)) / 3_600_000);
-}
-
-export function formatHeldFor(oldestIso: string, now: Date = new Date()): string {
-  const hours = Math.floor(hoursHeld(oldestIso, now));
-  if (hours < 1) return "< 1 h";
-  if (hours < 24) return `${hours} h`;
-  const days = Math.floor(hours / 24);
-  const rest = hours % 24;
-  return rest === 0 ? `${days} d` : `${days} d ${rest} h`;
-}
-
 /** Longest-held first (so every "held over 24 h" row is on top). */
 export function sortHoldings(items: RiderCashHolding[]): RiderCashHolding[] {
   return [...items].sort((a, b) => Date.parse(a.oldestCollectedAt) - Date.parse(b.oldestCollectedAt));

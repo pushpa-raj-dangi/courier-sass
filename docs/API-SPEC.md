@@ -263,6 +263,49 @@ deposited (`CodCollected`), one row per rider + branch:
 - Every COD collection response (`GET /api/v1/cod/collections`, `/collections/{id}`) gains `awb`
   (string, `null` only if the shipment lookup misses), loaded with one batched lookup per page.
 
+### 6.3 Manifests (staff)
+
+```http
+GET /api/v1/manifests                       # list (array), branch-scoped
+GET /api/v1/manifests/{id}                  # single
+GET /api/v1/manifests/{id}/missing-shipments
+GET /api/v1/manifests/{id}/shipments        # every parcel on the manifest (F15 R3b-1)
+```
+
+All require `manifest.read`. **Single reads are branch-scoped** (F15 R3b-1 fix): `/{id}`,
+`/missing-shipments` and `/shipments` return `404` unless the manifest's `FromBranchId` or
+`ToBranchId` is in the caller's `manifest.read` scope — the same rule as the list.
+
+- `GET /manifests` takes `branchId`, `status` and `direction=incoming|outgoing`. `incoming` keeps
+  manifests whose `ToBranchId` is `branchId` (or, with no `branchId`, any branch in scope);
+  `outgoing` the same on `FromBranchId`; omitted = either side. An invalid value → `400
+  MANIFEST_VALIDATION_FAILED`. Ordered `CreatedAt` descending, not paginated.
+- Every manifest response has `receivedCount` — parcels receive-scanned at the destination.
+- `/shipments` returns `[{ id, shipmentId, awb, scannedAt, receivedAt }]` ordered by `scannedAt`;
+  `/missing-shipments` returns `[{ shipmentId, awb, scannedAt }]` (unreceived rows). Both resolve
+  AWBs with one batched lookup.
+
+### 6.4 Delivery attempts (staff)
+
+`GET /api/v1/shipments/{shipmentId}/delivery-attempts` — `ndr.read`, staff only (merchant callers
+→ `403`). `404` unless the shipment exists in the tenant and its current, origin or destination
+branch is in the caller's `ndr.read` scope. Response, newest first (`attemptedAt`, then
+`attemptNumber`, descending), not paginated:
+
+```json
+{ "items": [{ "attemptNumber": 2, "attemptedAt": "2026-09-30T04:20:00Z", "succeeded": false,
+  "reason": "CustomerUnavailable", "notes": "Gate locked", "customerContacted": true,
+  "nextAction": "Reattempt", "riderId": "…" }] }
+```
+
+`riderId` is the rider's id (not a user id). GPS is not exposed.
+
+### 6.5 NDR list filters (staff)
+
+`GET /api/v1/ndrs` adds `assigned=me|unassigned` (`me` = the caller owns it; invalid → `400
+NDR_VALIDATION_FAILED`) and `reason=<NdrReason>` (invalid → `400`). Both narrow in SQL within the
+existing branch scope, before paging.
+
 ## 7. International Shipments API (I3, extended I4)
 
 Staff-only (JWT + permission), not part of the Merchant API catalog in §3 — merchant-facing

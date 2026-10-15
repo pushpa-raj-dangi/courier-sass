@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { StatusBadge } from "@/components/status-badge/StatusBadge";
 import { DataTable, type ColumnDef } from "@/components/data-table/DataTable";
 import { useCodCollections } from "@/features/cod/hooks/useCodCollections";
-import { useFilterPage } from "@/features/cod/hooks/useFilterPage";
+import { useFilterPage } from "@/lib/hooks/useFilterPage";
 import { useCodPanelStore } from "@/features/cod/store/codPanelStore";
 import { useMerchants } from "@/features/shipments/hooks/useMerchants";
 import { collectionLabel, formatDate, formatRs } from "@/features/cod/lib/codFormat";

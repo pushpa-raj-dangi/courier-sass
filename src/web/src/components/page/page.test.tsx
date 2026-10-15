@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { Package } from "lucide-react";
 import { Sheet, SheetContent, SheetDescription } from "@/components/ui/sheet";
 import { PageHeader } from "./PageHeader";
@@ -101,5 +101,25 @@ describe("SheetHeaderBlock", () => {
     expect(screen.getByText("Out for delivery")).toBeInTheDocument();
     expect(screen.getByText("COD")).toBeInTheDocument();
     expect(screen.getByText("Rs 2,500")).toBeInTheDocument();
+  });
+});
+
+describe("PipelineStrip selection", () => {
+  const stages = [
+    { key: "Open", label: "Open", count: 4, token: "status-ndr" },
+    { key: "Resolved", label: "Resolved", count: null, token: "status-delivered" },
+  ];
+
+  it("renders buttons when selectable, marks the highlight and the selection, and reports clicks", () => {
+    const onSelect = vi.fn();
+    render(<PipelineStrip stages={stages} ariaLabel="NDR status" highlightKey="Open" selectedKey="Resolved" onSelect={onSelect} />);
+    const open = screen.getByRole("button", { name: /Open/ });
+    expect(open).toHaveAttribute("aria-current", "step");
+    expect(open).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: /Resolved/ })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("—")).toBeInTheDocument();
+    fireEvent.click(open);
+    expect(onSelect).toHaveBeenCalledWith("Open");
+    expect(screen.queryAllByRole("link")).toHaveLength(0);
   });
 });

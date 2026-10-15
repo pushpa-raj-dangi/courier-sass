@@ -10,6 +10,8 @@ export function useConfirmReturnShipment(id: string) {
     mutationFn: () => clientFetch<ReturnShipment>(`/api/return-shipments/${id}/confirm`, { method: "POST" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["return-shipments"] });
+      queryClient.invalidateQueries({ queryKey: ["return-shipments-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["shipments"] });
     },
   });
 }

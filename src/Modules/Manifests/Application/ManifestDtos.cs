@@ -14,7 +14,9 @@ public record ManifestResponse(
     Guid? DriverId,
     ManifestStatus Status,
     int ShipmentCount,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    // F15 R3b-1: parcels receive-scanned at the destination (ManifestShipment.ReceivedAt != null).
+    int ReceivedCount);
 
 public record ScanShipmentRequest(string Awb);
 

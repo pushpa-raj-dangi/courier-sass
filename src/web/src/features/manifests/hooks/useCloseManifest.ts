@@ -10,6 +10,7 @@ export function useCloseManifest(manifestId: string) {
     mutationFn: () => clientFetch<Manifest>(`/api/manifests/${manifestId}/close`, { method: "POST" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["manifests"] });
+      queryClient.invalidateQueries({ queryKey: ["manifests-summary"] });
     },
   });
 }

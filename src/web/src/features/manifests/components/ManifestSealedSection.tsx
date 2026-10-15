@@ -11,7 +11,7 @@ import { useDispatchManifest } from "@/features/manifests/hooks/useDispatchManif
 import { useRiders } from "@/features/riders/hooks/useRiders";
 import type { Manifest } from "@/features/manifests/types";
 
-export function ManifestSealedSection({ manifest }: { manifest: Manifest }) {
+export function ManifestSealedSection({ manifest, canDispatch = true }: { manifest: Manifest; canDispatch?: boolean }) {
   const [vehiclePlate, setVehiclePlate] = useState("");
   const [driverId, setDriverId] = useState<string | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
@@ -30,6 +30,8 @@ export function ManifestSealedSection({ manifest }: { manifest: Manifest }) {
       setError("Couldn't dispatch this manifest. Check the fields and try again.");
     }
   }
+
+  if (!canDispatch) return <p className="text-sm text-muted-foreground">Sealed and waiting for dispatch.</p>;
 
   return (
     <div className="space-y-4">

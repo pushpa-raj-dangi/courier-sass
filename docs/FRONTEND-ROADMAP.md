@@ -1061,7 +1061,8 @@ serve renders `ComingSoonSlot`. Each sub-phase has its own spec → plan → imp
 | R1 — Console Foundation | Tokens, `ConsoleShell` (staff/merchant/platform), grouped dark rail, header (breadcrumb, AD/BS date, notifications slot), page primitives, table/badge restyle | Done — spec `docs/superpowers/specs/2026-09-30-f15-r1-console-foundation-design.md` |
 | R2 — Staff operations | Dashboard, Shipments + detail Sheet, `/scan` Scan station | Done — spec `docs/superpowers/specs/2026-10-05-f15-r2-staff-operations-design.md` |
 | R3a — Staff finance | COD reconciliation: money-flow strip, rider deposits + variance, record-deposit Sheet, merchant settlement breakdown | Done — spec `docs/superpowers/specs/2026-10-07-f15-r3a-cod-finance-design.md` |
-| R3b — Staff network | Manifests, NDR, RTO, riders, live map, branches (artboards first) | Planned |
+| R3b-1 — Parcel movement | Manifests (lifecycle strip, incoming/outgoing, receive reconciliation), NDR queue (owner/reason filters, attempts, follow-up, resolve), Returns (stage strip, return chain, hand back) | Done — spec `docs/superpowers/specs/2026-10-14-f15-r3b1-parcel-movement-design.md` |
+| R3b-2 — People & places | Riders + vehicles, live map, branches (artboards first) | Planned |
 | R4 — Rider PWA | Run screen, POD flow, scan, profile | Planned |
 | R5 — Merchant portal + public tracking | 7 merchant pages, `/track` | Planned |
 | R6 — Platform + admin | Platform pages, admin, audit, billing, auth pages | Planned |
@@ -1098,6 +1099,23 @@ say they ignore branch); COD collections carry `awb` (Collections tab, deposit p
 Sheet); `tsc --noEmit` is clean (0 errors — "no new errors" is no longer the bar); every console
 font size is on the scale (new `text-2xs` 11px step, DESIGN.md On-Scale Rule);
 `.impeccable/design.json` regenerated from DESIGN.md.
+
+**R3b-1 (2026-10-15):** manifest single reads (`/{id}`, `/missing-shipments`, new `/shipments`)
+are now branch-scoped (404 out of scope); `direction` filter and `receivedCount` on manifests;
+staff `GET /shipments/{id}/delivery-attempts`; `assigned`/`reason` NDR filters. Pages follow the
+code where the spec differed: NDR follow-up offers only the legal next status, resolve choices
+enable per NDR state, return hand-back is at `RtoAtOrigin`.
+
+**Backend follow-ups from R3b-1:**
+1. Manifest stage timestamps (sealed / dispatched / received / closed at) for the stepper.
+2. Delivery attempt limit and "attempt N of M".
+3. Assign / reassign an NDR owner.
+4. Dated reattempt on NDR resolve.
+5. Recipient / merchant / COD on NDR list rows.
+6. `MerchantId` and `CreatedAt` on ReturnShipment (merchant column, "in return" age), and batch the per-row scan-info lookup in the returns list.
+7. Handover details on return confirmation (received by, condition).
+8. Branch-filterable manifest summary and a paged manifest list.
+9. Branch scope on the NDR and return-shipment single reads (`GET /ndrs/{id}`, `/return-shipments/{id}`), matching the manifest fix.
 
 ## Later
 

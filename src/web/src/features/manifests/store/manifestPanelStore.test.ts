@@ -20,6 +20,11 @@ describe("useManifestPanelStore", () => {
     expect(useManifestPanelStore.getState().panel).toEqual({ mode: "detail", id: "m1" });
   });
 
+  it("openDetail carries the direction relative to the page branch", () => {
+    useManifestPanelStore.getState().openDetail("m1", "incoming");
+    expect(useManifestPanelStore.getState().panel).toEqual({ mode: "detail", id: "m1", direction: "incoming" });
+  });
+
   it("close returns to closed from either panel", () => {
     useManifestPanelStore.getState().openDetail("m1");
     useManifestPanelStore.getState().close();

@@ -16,6 +16,7 @@ export function useScanManifestShipment(manifestId: string, purpose: "Forward" |
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["manifests"] });
+      queryClient.invalidateQueries({ queryKey: ["manifests-summary"] });
     },
   });
 }

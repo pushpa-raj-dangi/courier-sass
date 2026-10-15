@@ -15,6 +15,7 @@ export function useUpdateNdr(id: string) {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ndrs"] });
+      queryClient.invalidateQueries({ queryKey: ["ndrs-summary"] });
     },
   });
 }

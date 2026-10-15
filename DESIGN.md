@@ -272,7 +272,7 @@ Flat, ruled-underline tabs, not a rounded pill switcher — the one primitive th
 The user menu is the only dropdown in the app today: an avatar + name trigger (`hover:bg-accent`, `rounded-full`) opening a `bg-popover` panel (`rounded-md`, hairline border, `shadow-md`, `min-w-56`) with a header row (avatar + name + email), a hairline separator, and one or more `DropdownMenuItem`s that share the sidebar's `focus:bg-accent` hover treatment. Avatars are initials-only (no image upload exists yet) on a `secondary`-tinted circle with a `ring-1 ring-border`.
 
 ### Page primitives
-Shared page-level building blocks in `src/components/page/`: `PageHeader` (title, description, actions), `SectionCard` (titled card section), `KpiTile` (single metric), `PipelineStrip` (ordered stage counts), `SheetHeaderBlock` (Sheet title/identity block) and `ComingSoonSlot` (placeholder for data the API does not serve yet).
+Shared page-level building blocks in `src/components/page/`: `PageHeader` (title, description, actions), `SectionCard` (titled card section), `KpiTile` (single metric), `PipelineStrip` (ordered stage counts; with `onSelect` each stage is a filter button, and `highlightKey` marks the one stage that needs attention — each page owns that rule), `SheetHeaderBlock` (Sheet title/identity block) and `ComingSoonSlot` (placeholder for data the API does not serve yet).
 
 **The No-Fake-Numbers Rule.** Data the API does not serve yet renders `ComingSoonSlot` (`src/components/page/ComingSoonSlot.tsx`, `data-coming-soon`), never mock or sample values on a product screen.
 

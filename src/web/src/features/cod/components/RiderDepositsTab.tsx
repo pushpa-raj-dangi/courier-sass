@@ -12,9 +12,10 @@ import { usePermission } from "@/features/auth/hooks/usePermission";
 import { usePeopleNames } from "@/features/shipments/hooks/usePeopleNames";
 import { useRiderCash } from "@/features/cod/hooks/useRiderCash";
 import { useRiderSettlements } from "@/features/cod/hooks/useRiderSettlements";
-import { useFilterPage } from "@/features/cod/hooks/useFilterPage";
+import { useFilterPage } from "@/lib/hooks/useFilterPage";
 import { useCodPanelStore } from "@/features/cod/store/codPanelStore";
-import { HELD_WARNING_HOURS, formatHeldFor, formatRs, formatTime, formatDate, hoursHeld, sortHoldings } from "@/features/cod/lib/codFormat";
+import { formatRs, formatTime, formatDate, sortHoldings } from "@/features/cod/lib/codFormat";
+import { AGE_WARNING_HOURS, ageHours, formatAge } from "@/lib/dates/age";
 import { VarianceBadge } from "@/features/cod/components/VarianceBadge";
 import type { RiderCashSettlement } from "@/features/cod/types";
 
@@ -23,7 +24,7 @@ function initials(name: string) {
 }
 
 function HoldingStatus({ oldestCollectedAt }: { oldestCollectedAt: string }) {
-  const overdue = hoursHeld(oldestCollectedAt) >= HELD_WARNING_HOURS;
+  const overdue = ageHours(oldestCollectedAt) >= AGE_WARNING_HOURS;
   return (
     <span className="inline-flex items-center gap-1.5 rounded bg-muted px-2 py-0.5 text-xs font-medium">
       <span className="h-2 w-2 rounded-full" style={{ backgroundColor: `hsl(var(--${overdue ? "status-ndr" : "status-created"}))` }} aria-hidden="true" />
@@ -94,7 +95,7 @@ export function RiderDepositsTab({ branchId, from, to }: { branchId?: string; fr
                     <TableCell>{names.branchName(h.branchId)}</TableCell>
                     <TableCell className="text-right tabular-nums">{h.parcelCount}</TableCell>
                     <TableCell className="text-right font-medium tabular-nums">{formatRs(h.amount)}</TableCell>
-                    <TableCell className="tabular-nums">{formatHeldFor(h.oldestCollectedAt)}</TableCell>
+                    <TableCell className="tabular-nums">{formatAge(h.oldestCollectedAt)}</TableCell>
                     <TableCell><HoldingStatus oldestCollectedAt={h.oldestCollectedAt} /></TableCell>
                     {canReconcile && (
                       <TableCell className="text-right">
