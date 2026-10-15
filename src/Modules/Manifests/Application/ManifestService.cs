@@ -16,6 +16,7 @@ public partial class ManifestService
     private readonly IShipmentTransitionService _shipmentTransitionService;
     private readonly IBranchAuthorizationChecker _branchAuthorizationChecker;
     private readonly IBranchLookupService _branchLookupService;
+    private readonly IShipmentReportingLookupService _shipmentReportingLookupService;
 
     public ManifestService(
         DbContext dbContext,
@@ -23,8 +24,10 @@ public partial class ManifestService
         IAuditLogger auditLogger,
         IShipmentTransitionService shipmentTransitionService,
         IBranchAuthorizationChecker branchAuthorizationChecker,
-        IBranchLookupService branchLookupService)
+        IBranchLookupService branchLookupService,
+        IShipmentReportingLookupService shipmentReportingLookupService)
     {
+        _shipmentReportingLookupService = shipmentReportingLookupService;
         _dbContext = dbContext;
         _currentTenantProvider = currentTenantProvider;
         _auditLogger = auditLogger;

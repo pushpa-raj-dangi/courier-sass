@@ -140,7 +140,7 @@ public class ManifestServicePurposeTests
         var fromBranchId = Guid.NewGuid();
         var toBranchId = Guid.NewGuid();
         var service = new ManifestService(dbContext, new FixedTenantProvider(Guid.NewGuid()), new NoopAuditLogger(),
-            new NotSupportedShipmentTransitionService(), new AllBranchesAuthorizationChecker(), new FakeBranchLookup(fromBranchId, toBranchId));
+            new NotSupportedShipmentTransitionService(), new AllBranchesAuthorizationChecker(), new FakeBranchLookup(fromBranchId, toBranchId), new FakeShipmentReportingLookup());
 
         var result = await service.CreateManifestAsync(new CreateManifestRequest(fromBranchId, toBranchId), ActingUser(Guid.NewGuid()));
 
@@ -154,7 +154,7 @@ public class ManifestServicePurposeTests
         var fromBranchId = Guid.NewGuid();
         var toBranchId = Guid.NewGuid();
         var service = new ManifestService(dbContext, new FixedTenantProvider(Guid.NewGuid()), new NoopAuditLogger(),
-            new NotSupportedShipmentTransitionService(), new AllBranchesAuthorizationChecker(), new FakeBranchLookup(fromBranchId, toBranchId));
+            new NotSupportedShipmentTransitionService(), new AllBranchesAuthorizationChecker(), new FakeBranchLookup(fromBranchId, toBranchId), new FakeShipmentReportingLookup());
         var manifest = await service.CreateManifestAsync(new CreateManifestRequest(fromBranchId, toBranchId, ManifestPurpose.Return), ActingUser(Guid.NewGuid()));
 
         var ex = await Assert.ThrowsAsync<ManifestScanRejectedException>(() =>
@@ -171,7 +171,7 @@ public class ManifestServicePurposeTests
         var originalDestinationBranchId = Guid.NewGuid();
         var shipments = new RtoRecordingShipmentTransitionService();
         var service = new ManifestService(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(),
-            shipments, new AllBranchesAuthorizationChecker(), new FakeBranchLookup(originalOriginBranchId, originalDestinationBranchId));
+            shipments, new AllBranchesAuthorizationChecker(), new FakeBranchLookup(originalOriginBranchId, originalDestinationBranchId), new FakeShipmentReportingLookup());
 
         var manifest = await service.CreateManifestAsync(new CreateManifestRequest(originalDestinationBranchId, originalOriginBranchId, ManifestPurpose.Return), ActingUser(Guid.NewGuid()));
 

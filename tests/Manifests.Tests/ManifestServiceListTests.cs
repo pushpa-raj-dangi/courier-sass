@@ -99,7 +99,7 @@ public class ManifestServiceListTests
     private static async Task<ManifestResponse> CreateManifestAsync(TestDbContext dbContext, Guid organizationId, Guid fromBranchId, Guid toBranchId)
     {
         var service = new ManifestService(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(),
-            new StubShipmentTransitionService(), new AllBranchesAuthorizationChecker(), new FakeBranchLookup(fromBranchId, toBranchId));
+            new StubShipmentTransitionService(), new AllBranchesAuthorizationChecker(), new FakeBranchLookup(fromBranchId, toBranchId), new FakeShipmentReportingLookup());
         return await service.CreateManifestAsync(new CreateManifestRequest(fromBranchId, toBranchId), ActingUser(Guid.NewGuid()));
     }
 
@@ -118,7 +118,7 @@ public class ManifestServiceListTests
 
         var listService = new ManifestService(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(),
             new StubShipmentTransitionService(), new RestrictedBranchesAuthorizationChecker(accessibleBranchId1, accessibleBranchId2),
-            new FakeBranchLookup(accessibleBranchId1, accessibleBranchId2));
+            new FakeBranchLookup(accessibleBranchId1, accessibleBranchId2), new FakeShipmentReportingLookup());
 
         var result = await listService.ListAsync(null, null, ActingUser(Guid.NewGuid()));
 
@@ -142,7 +142,7 @@ public class ManifestServiceListTests
         await dbContext.SaveChangesAsync();
 
         var listService = new ManifestService(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(),
-            new StubShipmentTransitionService(), new AllBranchesAuthorizationChecker(), new FakeBranchLookup(fromBranchId, toBranchId));
+            new StubShipmentTransitionService(), new AllBranchesAuthorizationChecker(), new FakeBranchLookup(fromBranchId, toBranchId), new FakeShipmentReportingLookup());
 
         var result = await listService.ListAsync(null, ManifestStatus.Sealed, ActingUser(Guid.NewGuid()));
 
@@ -165,7 +165,7 @@ public class ManifestServiceListTests
         await CreateManifestAsync(dbContext, organizationId, branchC, branchD);
 
         var listService = new ManifestService(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(),
-            new StubShipmentTransitionService(), new AllBranchesAuthorizationChecker(), new FakeBranchLookup(branchA, branchB));
+            new StubShipmentTransitionService(), new AllBranchesAuthorizationChecker(), new FakeBranchLookup(branchA, branchB), new FakeShipmentReportingLookup());
 
         var result = await listService.ListAsync(branchA, null, ActingUser(Guid.NewGuid()));
 

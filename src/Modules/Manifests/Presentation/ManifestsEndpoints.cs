@@ -41,13 +41,19 @@ public static class ManifestsEndpoints
 
         group.MapGet("/{id:guid}", async (Guid id, ManifestService service, HttpContext httpContext) =>
         {
-            var result = await service.GetByIdAsync(id, httpContext.RequestAborted);
+            var result = await service.GetByIdAsync(id, httpContext.User, httpContext.RequestAborted);
             return result is null ? Results.NotFound() : Results.Ok(result);
         }).RequirePermission("manifest.read");
 
         group.MapGet("/{id:guid}/missing-shipments", async (Guid id, ManifestService service, HttpContext httpContext) =>
         {
-            var result = await service.GetMissingShipmentsAsync(id, httpContext.RequestAborted);
+            var result = await service.GetMissingShipmentsAsync(id, httpContext.User, httpContext.RequestAborted);
+            return result is null ? Results.NotFound() : Results.Ok(result);
+        }).RequirePermission("manifest.read");
+
+        group.MapGet("/{id:guid}/shipments", async (Guid id, ManifestService service, HttpContext httpContext) =>
+        {
+            var result = await service.ListShipmentsAsync(id, httpContext.User, httpContext.RequestAborted);
             return result is null ? Results.NotFound() : Results.Ok(result);
         }).RequirePermission("manifest.read");
 

@@ -7,9 +7,9 @@ namespace Courier.Manifests.Application;
 
 public partial class ManifestService
 {
-    public async Task<ManifestResponse?> GetByIdAsync(Guid manifestId, CancellationToken cancellationToken = default)
+    public async Task<ManifestResponse?> GetByIdAsync(Guid manifestId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
-        var manifest = await _dbContext.Set<Manifest>().FirstOrDefaultAsync(m => m.Id == manifestId, cancellationToken);
+        var manifest = await FindReadableAsync(manifestId, actingUser, cancellationToken);
         return manifest is null ? null : ToResponse(manifest);
     }
 
@@ -45,10 +45,11 @@ public partial class ManifestService
 
     // Meaningful once the manifest is Closed (a null ReceivedAt then IS the missing-shipment
     // exception per this plan's resolved design decision #4) — also usable while a manifest is
-    // still InTransit/Received to show which shipments haven't been scanned in yet.
-    public async Task<List<MissingShipmentResponse>?> GetMissingShipmentsAsync(Guid manifestId, CancellationToken cancellationToken = default)
+    // still InTransit/Received to show which shipments haven't been scanned in yet. AWBs come from
+    // one batched lookup (F15 R3b-1), not a per-row scan-info call.
+    public async Task<List<MissingShipmentResponse>?> GetMissingShipmentsAsync(Guid manifestId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
-        var manifest = await _dbContext.Set<Manifest>().FirstOrDefaultAsync(m => m.Id == manifestId, cancellationToken);
+        var manifest = await FindReadableAsync(manifestId, actingUser, cancellationToken);
         if (manifest is null)
         {
             return null;
@@ -56,14 +57,55 @@ public partial class ManifestService
 
         var unreceived = await _dbContext.Set<ManifestShipment>()
             .Where(ms => ms.ManifestId == manifestId && ms.ReceivedAt == null)
+            .OrderBy(ms => ms.ScannedAt).ThenBy(ms => ms.Id)
             .ToListAsync(cancellationToken);
+        var awbs = await _shipmentReportingLookupService.GetAwbsByShipmentIdsAsync(
+            unreceived.Select(ms => ms.ShipmentId).ToHashSet(), cancellationToken);
 
-        var result = new List<MissingShipmentResponse>();
-        foreach (var manifestShipment in unreceived)
+        return unreceived
+            .Select(ms => new MissingShipmentResponse(ms.ShipmentId, awbs.GetValueOrDefault(ms.ShipmentId, string.Empty), ms.ScannedAt))
+            .ToList();
+    }
+
+    // Every parcel on the manifest (F15 R3b-1). Not paginated: bounded by one vehicle load.
+    public async Task<List<ManifestShipmentResponse>?> ListShipmentsAsync(Guid manifestId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
+    {
+        var manifest = await FindReadableAsync(manifestId, actingUser, cancellationToken);
+        if (manifest is null)
         {
-            var scanInfo = await _shipmentTransitionService.GetScanInfoAsync(manifestShipment.ShipmentId, cancellationToken);
-            result.Add(new MissingShipmentResponse(manifestShipment.ShipmentId, scanInfo?.Awb ?? string.Empty, manifestShipment.ScannedAt));
+            return null;
         }
-        return result;
+
+        var parcels = await _dbContext.Set<ManifestShipment>()
+            .Where(ms => ms.ManifestId == manifestId)
+            .OrderBy(ms => ms.ScannedAt).ThenBy(ms => ms.Id)
+            .ToListAsync(cancellationToken);
+        var awbs = await _shipmentReportingLookupService.GetAwbsByShipmentIdsAsync(
+            parcels.Select(ms => ms.ShipmentId).ToHashSet(), cancellationToken);
+
+        return parcels
+            .Select(ms => new ManifestShipmentResponse(ms.Id, ms.ShipmentId, awbs.GetValueOrDefault(ms.ShipmentId, string.Empty), ms.ScannedAt, ms.ReceivedAt))
+            .ToList();
+    }
+
+    // Single reads use the list's rule: readable when FromBranchId or ToBranchId is in the
+    // caller's manifest.read scope (null = all branches). Out of scope reads as not found, so a
+    // guessed id never confirms that a manifest exists.
+    private async Task<Manifest?> FindReadableAsync(Guid manifestId, ClaimsPrincipal actingUser, CancellationToken cancellationToken)
+    {
+        var manifest = await _dbContext.Set<Manifest>().FirstOrDefaultAsync(m => m.Id == manifestId, cancellationToken);
+        if (manifest is null)
+        {
+            return null;
+        }
+
+        var accessibleBranchIds = await _branchAuthorizationChecker.GetAccessibleBranchIdsAsync(actingUser, "manifest.read", cancellationToken);
+        if (accessibleBranchIds is not null &&
+            !accessibleBranchIds.Contains(manifest.FromBranchId) &&
+            !accessibleBranchIds.Contains(manifest.ToBranchId))
+        {
+            return null;
+        }
+        return manifest;
     }
 }

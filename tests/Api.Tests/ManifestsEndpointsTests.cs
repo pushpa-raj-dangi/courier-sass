@@ -378,4 +378,95 @@ public class ManifestsEndpointsTests : IClassFixture<WebApplicationFactory<Progr
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
+
+    [Fact]
+    public async Task ManifestSingleReads_UserWithNoAccessToEitherBranch_Return404()
+    {
+        var client = _factory.CreateClient();
+        var owner = await RegisterOrgAsync(client, "single-scope");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", owner.AccessToken);
+        var (fromBranchId, toBranchId, _) = await SeedBranchesAsync(client);
+        var manifest = await (await client.PostAsJsonAsync("/api/v1/manifests", new CreateManifestRequest(fromBranchId, toBranchId)))
+            .Content.ReadFromJsonAsync<ManifestResponse>();
+        var (unrelatedBranchId, _, _) = await SeedBranchesAsync(client);
+
+        var scopedToken = await SeedScopedUserTokenAsync(owner.OrganizationId, owner.UserId, "manifest.read", unrelatedBranchId);
+        var scopedClient = _factory.CreateClient();
+        scopedClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", scopedToken);
+
+        foreach (var path in new[] { "", "/missing-shipments", "/shipments" })
+        {
+            var response = await scopedClient.GetAsync($"/api/v1/manifests/{manifest!.Id}{path}");
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        }
+    }
+
+    [Fact]
+    public async Task ManifestSingleReads_UserScopedToDestinationBranch_Return200()
+    {
+        var client = _factory.CreateClient();
+        var owner = await RegisterOrgAsync(client, "single-dest");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", owner.AccessToken);
+        var (fromBranchId, toBranchId, _) = await SeedBranchesAsync(client);
+        var manifest = await (await client.PostAsJsonAsync("/api/v1/manifests", new CreateManifestRequest(fromBranchId, toBranchId)))
+            .Content.ReadFromJsonAsync<ManifestResponse>();
+
+        var scopedToken = await SeedScopedUserTokenAsync(owner.OrganizationId, owner.UserId, "manifest.read", toBranchId);
+        var scopedClient = _factory.CreateClient();
+        scopedClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", scopedToken);
+
+        var response = await scopedClient.GetAsync($"/api/v1/manifests/{manifest!.Id}");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetManifestShipments_ReturnsEveryScannedParcelWithItsAwb()
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "parcels");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (fromBranchId, toBranchId, serviceTypeId) = await SeedBranchesAsync(client);
+        var merchantId = await CreateMerchantAsync(client);
+        var first = await CreateShipmentAtOriginBranchAsync(client, merchantId, fromBranchId, toBranchId, serviceTypeId);
+        var second = await CreateShipmentAtOriginBranchAsync(client, merchantId, fromBranchId, toBranchId, serviceTypeId);
+        var manifest = await (await client.PostAsJsonAsync("/api/v1/manifests", new CreateManifestRequest(fromBranchId, toBranchId)))
+            .Content.ReadFromJsonAsync<ManifestResponse>();
+        await client.PostAsJsonAsync($"/api/v1/manifests/{manifest!.Id}/scan", new ScanShipmentRequest(first.Awb));
+        await client.PostAsJsonAsync($"/api/v1/manifests/{manifest.Id}/scan", new ScanShipmentRequest(second.Awb));
+
+        var response = await client.GetAsync($"/api/v1/manifests/{manifest.Id}/shipments");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var parcels = await response.Content.ReadFromJsonAsync<List<ManifestShipmentResponse>>();
+        Assert.Equal(new[] { first.Awb, second.Awb }, parcels!.Select(p => p.Awb).ToArray());
+        Assert.All(parcels, p => Assert.Null(p.ReceivedAt));
+    }
+
+    [Fact]
+    public async Task GetManifestShipments_WithoutManifestRead_Returns403()
+    {
+        var client = _factory.CreateClient();
+        var owner = await RegisterOrgAsync(client, "parcels-403");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", owner.AccessToken);
+        var (fromBranchId, toBranchId, _) = await SeedBranchesAsync(client);
+        var manifest = await (await client.PostAsJsonAsync("/api/v1/manifests", new CreateManifestRequest(fromBranchId, toBranchId)))
+            .Content.ReadFromJsonAsync<ManifestResponse>();
+        var token = await SeedScopedUserTokenAsync(owner.OrganizationId, owner.UserId, "shipment.read", fromBranchId);
+        var scopedClient = _factory.CreateClient();
+        scopedClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await scopedClient.GetAsync($"/api/v1/manifests/{manifest!.Id}/shipments");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetManifestShipments_Unauthenticated_Returns401()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.GetAsync($"/api/v1/manifests/{Guid.NewGuid()}/shipments");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
 }

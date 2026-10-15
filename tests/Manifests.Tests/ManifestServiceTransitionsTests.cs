@@ -130,7 +130,7 @@ public class ManifestServiceTransitionsTests
         var toBranchId = Guid.NewGuid();
         var shipments = new TransitionsFakeShipmentTransitionService();
         var service = new ManifestService(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), shipments,
-            new AllBranchesAuthorizationChecker(), new FakeBranchLookup(fromBranchId, toBranchId));
+            new AllBranchesAuthorizationChecker(), new FakeBranchLookup(fromBranchId, toBranchId), new FakeShipmentReportingLookup());
 
         var manifest = await service.CreateManifestAsync(new CreateManifestRequest(fromBranchId, toBranchId), ActingUser(Guid.NewGuid()));
         var shipmentId = Guid.NewGuid();
@@ -163,7 +163,7 @@ public class ManifestServiceTransitionsTests
         var toBranchId = Guid.NewGuid();
         var shipments = new TransitionsFakeShipmentTransitionService();
         var service = new ManifestService(dbContext, new FixedTenantProvider(Guid.NewGuid()), new NoopAuditLogger(), shipments,
-            new AllBranchesAuthorizationChecker(), new FakeBranchLookup(fromBranchId, toBranchId));
+            new AllBranchesAuthorizationChecker(), new FakeBranchLookup(fromBranchId, toBranchId), new FakeShipmentReportingLookup());
         var manifest = await service.CreateManifestAsync(new CreateManifestRequest(fromBranchId, toBranchId), ActingUser(Guid.NewGuid()));
 
         await Assert.ThrowsAsync<ManifestValidationException>(() =>
@@ -240,8 +240,9 @@ public class ManifestServiceTransitionsTests
         var fromBranchId = Guid.NewGuid();
         var toBranchId = Guid.NewGuid();
         var shipments = new TransitionsFakeShipmentTransitionService();
+        var lookup = new FakeShipmentReportingLookup();
         var service = new ManifestService(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), shipments,
-            new AllBranchesAuthorizationChecker(), new FakeBranchLookup(fromBranchId, toBranchId));
+            new AllBranchesAuthorizationChecker(), new FakeBranchLookup(fromBranchId, toBranchId), lookup);
         var manifest = await service.CreateManifestAsync(new CreateManifestRequest(fromBranchId, toBranchId), ActingUser(Guid.NewGuid()));
 
         var receivedShipmentId = Guid.NewGuid();
@@ -249,6 +250,7 @@ public class ManifestServiceTransitionsTests
         await service.ScanAsync(manifest.Id, new ScanShipmentRequest("AWB-RECEIVED"), ActingUser(Guid.NewGuid()));
 
         var missingShipmentId = Guid.NewGuid();
+        lookup.Awbs[missingShipmentId] = "AWB-MISSING";
         shipments.ShipmentsById[missingShipmentId] = new ShipmentScanInfo(missingShipmentId, organizationId, "AWB-MISSING", ShipmentStatus.AtOriginBranch, fromBranchId, fromBranchId, toBranchId, null);
         await service.ScanAsync(manifest.Id, new ScanShipmentRequest("AWB-MISSING"), ActingUser(Guid.NewGuid()));
 
@@ -259,7 +261,7 @@ public class ManifestServiceTransitionsTests
         var closed = await service.CloseAsync(manifest.Id, ActingUser(Guid.NewGuid()));
         Assert.Equal(ManifestStatus.Closed, closed.Status);
 
-        var missing = await service.GetMissingShipmentsAsync(manifest.Id);
+        var missing = await service.GetMissingShipmentsAsync(manifest.Id, ActingUser(Guid.NewGuid()));
         var missingShipment = Assert.Single(missing!);
         Assert.Equal(missingShipmentId, missingShipment.ShipmentId);
         Assert.Equal("AWB-MISSING", missingShipment.Awb);
@@ -270,8 +272,8 @@ public class ManifestServiceTransitionsTests
     {
         await using var dbContext = CreateContext();
         var service = new ManifestService(dbContext, new FixedTenantProvider(Guid.NewGuid()), new NoopAuditLogger(), new TransitionsFakeShipmentTransitionService(),
-            new AllBranchesAuthorizationChecker(), new FakeBranchLookup());
+            new AllBranchesAuthorizationChecker(), new FakeBranchLookup(), new FakeShipmentReportingLookup());
 
-        Assert.Null(await service.GetByIdAsync(Guid.NewGuid()));
+        Assert.Null(await service.GetByIdAsync(Guid.NewGuid(), ActingUser(Guid.NewGuid())));
     }
 }
