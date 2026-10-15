@@ -10,7 +10,7 @@ import { useNdrsSummary } from "@/features/ndr/hooks/useNdrsSummary";
 import { useReturnShipmentsSummary } from "@/features/ndr/hooks/useReturnShipmentsSummary";
 import { useManifestsSummary } from "@/features/manifests/hooks/useManifestsSummary";
 import { useRiderCash } from "@/features/cod/hooks/useRiderCash";
-import { HELD_WARNING_HOURS, hoursHeld } from "@/features/cod/lib/codFormat";
+import { AGE_WARNING_HOURS, ageHours } from "@/lib/dates/age";
 import { openNdrCount } from "@/features/reports/lib/dashboardModel";
 
 interface Row {
@@ -41,7 +41,7 @@ export function NeedsActionCard() {
       label: "Riders holding cash > 24 h",
       description: "Collected COD not yet deposited",
       href: "/cod?tab=rider-deposits",
-      count: riderCash.data ? riderCash.data.items.filter((h) => hoursHeld(h.oldestCollectedAt) >= HELD_WARNING_HOURS).length : undefined,
+      count: riderCash.data ? riderCash.data.items.filter((h) => ageHours(h.oldestCollectedAt) >= AGE_WARNING_HOURS).length : undefined,
       visible: canCod && !riderCash.isError,
     },
   ];

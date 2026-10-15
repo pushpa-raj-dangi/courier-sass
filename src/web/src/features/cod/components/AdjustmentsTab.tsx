@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DataTable, type ColumnDef } from "@/components/data-table/DataTable";
 import { useAdjustments } from "@/features/cod/hooks/useAdjustments";
-import { useFilterPage } from "@/features/cod/hooks/useFilterPage";
+import { useFilterPage } from "@/lib/hooks/useFilterPage";
 import { MerchantLevelNote } from "@/features/cod/components/MerchantLevelNote";
 import { useCodPanelStore } from "@/features/cod/store/codPanelStore";
 import { formatDate, formatRs } from "@/features/cod/lib/codFormat";

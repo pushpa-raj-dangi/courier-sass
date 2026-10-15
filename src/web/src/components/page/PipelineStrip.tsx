@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 export interface PipelineStage {
   key: string;
@@ -40,22 +41,53 @@ function StageBody({ stage }: { stage: PipelineStage }) {
   );
 }
 
-export function PipelineStrip({ stages, ariaLabel }: { stages: PipelineStage[]; ariaLabel: string }) {
+/**
+ * `onSelect` turns every stage into a filter button (`selectedKey` = the active filter, announced
+ * with aria-pressed). `highlightKey` marks the stage that needs attention (aria-current="step";
+ * each page owns its pure highlight rule). Without `onSelect`, stages link via `href` as before.
+ */
+export function PipelineStrip({
+  stages,
+  ariaLabel,
+  highlightKey,
+  selectedKey,
+  onSelect,
+}: {
+  stages: PipelineStage[];
+  ariaLabel: string;
+  highlightKey?: string;
+  selectedKey?: string;
+  onSelect?: (key: string) => void;
+}) {
   return (
     <ol aria-label={ariaLabel} className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 xl:auto-cols-fr xl:grid-flow-col xl:grid-cols-none">
-      {stages.map((stage) => (
-        <li key={stage.key}>
-          {stage.href ? (
-            <Link href={stage.href} className={`${TILE} hover:bg-accent`}>
-              <StageBody stage={stage} />
-            </Link>
-          ) : (
-            <div className={TILE}>
-              <StageBody stage={stage} />
-            </div>
-          )}
-        </li>
-      ))}
+      {stages.map((stage) => {
+        const highlighted = stage.key === highlightKey;
+        const tile = cn(TILE, highlighted && "border-primary ring-1 ring-primary");
+        return (
+          <li key={stage.key}>
+            {onSelect ? (
+              <button
+                type="button"
+                onClick={() => onSelect(stage.key)}
+                aria-pressed={stage.key === selectedKey}
+                aria-current={highlighted ? "step" : undefined}
+                className={cn(tile, "w-full text-left hover:bg-accent", stage.key === selectedKey && "bg-accent")}
+              >
+                <StageBody stage={stage} />
+              </button>
+            ) : stage.href ? (
+              <Link href={stage.href} aria-current={highlighted ? "step" : undefined} className={cn(tile, "hover:bg-accent")}>
+                <StageBody stage={stage} />
+              </Link>
+            ) : (
+              <div className={tile} aria-current={highlighted ? "step" : undefined}>
+                <StageBody stage={stage} />
+              </div>
+            )}
+          </li>
+        );
+      })}
     </ol>
   );
 }
