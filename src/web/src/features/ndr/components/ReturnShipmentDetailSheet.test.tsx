@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, screen, within } from "@testing-library/react";
-import { renderWithIntl as render } from "@/test/renderWithIntl";
+import { IntlTestProvider, renderWithIntl as render } from "@/test/renderWithIntl";
 import type { ReturnShipment } from "@/features/ndr/types";
 import type { Shipment, ShipmentEvent } from "@/features/shipments/types";
 
 let returnQuery: { data?: ReturnShipment; isLoading: boolean; isError: boolean; refetch: () => void };
 vi.mock("@/features/ndr/hooks/useReturnShipment", () => ({ useReturnShipment: () => returnQuery }));
 const confirmMutate = vi.fn();
-const confirmState = { isSuccess: false };
-vi.mock("@/features/ndr/hooks/useConfirmReturnShipment", () => ({ useConfirmReturnShipment: () => ({ mutate: confirmMutate, isPending: false, isError: false, isSuccess: confirmState.isSuccess }) }));
+const panelState = { id: "r1" };
+vi.mock("@/features/ndr/hooks/useConfirmReturnShipment", () => ({ useConfirmReturnShipment: () => ({ mutate: confirmMutate, isPending: false, isError: false }) }));
 let shipmentQuery: { data?: Shipment; isError: boolean };
 vi.mock("@/features/shipments/hooks/useShipment", () => ({ useShipment: () => shipmentQuery }));
 const useShipmentEvents = vi.fn();
@@ -27,7 +27,7 @@ vi.mock("@/features/shipments/store/shipmentPanelStore", () => ({
   useShipmentPanelStore: (selector: (s: unknown) => unknown) => selector({ openDetail: openShipment }),
 }));
 vi.mock("@/features/ndr/store/returnShipmentPanelStore", () => ({
-  useReturnShipmentPanelStore: (selector: (s: unknown) => unknown) => selector({ panel: { mode: "detail", id: "r1" }, close: vi.fn() }),
+  useReturnShipmentPanelStore: (selector: (s: unknown) => unknown) => selector({ panel: { mode: "detail", id: panelState.id }, close: vi.fn() }),
 }));
 
 import { ReturnShipmentDetailSheet } from "./ReturnShipmentDetailSheet";
@@ -39,7 +39,7 @@ const base: ReturnShipment = {
 
 beforeEach(() => {
   confirmMutate.mockReset();
-  confirmState.isSuccess = false;
+  panelState.id = "r1";
   openShipment.mockReset();
   granted = ["rto.manage"];
   returnQuery = { data: base, isLoading: false, isError: false, refetch: vi.fn() };
@@ -75,15 +75,17 @@ describe("ReturnShipmentDetailSheet", () => {
     expect(confirmMutate).toHaveBeenCalledTimes(1);
   });
 
-  it("announces a successful hand-back in a status line", () => {
+  it("announces a successful hand-back in a status line, only for the id it was confirmed on", () => {
+    confirmMutate.mockImplementation((_: unknown, opts?: { onSuccess?: () => void }) => opts?.onSuccess?.());
     const view = render(<ReturnShipmentDetailSheet />);
     expect(screen.queryByRole("status")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Confirm handover" }));
     fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Confirm handover" }));
-    confirmState.isSuccess = true;
-    returnQuery = { ...returnQuery, data: { ...base, currentStatus: "RtoDelivered", merchantConfirmedAt: "2026-10-15T08:00:00Z" } };
-    view.rerender(<ReturnShipmentDetailSheet />);
     expect(screen.getByRole("status")).toHaveTextContent("Handed back to the merchant.");
+    panelState.id = "r2";
+    returnQuery = { ...returnQuery, data: { ...base, id: "r2" } };
+    view.rerender(<IntlTestProvider><ReturnShipmentDetailSheet /></IntlTestProvider>);
+    expect(screen.queryByRole("status")).toBeNull();
   });
 
   it("hides hand-back before origin, without rto.manage, and once confirmed", () => {

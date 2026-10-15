@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { ArrowRight, History, PackageCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -49,6 +50,7 @@ export function ReturnShipmentDetailSheet() {
   const names = usePeopleNames();
   const canManage = usePermission("rto.manage");
   const confirm = useConfirmReturnShipment(id);
+  const [confirmedId, setConfirmedId] = useState<string | null>(null);
   const openShipment = useShipmentPanelStore((s) => s.openDetail);
 
   const merchantName = original.data ? merchants?.find((m) => m.id === original.data!.merchantId)?.displayName ?? "—" : "—";
@@ -101,7 +103,7 @@ export function ReturnShipmentDetailSheet() {
               {events.data && <TimelineTab events={events.data} />}
             </SectionCard>
 
-            {confirm.isSuccess && <p role="status" className="text-sm font-medium text-foreground">Handed back to the merchant.</p>}
+            {confirmedId === id && <p role="status" className="text-sm font-medium text-foreground">Handed back to the merchant.</p>}
             {returnShipment.merchantConfirmedAt ? (
               <p className="text-sm text-foreground">{`Confirmed by merchant ${confirmedFormat.format(new Date(returnShipment.merchantConfirmedAt))}`}</p>
             ) : canManage && canHandBack(returnShipment) ? (
@@ -122,7 +124,7 @@ export function ReturnShipmentDetailSheet() {
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Not yet</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => confirm.mutate()}>Confirm handover</AlertDialogAction>
+                        <AlertDialogAction onClick={() => confirm.mutate(undefined, { onSuccess: () => setConfirmedId(id) })}>Confirm handover</AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
