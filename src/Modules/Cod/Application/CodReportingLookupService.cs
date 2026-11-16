@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Courier.Cod.Application;
 
-public class CodReportingLookupService : ICodReportingLookupService
+public class CodReportingLookupService : ICodReportingLookupService, ICodRiderCashLookupService
 {
     private readonly DbContext _dbContext;
 
@@ -72,5 +72,20 @@ public class CodReportingLookupService : ICodReportingLookupService
             .Select(c => new CodExportRow(c.ShipmentId, c.MerchantId, c.BranchId, c.ExpectedAmount, c.CollectedAmount, c.Status, c.CollectedAt))
             .ToListAsync(cancellationToken);
         return rows;
+    }
+
+    public async Task<RiderHeldCash?> GetHeldByRiderAsync(Guid riderId, CancellationToken cancellationToken = default)
+    {
+        // Bounded by one rider's undeposited parcels, so materialising them is cheap and keeps the
+        // CollectedAt ?? CreatedAt fallback identical to GetRiderCashAsync.
+        var rows = await _dbContext.Set<CODCollection>().AsNoTracking()
+            .Where(c => c.Status == CodCollectionStatus.CodCollected && c.CollectedByRiderId == riderId)
+            .Select(c => new { Amount = c.CollectedAmount ?? 0m, At = c.CollectedAt ?? c.CreatedAt })
+            .ToListAsync(cancellationToken);
+        if (rows.Count == 0)
+        {
+            return null;
+        }
+        return new RiderHeldCash(rows.Sum(r => r.Amount), rows.Count, rows.Min(r => r.At));
     }
 }

@@ -1,10 +1,10 @@
 "use client";
 
 import { useMyRider } from "@/features/riders/hooks/useMyRider";
-import { RiderRecordAttemptSheet } from "@/features/rider-app/components/RiderRecordAttemptSheet";
+import { RiderPodSheet } from "@/features/rider-app/components/RiderPodSheet";
 
 export function RiderSheets() {
   const { data: rider } = useMyRider();
   if (!rider) return null;
-  return <RiderRecordAttemptSheet riderId={rider.id} />;
+  return <RiderPodSheet riderId={rider.id} />;
 }

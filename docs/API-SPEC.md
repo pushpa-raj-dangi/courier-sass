@@ -343,6 +343,28 @@ scope returns `404`, the same as an unknown id. `/today` follows the same rule.
 - A branch-scoped caller gets one row per branch in scope, zeros included. An all-branches caller
   gets rows only for branches with activity; a missing branch has all zeros.
 
+### 6.8 Rider "my day" (rider PWA)
+
+`GET /api/v1/riders/me/today` — authenticated staff; self-scoped (the rider is resolved from the
+caller's user id). `401` when unauthenticated, `404` when the user has no rider record, `403` for
+merchant tokens.
+
+```json
+{ "run": { "id": "…", "status": "Active" },
+  "tasks": [{ "taskId": "…", "shipmentId": "…", "awb": "NX-260930-00148", "type": "Delivery",
+    "sequence": 15, "status": "Pending", "recipientName": "…", "recipientPhone": "…",
+    "recipientAddressLine": "…", "recipientWardNumber": 4, "codAmount": 2500 }],
+  "counts": { "assigned": 32, "completed": 14, "failed": 2 },
+  "cash": { "amount": 18450, "parcelCount": 9, "oldestCollectedAt": "…" },
+  "branchName": "Lalitpur", "vehiclePlate": "BA 2 PA 1111" }
+```
+
+- `tasks` holds every status of today's run (UTC date), ordered by `sequence`; shipment details come
+  from one batched lookup. `run` is null and `tasks` empty when the rider has no run today. Tasks
+  whose shipment can't be read are skipped and not counted in `counts`.
+- `cash` is the rider's own undeposited COD (`CodCollected` rows collected by the rider, all branches),
+  or null. `GET /riders/me/tasks/today` (pending tasks only) is unchanged.
+
 ## 7. International Shipments API (I3, extended I4)
 
 Staff-only (JWT + permission), not part of the Merchant API catalog in §3 — merchant-facing

@@ -71,3 +71,17 @@ public record RiderBoardResponse(IReadOnlyList<RiderBoardRow> Items);
 public record RiderTodayTask(Guid TaskId, Guid ShipmentId, string Awb, DeliveryTaskType Type, int Sequence, DeliveryTaskStatus Status);
 
 public record RiderTodayResponse(RiderBoardRow Rider, IReadOnlyList<RiderTodayTask> Tasks);
+
+// F15 R4 rider PWA "my day" (GET /riders/me/today). Every status of today's run, unlike
+// /me/tasks/today which serves only pending tasks to the offline-capable task list.
+public record MyTodayTask(
+    Guid TaskId, Guid ShipmentId, string Awb, DeliveryTaskType Type, int Sequence, DeliveryTaskStatus Status,
+    string RecipientName, string RecipientPhone, string RecipientAddressLine, int RecipientWardNumber, decimal CodAmount);
+
+public record MyTodayCounts(int Assigned, int Completed, int Failed);
+
+public record MyCashHeld(decimal Amount, int ParcelCount, DateTimeOffset OldestCollectedAt);
+
+public record MyTodayResponse(
+    RiderBoardRunSummary? Run, IReadOnlyList<MyTodayTask> Tasks, MyTodayCounts Counts,
+    MyCashHeld? Cash, string? BranchName, string? VehiclePlate);

@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { OutboxStatusBar } from "./OutboxStatusBar";
 
 const TABS = [
-  { href: "/rider/tasks", label: "Tasks", icon: ClipboardList },
+  { href: "/rider/tasks", label: "Run", icon: ClipboardList },
   { href: "/rider/scan", label: "Scan", icon: ScanLine },
   { href: "/rider/profile", label: "Profile", icon: User },
 ];
@@ -27,12 +27,13 @@ export function RiderShell({ children }: { children: React.ReactNode }) {
             <Link
               key={tab.href}
               href={tab.href}
+              aria-current={active ? "page" : undefined}
               className={cn(
-                "flex flex-1 flex-col items-center gap-1 py-3 text-xs",
-                active ? "text-primary" : "text-muted-foreground"
+                "flex min-h-16 flex-1 flex-col items-center justify-center gap-1 py-2 text-xs",
+                active ? "font-semibold text-primary" : "text-muted-foreground"
               )}
             >
-              <Icon className="h-6 w-6" />
+              <Icon className="h-6 w-6" aria-hidden="true" />
               {tab.label}
             </Link>
           );

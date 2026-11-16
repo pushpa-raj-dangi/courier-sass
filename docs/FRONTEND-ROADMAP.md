@@ -1063,7 +1063,7 @@ serve renders `ComingSoonSlot`. Each sub-phase has its own spec → plan → imp
 | R3a — Staff finance | COD reconciliation: money-flow strip, rider deposits + variance, record-deposit Sheet, merchant settlement breakdown | Done — spec `docs/superpowers/specs/2026-10-07-f15-r3a-cod-finance-design.md` |
 | R3b-1 — Parcel movement | Manifests (lifecycle strip, incoming/outgoing, receive reconciliation), NDR queue (owner/reason filters, attempts, follow-up, resolve), Returns (stage strip, return chain, hand back) | Done — spec `docs/superpowers/specs/2026-10-14-f15-r3b1-parcel-movement-design.md` |
 | R3b-2 — People & places | Riders (day strip, Riders/Map/Fleet tabs, rider Sheet), branches (type strip, live counts, branch Sheet) | Done — spec `docs/superpowers/specs/2026-10-15-f15-r3b2-people-and-places-design.md` |
-| R4 — Rider PWA | Run screen, POD flow, scan, profile | Planned |
+| R4 — Rider PWA | Run screen (day header, tabs, next stop), stepwise POD Sheet, scan (last result, recent scans), profile (today, cash, needs review, sync) | Done — spec `docs/superpowers/specs/2026-11-16-f15-r4-rider-pwa-design.md` |
 | R5 — Merchant portal + public tracking | 7 merchant pages, `/track` | Planned |
 | R6 — Platform + admin | Platform pages, admin, audit, billing, auth pages | Planned |
 
@@ -1135,6 +1135,19 @@ all-branches users.
 7. Close a delivery run: nothing sets `DeliveryRunStatus.Completed`, so "Run done" always reads 0.
 8. Branch-scope `GET /vehicles` and `GET /branches/{id}` (both return any row in the tenant).
 9. A tenant-wide branch id list for `GET /branches/activity`, so all-branches callers get zero rows too.
+
+**R4 (2026-11-16):** new self-scoped `GET /riders/me/today` (every status of today's run, counts,
+own held cash, branch name, vehicle plate). The POD form became a stepwise full-height Sheet; the
+failed-attempt form now records "customer contacted" and "next action" from the rider instead of a
+fixed value. The offline outbox is unchanged.
+
+**Backend follow-ups from R4:**
+1. SMS OTP send and verify for delivery (today only a "customer confirmed" flag is stored).
+2. Non-cash COD payment (Fonepay QR) recorded on delivery.
+3. Delivery attempt limit ("Attempt N of M").
+4. Recipient coordinates and distance to the next stop.
+5. Branch cash deposit deadline for riders.
+6. A human-readable run code.
 
 ## Later
 

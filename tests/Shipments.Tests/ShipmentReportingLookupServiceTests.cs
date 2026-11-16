@@ -362,4 +362,35 @@ public class ShipmentReportingLookupServiceTests
 
         Assert.Equal(originBranchId, Assert.Single(counts).Key);
     }
+
+    [Fact]
+    public async Task GetTaskInfosAsync_ReturnsDetailsForThisTenantsShipmentsOnly()
+    {
+        var tenantProvider = new FixedTenantProvider();
+        await using var dbContext = TestDbContextFactory.Create(tenantProvider);
+        var (orgId, originBranchId, destBranchId, merchantId) = await SeedOrgAsync(dbContext);
+        var (otherOrgId, otherOrigin, otherDest, otherMerchant) = await SeedOrgAsync(dbContext);
+        var mine = BuildShipment(orgId, originBranchId, destBranchId, merchantId, ShipmentStatus.OutForDelivery);
+        var theirs = BuildShipment(otherOrgId, otherOrigin, otherDest, otherMerchant, ShipmentStatus.OutForDelivery);
+        dbContext.AddRange(mine, theirs);
+        await dbContext.SaveChangesAsync();
+        tenantProvider.OrganizationId = orgId;
+        var service = new ShipmentReportingLookupService(dbContext);
+
+        var infos = await service.GetTaskInfosAsync(new HashSet<Guid> { mine.Id, theirs.Id, Guid.NewGuid() });
+
+        var info = Assert.Single(infos);
+        Assert.Equal(mine.Id, info.Key);
+        Assert.Equal(new ShipmentTaskInfo(mine.Awb, "Recipient", "9800000000", "Recipient Address", 1, 500m), info.Value);
+    }
+
+    [Fact]
+    public async Task GetTaskInfosAsync_EmptyInput_RunsNoQuery()
+    {
+        var dbContext = TestDbContextFactory.Create(new FixedTenantProvider { OrganizationId = Guid.NewGuid() });
+        await dbContext.DisposeAsync();
+        var service = new ShipmentReportingLookupService(dbContext);
+
+        Assert.Empty(await service.GetTaskInfosAsync(new HashSet<Guid>()));
+    }
 }

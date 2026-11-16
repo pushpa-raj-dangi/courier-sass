@@ -921,6 +921,100 @@ public class RidersEndpointsTests : IClassFixture<WebApplicationFactory<Program>
         Assert.DoesNotContain(activity, r => r.BranchId == originA || r.BranchId == destinationA);
     }
 
+    // ---- F15 R4: GET /riders/me/today ----
+
+    private async Task<(Guid RiderId, HttpClient Client)> CreateRiderAndLoginAsync(HttpClient owner, Guid branchId, RiderRoleType roleType)
+    {
+        var suffix = Guid.NewGuid().ToString("N");
+        var email = $"rider-{suffix}@example.com";
+        var response = await owner.PostAsJsonAsync("/api/v1/riders", new CreateRiderRequest(
+            email, "P@ssw0rd123!", "Asha Gurung", null, $"LIC-{suffix[..10]}", branchId, roleType));
+        response.EnsureSuccessStatusCode();
+        var rider = (await response.Content.ReadFromJsonAsync<RiderResponse>())!;
+        var login = await _factory.CreateClient().PostAsJsonAsync("/api/v1/auth/login", new LoginRequest(email, "P@ssw0rd123!"));
+        login.EnsureSuccessStatusCode();
+        var auth = (await login.Content.ReadFromJsonAsync<AuthResult>())!;
+        return (rider.Id, ClientWithToken(auth.AccessToken));
+    }
+
+    [Fact]
+    public async Task MyToday_Rider_ReturnsOwnRunTasksAndCounts()
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "my-today");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (originBranchId, destinationBranchId, serviceTypeId) = await SeedBranchesAsync(client);
+        var merchantId = await CreateMerchantAsync(client);
+        var pickupRiderId = await CreateRiderAsync(client, originBranchId, RiderRoleType.PickupRider);
+        var (deliveryRiderId, riderClient) = await CreateRiderAndLoginAsync(client, destinationBranchId, RiderRoleType.DeliveryRider);
+        var shipment = await BookAndMoveToDestinationAsync(client, merchantId, originBranchId, destinationBranchId, serviceTypeId, pickupRiderId);
+        (await client.PostAsJsonAsync("/api/v1/riders/tasks", new AssignDeliveryTaskRequest(deliveryRiderId, shipment.Id, DeliveryTaskType.Delivery))).EnsureSuccessStatusCode();
+
+        var response = await riderClient.GetAsync("/api/v1/riders/me/today");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var today = (await response.Content.ReadFromJsonAsync<MyTodayResponse>())!;
+        Assert.Equal(DeliveryRunStatus.Active, today.Run!.Status);
+        var task = Assert.Single(today.Tasks);
+        Assert.Equal(shipment.Awb, task.Awb);
+        Assert.Equal(DeliveryTaskStatus.Pending, task.Status);
+        Assert.Equal("Recipient One", task.RecipientName);
+        Assert.Equal(new MyTodayCounts(1, 0, 0), today.Counts);
+        Assert.Null(today.Cash);
+        Assert.False(string.IsNullOrWhiteSpace(today.BranchName));
+    }
+
+    [Fact]
+    public async Task MyToday_StaffUserWithoutRider_Returns404_Anonymous401()
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "my-today-staff");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/api/v1/riders/me/today")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await _factory.CreateClient().GetAsync("/api/v1/riders/me/today")).StatusCode);
+    }
+
+    [Fact]
+    public async Task MyToday_MerchantToken_Returns403()
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "my-today-merchant");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var ownerEmail = $"merchant-owner-{Guid.NewGuid():N}@example.com";
+        (await client.PostAsJsonAsync("/api/v1/merchants", new CreateMerchantRequest(
+            "Shipper Pvt. Ltd.", "Shipper", "01-4444444", "shipper@example.com",
+            ownerEmail, "P@ssw0rd123!", "Owner",
+            KathmanduProvinceId, KathmanduDistrictId, KathmanduLocalLevelId, KathmanduWardNumber, "New Road, Kathmandu"))).EnsureSuccessStatusCode();
+        var login = await _factory.CreateClient().PostAsJsonAsync("/api/v1/merchant/auth/login", new MerchantLoginRequest(ownerEmail, "P@ssw0rd123!"));
+        login.EnsureSuccessStatusCode();
+        var merchant = ClientWithToken((await login.Content.ReadFromJsonAsync<MerchantAuthResult>())!.AccessToken);
+
+        var status = (await merchant.GetAsync("/api/v1/riders/me/today")).StatusCode;
+
+        Assert.Equal(HttpStatusCode.Forbidden, status);
+    }
+
+    [Fact]
+    public async Task MyToday_NeverExposesAnotherRidersTasks()
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, "my-today-isolation");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (originBranchId, destinationBranchId, serviceTypeId) = await SeedBranchesAsync(client);
+        var merchantId = await CreateMerchantAsync(client);
+        var pickupRiderId = await CreateRiderAsync(client, originBranchId, RiderRoleType.PickupRider);
+        var assignedRiderId = await CreateRiderAsync(client, destinationBranchId, RiderRoleType.DeliveryRider);
+        var (_, idleRiderClient) = await CreateRiderAndLoginAsync(client, destinationBranchId, RiderRoleType.DeliveryRider);
+        var shipment = await BookAndMoveToDestinationAsync(client, merchantId, originBranchId, destinationBranchId, serviceTypeId, pickupRiderId);
+        (await client.PostAsJsonAsync("/api/v1/riders/tasks", new AssignDeliveryTaskRequest(assignedRiderId, shipment.Id, DeliveryTaskType.Delivery))).EnsureSuccessStatusCode();
+
+        var today = (await idleRiderClient.GetFromJsonAsync<MyTodayResponse>("/api/v1/riders/me/today"))!;
+
+        Assert.Null(today.Run);
+        Assert.Empty(today.Tasks);
+    }
+
     // Invites, accepts, and logs in a user under roleName scoped to the given branchId — same
     // invite/accept-invite/login chain as OrganizationSettingsEndpointsTests.InviteAcceptAndLoginAsync,
     // adapted to take an explicit branchId (that test's version always creates a fresh branch, but

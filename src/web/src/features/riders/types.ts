@@ -142,3 +142,17 @@ export interface RiderToday {
   rider: RiderBoardRow;
   tasks: RiderTodayTask[];
 }
+
+// F15 R4 rider PWA "my day" (GET /api/v1/riders/me/today): every status of today's run.
+export interface MyTodayTask extends MyTask {
+  status: DeliveryTaskStatus;
+}
+
+export interface MyToday {
+  run: RiderBoardRun | null;
+  tasks: MyTodayTask[];
+  counts: { assigned: number; completed: number; failed: number };
+  cash: { amount: number; parcelCount: number; oldestCollectedAt: string } | null;
+  branchName: string | null;
+  vehiclePlate: string | null;
+}
