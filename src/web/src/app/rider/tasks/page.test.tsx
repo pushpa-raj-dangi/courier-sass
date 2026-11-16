@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { MyToday, MyTodayTask } from "@/features/riders/types";
 import type { OutboxItem } from "@/features/rider-app/sync/types";
 
@@ -16,13 +16,16 @@ vi.mock("@/features/rider-app/sync/useOutboxStatus", () => ({
 const refresh = vi.fn();
 vi.mock("@/features/rider-app/sync/outboxStatusStore", () => ({ useOutboxStatusStore: { getState: () => ({ refresh }) } }));
 const pickupMutate = vi.fn();
-vi.mock("@/features/rider-app/hooks/useRiderPickupScan", () => ({ useRiderPickupScan: () => ({ mutate: pickupMutate, isPending: false }) }));
+vi.mock("@/features/rider-app/hooks/useRiderPickupScan", () => ({
+  useRiderPickupScan: () => ({ mutateAsync: pickupMutate, isPending: false, isSuccess: false, isError: false }),
+}));
 const openRecordAttempt = vi.fn();
 vi.mock("@/features/rider-app/store/riderAppPanelStore", () => ({
   useRiderAppPanelStore: (selector: (s: unknown) => unknown) => selector({ openRecordAttempt }),
 }));
 
 import RiderRunPage from "./page";
+import { useHandledStore } from "@/features/rider-app/store/handledStore";
 
 function task(overrides: Partial<MyTodayTask>): MyTodayTask {
   return {
@@ -52,12 +55,25 @@ function outbox(shipmentId: string, status: OutboxItem["status"]): OutboxItem {
   return { id: `o-${shipmentId}`, action: { kind: "pickup-scan", riderId: "r1", shipmentId, awb: "A" }, idempotencyKey: "k", createdAt: 0, status };
 }
 
+function deliveryOutbox(shipmentId: string, status: OutboxItem["status"]): OutboxItem {
+  return {
+    id: `d-${shipmentId}`,
+    action: {
+      kind: "delivery-complete", riderId: "r1", shipmentId, recipientName: "Sita", otpVerified: false, latitude: null, longitude: null,
+      collectedCodAmount: 2500, signatureBlob: null, photoBlob: null, signatureStorageKey: null, photoStorageKey: null,
+    },
+    idempotencyKey: "k", createdAt: 0, status,
+  };
+}
+
 beforeEach(() => {
   riderQuery = { data: { id: "r1" }, isLoading: false, isError: false };
   todayQuery = { data: day(), isLoading: false, isError: false, refetch: vi.fn() };
   pendingItems = [];
   stuckItems = [];
   pickupMutate.mockReset();
+  pickupMutate.mockResolvedValue(undefined);
+  useHandledStore.setState({ handled: new Set() });
   openRecordAttempt.mockReset();
   refresh.mockReset();
 });
@@ -98,22 +114,75 @@ describe("RiderRunPage", () => {
     expect(screen.getByText("Prepaid")).toBeInTheDocument();
   });
 
-  it("runs the pickup scan from the Pickups tab and shows it waiting to sync", () => {
+  it("shows a pickup waiting to sync as a row, never as a scannable next stop", () => {
     pendingItems = [outbox("s3", "pending")];
     render(<RiderRunPage />);
     fireEvent.mouseDown(screen.getByRole("tab", { name: "Pickups · 1" }));
-    const card = within(screen.getByRole("article", { name: "Next stop: Hari Traders" }));
-    expect(card.getByText("Saved · waiting to sync")).toBeInTheDocument();
-    expect(card.getByRole("button", { name: "Scan pickup" })).toBeDisabled();
+    expect(screen.queryByRole("article", { name: "Next stop: Hari Traders" })).toBeNull();
+    expect(screen.getByText("Saved · waiting to sync")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Scan pickup" })).toBeNull();
   });
 
-  it("enqueues a pickup scan and refreshes the sync status", () => {
-    pickupMutate.mockImplementation((_vars, options) => options?.onSuccess?.());
+  it("enqueues a pickup scan, refreshes the sync status and moves the pickup out of the next-stop slot", async () => {
     render(<RiderRunPage />);
     fireEvent.mouseDown(screen.getByRole("tab", { name: "Pickups · 1" }));
     fireEvent.click(screen.getByRole("button", { name: "Scan pickup" }));
-    expect(pickupMutate).toHaveBeenCalledWith({ awb: "NX-260930-00152", shipmentId: "s3" }, expect.anything());
-    expect(refresh).toHaveBeenCalled();
+    expect(pickupMutate).toHaveBeenCalledWith({ awb: "NX-260930-00152", shipmentId: "s3" });
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    expect(screen.queryByRole("article", { name: "Next stop: Hari Traders" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Scan pickup" })).toBeNull();
+    expect(screen.getByText("Saved · waiting to sync")).toBeInTheDocument();
+  });
+
+  it("skips a delivery already saved on this phone for the next stop and Report issue", () => {
+    pendingItems = [deliveryOutbox("s1", "pending")];
+    render(<RiderRunPage />);
+    expect(screen.queryByRole("article", { name: "Next stop: Sita Shrestha" })).toBeNull();
+    const card = within(screen.getByRole("article", { name: "Next stop: Ramesh Thapa" }));
+    expect(card.getByRole("button", { name: "Deliver" })).toBeInTheDocument();
+    // The handled delivery is a plain row: its sync note, no button to open it again.
+    expect(screen.getByText("Saved · waiting to sync")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Sita Shrestha/ })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Report issue" }));
+    expect(openRecordAttempt).toHaveBeenCalledTimes(1);
+    expect(openRecordAttempt).toHaveBeenCalledWith(expect.objectContaining({ taskId: "t2" }), "fail");
+  });
+
+  it("keeps a delivery handled this session out of reach after the outbox drains, until the run shows it done", () => {
+    useHandledStore.getState().markHandled("s1");
+    const { rerender } = render(<RiderRunPage />);
+    expect(screen.queryByRole("article", { name: "Next stop: Sita Shrestha" })).toBeNull();
+    expect(screen.getByRole("article", { name: "Next stop: Ramesh Thapa" })).toBeInTheDocument();
+    expect(screen.getByText("Saved · waiting to sync")).toBeInTheDocument();
+    expect(useHandledStore.getState().handled.has("s1")).toBe(true);
+
+    todayQuery = {
+      ...todayQuery,
+      data: day({ tasks: TASKS.map((t) => (t.shipmentId === "s1" ? { ...t, status: "Completed" as const } : t)) }),
+    };
+    rerender(<RiderRunPage />);
+    expect(useHandledStore.getState().handled.has("s1")).toBe(false);
+  });
+
+  it("shows a rejected delivery as needing review with nothing to press, and disables Report issue when nothing is left", () => {
+    stuckItems = [deliveryOutbox("s1", "stuck")];
+    pendingItems = [deliveryOutbox("s2", "pending")];
+    render(<RiderRunPage />);
+    expect(screen.queryByRole("article")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Deliver" })).toBeNull();
+    expect(screen.getByText("Needs review — see Profile")).toBeInTheDocument();
+    expect(screen.getByText("Saved · waiting to sync")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Report issue" })).toBeDisabled();
+  });
+
+  it("keeps the run on screen when a background refresh fails", () => {
+    todayQuery = { data: day(), isLoading: false, isError: true, refetch: vi.fn() };
+    render(<RiderRunPage />);
+    expect(screen.getByRole("article", { name: "Next stop: Sita Shrestha" })).toBeInTheDocument();
+    expect(screen.getByText("Couldn't refresh · showing what was last loaded")).toBeInTheDocument();
+    expect(screen.queryByText("Couldn't load today's run")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(todayQuery.refetch).toHaveBeenCalled();
   });
 
   it("lists done tasks with their result in words and flags rejected ones", () => {

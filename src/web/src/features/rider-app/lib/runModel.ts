@@ -41,6 +41,31 @@ export function taskSyncState(shipmentId: string, pendingItems: OutboxItem[], st
   return "synced";
 }
 
+/** True while the shipment has a queued (pending/syncing) or rejected outbox item on this phone. */
+export function handledOnPhone(shipmentId: string, pendingItems: OutboxItem[], stuckItems: OutboxItem[]): boolean {
+  return taskSyncState(shipmentId, pendingItems, stuckItems) !== "synced";
+}
+
+/**
+ * Sync state counting a shipment handled this session: once the outbox drains it stays "waiting"
+ * until the run data shows the task done — it is never claimed as synced from the phone alone.
+ */
+export function phoneSyncState(
+  shipmentId: string,
+  pendingItems: OutboxItem[],
+  stuckItems: OutboxItem[],
+  sessionHandled: ReadonlySet<string>,
+): TaskSyncState {
+  const state = taskSyncState(shipmentId, pendingItems, stuckItems);
+  return state === "synced" && sessionHandled.has(shipmentId) ? "waiting" : state;
+}
+
+/** Session-handled shipments the run now shows as no longer Pending — safe to forget. */
+export function settledShipmentIds(sessionHandled: ReadonlySet<string>, tasks: MyTodayTask[] | undefined): string[] {
+  if (!tasks) return [];
+  return tasks.filter((t) => t.status !== "Pending" && sessionHandled.has(t.shipmentId)).map((t) => t.shipmentId);
+}
+
 // The seeded DeliveryRider and PickupRider permission sets (AuthService.RegisterOrganizationAsync).
 const RIDER_PERMISSIONS = new Set(["delivery.attempt", "delivery.complete", "cod.collect", "shipment.scan"]);
 

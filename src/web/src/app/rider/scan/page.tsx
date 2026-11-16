@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { BarcodeScanner } from "@/components/scanner/BarcodeScanner";
+import { useHandledOnPhone } from "@/features/rider-app/hooks/useHandledOnPhone";
 import { useMyToday } from "@/features/rider-app/hooks/useMyToday";
 import { useRiderPickupScan } from "@/features/rider-app/hooks/useRiderPickupScan";
 import { groupRunTasks, taskSyncState } from "@/features/rider-app/lib/runModel";
+import { useHandledStore } from "@/features/rider-app/store/handledStore";
 import { useRiderAppPanelStore } from "@/features/rider-app/store/riderAppPanelStore";
 import { useOutboxStatusStore } from "@/features/rider-app/sync/outboxStatusStore";
 import { useOutboxStatus } from "@/features/rider-app/sync/useOutboxStatus";
@@ -41,14 +43,22 @@ const LAST_SCAN_LINE: Partial<Record<StatusKey, string>> = {
   failed: "Couldn't save this scan · scan again",
 };
 
+// A delivery (or failed attempt) already queued on this phone: the POD Sheet is not opened again.
+const SAVED_DELIVERY_LINE: Partial<Record<StatusKey, string>> = {
+  waiting: "Already saved on this phone · waiting to sync",
+  "needs-review": "Needs review — see Profile",
+};
+
 const MAX_RECENT = 10;
 
 export default function RiderScanPage() {
-  const { data: rider } = useMyRider();
+  const { data: rider, isLoading: riderLoading } = useMyRider();
   const today = useMyToday(!!rider);
   const pickupScan = useRiderPickupScan(rider?.id ?? "");
   const openRecordAttempt = useRiderAppPanelStore((s) => s.openRecordAttempt);
+  const markHandled = useHandledStore((s) => s.markHandled);
   const { pendingCount, pendingItems, stuckItems } = useOutboxStatus();
+  const phone = useHandledOnPhone(today.data?.tasks, pendingItems, stuckItems);
   const [scans, setScans] = useState<ScanResult[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -64,9 +74,11 @@ export default function RiderScanPage() {
   function handleDetect(awb: string) {
     if (!today.data) {
       setNotice(
-        today.isError
-          ? "Couldn't load your run — scan again when you're back online."
-          : "Your run is still loading — scan again in a moment.",
+        !riderLoading && !rider
+          ? "This account isn't linked to a rider record."
+          : today.isError
+            ? "Couldn't load your run — scan again when you're back online."
+            : "Your run is still loading — scan again in a moment.",
       );
       return;
     }
@@ -74,20 +86,22 @@ export default function RiderScanPage() {
     const match = today.data.tasks.find((t) => t.awb === awb);
     const kind: ScanKind = !match ? "unknown" : match.status !== "Pending" ? "done" : match.type === "Pickup" ? "pickup" : "delivery";
     const id = Date.now() + Math.random();
+    // Already pickup-scanned, delivered or failed on this phone (outbox or this session), or a scan
+    // of it is still saving: never queue it again or reopen its POD Sheet.
     const alreadyQueued =
       !!match &&
-      kind === "pickup" &&
-      (taskSyncState(match.shipmentId, pendingItems, stuckItems) !== "synced" ||
+      (kind === "pickup" || kind === "delivery") &&
+      (phone.isHandled(match.shipmentId) ||
         scans.some((s) => s.task?.shipmentId === match.shipmentId && (s.save === "saving" || s.save === "queued")));
-    const save: SaveState | undefined = kind === "pickup" ? (alreadyQueued ? "queued" : "saving") : undefined;
+    const save: SaveState | undefined = alreadyQueued ? "queued" : kind === "pickup" ? "saving" : undefined;
     setScans((prev) => [{ id, awb, kind, task: match, save }, ...prev].slice(0, MAX_RECENT));
-    if (!match || kind === "done") return;
+    if (!match || kind === "done" || alreadyQueued) return;
     if (kind === "pickup") {
-      if (alreadyQueued) return;
       // mutateAsync (not per-call mutate callbacks) so every scan settles, even when scans overlap.
       pickupScan
         .mutateAsync({ awb: match.awb, shipmentId: match.shipmentId })
         .then(() => {
+          markHandled(match.shipmentId);
           updateScan(id, "queued");
           void useOutboxStatusStore.getState().refresh();
         })
@@ -100,7 +114,7 @@ export default function RiderScanPage() {
   function statusKey(scan: ScanResult): StatusKey {
     if (scan.kind === "unknown") return "not-on-run";
     if (scan.kind === "done") return "done";
-    if (scan.kind === "delivery") return "opened";
+    if (scan.kind === "delivery" && !scan.save) return "opened";
     if (scan.save === "saving") return "saving";
     if (scan.save === "failed") return "failed";
     const state = scan.task ? taskSyncState(scan.task.shipmentId, pendingItems, stuckItems) : "synced";
@@ -113,7 +127,9 @@ export default function RiderScanPage() {
 
   const last = scans[0];
   const lastKey = last ? statusKey(last) : undefined;
-  const lastBad = last?.kind === "pickup" && (lastKey === "failed" || lastKey === "needs-review");
+  // A pickup scan, or a delivery scanned after it was already saved on this phone.
+  const lastSaved = !!last && (last.kind === "pickup" || (last.kind === "delivery" && !!last.save));
+  const lastBad = lastSaved && (lastKey === "failed" || lastKey === "needs-review");
 
   return (
     <div className="flex min-h-full flex-col">
@@ -150,15 +166,23 @@ export default function RiderScanPage() {
             className={cn("space-y-1.5 rounded-xl border-2 bg-card p-4", lastBad ? "border-destructive" : "border-status-delivered")}
           >
             <p className={cn("font-mono text-2xs uppercase tracking-[0.1em]", lastBad ? "text-destructive" : "text-status-delivered")}>
-              {last.kind !== "pickup" ? "OPENED DELIVERY" : lastKey === "failed" ? "NOT SAVED" : lastKey === "needs-review" ? "NEEDS REVIEW" : "PICKED UP"}
+              {!lastSaved
+                ? "OPENED DELIVERY"
+                : lastKey === "failed"
+                  ? "NOT SAVED"
+                  : lastKey === "needs-review"
+                    ? "NEEDS REVIEW"
+                    : last.kind === "pickup"
+                      ? "PICKED UP"
+                      : "ALREADY SAVED"}
             </p>
             <p className="font-mono text-base font-medium">{last.awb}</p>
             <p className="text-sm text-muted-foreground">
               {`${last.kind === "pickup" ? "Pickup from" : "Delivery to"} ${last.task.recipientName}, ${last.task.recipientAddressLine}`}
             </p>
-            {last.kind === "pickup" && (
-              <p className={cn("text-xs font-semibold", STATUS_COPY[statusKey(last)].tone)}>
-                {LAST_SCAN_LINE[statusKey(last)] ?? STATUS_COPY[statusKey(last)].text}
+            {lastSaved && lastKey && (
+              <p className={cn("text-xs font-semibold", STATUS_COPY[lastKey].tone)}>
+                {(last.kind === "pickup" ? LAST_SCAN_LINE : SAVED_DELIVERY_LINE)[lastKey] ?? STATUS_COPY[lastKey].text}
               </p>
             )}
           </section>
@@ -189,7 +213,7 @@ export default function RiderScanPage() {
 
       {pendingCount > 0 && (
         <div className="fixed inset-x-0 bottom-16 flex justify-between border-t border-border bg-muted px-4 py-2 text-xs font-medium text-foreground">
-          <span>{`${pendingCount} ${pendingCount === 1 ? "scan" : "scans"} waiting to sync`}</span>
+          <span>{`${pendingCount} waiting to sync`}</span>
           <span className="text-muted-foreground">Sends when you&apos;re online</span>
         </div>
       )}

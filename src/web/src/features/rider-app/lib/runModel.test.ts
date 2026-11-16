@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { MyTodayTask } from "@/features/riders/types";
 import type { OutboxItem } from "@/features/rider-app/sync/types";
 import {
-  awbTail, cashMatch, failureReasonLabel, firstName, groupRunTasks, hasStaffPermissions, mapsHref, nextStop,
-  taskResultLabel, taskSyncState,
+  awbTail, cashMatch, failureReasonLabel, firstName, groupRunTasks, handledOnPhone, hasStaffPermissions, mapsHref, nextStop,
+  phoneSyncState, settledShipmentIds, taskResultLabel, taskSyncState,
 } from "./runModel";
 
 function task(overrides: Partial<MyTodayTask>): MyTodayTask {
@@ -55,6 +55,30 @@ describe("runModel", () => {
     expect(taskSyncState("s1", [outboxItem("s1", "pending")], [])).toBe("waiting");
     expect(taskSyncState("s1", [outboxItem("s1", "pending")], [outboxItem("s1", "stuck")])).toBe("needs-review");
     expect(taskSyncState("s1", [outboxItem("s2", "pending")], [])).toBe("synced");
+  });
+
+  it("counts a shipment as handled on this phone while it has a pending or stuck outbox item", () => {
+    expect(handledOnPhone("s1", [], [])).toBe(false);
+    expect(handledOnPhone("s1", [outboxItem("s1", "pending")], [])).toBe(true);
+    expect(handledOnPhone("s1", [outboxItem("s1", "syncing")], [])).toBe(true);
+    expect(handledOnPhone("s1", [], [outboxItem("s1", "stuck")])).toBe(true);
+    expect(handledOnPhone("s1", [outboxItem("s2", "pending")], [outboxItem("s3", "stuck")])).toBe(false);
+  });
+
+  it("never shows a shipment handled this session as synced until the run shows it done", () => {
+    const session = new Set(["s1"]);
+    // Outbox already drained, refetch not back yet: still "waiting", never "synced".
+    expect(phoneSyncState("s1", [], [], session)).toBe("waiting");
+    expect(phoneSyncState("s1", [], [outboxItem("s1", "stuck")], session)).toBe("needs-review");
+    expect(phoneSyncState("s2", [], [], session)).toBe("synced");
+    expect(phoneSyncState("s2", [outboxItem("s2", "pending")], [], session)).toBe("waiting");
+  });
+
+  it("settles session-handled shipments only once the run shows the task no longer pending", () => {
+    const session = new Set(["s1", "s2", "s3"]);
+    const tasks = [task({ shipmentId: "s1", status: "Completed" }), task({ shipmentId: "s2", status: "Pending" }), task({ shipmentId: "s4", status: "Failed" })];
+    expect(settledShipmentIds(session, tasks)).toEqual(["s1"]);
+    expect(settledShipmentIds(session, undefined)).toEqual([]);
   });
 
   it("treats any permission outside the rider set as staff", () => {

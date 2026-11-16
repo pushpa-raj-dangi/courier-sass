@@ -4,9 +4,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/states/EmptyState";
 import { ErrorState } from "@/components/states/ErrorState";
 import { useSession } from "@/features/auth/hooks/useSession";
 import { formatRs } from "@/features/cod/lib/codFormat";
+import { RefreshFailed } from "@/features/rider-app/components/RefreshFailed";
 import { useMyToday } from "@/features/rider-app/hooks/useMyToday";
 import { hasStaffPermissions } from "@/features/rider-app/lib/runModel";
 import { updateOutboxItem } from "@/features/rider-app/sync/outboxDb";
@@ -69,7 +71,10 @@ export default function RiderProfilePage() {
       </header>
 
       <div className="flex-1 space-y-3 px-4 pb-24 pt-3">
-        {today.isError ? (
+        {today.isError && data && <RefreshFailed onRetry={() => today.refetch()} />}
+        {!riderLoading && !rider ? (
+          <EmptyState title="No rider profile" description="This account isn't linked to a rider record." />
+        ) : today.isError && !data ? (
           <ErrorState title="Couldn't load today" description="Check your connection and try again." onRetry={() => today.refetch()} />
         ) : (
           <section aria-label="Today" className={`${CARD} grid grid-cols-2 gap-3`}>
@@ -104,7 +109,7 @@ export default function RiderProfilePage() {
                 </div>
                 {data.cash && (
                   <p className="col-span-2 text-xs text-foreground">
-                    {`Hand cash over at the ${data.branchName ?? "branch"}${data.branchName ? " branch" : ""} COD counter before you sign off.`}
+                    {`Hand cash over at the ${data.branchName ?? "branch"} COD counter before you sign off.`}
                   </p>
                 )}
               </>

@@ -17,6 +17,7 @@ import { SignaturePad } from "@/features/riders/components/SignaturePad";
 import { useCompleteDelivery } from "@/features/rider-app/hooks/useCompleteDelivery";
 import { useRecordFailedAttempt } from "@/features/rider-app/hooks/useRecordFailedAttempt";
 import { FAILURE_REASONS, cashMatch, failureReasonLabel } from "@/features/rider-app/lib/runModel";
+import { useHandledStore } from "@/features/rider-app/store/handledStore";
 import { useRiderAppPanelStore, type PodStart } from "@/features/rider-app/store/riderAppPanelStore";
 import { useOutboxStatusStore } from "@/features/rider-app/sync/outboxStatusStore";
 import type { RecordFailedAttemptFields } from "@/features/rider-app/sync/types";
@@ -78,6 +79,7 @@ function PodForm({ task, riderId, start, onDone }: { task: MyTask; riderId: stri
 
   const completeDelivery = useCompleteDelivery(riderId);
   const recordFailedAttempt = useRecordFailedAttempt(riderId);
+  const markHandled = useHandledStore((s) => s.markHandled);
 
   // Captured once on open; a missing or denied location never blocks the delivery.
   useEffect(() => {
@@ -94,7 +96,7 @@ function PodForm({ task, riderId, start, onDone }: { task: MyTask; riderId: stri
 
   const codDue = task.codAmount > 0;
   const enteredCash = cashReceived.trim() === "" ? null : Number(cashReceived);
-  const cashInvalid = codDue && (enteredCash === null || Number.isNaN(enteredCash) || enteredCash < 0);
+  const cashInvalid = codDue && (enteredCash === null || !Number.isFinite(enteredCash) || enteredCash < 0);
   const match = codDue && !cashInvalid && enteredCash !== null ? cashMatch(task.codAmount, enteredCash) : null;
   const canConfirm = recipientName.trim().length > 0 && !cashInvalid;
   const latitude = gps.status === "ok" ? gps.latitude : null;
@@ -115,6 +117,7 @@ function PodForm({ task, riderId, start, onDone }: { task: MyTask; riderId: stri
         signatureBlob,
         photoBlob: photoFile,
       });
+      markHandled(task.shipmentId);
       void useOutboxStatusStore.getState().refresh();
       onDone();
     } catch {
@@ -135,6 +138,7 @@ function PodForm({ task, riderId, start, onDone }: { task: MyTask; riderId: stri
         customerContacted,
         nextAction: nextAction.trim() || undefined,
       });
+      markHandled(task.shipmentId);
       void useOutboxStatusStore.getState().refresh();
       onDone();
     } catch {
@@ -282,7 +286,7 @@ function PodForm({ task, riderId, start, onDone }: { task: MyTask; riderId: stri
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="pod-notes">Notes</Label>
-                <Textarea id="pod-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
+                <Textarea id="pod-notes" maxLength={500} value={notes} onChange={(e) => setNotes(e.target.value)} />
               </div>
               <div className="flex items-center gap-2">
                 <Checkbox id="pod-contacted" checked={customerContacted} onCheckedChange={(v) => setCustomerContacted(v === true)} />
@@ -293,6 +297,7 @@ function PodForm({ task, riderId, start, onDone }: { task: MyTask; riderId: stri
                 <Input
                   id="pod-next-action"
                   className="h-11"
+                  maxLength={500}
                   value={nextAction}
                   placeholder="e.g. Reattempt tomorrow after 4 PM"
                   onChange={(e) => setNextAction(e.target.value)}

@@ -10,10 +10,12 @@ import { EmptyState } from "@/components/states/EmptyState";
 import { ErrorState } from "@/components/states/ErrorState";
 import { useSession } from "@/features/auth/hooks/useSession";
 import { NextStopCard } from "@/features/rider-app/components/NextStopCard";
+import { RefreshFailed } from "@/features/rider-app/components/RefreshFailed";
 import { RunHeader } from "@/features/rider-app/components/RunHeader";
 import { RunTaskRow } from "@/features/rider-app/components/RunTaskRow";
+import { useHandledOnPhone } from "@/features/rider-app/hooks/useHandledOnPhone";
 import { useMyToday } from "@/features/rider-app/hooks/useMyToday";
-import { groupRunTasks, taskSyncState } from "@/features/rider-app/lib/runModel";
+import { groupRunTasks } from "@/features/rider-app/lib/runModel";
 import { useRiderAppPanelStore } from "@/features/rider-app/store/riderAppPanelStore";
 import { useOutboxStatus } from "@/features/rider-app/sync/useOutboxStatus";
 import { useMyRider } from "@/features/riders/hooks/useMyRider";
@@ -34,6 +36,8 @@ export default function RiderRunPage() {
   const { pendingItems, stuckItems } = useOutboxStatus();
   const openRecordAttempt = useRiderAppPanelStore((s) => s.openRecordAttempt);
   const [tab, setTab] = useState<RunTab>("deliver");
+  const data = today.data;
+  const phone = useHandledOnPhone(data?.tasks, pendingItems, stuckItems);
 
   if (riderLoading) {
     return (
@@ -47,30 +51,32 @@ export default function RiderRunPage() {
   if (riderError || !rider) {
     return <EmptyState title="No rider profile" description="This account isn't linked to a rider record." />;
   }
-  if (today.isError) {
+  if (today.isError && !data) {
     return <ErrorState title="Couldn't load today's run" description="Check your connection and try again." onRetry={() => today.refetch()} />;
   }
 
-  const data = today.data;
   const groups = data ? groupRunTasks(data.tasks) : undefined;
-  const sync = (t: MyTodayTask) => taskSyncState(t.shipmentId, pendingItems, stuckItems);
-  const nextDelivery = groups?.toDeliver[0];
+  const sync = (t: MyTodayTask) => phone.syncState(t.shipmentId);
+  // A stop already delivered, failed or pickup-scanned on this phone is never offered again.
+  const nextDelivery = groups?.toDeliver.find((t) => !phone.isHandled(t.shipmentId));
 
   function stops(list: MyTodayTask[], key: RunTab) {
     if (list.length === 0) return <EmptyState title={EMPTY[key]} />;
     if (key === "done") return list.map((t) => <RunTaskRow key={t.taskId} task={t} syncState={sync(t)} />);
-    const [first, ...rest] = list;
+    const first = list.find((t) => !phone.isHandled(t.shipmentId));
     return (
       <>
-        <NextStopCard task={first} riderId={rider!.id} syncState={sync(first)} />
-        {rest.map((t) => (
-          <RunTaskRow
-            key={t.taskId}
-            task={t}
-            syncState={sync(t)}
-            onOpen={t.type === "Delivery" ? () => openRecordAttempt(t) : undefined}
-          />
-        ))}
+        {first && <NextStopCard key={first.taskId} task={first} riderId={rider!.id} syncState={sync(first)} />}
+        {list
+          .filter((t) => t !== first)
+          .map((t) => (
+            <RunTaskRow
+              key={t.taskId}
+              task={t}
+              syncState={sync(t)}
+              onOpen={t.type === "Delivery" && !phone.isHandled(t.shipmentId) ? () => openRecordAttempt(t) : undefined}
+            />
+          ))}
       </>
     );
   }
@@ -79,6 +85,7 @@ export default function RiderRunPage() {
     <div className="flex min-h-full flex-col">
       <RunHeader name={session?.fullName} today={data} isLoading={today.isLoading} />
       <div className="flex-1 space-y-3 px-4 pb-32 pt-3">
+        {today.isError && data && <RefreshFailed onRetry={() => today.refetch()} />}
         {today.isLoading || !data || !groups ? (
           <div className="space-y-2.5" role="status" aria-label="Loading today's stops">
             {Array.from({ length: 3 }).map((_, i) => (

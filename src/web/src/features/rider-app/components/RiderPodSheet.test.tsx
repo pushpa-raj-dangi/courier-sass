@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useHandledStore } from "@/features/rider-app/store/handledStore";
 import { useRiderAppPanelStore } from "@/features/rider-app/store/riderAppPanelStore";
 import type { MyTask } from "@/features/riders/types";
 
@@ -30,6 +31,7 @@ beforeEach(() => {
   failMutate.mockReset().mockResolvedValue(undefined);
   refresh.mockReset();
   useRiderAppPanelStore.getState().close();
+  useHandledStore.setState({ handled: new Set() });
 });
 
 describe("RiderPodSheet", () => {
@@ -80,6 +82,27 @@ describe("RiderPodSheet", () => {
     );
     expect(refresh).toHaveBeenCalled();
     await waitFor(() => expect(useRiderAppPanelStore.getState().panel).toEqual({ mode: "closed" }));
+    expect(useHandledStore.getState().handled.has("s1")).toBe(true);
+  });
+
+  it("does not mark a delivery handled when it couldn't be saved on the phone", async () => {
+    completeMutate.mockRejectedValue(new Error("idb"));
+    useRiderAppPanelStore.getState().openRecordAttempt(prepaidTask);
+    render(<RiderPodSheet riderId="r1" />);
+    fireEvent.change(screen.getByLabelText("Received by"), { target: { value: "Neighbour" } });
+    fireEvent.click(screen.getByRole("button", { name: "Confirm delivered" }));
+    expect(await screen.findByText("Couldn't save this delivery on the phone. Try again.")).toBeInTheDocument();
+    expect(useHandledStore.getState().handled.has("s2")).toBe(false);
+  });
+
+  it("rejects a non-finite cash amount", () => {
+    useRiderAppPanelStore.getState().openRecordAttempt(codTask);
+    render(<RiderPodSheet riderId="r1" />);
+    fireEvent.change(screen.getByLabelText("Received by"), { target: { value: "Sita Shrestha" } });
+    fireEvent.change(screen.getByLabelText("Cash received"), { target: { value: "Infinity" } });
+    expect(screen.getByRole("button", { name: /Confirm delivered/ })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Cash received"), { target: { value: "1e999" } });
+    expect(screen.getByRole("button", { name: /Confirm delivered/ })).toBeDisabled();
   });
 
   it("numbers the steps from 1 for a prepaid parcel and sends no COD amount", async () => {
@@ -121,6 +144,14 @@ describe("RiderPodSheet", () => {
         expect.objectContaining({ shipmentId: "s1", reason: "CustomerUnavailable", customerContacted: true, nextAction: "Reattempt after 4 PM" }),
       ),
     );
+    await waitFor(() => expect(useHandledStore.getState().handled.has("s1")).toBe(true));
+  });
+
+  it("caps notes and next action at the server's 500 characters", () => {
+    useRiderAppPanelStore.getState().openRecordAttempt(codTask, "fail");
+    render(<RiderPodSheet riderId="r1" />);
+    expect(screen.getByLabelText("Notes")).toHaveAttribute("maxLength", "500");
+    expect(screen.getByLabelText("Next action")).toHaveAttribute("maxLength", "500");
   });
 
   it("opens straight to the failure form from Report issue, and can go back", () => {

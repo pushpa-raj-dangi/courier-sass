@@ -8,6 +8,7 @@ import { formatRs } from "@/features/cod/lib/codFormat";
 import { SyncNote } from "@/features/rider-app/components/SyncNote";
 import { useRiderPickupScan } from "@/features/rider-app/hooks/useRiderPickupScan";
 import { awbTail, mapsHref, type TaskSyncState } from "@/features/rider-app/lib/runModel";
+import { useHandledStore } from "@/features/rider-app/store/handledStore";
 import { useRiderAppPanelStore } from "@/features/rider-app/store/riderAppPanelStore";
 import { useOutboxStatusStore } from "@/features/rider-app/sync/outboxStatusStore";
 import type { MyTodayTask } from "@/features/riders/types";
@@ -15,6 +16,7 @@ import type { MyTodayTask } from "@/features/riders/types";
 export function NextStopCard({ task, riderId, syncState }: { task: MyTodayTask; riderId: string; syncState: TaskSyncState }) {
   const pickupScan = useRiderPickupScan(riderId);
   const openRecordAttempt = useRiderAppPanelStore((s) => s.openRecordAttempt);
+  const markHandled = useHandledStore((s) => s.markHandled);
 
   return (
     <article aria-label={`Next stop: ${task.recipientName}`} className="space-y-3 rounded-xl border-2 border-primary bg-card p-4">
@@ -56,18 +58,27 @@ export function NextStopCard({ task, riderId, syncState }: { task: MyTodayTask; 
           <Button
             type="button"
             className="h-12 text-base"
-            disabled={pickupScan.isPending || syncState !== "synced"}
+            // Stays disabled after a successful save — the page then moves this pickup out of the slot.
+            disabled={pickupScan.isPending || pickupScan.isSuccess || syncState !== "synced"}
             onClick={() =>
-              pickupScan.mutate(
-                { awb: task.awb, shipmentId: task.shipmentId },
-                { onSuccess: () => void useOutboxStatusStore.getState().refresh() },
-              )
+              pickupScan
+                .mutateAsync({ awb: task.awb, shipmentId: task.shipmentId })
+                .then(() => {
+                  markHandled(task.shipmentId);
+                  void useOutboxStatusStore.getState().refresh();
+                })
+                .catch(() => {
+                  // Nothing was saved; isError shows the line below and the button re-enables.
+                })
             }
           >
             {pickupScan.isPending ? <Spinner className="h-4 w-4" /> : "Scan pickup"}
           </Button>
         )}
       </div>
+      {task.type === "Pickup" && pickupScan.isError && (
+        <p role="alert" className="text-xs font-medium text-destructive">Couldn&apos;t save this scan · try again</p>
+      )}
     </article>
   );
 }

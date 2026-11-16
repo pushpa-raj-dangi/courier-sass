@@ -7,9 +7,8 @@ import { drainOutbox } from "@/features/rider-app/sync/syncManager";
 
 const push = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
-vi.mock("@/features/riders/hooks/useMyRider", () => ({
-  useMyRider: () => ({ data: { id: "r1", licenseNumber: "LIC-0428812", roleType: "DeliveryRider" }, isLoading: false }),
-}));
+let riderQuery: { data?: { id: string; licenseNumber: string; roleType: string }; isLoading: boolean };
+vi.mock("@/features/riders/hooks/useMyRider", () => ({ useMyRider: () => riderQuery }));
 let today: { data?: MyToday; isLoading: boolean; isError: boolean; refetch: () => void };
 vi.mock("@/features/rider-app/hooks/useMyToday", () => ({ useMyToday: () => today }));
 let permissions: string[] = [];
@@ -38,7 +37,8 @@ function day(overrides: Partial<MyToday> = {}): MyToday {
 }
 
 beforeEach(() => {
-  today = { data: day(), isLoading: false, isError: false, refetch: vi.fn() };
+  riderQuery = { data: { id: "r1", licenseNumber: "LIC-0428812", roleType: "DeliveryRider" }, isLoading: false };
+  today ={ data: day(), isLoading: false, isError: false, refetch: vi.fn() };
   permissions = ["delivery.attempt", "delivery.complete", "cod.collect", "shipment.scan"];
   pendingCount = 0;
   stuckItems = [];
@@ -58,9 +58,40 @@ describe("RiderProfilePage", () => {
     expect(todayCard.getByText("2 failed")).toBeInTheDocument();
     expect(todayCard.getByText("Rs 18,450")).toBeInTheDocument();
     expect(todayCard.getByText("9 COD parcels · oldest 3 h")).toBeInTheDocument();
-    expect(todayCard.getByText("Hand cash over at the Lalitpur branch COD counter before you sign off.")).toBeInTheDocument();
+    expect(todayCard.getByText("Hand cash over at the Lalitpur COD counter before you sign off.")).toBeInTheDocument();
     expect(screen.getByText("BA 2 PA 1111")).toBeInTheDocument();
     expect(screen.getByText("LIC-0428812")).toBeInTheDocument();
+  });
+
+  it("falls back to the branch COD counter when the branch has no name", () => {
+    today = { data: day({ branchName: null }), isLoading: false, isError: false, refetch: vi.fn() };
+    render(<RiderProfilePage />);
+    expect(screen.getByText("Hand cash over at the branch COD counter before you sign off.")).toBeInTheDocument();
+  });
+
+  it("keeps today on screen when a background refresh fails, with a retry", () => {
+    today = { data: day(), isLoading: false, isError: true, refetch: vi.fn() };
+    render(<RiderProfilePage />);
+    expect(within(screen.getByRole("region", { name: "Today" })).getByText("Rs 18,450")).toBeInTheDocument();
+    expect(screen.getByText("Couldn't refresh · showing what was last loaded")).toBeInTheDocument();
+    expect(screen.queryByText("Couldn't load today")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(today.refetch).toHaveBeenCalled();
+  });
+
+  it("shows the full error only when nothing was ever loaded", () => {
+    today = { data: undefined, isLoading: false, isError: true, refetch: vi.fn() };
+    render(<RiderProfilePage />);
+    expect(screen.getByText("Couldn't load today")).toBeInTheDocument();
+  });
+
+  it("says the account has no rider instead of loading forever", () => {
+    riderQuery = { data: undefined, isLoading: false };
+    today = { data: undefined, isLoading: false, isError: false, refetch: vi.fn() };
+    render(<RiderProfilePage />);
+    expect(screen.getByText("No rider profile")).toBeInTheDocument();
+    expect(screen.getByText("This account isn't linked to a rider record.")).toBeInTheDocument();
+    expect(screen.queryByRole("status", { name: "Loading today" })).toBeNull();
   });
 
   it("never shows zeros while the day loads", () => {

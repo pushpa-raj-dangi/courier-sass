@@ -14,12 +14,14 @@ vi.mock("@/components/scanner/BarcodeScanner", () => ({
     </div>
   ),
 }));
-vi.mock("@/features/riders/hooks/useMyRider", () => ({ useMyRider: () => ({ data: { id: "r1" } }) }));
+let riderQuery: { data?: { id: string }; isLoading: boolean };
+vi.mock("@/features/riders/hooks/useMyRider", () => ({ useMyRider: () => riderQuery }));
 let today: MyToday | undefined;
 vi.mock("@/features/rider-app/hooks/useMyToday", () => ({ useMyToday: () => ({ data: today, isLoading: !today, isError: false }) }));
 let pendingItems: OutboxItem[] = [];
+let stuckItems: OutboxItem[] = [];
 vi.mock("@/features/rider-app/sync/useOutboxStatus", () => ({
-  useOutboxStatus: () => ({ pendingCount: pendingItems.length, pendingItems, stuckItems: [], lastSyncedAt: null, refresh: vi.fn() }),
+  useOutboxStatus: () => ({ pendingCount: pendingItems.length, pendingItems, stuckItems, lastSyncedAt: null, refresh: vi.fn() }),
 }));
 const refresh = vi.fn();
 vi.mock("@/features/rider-app/sync/outboxStatusStore", () => ({ useOutboxStatusStore: { getState: () => ({ refresh }) } }));
@@ -31,6 +33,18 @@ vi.mock("@/features/rider-app/store/riderAppPanelStore", () => ({
 }));
 
 import RiderScanPage from "./page";
+import { useHandledStore } from "@/features/rider-app/store/handledStore";
+
+function deliveryOutbox(shipmentId: string, status: OutboxItem["status"]): OutboxItem {
+  return {
+    id: `d-${shipmentId}`,
+    action: {
+      kind: "delivery-complete", riderId: "r1", shipmentId, recipientName: "Sita", otpVerified: false, latitude: null, longitude: null,
+      collectedCodAmount: 2500, signatureBlob: null, photoBlob: null, signatureStorageKey: null, photoStorageKey: null,
+    },
+    idempotencyKey: "k", createdAt: 0, status,
+  };
+}
 
 function task(overrides: Partial<MyTodayTask>): MyTodayTask {
   return {
@@ -50,7 +64,10 @@ beforeEach(() => {
     ],
     counts: { assigned: 3, completed: 1, failed: 0 }, cash: null, branchName: "Lalitpur", vehiclePlate: null,
   };
+  riderQuery = { data: { id: "r1" }, isLoading: false };
   pendingItems = [];
+  stuckItems = [];
+  useHandledStore.setState({ handled: new Set() });
   pickupMutate.mockReset();
   pickupMutate.mockResolvedValue(undefined);
   openRecordAttempt.mockReset();
@@ -77,7 +94,61 @@ describe("RiderScanPage", () => {
     expect(result.getByText("PICKED UP")).toBeInTheDocument();
     expect(result.getByText("Pickup from Hari Traders, Kupondole")).toBeInTheDocument();
     expect(result.getByText("Saved on this phone · waiting to sync")).toBeInTheDocument();
-    expect(screen.getByText("1 scan waiting to sync")).toBeInTheDocument();
+    expect(screen.getByText("1 waiting to sync")).toBeInTheDocument();
+    expect(useHandledStore.getState().handled.has("s3")).toBe(true);
+  });
+
+  it("counts every queued action, deliveries included, in the sync bar", () => {
+    pendingItems = [deliveryOutbox("s1", "pending"), deliveryOutbox("s9", "pending")];
+    render(<RiderScanPage />);
+    expect(screen.getByText("2 waiting to sync")).toBeInTheDocument();
+  });
+
+  it("does not open the POD Sheet for a delivery already saved on this phone", () => {
+    pendingItems = [deliveryOutbox("s1", "pending")];
+    render(<RiderScanPage />);
+    fireEvent.click(screen.getByRole("button", { name: "scan delivery" }));
+    expect(openRecordAttempt).not.toHaveBeenCalled();
+    const result = within(screen.getByRole("status", { name: "Last scan" }));
+    expect(result.getByText("Already saved on this phone · waiting to sync")).toBeInTheDocument();
+    expect(result.queryByText("OPENED DELIVERY")).toBeNull();
+  });
+
+  it("does not open the POD Sheet for a delivery handled this session after the outbox drained", () => {
+    useHandledStore.getState().markHandled("s1");
+    render(<RiderScanPage />);
+    fireEvent.click(screen.getByRole("button", { name: "scan delivery" }));
+    expect(openRecordAttempt).not.toHaveBeenCalled();
+    expect(within(screen.getByRole("status", { name: "Last scan" })).getByText("Already saved on this phone · waiting to sync")).toBeInTheDocument();
+    expect(screen.queryByText("Synced")).toBeNull();
+  });
+
+  it("points a rejected delivery to Profile instead of opening it again", () => {
+    stuckItems = [deliveryOutbox("s1", "stuck")];
+    render(<RiderScanPage />);
+    fireEvent.click(screen.getByRole("button", { name: "scan delivery" }));
+    expect(openRecordAttempt).not.toHaveBeenCalled();
+    const result = within(screen.getByRole("status", { name: "Last scan" }));
+    expect(result.getByText("Needs review — see Profile")).toBeInTheDocument();
+    expect(result.getByText("NEEDS REVIEW")).toBeInTheDocument();
+  });
+
+  it("does not enqueue a pickup handled this session after the outbox drained", () => {
+    useHandledStore.getState().markHandled("s3");
+    render(<RiderScanPage />);
+    fireEvent.click(screen.getByRole("button", { name: "scan pickup" }));
+    expect(pickupMutate).not.toHaveBeenCalled();
+    expect(within(screen.getByRole("status", { name: "Last scan" })).getByText("Saved on this phone · waiting to sync")).toBeInTheDocument();
+  });
+
+  it("says the account has no rider instead of loading forever", () => {
+    riderQuery = { data: undefined, isLoading: false };
+    today = undefined;
+    render(<RiderScanPage />);
+    fireEvent.click(screen.getByRole("button", { name: "scan pickup" }));
+    expect(screen.getByText("This account isn't linked to a rider record.")).toBeInTheDocument();
+    expect(screen.queryByText(/still loading/)).toBeNull();
+    expect(pickupMutate).not.toHaveBeenCalled();
   });
 
   it("does not classify scans while the run has not loaded", () => {
