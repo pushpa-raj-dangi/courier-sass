@@ -992,7 +992,7 @@ public class RidersEndpointsTests : IClassFixture<WebApplicationFactory<Program>
 
         var status = (await merchant.GetAsync("/api/v1/riders/me/today")).StatusCode;
 
-        Assert.True(status is HttpStatusCode.Forbidden or HttpStatusCode.Unauthorized, $"Expected 403 (or 401 if merchant tokens are rejected by the staff scheme), got {(int)status}");
+        Assert.Equal(HttpStatusCode.Forbidden, status);
     }
 
     [Fact]

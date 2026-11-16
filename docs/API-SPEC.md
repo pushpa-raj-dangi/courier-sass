@@ -346,7 +346,8 @@ scope returns `404`, the same as an unknown id. `/today` follows the same rule.
 ### 6.8 Rider "my day" (rider PWA)
 
 `GET /api/v1/riders/me/today` — authenticated staff; self-scoped (the rider is resolved from the
-caller's user id). `404` when the user has no rider record, `403` for merchant tokens.
+caller's user id). `401` when unauthenticated, `404` when the user has no rider record, `403` for
+merchant tokens.
 
 ```json
 { "run": { "id": "…", "status": "Active" },
@@ -359,7 +360,8 @@ caller's user id). `404` when the user has no rider record, `403` for merchant t
 ```
 
 - `tasks` holds every status of today's run (UTC date), ordered by `sequence`; shipment details come
-  from one batched lookup. `run` is null and `tasks` empty when the rider has no run today.
+  from one batched lookup. `run` is null and `tasks` empty when the rider has no run today. Tasks
+  whose shipment can't be read are skipped and not counted in `counts`.
 - `cash` is the rider's own undeposited COD (`CodCollected` rows collected by the rider, all branches),
   or null. `GET /riders/me/tasks/today` (pending tasks only) is unchanged.
 
