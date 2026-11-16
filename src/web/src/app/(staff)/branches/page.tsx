@@ -63,10 +63,17 @@ function BranchesPageContent() {
       key: "branch",
       header: "Branch",
       render: (b) => (
-        <button type="button" onClick={() => openDetail(b.id)} className="flex flex-col items-start gap-0.5 text-left">
-          <span className="text-sm font-medium text-foreground hover:underline">{b.name}</span>
-          <span className="font-mono text-xs text-muted-foreground">{b.code}</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={() => openDetail(b.id)} className="flex flex-col items-start gap-0.5 text-left">
+            <span className="text-sm font-medium text-foreground hover:underline">{b.name}</span>
+            <span className="font-mono text-xs text-muted-foreground">{b.code}</span>
+          </button>
+          {!b.isActive && (
+            <Badge variant="secondary" className="font-normal">
+              Inactive
+            </Badge>
+          )}
+        </div>
       ),
     },
     {

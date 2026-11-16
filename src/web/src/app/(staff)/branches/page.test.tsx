@@ -104,6 +104,13 @@ describe("BranchesPage", () => {
     expect(screen.getByRole("button", { name: /Old Depot/ })).toBeInTheDocument();
   });
 
+  it("labels inactive branches in the table", () => {
+    search = "inactive=1";
+    render(<BranchesPage />);
+    expect(within(rowFor(/Old Depot/)).getByText("Inactive")).toBeInTheDocument();
+    expect(within(rowFor(/Kathmandu Hub/)).queryByText("Inactive")).toBeNull();
+  });
+
   it("shows live counts, zeros for quiet branches, district names and worded exceptions", () => {
     render(<BranchesPage />);
     const ktm = within(rowFor(/Kathmandu Hub/));
