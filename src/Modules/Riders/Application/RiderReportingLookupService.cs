@@ -100,4 +100,23 @@ public class RiderReportingLookupService : IRiderReportingLookupService
 
         return new RiderSummary(riders.Count, riders.Count(r => r.IsActive), riders.Count(r => !r.IsActive), currentlyAssigned);
     }
+
+    public async Task<IReadOnlyDictionary<Guid, int>> GetRidersOutCountsAsync(IReadOnlySet<Guid>? branchIds, DateOnly today, CancellationToken cancellationToken = default)
+    {
+        // DeliveryRun has no OrganizationId: the join to the tenant-filtered Rider set scopes it.
+        var riders = _dbContext.Set<Rider>().AsNoTracking().AsQueryable();
+        if (branchIds is not null)
+        {
+            var branchIdArray = branchIds.ToArray();
+            riders = riders.Where(r => branchIdArray.Contains(r.BaseBranchId));
+        }
+
+        var ridersOut = await _dbContext.Set<DeliveryRun>().AsNoTracking()
+            .Where(run => run.Date == today && run.Status == DeliveryRunStatus.Active)
+            .Join(riders, run => run.RiderId, rider => rider.Id, (run, rider) => new { rider.BaseBranchId, RiderId = rider.Id })
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        return ridersOut.GroupBy(x => x.BaseBranchId).ToDictionary(g => g.Key, g => g.Count());
+    }
 }

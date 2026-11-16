@@ -4,6 +4,8 @@ namespace Courier.Shipments.Application;
 
 public record BranchShipmentCounts(int Outgoing, int PendingSorting, int PendingDispatch);
 
+public record BranchCustodyCounts(int OnHand, int OutForDelivery);
+
 public record ShipmentExportRow(
     string Awb, ShipmentStatus Status, Guid OriginBranchId, Guid DestinationBranchId, Guid MerchantId,
     decimal CodAmount, decimal TotalCharge, DateTimeOffset CreatedAt, DateTimeOffset? DeliveredAt);
@@ -33,5 +35,12 @@ public interface IShipmentReportingLookupService
         IReadOnlySet<Guid> shipmentIds, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyDictionary<ShipmentStatus, int>> GetCurrentStatusCountsAsync(
+        IReadOnlySet<Guid>? branchIds, CancellationToken cancellationToken = default);
+
+    // F15 R3b-2 branches page. OnHand groups by CurrentBranchId over the statuses where a parcel
+    // physically sits at a branch; OutForDelivery groups by DestinationBranchId, because
+    // CurrentBranchId is null while a rider holds the parcel. Only branches with a non-zero
+    // bucket appear. branchIds null = no filter.
+    Task<IReadOnlyDictionary<Guid, BranchCustodyCounts>> GetBranchCustodyCountsAsync(
         IReadOnlySet<Guid>? branchIds, CancellationToken cancellationToken = default);
 }

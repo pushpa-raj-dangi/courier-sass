@@ -80,4 +80,22 @@ public class NdrReportingLookupService : INdrReportingLookupService
 
         return counts.ToDictionary(x => x.Status, x => x.Count);
     }
+
+    public async Task<IReadOnlyDictionary<Guid, int>> GetOpenNdrCountsByBranchAsync(IReadOnlySet<Guid>? branchIds, CancellationToken cancellationToken = default)
+    {
+        var destinations = _dbContext.Set<NDR>().AsNoTracking()
+            .Where(n => n.Status != NdrStatus.Resolved)
+            .Join(_dbContext.Set<Shipment>().AsNoTracking(), n => n.ShipmentId, s => s.Id, (n, s) => s.DestinationBranchId);
+        if (branchIds is not null)
+        {
+            var branchIdArray = branchIds.ToArray();
+            destinations = destinations.Where(b => branchIdArray.Contains(b));
+        }
+
+        var counts = await destinations
+            .GroupBy(b => b)
+            .Select(g => new { BranchId = g.Key, Count = g.Count() })
+            .ToListAsync(cancellationToken);
+        return counts.ToDictionary(x => x.BranchId, x => x.Count);
+    }
 }

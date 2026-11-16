@@ -35,6 +35,7 @@ internal sealed class StubShipmentReportingLookup : IShipmentReportingLookupServ
     public Task<IReadOnlyDictionary<Guid, IReadOnlyList<Guid>>> GetShipmentIdsByDestinationBranchAsync(IReadOnlySet<Guid>? branchIds, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     public Task<IReadOnlyList<ShipmentExportRow>> GetShipmentExportRowsAsync(IReadOnlySet<Guid>? branchIds, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     public Task<IReadOnlyDictionary<ShipmentStatus, int>> GetCurrentStatusCountsAsync(IReadOnlySet<Guid>? branchIds, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    public Task<IReadOnlyDictionary<Guid, BranchCustodyCounts>> GetBranchCustodyCountsAsync(IReadOnlySet<Guid>? branchIds, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 }
 
 internal sealed class StubUserDirectoryLookup : IUserDirectoryLookupService
