@@ -123,4 +123,49 @@ public class CodReportingLookupServiceTests
         Assert.Contains(collectedInRange.ShipmentId, shipmentIds);
         Assert.DoesNotContain(collectedOutOfRange.ShipmentId, shipmentIds);
     }
+
+    [Fact]
+    public async Task GetHeldByRiderAsync_SumsOnlyThisRidersUndepositedCollections()
+    {
+        var tenantProvider = new FixedTenantProvider();
+        await using var dbContext = TestDbContextFactory.Create(tenantProvider);
+        var (orgId, branchId, merchantId) = await SeedOrgAsync(dbContext);
+        var (otherOrgId, otherBranchId, otherMerchantId) = await SeedOrgAsync(dbContext);
+        var riderId = Guid.NewGuid();
+        var oldest = DateTimeOffset.UtcNow.AddHours(-3);
+        CODCollection Collection(Guid org, Guid branch, Guid merchant, Guid? rider, CodCollectionStatus status, decimal amount, DateTimeOffset? at) => new()
+        {
+            Id = Guid.NewGuid(), ShipmentId = Guid.NewGuid(), OrganizationId = org, MerchantId = merchant, BranchId = branch,
+            ExpectedAmount = amount, ShipmentTotalCharge = 100m, CollectedAmount = amount, Status = status,
+            CollectedByRiderId = rider, CollectedAt = at
+        };
+        dbContext.AddRange(
+            Collection(orgId, branchId, merchantId, riderId, CodCollectionStatus.CodCollected, 1500m, oldest),
+            Collection(orgId, branchId, merchantId, riderId, CodCollectionStatus.CodCollected, 850m, oldest.AddHours(2)),
+            Collection(orgId, branchId, merchantId, riderId, CodCollectionStatus.RiderDeposited, 9000m, oldest.AddMinutes(-30)),
+            Collection(orgId, branchId, merchantId, Guid.NewGuid(), CodCollectionStatus.CodCollected, 700m, oldest),
+            Collection(otherOrgId, otherBranchId, otherMerchantId, riderId, CodCollectionStatus.CodCollected, 400m, oldest.AddHours(-5)));
+        await dbContext.SaveChangesAsync();
+        tenantProvider.OrganizationId = orgId;
+        var service = new CodReportingLookupService(dbContext);
+
+        var held = await service.GetHeldByRiderAsync(riderId);
+
+        Assert.NotNull(held);
+        Assert.Equal(2350m, held!.Amount);
+        Assert.Equal(2, held.ParcelCount);
+        Assert.Equal(oldest, held.OldestCollectedAt, TimeSpan.FromMilliseconds(1));
+    }
+
+    [Fact]
+    public async Task GetHeldByRiderAsync_NothingHeld_ReturnsNull()
+    {
+        var tenantProvider = new FixedTenantProvider();
+        await using var dbContext = TestDbContextFactory.Create(tenantProvider);
+        var (orgId, _, _) = await SeedOrgAsync(dbContext);
+        tenantProvider.OrganizationId = orgId;
+        var service = new CodReportingLookupService(dbContext);
+
+        Assert.Null(await service.GetHeldByRiderAsync(Guid.NewGuid()));
+    }
 }

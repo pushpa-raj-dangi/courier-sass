@@ -8,7 +8,7 @@ namespace Courier.Shipments.Application;
 // (to create COD collections on delivery), so this is the one direction a Shipments->Cod interface
 // implementation can flow without a circular project reference; Cod declares the interface it
 // needs and this class (already holding the Shipment DbContext access) satisfies it.
-public class ShipmentReportingLookupService : IShipmentReportingLookupService, IShipmentAwbLookupService
+public class ShipmentReportingLookupService : IShipmentReportingLookupService, IShipmentAwbLookupService, IShipmentTaskBatchLookupService
 {
     private readonly DbContext _dbContext;
 
@@ -199,5 +199,22 @@ public class ShipmentReportingLookupService : IShipmentReportingLookupService, I
         return onHandByBranch.Keys.Union(outForDeliveryByBranch.Keys).ToDictionary(
             branchId => branchId,
             branchId => new BranchCustodyCounts(onHandByBranch.GetValueOrDefault(branchId), outForDeliveryByBranch.GetValueOrDefault(branchId)));
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, ShipmentTaskInfo>> GetTaskInfosAsync(
+        IReadOnlySet<Guid> shipmentIds, CancellationToken cancellationToken = default)
+    {
+        if (shipmentIds.Count == 0)
+        {
+            return new Dictionary<Guid, ShipmentTaskInfo>();
+        }
+        var idArray = shipmentIds.ToArray();
+        var rows = await _dbContext.Set<Shipment>().AsNoTracking()
+            .Where(s => idArray.Contains(s.Id))
+            .Select(s => new { s.Id, s.Awb, s.RecipientName, s.RecipientPhone, s.RecipientAddressLine, s.RecipientWardNumber, s.CodAmount })
+            .ToListAsync(cancellationToken);
+        return rows.ToDictionary(
+            r => r.Id,
+            r => new ShipmentTaskInfo(r.Awb, r.RecipientName, r.RecipientPhone, r.RecipientAddressLine, r.RecipientWardNumber ?? 0, r.CodAmount));
     }
 }
