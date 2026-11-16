@@ -194,6 +194,7 @@ builder.Services.AddScoped<PublicTrackingService>();
 builder.Services.AddScoped<PickupRequestService>();
 builder.Services.AddScoped<ManifestService>();
 builder.Services.AddScoped<RiderService>();
+builder.Services.AddScoped<RiderTodayService>();
 builder.Services.AddScoped<INdrCreationService, NdrCreationService>();
 builder.Services.AddScoped<CodService>();
 builder.Services.AddScoped<ICodCollectionCreationService>(sp => sp.GetRequiredService<CodService>());

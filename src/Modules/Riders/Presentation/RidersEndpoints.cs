@@ -78,7 +78,19 @@ public static class RidersEndpoints
         riders.MapGet("/me/tasks/today", async (RiderService service, HttpContext httpContext) =>
             Results.Ok(await service.GetMyTasksTodayAsync(httpContext.User, httpContext.RequestAborted)));
 
-        riders.MapPost("/me/location", async (LocationPingRequest request, RiderService service, HttpContext httpContext) =>
+        // F15 R4 rider PWA "my day": every status of today's run, counts, the rider's own held cash,
+        // branch name and vehicle plate. Self-scoped; staff-only (merchant callers are refused).
+        riders.MapGet("/me/today", async (RiderTodayService service, HttpContext httpContext) =>
+        {
+            if (httpContext.User.GetMerchantId() is not null)
+            {
+                return Results.Forbid();
+            }
+            var result = await service.GetMyTodayAsync(httpContext.User, httpContext.RequestAborted);
+            return result is null ? Results.NotFound() : Results.Ok(result);
+        });
+
+        riders.MapPost("/me/location",async (LocationPingRequest request, RiderService service, HttpContext httpContext) =>
         {
             try
             {

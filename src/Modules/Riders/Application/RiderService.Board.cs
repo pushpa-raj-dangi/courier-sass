@@ -71,7 +71,7 @@ public partial class RiderService
 
     // The domain should allow one run per rider per day; if there are more, the Active one wins,
     // then the highest Id, so the choice is deterministic.
-    private static DeliveryRun PickTodayRun(IEnumerable<DeliveryRun> runs) =>
+    internal static DeliveryRun PickTodayRun(IEnumerable<DeliveryRun> runs) =>
         runs.OrderBy(r => r.Status == DeliveryRunStatus.Active ? 0 : 1).ThenByDescending(r => r.Id).First();
 
     // A fixed number of queries whatever the rider count: runs, grouped task counts, latest ping,
