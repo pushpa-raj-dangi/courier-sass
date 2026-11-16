@@ -62,3 +62,10 @@ public record BranchDashboardResponse(
     DeliverySuccessStats TodaysDeliveries,
     decimal CodPendingFinanceVerification,
     int OpenNdrCount);
+
+// F15 R3b-2 branches page live counts. A scoped caller gets one row per branch in scope (zero
+// rows included); an all-branches caller gets one row per branch with any activity, and a branch
+// missing from Items has all zeros. OpenExceptions = unresolved NDRs by destination branch.
+public record BranchActivityRow(Guid BranchId, int OnHand, int OutForDelivery, int RidersOut, int OpenExceptions);
+
+public record BranchActivityResponse(IReadOnlyList<BranchActivityRow> Items);

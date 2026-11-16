@@ -244,6 +244,7 @@ builder.Services.AddScoped<INdrReportingLookupService, NdrReportingLookupService
 builder.Services.AddScoped<ICodReportingLookupService, CodReportingLookupService>();
 builder.Services.AddScoped<OrgDashboardService>();
 builder.Services.AddScoped<BranchDashboardService>();
+builder.Services.AddScoped<BranchActivityService>();
 builder.Services.AddScoped<ReportExportService>();
 builder.Services.AddScoped<GeographyQueryService>();
 builder.Services.AddScoped<IGeographyLookupService>(sp => sp.GetRequiredService<GeographyQueryService>());

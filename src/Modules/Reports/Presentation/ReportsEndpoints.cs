@@ -29,6 +29,15 @@ public static class ReportsEndpoints
         group.MapGet("/export/cod-summary", async (Guid? branchId, DateTimeOffset? from, DateTimeOffset? to, ReportExportService service, HttpContext httpContext) =>
             await HandleCsvAsync(httpContext, "cod-summary", () => service.GetCodSummaryCsvAsync(branchId, from, to, httpContext.User, httpContext.RequestAborted)))
             .RequirePermission("report.export");
+
+        // F15 R3b-2: live per-branch counts for the branches page. Mapped in Reports (not Branches)
+        // because Reports already composes the cross-module reporting lookups. The Branches group's
+        // single read is "/{id:guid}", so this static segment never collides with it.
+        app.MapGet("/api/v1/branches/activity", async (BranchActivityService service, HttpContext httpContext) =>
+                Results.Ok(await service.GetAsync(httpContext.User, httpContext.RequestAborted)))
+            .WithTags("Reports")
+            .RequireAuthorization()
+            .RequirePermission("branch.read");
     }
 
     private static async Task<IResult> HandleAsync<T>(Func<Task<T>> operation)
