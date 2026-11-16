@@ -163,7 +163,7 @@ public class RiderServiceReadsTests
         await using var dbContext = CreateContext();
         var service = CreateService(dbContext, Guid.NewGuid(), new RestrictedBranchAuthorizationChecker());
 
-        var result = await service.GetByIdAsync(Guid.NewGuid());
+        var result = await service.GetByIdAsync(Guid.NewGuid(), ActingUser(Guid.NewGuid()));
 
         Assert.Null(result);
     }

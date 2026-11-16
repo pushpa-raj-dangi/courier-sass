@@ -31,6 +31,37 @@ public partial class RiderService
             .ToList());
     }
 
+    // Rider Sheet: the rider's board row plus today's run tasks in sequence order, with AWBs from
+    // one batched lookup. Unknown or out-of-scope riders read as not found (404), never 403.
+    public async Task<RiderTodayResponse?> GetTodayAsync(Guid riderId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
+    {
+        var rider = await FindReadableRiderAsync(riderId, actingUser, cancellationToken);
+        if (rider is null)
+        {
+            return null;
+        }
+
+        var row = (await BuildBoardRowsAsync(new[] { rider }, cancellationToken))[0];
+        if (row.Run is null)
+        {
+            return new RiderTodayResponse(row, new List<RiderTodayTask>());
+        }
+
+        var tasks = await _dbContext.Set<DeliveryTask>().AsNoTracking()
+            .Where(t => t.DeliveryRunId == row.Run.Id)
+            .OrderBy(t => t.Sequence)
+            .ToListAsync(cancellationToken);
+        if (tasks.Count == 0)
+        {
+            return new RiderTodayResponse(row, new List<RiderTodayTask>());
+        }
+
+        var awbs = await _shipmentReportingLookupService.GetAwbsByShipmentIdsAsync(tasks.Select(t => t.ShipmentId).ToHashSet(), cancellationToken);
+        return new RiderTodayResponse(row, tasks
+            .Select(t => new RiderTodayTask(t.Id, t.ShipmentId, awbs.TryGetValue(t.ShipmentId, out var awb) ? awb : "", t.Type, t.Sequence, t.Status))
+            .ToList());
+    }
+
     private static int BoardStageRank(RiderBoardRow row) => row.Run?.Status switch
     {
         DeliveryRunStatus.Active => 0,
