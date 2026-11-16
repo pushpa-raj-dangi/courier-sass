@@ -168,7 +168,7 @@ public class RiderServiceTasksTests
         var service = new RiderService(
             dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), new NotSupportedUserProvisioningService(),
             new NotSupportedBranchLookup(), new AllBranchesAuthorizationChecker(), shipments, new NotSupportedObjectStorage(), new NotSupportedNdrCreationService(),
-            new NoopCodCollectionService(), new AlwaysTruePermissionChecker(), new NoopOutboxWriter(), new NotSupportedShipmentTaskLookupService());
+            new NoopCodCollectionService(), new AlwaysTruePermissionChecker(), new NoopOutboxWriter(), new NotSupportedShipmentTaskLookupService(), new StubShipmentReportingLookup(), new StubUserDirectoryLookup());
         return (service, shipments, rider.Id);
     }
 

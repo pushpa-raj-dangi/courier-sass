@@ -27,6 +27,8 @@ public partial class RiderService
     private readonly IPermissionChecker _permissionChecker;
     private readonly IOutboxWriter _outboxWriter;
     private readonly IShipmentTaskLookupService _shipmentTaskLookupService;
+    private readonly IShipmentReportingLookupService _shipmentReportingLookupService;
+    private readonly IUserDirectoryLookupService _userDirectoryLookupService;
 
     public RiderService(
         DbContext dbContext,
@@ -41,7 +43,9 @@ public partial class RiderService
         ICodCollectionService codCollectionService,
         IPermissionChecker permissionChecker,
         IOutboxWriter outboxWriter,
-        IShipmentTaskLookupService shipmentTaskLookupService)
+        IShipmentTaskLookupService shipmentTaskLookupService,
+        IShipmentReportingLookupService shipmentReportingLookupService,
+        IUserDirectoryLookupService userDirectoryLookupService)
     {
         _dbContext = dbContext;
         _currentTenantProvider = currentTenantProvider;
@@ -56,6 +60,8 @@ public partial class RiderService
         _permissionChecker = permissionChecker;
         _outboxWriter = outboxWriter;
         _shipmentTaskLookupService = shipmentTaskLookupService;
+        _shipmentReportingLookupService = shipmentReportingLookupService;
+        _userDirectoryLookupService = userDirectoryLookupService;
     }
 
     public async Task<RiderResponse> CreateRiderAsync(CreateRiderRequest request, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)

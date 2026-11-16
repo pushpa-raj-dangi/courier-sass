@@ -131,7 +131,7 @@ public class RiderServiceDeliveryAttemptReadsTests
         new(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), new NotSupportedUserProvisioningService(),
             new NotSupportedBranchLookup(), new ScopedBranchesChecker(accessible), shipments, new NotSupportedObjectStorage(),
             new NotSupportedNdrCreationService(), new NoopCodCollectionService(), new AlwaysTruePermissionChecker(),
-            new NoopOutboxWriter(), new NotSupportedShipmentTaskLookupService());
+            new NoopOutboxWriter(), new NotSupportedShipmentTaskLookupService(), new StubShipmentReportingLookup(), new StubUserDirectoryLookup());
 
     private static ShipmentScanInfo ScanInfo(Guid shipmentId, Guid organizationId, Guid origin, Guid destination, Guid? current) =>
         new(shipmentId, organizationId, "AWB-1", ShipmentStatus.NdrCreated, current, origin, destination, null);
