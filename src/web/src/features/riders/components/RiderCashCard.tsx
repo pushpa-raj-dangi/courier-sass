@@ -39,7 +39,7 @@ export function RiderCashCard({ riderId }: { riderId: string }) {
             <p className="text-xs text-muted-foreground">
               {`From ${holding.parcelCount} COD ${holding.parcelCount === 1 ? "parcel" : "parcels"} · oldest collected ${formatAge(holding.oldestCollectedAt)} ago`}
             </p>
-            <Link href="/cod"className="text-sm font-medium text-primary hover:underline">
+            <Link href="/cod" className="text-sm font-medium text-primary hover:underline">
               Open in COD
             </Link>
           </>
