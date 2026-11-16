@@ -1062,7 +1062,7 @@ serve renders `ComingSoonSlot`. Each sub-phase has its own spec → plan → imp
 | R2 — Staff operations | Dashboard, Shipments + detail Sheet, `/scan` Scan station | Done — spec `docs/superpowers/specs/2026-10-05-f15-r2-staff-operations-design.md` |
 | R3a — Staff finance | COD reconciliation: money-flow strip, rider deposits + variance, record-deposit Sheet, merchant settlement breakdown | Done — spec `docs/superpowers/specs/2026-10-07-f15-r3a-cod-finance-design.md` |
 | R3b-1 — Parcel movement | Manifests (lifecycle strip, incoming/outgoing, receive reconciliation), NDR queue (owner/reason filters, attempts, follow-up, resolve), Returns (stage strip, return chain, hand back) | Done — spec `docs/superpowers/specs/2026-10-14-f15-r3b1-parcel-movement-design.md` |
-| R3b-2 — People & places | Riders + vehicles, live map, branches (artboards first) | Planned |
+| R3b-2 — People & places | Riders (day strip, Riders/Map/Fleet tabs, rider Sheet), branches (type strip, live counts, branch Sheet) | Done — spec `docs/superpowers/specs/2026-10-15-f15-r3b2-people-and-places-design.md` |
 | R4 — Rider PWA | Run screen, POD flow, scan, profile | Planned |
 | R5 — Merchant portal + public tracking | 7 merchant pages, `/track` | Planned |
 | R6 — Platform + admin | Platform pages, admin, audit, billing, auth pages | Planned |
@@ -1116,6 +1116,25 @@ enable per NDR state, return hand-back is at `RtoAtOrigin`.
 7. Handover details on return confirmation (received by, condition).
 8. Branch-filterable manifest summary and a paged manifest list.
 9. Branch scope on the NDR and return-shipment single reads (`GET /ndrs/{id}`, `/return-shipments/{id}`), matching the manifest fix.
+
+**R3b-2 (2026-11-16):** `GET /riders/{id}` is now branch-scoped (404 out of scope); new
+`GET /riders/board`, `GET /riders/{id}/today` and `GET /branches/activity`; rider names resolved
+server-side through a read-only Identity lookup. The live map became the Map tab on `/riders`
+(`/riders/live-map` redirects) and vehicles the Fleet tab. Pages follow the code where the spec
+differed: out-for-delivery counts by destination branch (a rider-held parcel has no current
+branch), `lastPingAt` is today's server-received time, and activity rows are sparse for
+all-branches users.
+
+**Backend follow-ups from R3b-2:**
+1. Organisation-local "today" (Nepal time) for runs, pings, the board and riders out.
+2. Reassign or retire a vehicle; edit rider details; activate or deactivate a rider.
+3. Edit branch details, staff roster and weekly operating hours.
+4. Rider attendance and 30-day delivery history.
+5. Rider phone on the rider read, for click-to-call from the Sheet.
+6. Batch the per-rider latest-ping loop in `GetBranchLocationsAsync`.
+7. Close a delivery run: nothing sets `DeliveryRunStatus.Completed`, so "Run done" always reads 0.
+8. Branch-scope `GET /vehicles` and `GET /branches/{id}` (both return any row in the tenant).
+9. A tenant-wide branch id list for `GET /branches/activity`, so all-branches callers get zero rows too.
 
 ## Later
 

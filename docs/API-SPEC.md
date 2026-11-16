@@ -306,6 +306,43 @@ branch is in the caller's `ndr.read` scope. Response, newest first (`attemptedAt
 NDR_VALIDATION_FAILED`) and `reason=<NdrReason>` (invalid → `400`). Both narrow in SQL within the
 existing branch scope, before paging.
 
+### 6.6 Riders board and rider reads (staff)
+
+```http
+GET /api/v1/riders/board?branchId=   # one row per rider for today
+GET /api/v1/riders/{id}              # single rider
+GET /api/v1/riders/{id}/today        # rider Sheet: board row + today's tasks
+```
+
+All require `rider.read` and are scoped to riders whose `BaseBranchId` is in the caller's
+`rider.read` branch scope. **`GET /riders/{id}` is branch-scoped** (F15 R3b-2 fix): a rider outside
+scope returns `404`, the same as an unknown id. `/today` follows the same rule.
+
+- `board` takes an optional `branchId` that narrows within scope (outside scope → empty `items`).
+  Inactive riders are included with `isActive: false`. Rows are ordered on run, run done, off duty,
+  then by name. A fixed number of queries per request.
+- Row: `{ riderId, userId, fullName, baseBranchId, roleType, isActive, vehiclePlate, run: { id,
+  status: "Active"|"Completed" } | null, tasksAssigned, tasksCompleted, tasksFailed, lastPingAt }`.
+  Counts are today's run only, where today is the **UTC** date. `lastPingAt` is the latest
+  server-received ping today, else `null`. `fullName` falls back to `"Rider"`.
+- `/today`: `{ rider: <row>, tasks: [{ taskId, shipmentId, awb, type, sequence, status }] }`,
+  ordered by `sequence`; AWBs come from one batched lookup (`""` if missing).
+
+### 6.7 Branch activity (staff)
+
+`GET /api/v1/branches/activity` — `branch.read`. Live per-branch counts for the branches page:
+`{ items: [{ branchId, onHand, outForDelivery, ridersOut, openExceptions }] }` ordered by `branchId`.
+
+- `onHand`: parcels whose `CurrentBranchId` is the branch and status is `AtOriginBranch`, `Sorted`,
+  `AtDestinationBranch`, `RtoInitiated` or `RtoAtOrigin`.
+- `outForDelivery`: parcels `OutForDelivery` by **destination** branch (`CurrentBranchId` is null
+  while a rider holds a parcel).
+- `ridersOut`: riders (by base branch) with an `Active` run dated today (UTC).
+- `openExceptions`: NDRs not `Resolved`, by the shipment's destination branch (same rule as the NDR
+  queue and the branch dashboard).
+- A branch-scoped caller gets one row per branch in scope, zeros included. An all-branches caller
+  gets rows only for branches with activity; a missing branch has all zeros.
+
 ## 7. International Shipments API (I3, extended I4)
 
 Staff-only (JWT + permission), not part of the Merchant API catalog in §3 — merchant-facing
