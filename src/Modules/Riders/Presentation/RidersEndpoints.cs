@@ -90,7 +90,7 @@ public static class RidersEndpoints
             return result is null ? Results.NotFound() : Results.Ok(result);
         });
 
-        riders.MapPost("/me/location",async (LocationPingRequest request, RiderService service, HttpContext httpContext) =>
+        riders.MapPost("/me/location", async (LocationPingRequest request, RiderService service, HttpContext httpContext) =>
         {
             try
             {
