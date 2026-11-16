@@ -72,18 +72,48 @@ describe("RiderScanPage", () => {
     expect(pickupMutate).toHaveBeenCalledWith({ awb: "NX-260930-00152", shipmentId: "s3" }, expect.anything());
     expect(refresh).toHaveBeenCalled();
     rerender(<RiderScanPage />);
-    const result = within(screen.getByRole("region", { name: "Last scan" }));
+    const result = within(screen.getByRole("status", { name: "Last scan" }));
     expect(result.getByText("PICKED UP")).toBeInTheDocument();
     expect(result.getByText("Pickup from Hari Traders, Kupondole")).toBeInTheDocument();
     expect(result.getByText("Saved on this phone · waiting to sync")).toBeInTheDocument();
     expect(screen.getByText("1 scan waiting to sync")).toBeInTheDocument();
   });
 
+  it("does not classify scans while the run has not loaded", () => {
+    today = undefined;
+    render(<RiderScanPage />);
+    fireEvent.click(screen.getByRole("button", { name: "scan pickup" }));
+    expect(screen.getByText("Your run is still loading — scan again in a moment.")).toBeInTheDocument();
+    expect(pickupMutate).not.toHaveBeenCalled();
+    expect(openRecordAttempt).not.toHaveBeenCalled();
+    expect(screen.queryByText(/isn't on your run/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Recent scans" })).not.toBeInTheDocument();
+  });
+
+  it("never shows Synced when the pickup could not be saved", () => {
+    pickupMutate.mockImplementation((_vars, options) => {
+      options?.onError?.();
+    });
+    render(<RiderScanPage />);
+    fireEvent.click(screen.getByRole("button", { name: "scan pickup" }));
+    expect(within(screen.getByRole("status", { name: "Last scan" })).getByText("Couldn't save this scan · scan again")).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Recent scans" })).getByText("Couldn't save · scan again")).toBeInTheDocument();
+    expect(screen.queryByText("Synced")).not.toBeInTheDocument();
+  });
+
+  it("does not enqueue a pickup that is already waiting to sync", () => {
+    pendingItems = [{ id: "o1", action: { kind: "pickup-scan", riderId: "r1", shipmentId: "s3", awb: "NX-260930-00152" }, idempotencyKey: "k", createdAt: 0, status: "pending" }];
+    render(<RiderScanPage />);
+    fireEvent.click(screen.getByRole("button", { name: "scan pickup" }));
+    expect(pickupMutate).not.toHaveBeenCalled();
+    expect(within(screen.getByRole("status", { name: "Last scan" })).getByText("Saved on this phone · waiting to sync")).toBeInTheDocument();
+  });
+
   it("opens the POD Sheet for a delivery AWB", () => {
     render(<RiderScanPage />);
     fireEvent.click(screen.getByRole("button", { name: "scan delivery" }));
     expect(openRecordAttempt).toHaveBeenCalledWith(expect.objectContaining({ taskId: "t1" }));
-    expect(within(screen.getByRole("region", { name: "Last scan" })).getByText("OPENED DELIVERY")).toBeInTheDocument();
+    expect(within(screen.getByRole("status", { name: "Last scan" })).getByText("OPENED DELIVERY")).toBeInTheDocument();
   });
 
   it("warns for an AWB that is already done or not on the run, and writes nothing", () => {

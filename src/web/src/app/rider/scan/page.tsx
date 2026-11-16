@@ -19,7 +19,27 @@ interface ScanResult {
   awb: string;
   kind: ScanKind;
   task?: MyTodayTask;
+  save?: SaveState;
 }
+
+type SaveState = "saving" | "queued" | "failed";
+type StatusKey = "not-on-run" | "done" | "opened" | "saving" | "failed" | "waiting" | "needs-review" | "synced";
+
+const STATUS_COPY: Record<StatusKey, { text: string; tone: string }> = {
+  "not-on-run": { text: "Not on run", tone: "text-destructive" },
+  done: { text: "Already done", tone: "text-muted-foreground" },
+  opened: { text: "Opened delivery", tone: "text-primary" },
+  saving: { text: "Saving…", tone: "text-muted-foreground" },
+  failed: { text: "Couldn't save · scan again", tone: "text-destructive" },
+  waiting: { text: "Waiting to sync", tone: "text-status-ndr" },
+  "needs-review": { text: "Needs review", tone: "text-destructive" },
+  synced: { text: "Synced", tone: "text-status-delivered" },
+};
+
+const LAST_SCAN_LINE: Partial<Record<StatusKey, string>> = {
+  waiting: "Saved on this phone · waiting to sync",
+  failed: "Couldn't save this scan · scan again",
+};
 
 const MAX_RECENT = 10;
 
@@ -30,35 +50,61 @@ export default function RiderScanPage() {
   const openRecordAttempt = useRiderAppPanelStore((s) => s.openRecordAttempt);
   const { pendingCount, pendingItems, stuckItems } = useOutboxStatus();
   const [scans, setScans] = useState<ScanResult[]>([]);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const groups = today.data ? groupRunTasks(today.data.tasks) : undefined;
   const header = groups
     ? `${today.data?.branchName ?? "Your run"} · ${groups.toDeliver.length} to deliver · ${groups.pickups.length} ${groups.pickups.length === 1 ? "pickup" : "pickups"}`
     : "—";
 
+  function updateScan(id: number, save: SaveState) {
+    setScans((prev) => prev.map((s) => (s.id === id ? { ...s, save } : s)));
+  }
+
   function handleDetect(awb: string) {
-    const match = today.data?.tasks.find((t) => t.awb === awb);
+    if (!today.data) {
+      setNotice(
+        today.isError
+          ? "Couldn't load your run — scan again when you're back online."
+          : "Your run is still loading — scan again in a moment.",
+      );
+      return;
+    }
+    setNotice(null);
+    const match = today.data.tasks.find((t) => t.awb === awb);
     const kind: ScanKind = !match ? "unknown" : match.status !== "Pending" ? "done" : match.type === "Pickup" ? "pickup" : "delivery";
-    setScans((prev) => [{ id: Date.now() + Math.random(), awb, kind, task: match }, ...prev].slice(0, MAX_RECENT));
+    const id = Date.now() + Math.random();
+    const alreadyQueued = !!match && kind === "pickup" && taskSyncState(match.shipmentId, pendingItems, stuckItems) !== "synced";
+    const save: SaveState | undefined = kind === "pickup" ? (alreadyQueued ? "queued" : "saving") : undefined;
+    setScans((prev) => [{ id, awb, kind, task: match, save }, ...prev].slice(0, MAX_RECENT));
     if (!match || kind === "done") return;
     if (kind === "pickup") {
+      if (alreadyQueued) return;
       pickupScan.mutate(
         { awb: match.awb, shipmentId: match.shipmentId },
-        { onSuccess: () => void useOutboxStatusStore.getState().refresh() },
+        {
+          onSuccess: () => {
+            updateScan(id, "queued");
+            void useOutboxStatusStore.getState().refresh();
+          },
+          onError: () => updateScan(id, "failed"),
+        },
       );
     } else {
       openRecordAttempt(match);
     }
   }
 
-  function statusWord(scan: ScanResult): { text: string; tone: string } {
-    if (scan.kind === "unknown") return { text: "Not on run", tone: "text-destructive" };
-    if (scan.kind === "done") return { text: "Already done", tone: "text-muted-foreground" };
-    if (scan.kind === "delivery") return { text: "Opened delivery", tone: "text-primary" };
+  function statusKey(scan: ScanResult): StatusKey {
+    if (scan.kind === "unknown") return "not-on-run";
+    if (scan.kind === "done") return "done";
+    if (scan.kind === "delivery") return "opened";
+    if (scan.save === "saving") return "saving";
+    if (scan.save === "failed") return "failed";
     const state = scan.task ? taskSyncState(scan.task.shipmentId, pendingItems, stuckItems) : "synced";
-    if (state === "waiting") return { text: "Waiting to sync", tone: "text-status-ndr" };
-    if (state === "needs-review") return { text: "Needs review", tone: "text-destructive" };
-    return { text: "Synced", tone: "text-status-delivered" };
+    if (state === "waiting") return "waiting";
+    if (state === "needs-review") return "needs-review";
+    return "synced";
   }
 
   const last = scans[0];
@@ -74,8 +120,13 @@ export default function RiderScanPage() {
       </div>
 
       <div className="flex-1 space-y-2.5 px-4 pb-24 pt-3">
-        {last && (last.kind === "unknown" || last.kind === "done") ? (
-          <section aria-label="Last scan" className="flex items-start gap-2.5 rounded-xl border border-border bg-card p-4">
+        {notice ? (
+          <section role="status" aria-label="Last scan" className="flex items-start gap-2.5 rounded-xl border border-border bg-card p-4">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-status-ndr" aria-hidden="true" />
+            <p className="text-sm font-semibold">{notice}</p>
+          </section>
+        ) : last && (last.kind === "unknown" || last.kind === "done") ? (
+          <section role="status" aria-label="Last scan" className="flex items-start gap-2.5 rounded-xl border border-border bg-card p-4">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" aria-hidden="true" />
             <div className="space-y-0.5">
               <p className="text-sm font-semibold">
@@ -87,7 +138,7 @@ export default function RiderScanPage() {
             </div>
           </section>
         ) : last && last.task ? (
-          <section aria-label="Last scan" className="space-y-1.5 rounded-xl border-2 border-status-delivered bg-card p-4">
+          <section role="status" aria-label="Last scan" className="space-y-1.5 rounded-xl border-2 border-status-delivered bg-card p-4">
             <p className="font-mono text-2xs uppercase tracking-[0.1em] text-status-delivered">
               {last.kind === "pickup" ? "PICKED UP" : "OPENED DELIVERY"}
             </p>
@@ -96,8 +147,8 @@ export default function RiderScanPage() {
               {`${last.kind === "pickup" ? "Pickup from" : "Delivery to"} ${last.task.recipientName}, ${last.task.recipientAddressLine}`}
             </p>
             {last.kind === "pickup" && (
-              <p className={cn("text-xs font-semibold", statusWord(last).tone)}>
-                {statusWord(last).text === "Waiting to sync" ? "Saved on this phone · waiting to sync" : statusWord(last).text}
+              <p className={cn("text-xs font-semibold", STATUS_COPY[statusKey(last)].tone)}>
+                {LAST_SCAN_LINE[statusKey(last)] ?? STATUS_COPY[statusKey(last)].text}
               </p>
             )}
           </section>
@@ -109,7 +160,7 @@ export default function RiderScanPage() {
           <section aria-label="Recent scans" className="space-y-2">
             <h2 className="font-mono text-2xs uppercase tracking-[0.1em] text-muted-foreground">Recent scans</h2>
             {scans.map((scan) => {
-              const status = statusWord(scan);
+              const status = STATUS_COPY[statusKey(scan)];
               return (
                 <div key={scan.id} className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-2.5">
                   <div className="min-w-0">
