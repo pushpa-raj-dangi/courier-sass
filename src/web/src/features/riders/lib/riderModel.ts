@@ -34,6 +34,16 @@ export function isLocationStale(lastPingAt: string | null, now: Date = new Date(
   return lastPingAt === null || minutesSince(lastPingAt, now) > STALE_LOCATION_MINUTES;
 }
 
+/**
+ * True when the ping arrived on or after 00:00 UTC of `now`'s day — the same window the
+ * rider board uses. The locations endpoint returns each rider's latest ping ever, so the
+ * map drops anything older to stay consistent with the board.
+ */
+export function isPingToday(iso: string, now: Date = new Date()): boolean {
+  const startOfDay = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  return Date.parse(iso) >= startOfDay;
+}
+
 /** "just now", "4 min ago", "2 h 5 min ago". */
 export function formatMinutesAgo(iso: string, now: Date = new Date()): string {
   const minutes = minutesSince(iso, now);

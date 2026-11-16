@@ -8,7 +8,7 @@ import type { Branch } from "@/features/branches/types";
 import { useRiderLocations } from "@/features/rider-tracking/hooks/useRiderLocations";
 import type { MapRiderPin } from "@/features/rider-tracking/lib/mapPins";
 import { useRiderBoard } from "@/features/riders/hooks/useRiderBoard";
-import { isLocationStale, minutesSince, riderInitials } from "@/features/riders/lib/riderModel";
+import { isLocationStale, isPingToday, minutesSince, riderInitials } from "@/features/riders/lib/riderModel";
 
 const LiveMap = dynamic(() => import("@/features/rider-tracking/components/LiveMap").then((mod) => mod.LiveMap), {
   ssr: false,
@@ -24,7 +24,8 @@ export function BranchLocationCard({ branch, address }: { branch: Branch; addres
 
   const now = new Date();
   const names = new Map((board.data?.items ?? []).map((r) => [r.riderId, r.fullName]));
-  const pins: MapRiderPin[] = (locations.data ?? []).map((l) => {
+  // Only today's pings, matching the rider board and the riders Map tab.
+  const pins: MapRiderPin[] = (locations.data ?? []).filter((l) => isPingToday(l.receivedAt, now)).map((l) => {
     const name = names.get(l.riderId) ?? "Rider";
     return {
       riderId: l.riderId,

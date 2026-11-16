@@ -75,7 +75,7 @@ export function RiderDetailSheet() {
               />
               <RiderTodayCard today={today.data} />
               <RiderLocationCard row={row} />
-              <RiderCashCard riderId={row.riderId} baseBranchId={row.baseBranchId} />
+              <RiderCashCard riderId={row.riderId} />
               <ComingSoonSlot
                 title="Attendance and delivery history"
                 description="Shift check-ins and the last 30 days of deliveries will show here."

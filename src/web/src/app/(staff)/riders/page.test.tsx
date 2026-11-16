@@ -15,8 +15,11 @@ const useRiderBoard = vi.fn();
 vi.mock("@/features/riders/hooks/useRiderBoard", () => ({ useRiderBoard: (...args: unknown[]) => useRiderBoard(...args) }));
 const useRiderCash = vi.fn();
 vi.mock("@/features/cod/hooks/useRiderCash", () => ({ useRiderCash: (...args: unknown[]) => useRiderCash(...args) }));
+const vehiclesRefetch = vi.hoisted(() => vi.fn());
 vi.mock("@/features/riders/hooks/useVehicles", () => ({
-  useVehicles: () => ({ data: [{ id: "v1", riderId: null, type: "Bike", plateNumber: "BA 1", capacity: null }], isLoading: false, isError: false, refetch: vi.fn() }),
+  useVehicles: () => ({
+    data: [{ id: "v1", riderId: null, type: "Bike", plateNumber: "BA 1", capacity: null }], isLoading: false, isError: false, refetch: vehiclesRefetch,
+  }),
 }));
 let session: { hasAllBranchesScope: boolean; branches: { branchId: string }[] };
 vi.mock("@/features/auth/hooks/useSession", () => ({ useSession: () => ({ data: { userId: "u1", ...session } }) }));
@@ -34,7 +37,14 @@ vi.mock("@/features/riders/components/RidersMapTab", () => ({
   RidersMapTab: ({ branchId }: { branchId?: string }) => <div data-testid="map-tab">{`map for ${branchId ?? "none"}`}</div>,
 }));
 vi.mock("@/features/riders/components/RidersFleetTab", () => ({
-  RidersFleetTab: ({ vehicles }: { vehicles?: unknown[] }) => <div data-testid="fleet-tab">{`fleet ${vehicles?.length ?? "—"}`}</div>,
+  RidersFleetTab: ({ vehicles, isError, onRetry }: { vehicles?: unknown[]; isError: boolean; onRetry: () => void }) => (
+    <div data-testid="fleet-tab">
+      {isError ? "fleet error" : `fleet ${vehicles?.length ?? "—"}`}
+      <button type="button" onClick={onRetry}>
+        Retry fleet
+      </button>
+    </div>
+  ),
 }));
 
 import RidersPage from "./page";
@@ -162,6 +172,25 @@ describe("RidersPage", () => {
     render(<RidersPage />);
     expect(screen.getByText("map for b1")).toBeInTheDocument();
     expect(screen.queryByRole("combobox", { name: "Branch" })).toBeNull();
+  });
+
+  it("names a one-branch user's branch in the subtitle, not All branches", () => {
+    session = { hasAllBranchesScope: false, branches: [{ branchId: "b1" }] };
+    render(<RidersPage />);
+    expect(screen.getByText("Kathmandu Hub · 3 out today")).toBeInTheDocument();
+    expect(screen.queryByText(/All branches ·/)).toBeNull();
+  });
+
+  it("shows the fleet error, not an empty fleet, when the board fails with a branch picked", () => {
+    vehiclesRefetch.mockReset();
+    board = { data: undefined, isLoading: false, isError: true, refetch: vi.fn() };
+    search = "tab=fleet&branch=b1";
+    render(<RidersPage />);
+    const fleet = within(screen.getByTestId("fleet-tab"));
+    expect(fleet.getByText("fleet error")).toBeInTheDocument();
+    fireEvent.click(fleet.getByRole("button", { name: "Retry fleet" }));
+    expect(vehiclesRefetch).toHaveBeenCalled();
+    expect(board.refetch).toHaveBeenCalled();
   });
 
   it("falls back to the Riders tab when the Map tab is not allowed", () => {

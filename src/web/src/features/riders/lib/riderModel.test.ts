@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { RiderBoardRow, Vehicle } from "@/features/riders/types";
 import {
-  RIDER_STAGES, cashByRider, filterBoardRows, fleetVehicles, formatMinutesAgo, isLocationStale, lastSeenText,
+  RIDER_STAGES, cashByRider, filterBoardRows, fleetVehicles, formatMinutesAgo, isLocationStale, isPingToday, lastSeenText,
   parseFleetFilter, parseRiderRole, parseRiderStage, parseRidersTab, progressShare, riderDayStage, riderInitials,
   riderStageCounts, roleLabel, staleOnRunCount,
 } from "./riderModel";
@@ -28,6 +28,13 @@ describe("riderModel", () => {
     expect(isLocationStale(null, NOW)).toBe(true);
     expect(isLocationStale(minutesAgo(15), NOW)).toBe(false);
     expect(isLocationStale(minutesAgo(16), NOW)).toBe(true);
+  });
+
+  it("counts a ping as today only from 00:00 UTC of now's day", () => {
+    expect(isPingToday("2026-10-16T00:00:00Z", NOW)).toBe(true);
+    expect(isPingToday(minutesAgo(2), NOW)).toBe(true);
+    expect(isPingToday("2026-10-15T23:59:59Z", NOW)).toBe(false);
+    expect(isPingToday("2026-10-14T08:00:00Z", NOW)).toBe(false);
   });
 
   it("words last-seen times and marks stale ones with text", () => {

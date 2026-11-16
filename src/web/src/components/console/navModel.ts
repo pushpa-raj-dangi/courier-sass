@@ -22,7 +22,8 @@ export function groupNavItems(items: GroupableNavItem[], groups: ConsoleNavGroup
     .filter((group) => group.items.length > 0);
 }
 
-// Longest matching href wins, so /riders/live-map highlights "Live Map" rather than "Riders".
+// Longest matching href wins, so a nested item such as /parent/child highlights that child item
+// rather than its /parent item.
 export function findActiveItem(
   pathname: string,
   groups: ConsoleNavGroup[]

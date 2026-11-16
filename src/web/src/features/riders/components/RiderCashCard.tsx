@@ -10,8 +10,11 @@ import { formatRs } from "@/features/cod/lib/codFormat";
 import { cashByRider } from "@/features/riders/lib/riderModel";
 import { formatAge } from "@/lib/dates/age";
 
-/** Cash the rider holds across every branch in the caller's COD scope (not only the page filter). */
-export function RiderCashCard({ riderId, baseBranchId }: { riderId: string; baseBranchId: string }) {
+/**
+ * Cash the rider holds across every branch in the caller's COD scope (not only the page filter),
+ * so "Open in COD" opens the unfiltered COD page rather than one branch.
+ */
+export function RiderCashCard({ riderId }: { riderId: string }) {
   const canSee = usePermission("cod.read");
   const cash = useRiderCash({}, { enabled: canSee });
   if (!canSee) return null;
@@ -36,7 +39,7 @@ export function RiderCashCard({ riderId, baseBranchId }: { riderId: string; base
             <p className="text-xs text-muted-foreground">
               {`From ${holding.parcelCount} COD ${holding.parcelCount === 1 ? "parcel" : "parcels"} · oldest collected ${formatAge(holding.oldestCollectedAt)} ago`}
             </p>
-            <Link href={`/cod?branch=${encodeURIComponent(baseBranchId)}`} className="text-sm font-medium text-primary hover:underline">
+            <Link href="/cod"className="text-sm font-medium text-primary hover:underline">
               Open in COD
             </Link>
           </>

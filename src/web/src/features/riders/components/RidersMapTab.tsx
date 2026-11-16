@@ -11,7 +11,7 @@ import type { MapBranchPin, MapRiderPin } from "@/features/rider-tracking/lib/ma
 import type { Branch } from "@/features/branches/types";
 import type { RiderBoardRow } from "@/features/riders/types";
 import {
-  STALE_LOCATION_MINUTES, formatMinutesAgo, isLocationStale, minutesSince, riderDayStage, riderInitials, roleLabel,
+  STALE_LOCATION_MINUTES, formatMinutesAgo, isLocationStale, isPingToday, minutesSince, riderDayStage, riderInitials, roleLabel,
   type RiderCashTotal,
 } from "@/features/riders/lib/riderModel";
 
@@ -33,12 +33,13 @@ function PinPopup({
   now: Date;
 }) {
   const accuracy = location.accuracyMeters === null ? "" : ` · ±${Math.round(location.accuracyMeters)} m`;
+  const stale = isLocationStale(location.receivedAt, now) ? " · stale" : "";
   return (
     <div className="min-w-44 space-y-1">
       <p className="text-sm font-medium text-foreground">{row?.fullName ?? "Rider"}</p>
       {row && <p className="text-xs text-muted-foreground">{`${roleLabel(row.roleType)} · ${row.vehiclePlate ?? "No vehicle"}`}</p>}
       <p className="text-xs text-foreground">{row?.run ? `${row.tasksCompleted} of ${row.tasksAssigned} done` : "No run today"}</p>
-      <p className="text-xs text-muted-foreground">{`Last ping ${formatMinutesAgo(location.receivedAt, now)}${accuracy}`}</p>
+      <p className="text-xs text-muted-foreground">{`Last ping ${formatMinutesAgo(location.receivedAt, now)}${accuracy}${stale}`}</p>
       {showCash && <p className="text-xs text-foreground">{`Cash held ${cash ? formatRs(cash.amount) : "—"}`}</p>}
       <Button type="button" size="sm" variant="outline" className="mt-1 h-7" onClick={() => onOpenRider(location.riderId)}>
         Open rider
@@ -72,8 +73,10 @@ export function RidersMapTab({
   }
 
   const rowsById = new Map((rows ?? []).map((r) => [r.riderId, r]));
-  const located = new Set(locations.data.map((l) => l.riderId));
-  const pins: MapRiderPin[] = locations.data.map((location) => {
+  // The endpoint returns each rider's latest ping ever; only today's count, matching the board.
+  const todays = locations.data.filter((l) => isPingToday(l.receivedAt, now));
+  const located = new Set(todays.map((l) => l.riderId));
+  const pins: MapRiderPin[] = todays.map((location) => {
     const row = rowsById.get(location.riderId);
     const name = row?.fullName ?? "Rider";
     return {
@@ -109,7 +112,8 @@ export function RidersMapTab({
         <span className="ml-auto">{`Updated ${updatedFormat.format(new Date(locations.dataUpdatedAt))} · refreshes every 20 s`}</span>
       </div>
       {pins.length === 0 && <p className="text-sm text-muted-foreground">No rider at this branch has sent a position yet.</p>}
-      <LiveMap pins={pins} branch={branchPin} />
+      {/* Keyed by branch: MapContainer reads `center` only on mount, so a new branch must remount it. */}
+      <LiveMap key={branchId} pins={pins} branch={branchPin} />
       {notOnMap.length > 0 && (
         <section aria-label="On run, not on the map" className="rounded-lg border border-border bg-card p-4">
           <h3 className="text-sm font-semibold text-foreground">On run, not on the map</h3>

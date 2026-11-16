@@ -46,7 +46,11 @@ function RidersPageContent() {
   const showBranchPicker = Boolean(session?.hasAllBranchesScope) || scopedBranches.length > 1;
   // A one-branch user has no picker; the map shows one branch, so it uses theirs.
   const mapBranchId = branchId ?? (!session?.hasAllBranchesScope && scopedBranches.length === 1 ? scopedBranches[0].id : undefined);
-  const branchLabel = branchId ? scopedBranches.find((b) => b.id === branchId)?.name ?? "Selected branch" : "All branches";
+  const branchLabel = branchId
+    ? scopedBranches.find((b) => b.id === branchId)?.name ?? "Selected branch"
+    : !session?.hasAllBranchesScope && scopedBranches.length === 1
+      ? scopedBranches[0].name
+      : "All branches";
 
   const canMap = usePermission("rider.location.read");
   const canCash = usePermission("cod.read");
@@ -230,8 +234,11 @@ function RidersPageContent() {
         <RidersFleetTab
           vehicles={fleet}
           isLoading={vehicles.isLoading || (branchPicked && board.isLoading)}
-          isError={vehicles.isError}
-          onRetry={() => vehicles.refetch()}
+          isError={vehicles.isError || (branchPicked && board.isError)}
+          onRetry={() => {
+            vehicles.refetch();
+            if (branchPicked) board.refetch();
+          }}
           rows={rows}
           filter={fleetFilter}
           onFilterChange={(f) => update({ fleet: f === "all" ? undefined : f })}

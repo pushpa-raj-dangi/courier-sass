@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import type { Branch, BranchActivity } from "@/features/branches/types";
 
 const replace = vi.fn();
@@ -102,6 +102,30 @@ describe("BranchesPage", () => {
     search = "inactive=1";
     render(<BranchesPage />);
     expect(screen.getByRole("button", { name: /Old Depot/ })).toBeInTheDocument();
+  });
+
+  it("debounces the search box into one URL write and follows external q changes", () => {
+    vi.useFakeTimers();
+    try {
+      const { rerender } = render(<BranchesPage />);
+      const input = screen.getByRole("textbox", { name: "Search branches" });
+      fireEvent.change(input, { target: { value: "p" } });
+      fireEvent.change(input, { target: { value: "pk" } });
+      fireEvent.change(input, { target: { value: "pkr" } });
+      expect(input).toHaveValue("pkr");
+      expect(replace).not.toHaveBeenCalled();
+      act(() => {
+        vi.advanceTimersByTime(300);
+      });
+      expect(replace).toHaveBeenCalledTimes(1);
+      expect(replace).toHaveBeenCalledWith("/branches?q=pkr", { scroll: false });
+
+      search = "q=ktm";
+      rerender(<BranchesPage />);
+      expect(screen.getByRole("textbox", { name: "Search branches" })).toHaveValue("ktm");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("labels inactive branches in the table", () => {

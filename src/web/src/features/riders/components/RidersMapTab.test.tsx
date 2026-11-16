@@ -4,21 +4,30 @@ import type { MapBranchPin, MapRiderPin } from "@/features/rider-tracking/lib/ma
 import type { RiderBoardRow } from "@/features/riders/types";
 import type { Branch } from "@/features/branches/types";
 
-vi.mock("next/dynamic", () => ({
-  default: () =>
-    function MapStub({ pins, branch }: { pins: MapRiderPin[]; branch?: MapBranchPin }) {
-      return (
-        <div data-testid="map">
-          {branch && <span>{`branch pin ${branch.label}`}</span>}
-          {pins.map((p) => (
-            <div key={p.riderId} data-testid={`pin-${p.riderId}`} data-stale={String(p.stale)}>
-              {p.popup}
-            </div>
-          ))}
-        </div>
-      );
-    },
-}));
+const mapMounts = vi.hoisted(() => ({ count: 0 }));
+
+vi.mock("next/dynamic", async () => {
+  const { useEffect } = await import("react");
+  return {
+    default: () =>
+      function MapStub({ pins, branch }: { pins: MapRiderPin[]; branch?: MapBranchPin }) {
+        // Counts mounts so a test can prove the map remounts (and so recentres) per branch.
+        useEffect(() => {
+          mapMounts.count += 1;
+        }, []);
+        return (
+          <div data-testid="map">
+            {branch && <span>{`branch pin ${branch.label}`}</span>}
+            {pins.map((p) => (
+              <div key={p.riderId} data-testid={`pin-${p.riderId}`} data-stale={String(p.stale)}>
+                {p.popup}
+              </div>
+            ))}
+          </div>
+        );
+      },
+  };
+});
 
 const useRiderLocations = vi.fn();
 vi.mock("@/features/rider-tracking/hooks/useRiderLocations", () => ({
@@ -92,6 +101,7 @@ describe("RidersMapTab", () => {
     expect(asha.getByText("Last ping 2 min ago · ±8 m")).toBeInTheDocument();
     expect(asha.queryByText(/Cash held/)).toBeNull();
     expect(within(screen.getByTestId("pin-r2")).getByText("No run today")).toBeInTheDocument();
+    expect(within(screen.getByTestId("pin-r2")).getByText("Last ping 40 min ago · stale")).toBeInTheDocument();
     fireEvent.click(asha.getByRole("button", { name: "Open rider" }));
     expect(onOpenRider).toHaveBeenCalledWith("r1");
     expect(screen.getByText(/refreshes every 20 s/)).toBeInTheDocument();
@@ -127,5 +137,41 @@ describe("RidersMapTab", () => {
     expect(screen.queryByTestId("pin-r3")).toBeNull();
     fireEvent.click(list.getByRole("button", { name: "Open Chandra Thapa" }));
     expect(onOpenRider).toHaveBeenCalledWith("r3");
+  });
+
+  it("never pins a ping from before today and lists that on-run rider as not on the map", () => {
+    useRiderLocations.mockReturnValue({
+      data: [
+        { riderId: "r1", latitude: 27.71, longitude: 85.31, accuracyMeters: 8.4, recordedAt: minutesAgo(2), receivedAt: minutesAgo(2) },
+        {
+          riderId: "r3", latitude: 27.72, longitude: 85.33, accuracyMeters: null,
+          recordedAt: "2026-10-15T17:00:00Z", receivedAt: "2026-10-15T17:00:00Z",
+        },
+      ],
+      dataUpdatedAt: NOW.getTime(),
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+    render(
+      <RidersMapTab
+        branchId="b1" rows={[row({}), row({ riderId: "r3", fullName: "Chandra Thapa" })]}
+        showCash={false} onOpenRider={onOpenRider} now={NOW}
+      />,
+    );
+    expect(screen.getByTestId("pin-r1")).toBeInTheDocument();
+    expect(screen.queryByTestId("pin-r3")).toBeNull();
+    const list = within(screen.getByRole("region", { name: "On run, not on the map" }));
+    expect(list.getByText("Chandra Thapa")).toBeInTheDocument();
+  });
+
+  it("remounts the map when the branch changes so it recentres", () => {
+    const props = { rows: [row({})], showCash: false, onOpenRider, now: NOW };
+    const { rerender } = render(<RidersMapTab branchId="b1" {...props} />);
+    const before = mapMounts.count;
+    rerender(<RidersMapTab branchId="b1" {...props} />);
+    expect(mapMounts.count).toBe(before);
+    rerender(<RidersMapTab branchId="b2" {...props} />);
+    expect(mapMounts.count).toBe(before + 1);
   });
 });

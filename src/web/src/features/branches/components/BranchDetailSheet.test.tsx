@@ -106,6 +106,22 @@ describe("BranchDetailSheet", () => {
     expect(useRiderLocations).toHaveBeenLastCalledWith("b1");
   });
 
+  it("leaves pings from before today off the location map", () => {
+    granted = ["rider.location.read"];
+    const today = new Date().toISOString();
+    const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60_000).toISOString();
+    useRiderLocations.mockReturnValue({
+      data: [
+        { riderId: "r1", latitude: 27.71, longitude: 85.31, accuracyMeters: 5, recordedAt: today, receivedAt: today },
+        { riderId: "r2", latitude: 27.72, longitude: 85.32, accuracyMeters: 5, recordedAt: twoDaysAgo, receivedAt: twoDaysAgo },
+      ],
+      isLoading: false,
+      isError: false,
+    });
+    renderWithIntl(<BranchDetailSheet />);
+    expect(screen.getByText("mini map KTM with 1 riders")).toBeInTheDocument();
+  });
+
   it("loads the shipments and exceptions sections only with report.read", () => {
     const { unmount } = renderWithIntl(<BranchDetailSheet />);
     expect(useBranchDashboard).toHaveBeenLastCalledWith("");

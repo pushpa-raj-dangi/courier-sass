@@ -142,6 +142,6 @@ describe("RiderDetailSheet", () => {
     renderWithIntl(<RiderDetailSheet />);
     expect(screen.getByText("Rs 2,350")).toBeInTheDocument();
     expect(screen.getByText("From 2 COD parcels · oldest collected 1 h ago")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open in COD" })).toHaveAttribute("href", "/cod?branch=b1");
+    expect(screen.getByRole("link", { name: "Open in COD" })).toHaveAttribute("href", "/cod");
   });
 });

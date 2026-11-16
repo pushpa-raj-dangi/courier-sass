@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, type ReactNode } from "react";
+import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ import { BRANCH_TYPES, branchTypeLabel, filterBranches, parseBranchType, zeroAct
 import { useBranchPanelStore } from "@/features/branches/store/branchPanelStore";
 import type { Branch, BranchActivityRow } from "@/features/branches/types";
 import { useDistrictNames } from "@/features/geography/hooks/useDistrictNames";
+import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { useFilterPage } from "@/lib/hooks/useFilterPage";
 import { useSearchParamState } from "@/lib/hooks/useSearchParamState";
 import { toClientPage } from "@/lib/paging/clientPage";
@@ -41,6 +42,25 @@ function BranchesPageContent() {
   const openCreate = useBranchPanelStore((s) => s.openCreate);
   const openDetail = useBranchPanelStore((s) => s.openDetail);
   const [page, setPage] = useFilterPage(`${type ?? ""}|${q}|${showInactive ? 1 : 0}`);
+
+  // The search box types into local state; the URL gets one debounced write, so fast typing
+  // never races router.replace. A `q` change from outside (back/forward, a link) resyncs the box.
+  const [searchInput, setSearchInput] = useState(q);
+  const debouncedSearch = useDebouncedValue(searchInput, 300);
+  const lastWrittenQ = useRef(q);
+  useEffect(() => {
+    if (q !== lastWrittenQ.current) {
+      lastWrittenQ.current = q;
+      setSearchInput(q);
+    }
+  }, [q]);
+  useEffect(() => {
+    if (debouncedSearch === lastWrittenQ.current) return;
+    lastWrittenQ.current = debouncedSearch;
+    update({ q: debouncedSearch || undefined });
+    // `update` is a fresh closure each render; only the debounced text should trigger a write.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch]);
 
   // Activity rows are sparse for all-branches users: once loaded, a missing branch is all zeros.
   const activityById = activity.data ? new Map(activity.data.items.map((r) => [r.branchId, r])) : undefined;
@@ -143,8 +163,8 @@ function BranchesPageContent() {
 
       <div className="flex flex-wrap items-center gap-3">
         <Input
-          value={q}
-          onChange={(e) => update({ q: e.target.value || undefined })}
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
           placeholder="Search code or name"
           aria-label="Search branches"
           className="w-64"

@@ -19,7 +19,7 @@ public interface IRiderReportingLookupService
 
     Task<RiderSummary> GetSummaryAsync(IReadOnlySet<Guid>? branchIds, CancellationToken cancellationToken = default);
 
-    // F15 R3b-2 branches page: distinct riders with an Active run dated 	oday, keyed by
+    // F15 R3b-2 branches page: distinct riders with an Active run dated `today`, keyed by
     // Rider.BaseBranchId (the "riders at a branch" convention). Only branches with riders out appear.
     Task<IReadOnlyDictionary<Guid, int>> GetRidersOutCountsAsync(IReadOnlySet<Guid>? branchIds, DateOnly today, CancellationToken cancellationToken = default);
 }
