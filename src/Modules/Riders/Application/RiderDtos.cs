@@ -56,3 +56,18 @@ public record DeliveryAttemptHistoryItem(
     string? Notes, bool CustomerContacted, string? NextAction, Guid RiderId);
 
 public record DeliveryAttemptListResponse(IReadOnlyList<DeliveryAttemptHistoryItem> Items);
+
+// F15 R3b-2 riders board and rider Sheet. Counts are today's run only (UTC date). LastPingAt is the
+// latest server-received ping today, null when the rider has not pinged today.
+public record RiderBoardRunSummary(Guid Id, DeliveryRunStatus Status);
+
+public record RiderBoardRow(
+    Guid RiderId, Guid UserId, string FullName, Guid BaseBranchId, RiderRoleType RoleType, bool IsActive,
+    string? VehiclePlate, RiderBoardRunSummary? Run,
+    int TasksAssigned, int TasksCompleted, int TasksFailed, DateTimeOffset? LastPingAt);
+
+public record RiderBoardResponse(IReadOnlyList<RiderBoardRow> Items);
+
+public record RiderTodayTask(Guid TaskId, Guid ShipmentId, string Awb, DeliveryTaskType Type, int Sequence, DeliveryTaskStatus Status);
+
+public record RiderTodayResponse(RiderBoardRow Rider, IReadOnlyList<RiderTodayTask> Tasks);

@@ -148,7 +148,7 @@ public class RiderServiceCreationTests
             dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), provisioning,
             new FakeBranchLookup(knownBranchId), new AllBranchesAuthorizationChecker(),
             new NotSupportedShipmentTransitionService(), new NullObjectStorage(), new NotSupportedNdrCreationService(),
-            new NoopCodCollectionService(), new AlwaysTruePermissionChecker(), new NoopOutboxWriter(), new NotSupportedShipmentTaskLookupService());
+            new NoopCodCollectionService(), new AlwaysTruePermissionChecker(), new NoopOutboxWriter(), new NotSupportedShipmentTaskLookupService(), new StubShipmentReportingLookup(), new StubUserDirectoryLookup());
         return (service, provisioning);
     }
 

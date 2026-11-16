@@ -155,4 +155,46 @@ public class NdrReportingLookupServiceTests
         Assert.Equal(1, result[NdrStatus.Open]);
         Assert.False(result.ContainsKey(NdrStatus.Contacting));
     }
+
+    [Fact]
+    public async Task GetOpenNdrCountsByBranchAsync_CountsUnresolvedNdrsByDestinationBranch()
+    {
+        var tenantProvider = new FixedTenantProvider();
+        await using var dbContext = TestDbContextFactory.Create(tenantProvider);
+        var (orgId, branchId, merchantId) = await SeedOrgAsync(dbContext);
+        var otherBranchId = Guid.NewGuid();
+        dbContext.Add(new Courier.Branches.Domain.Branch
+        {
+            Id = otherBranchId, OrganizationId = orgId, Code = "BR2", Name = "Branch Two",
+            Type = Courier.Branches.Domain.BranchType.Branch, ProvinceId = ProvinceId, DistrictId = DistrictId,
+            LocalLevelId = LocalLevelId, WardNumber = 1, AddressLine = "Test Address"
+        });
+        await dbContext.SaveChangesAsync();
+        tenantProvider.OrganizationId = orgId;
+
+        void AddNdr(Guid destinationBranchId, NdrStatus status)
+        {
+            var shipment = BuildShipment(orgId, destinationBranchId, merchantId);
+            dbContext.Add(shipment);
+            dbContext.Add(new NDR
+            {
+                Id = Guid.NewGuid(), OrganizationId = orgId, ShipmentId = shipment.Id, Reason = NdrReason.CustomerUnavailable, Status = status,
+                Resolution = status == NdrStatus.Resolved ? NdrResolution.Reattempt : null,
+                ResolvedAt = status == NdrStatus.Resolved ? DateTimeOffset.UtcNow : null
+            });
+        }
+        AddNdr(branchId, NdrStatus.Open);
+        AddNdr(branchId, NdrStatus.Contacting);
+        AddNdr(branchId, NdrStatus.Resolved);
+        AddNdr(otherBranchId, NdrStatus.RtoRequested);
+        await dbContext.SaveChangesAsync();
+        var service = new NdrReportingLookupService(dbContext);
+
+        var all = await service.GetOpenNdrCountsByBranchAsync(null);
+        var filtered = await service.GetOpenNdrCountsByBranchAsync(new HashSet<Guid> { otherBranchId });
+
+        Assert.Equal(2, all[branchId]);
+        Assert.Equal(1, all[otherBranchId]);
+        Assert.Equal(otherBranchId, Assert.Single(filtered).Key);
+    }
 }

@@ -11,14 +11,13 @@ import {
   ShieldCheck,
   CreditCard,
   History,
-  MapPin,
   ScanLine,
   type LucideIcon,
 } from "lucide-react";
 
 export type NavLabelKey =
   | "dashboard" | "scan" | "shipments" | "branches" | "manifests" | "ndrs" | "returnShipments"
-  | "riders" | "liveMap" | "myDeliveries" | "cod" | "billing" | "auditLogs" | "admin";
+  | "riders" | "myDeliveries" | "cod" | "billing" | "auditLogs" | "admin";
 
 export type StaffNavGroup = "operations" | "finance" | "network" | "admin";
 
@@ -48,7 +47,6 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/shipments", labelKey: "shipments", permission: "shipment.read", icon: Package, group: "operations" },
   { href: "/manifests", labelKey: "manifests", permission: "manifest.read", icon: Truck, group: "operations" },
   { href: "/riders", labelKey: "riders", permission: "rider.read", icon: Bike, group: "operations" },
-  { href: "/riders/live-map", labelKey: "liveMap", permission: "rider.location.read", icon: MapPin, group: "operations" },
   { href: "/ndrs", labelKey: "ndrs", permission: "ndr.read", icon: AlertTriangle, group: "operations" },
   { href: "/return-shipments", labelKey: "returnShipments", permission: "rto.read", icon: Undo2, group: "operations" },
   { href: "/rider/tasks", labelKey: "myDeliveries", permission: "delivery.attempt", icon: ClipboardCheck, group: "operations" },

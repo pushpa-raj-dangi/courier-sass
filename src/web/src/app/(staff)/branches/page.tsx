@@ -1,96 +1,214 @@
 "use client";
 
-import { Plus, Building2, CheckCircle2, XCircle } from "lucide-react";
+import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
+import { Plus } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ErrorState } from "@/components/states/ErrorState";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import { DataTable, type ColumnDef } from "@/components/data-table/DataTable";
-import { SummaryStatsBar, type StatTile } from "@/components/summary-stats/SummaryStatsBar";
+import { PageHeader } from "@/components/page/PageHeader";
+import { PipelineStrip, type PipelineStage } from "@/components/page/PipelineStrip";
+import { ErrorState } from "@/components/states/ErrorState";
 import { usePermission } from "@/features/auth/hooks/usePermission";
+import { useBranchActivity } from "@/features/branches/hooks/useBranchActivity";
 import { useBranches } from "@/features/branches/hooks/useBranches";
-import { useBranchesSummary, type BranchSummary } from "@/features/branches/hooks/useBranchesSummary";
+import { useBranchesSummary } from "@/features/branches/hooks/useBranchesSummary";
+import { BRANCH_TYPES, branchTypeLabel, filterBranches, parseBranchType, zeroActivity } from "@/features/branches/lib/branchModel";
 import { useBranchPanelStore } from "@/features/branches/store/branchPanelStore";
-import type { Branch } from "@/features/branches/types";
+import type { Branch, BranchActivityRow } from "@/features/branches/types";
+import { useDistrictNames } from "@/features/geography/hooks/useDistrictNames";
+import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
+import { useFilterPage } from "@/lib/hooks/useFilterPage";
+import { useSearchParamState } from "@/lib/hooks/useSearchParamState";
+import { toClientPage } from "@/lib/paging/clientPage";
 
-// Total/Active/Inactive only -- BranchType has no established color-token mapping the way
-// shipment/manifest/NDR statuses do (BranchType isn't rendered via StatusBadge anywhere), so a
-// per-type tile row would need 5 more neutral tiles with no color signal to differentiate them.
-// byType stays in the API response for a future iteration rather than forcing that now (YAGNI).
-function buildTiles(summary: BranchSummary): StatTile[] {
-  return [
-    { label: "Total Branches", value: summary.total.toLocaleString(), icon: Building2, badgeClass: "bg-muted text-muted-foreground" },
-    { label: "Active", value: summary.active.toLocaleString(), icon: CheckCircle2, badgeClass: "bg-status-delivered/15 text-status-delivered", highlight: true },
-    { label: "Inactive", value: summary.inactive.toLocaleString(), icon: XCircle, badgeClass: "bg-status-cancelled/15 text-status-cancelled" },
-  ];
-}
+const PAGE_SIZE = 20;
 
-export default function BranchesPage() {
-  const { data, isLoading, isError, refetch } = useBranches();
+function BranchesPageContent() {
+  const { params, update } = useSearchParamState();
+  const type = parseBranchType(params.get("type"));
+  const q = params.get("q") ?? "";
+  const showInactive = params.get("inactive") === "1";
+
+  const list = useBranches();
   const summary = useBranchesSummary();
+  const activity = useBranchActivity();
+  const districtNames = useDistrictNames((list.data ?? []).map((b) => b.provinceId));
   const canCreate = usePermission("branch.create");
+  const panel = useBranchPanelStore((s) => s.panel);
   const openCreate = useBranchPanelStore((s) => s.openCreate);
   const openDetail = useBranchPanelStore((s) => s.openDetail);
+  const [page, setPage] = useFilterPage(`${type ?? ""}|${q}|${showInactive ? 1 : 0}`);
+
+  // The search box types into local state; the URL gets one debounced write, so fast typing
+  // never races router.replace. A `q` change from outside (back/forward, a link) resyncs the box.
+  const [searchInput, setSearchInput] = useState(q);
+  const debouncedSearch = useDebouncedValue(searchInput, 300);
+  const lastWrittenQ = useRef(q);
+  useEffect(() => {
+    if (q !== lastWrittenQ.current) {
+      lastWrittenQ.current = q;
+      setSearchInput(q);
+    }
+  }, [q]);
+  useEffect(() => {
+    if (debouncedSearch === lastWrittenQ.current) return;
+    lastWrittenQ.current = debouncedSearch;
+    update({ q: debouncedSearch || undefined });
+    // `update` is a fresh closure each render; only the debounced text should trigger a write.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch]);
+
+  // Activity rows are sparse for all-branches users: once loaded, a missing branch is all zeros.
+  const activityById = activity.data ? new Map(activity.data.items.map((r) => [r.branchId, r])) : undefined;
+  const shown = list.data && filterBranches(list.data, { type, q, showInactive });
+
+  function live(branchId: string, pick: (row: BranchActivityRow) => number): ReactNode {
+    if (!activityById) return <span className="text-sm text-muted-foreground">—</span>;
+    return <span className="text-sm tabular-nums">{pick(activityById.get(branchId) ?? zeroActivity(branchId)).toLocaleString("en-US")}</span>;
+  }
+
+  const stages: PipelineStage[] = BRANCH_TYPES.map((t) => ({
+    key: t.type,
+    label: t.label,
+    token: "status-created",
+    count: summary.data ? summary.data.byType[t.type] ?? 0 : null,
+  }));
 
   const columns: ColumnDef<Branch>[] = [
-    { key: "code", header: "Code", render: (b) => b.code },
     {
-      key: "name",
-      header: "Name",
+      key: "branch",
+      header: "Branch",
       render: (b) => (
-        <button
-          type="button"
-          onClick={() => openDetail(b.id)}
-          className="font-medium text-foreground hover:underline"
-        >
-          {b.name}
-        </button>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={() => openDetail(b.id)} className="flex flex-col items-start gap-0.5 text-left">
+            <span className="text-sm font-medium text-foreground hover:underline">{b.name}</span>
+            <span className="font-mono text-xs text-muted-foreground">{b.code}</span>
+          </button>
+          {!b.isActive && (
+            <Badge variant="secondary" className="font-normal">
+              Inactive
+            </Badge>
+          )}
+        </div>
       ),
     },
-    { key: "type", header: "Type", render: (b) => b.type },
-    { key: "active", header: "Active", render: (b) => (b.isActive ? "Yes" : "No") },
+    {
+      key: "type",
+      header: "Type",
+      render: (b) => (
+        <Badge variant="outline" className="whitespace-nowrap font-normal">
+          {branchTypeLabel(b.type)}
+        </Badge>
+      ),
+    },
+    { key: "district", header: "District", render: (b) => <span className="text-sm">{districtNames.get(b.districtId) ?? "—"}</span> },
+    { key: "onHand", header: "On hand", render: (b) => live(b.id, (r) => r.onHand) },
+    { key: "outForDelivery", header: "Out for delivery", render: (b) => live(b.id, (r) => r.outForDelivery) },
+    { key: "ridersOut", header: "Riders out", render: (b) => live(b.id, (r) => r.ridersOut) },
+    {
+      key: "exceptions",
+      header: "Exceptions",
+      render: (b) => {
+        if (!activityById) return <span className="text-sm text-muted-foreground">—</span>;
+        const open = activityById.get(b.id)?.openExceptions ?? 0;
+        return open === 0 ? (
+          <span className="text-sm text-muted-foreground">None</span>
+        ) : (
+          <span className="text-sm font-medium text-status-ndr">{`${open} open`}</span>
+        );
+      },
+    },
   ];
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="font-display text-xl font-semibold">Branches</h1>
-        {canCreate && (
-          <Button size="sm" className="gap-1.5" onClick={() => openCreate()}>
-            <Plus className="h-4 w-4" strokeWidth={2} />
-            New Branch
-          </Button>
-        )}
-      </div>
-      <SummaryStatsBar
-        tiles={summary.data ? buildTiles(summary.data) : []}
-        isLoading={summary.isLoading}
-        isError={summary.isError}
-        skeletonCount={3}
+    <div className="space-y-5">
+      <PageHeader
+        eyebrow="Network"
+        title="Branches"
+        description={summary.data ? `${summary.data.active} active · ${summary.data.inactive} inactive` : "—"}
+        actions={
+          canCreate && (
+            <Button type="button" className="gap-1.5" onClick={() => openCreate()}>
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              Add branch
+            </Button>
+          )
+        }
       />
-      {isError ? (
-        <ErrorState
-          title="Couldn't load branches"
-          description="Something went wrong fetching the branch list."
-          onRetry={() => refetch()}
+
+      <section aria-label="Branch type summary">
+        {summary.isLoading && (
+          <div role="status" aria-label="Loading branch types" className="grid grid-cols-2 gap-2.5 sm:grid-cols-5">
+            {BRANCH_TYPES.map((t) => (
+              <Skeleton key={t.type} className="h-20 rounded-lg" />
+            ))}
+          </div>
+        )}
+        {summary.isError && (
+          <ErrorState title="Couldn't load branch counts" description="The type summary is unavailable right now." onRetry={() => summary.refetch()} />
+        )}
+        {summary.data && (
+          <PipelineStrip
+            ariaLabel="Branch types"
+            stages={stages}
+            selectedKey={type}
+            onSelect={(key) => update({ type: key === type ? undefined : key })}
+          />
+        )}
+      </section>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <Input
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          placeholder="Search code or name"
+          aria-label="Search branches"
+          className="w-64"
         />
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="branches-active-only"
+            checked={!showInactive}
+            onCheckedChange={(checked) => update({ inactive: checked === true ? undefined : "1" })}
+          />
+          <Label htmlFor="branches-active-only" className="text-sm font-normal">Active only</Label>
+        </div>
+      </div>
+
+      {activity.isError && (
+        <ErrorState
+          title="Couldn't load live counts"
+          description="On hand, out for delivery, riders out and exceptions are unavailable right now."
+          onRetry={() => activity.refetch()}
+        />
+      )}
+
+      {list.isError ? (
+        <ErrorState title="Couldn't load branches" description="Something went wrong fetching the branch list." onRetry={() => list.refetch()} />
       ) : (
         <DataTable
           columns={columns}
-          data={
-            data && {
-              items: data,
-              page: 1,
-              pageSize: data.length,
-              totalCount: data.length,
-              totalPages: 1,
-            }
-          }
-          isLoading={isLoading}
-          emptyTitle="No branches yet"
-          emptyDescription="Create your organization's first branch to get started."
-          onPageChange={() => {}}
+          data={shown && toClientPage(shown, page, PAGE_SIZE)}
+          isLoading={list.isLoading}
+          emptyTitle="No branches here"
+          emptyDescription="No branch matches these filters. Clear a filter or add a branch."
+          onPageChange={setPage}
           rowKey={(b) => b.id}
+          selectedRowId={panel.mode === "detail" ? panel.branchId : undefined}
         />
       )}
     </div>
+  );
+}
+
+export default function BranchesPage() {
+  return (
+    <Suspense>
+      <BranchesPageContent />
+    </Suspense>
   );
 }

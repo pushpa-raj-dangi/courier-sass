@@ -51,6 +51,13 @@ internal sealed class FakeShipmentReportingLookupService : IShipmentReportingLoo
     public Task<IReadOnlyDictionary<Guid, string>> GetAwbsByShipmentIdsAsync(IReadOnlySet<Guid> shipmentIds, CancellationToken cancellationToken = default) => Task.FromResult(Awbs);
     public IReadOnlyDictionary<ShipmentStatus, int> CurrentStatusCounts { get; set; } = new Dictionary<ShipmentStatus, int>();
     public Task<IReadOnlyDictionary<ShipmentStatus, int>> GetCurrentStatusCountsAsync(IReadOnlySet<Guid>? branchIds, CancellationToken cancellationToken = default) => Task.FromResult(CurrentStatusCounts);
+    public IReadOnlyDictionary<Guid, BranchCustodyCounts> CustodyCounts { get; set; } = new Dictionary<Guid, BranchCustodyCounts>();
+    public IReadOnlySet<Guid>? LastCustodyBranchIds { get; private set; }
+    public Task<IReadOnlyDictionary<Guid, BranchCustodyCounts>> GetBranchCustodyCountsAsync(IReadOnlySet<Guid>? branchIds, CancellationToken cancellationToken = default)
+    {
+        LastCustodyBranchIds = branchIds;
+        return Task.FromResult(CustodyCounts);
+    }
 }
 
 internal sealed class FakeManifestReportingLookupService : IManifestReportingLookupService
@@ -75,6 +82,15 @@ internal sealed class FakeRiderReportingLookupService : IRiderReportingLookupSer
     public Task<IReadOnlyDictionary<Guid, DeliverySuccessStats>> GetSuccessRateByRiderAsync(IReadOnlySet<Guid>? branchIds, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken = default) => Task.FromResult(SuccessRateByRider);
     public RiderSummary Summary { get; set; } = new(0, 0, 0, 0);
     public Task<RiderSummary> GetSummaryAsync(IReadOnlySet<Guid>? branchIds, CancellationToken cancellationToken = default) => Task.FromResult(Summary);
+    public IReadOnlyDictionary<Guid, int> RidersOutCounts { get; set; } = new Dictionary<Guid, int>();
+    public IReadOnlySet<Guid>? LastRidersOutBranchIds { get; private set; }
+    public DateOnly? LastRidersOutToday { get; private set; }
+    public Task<IReadOnlyDictionary<Guid, int>> GetRidersOutCountsAsync(IReadOnlySet<Guid>? branchIds, DateOnly today, CancellationToken cancellationToken = default)
+    {
+        LastRidersOutBranchIds = branchIds;
+        LastRidersOutToday = today;
+        return Task.FromResult(RidersOutCounts);
+    }
 }
 
 internal sealed class FakeNdrReportingLookupService : INdrReportingLookupService
@@ -88,6 +104,13 @@ internal sealed class FakeNdrReportingLookupService : INdrReportingLookupService
     public Task<IReadOnlySet<Guid>> GetShipmentIdsWithRtoAsync(IReadOnlySet<Guid> shipmentIds, CancellationToken cancellationToken = default) => Task.FromResult(ShipmentIdsWithRto);
     public IReadOnlyDictionary<NdrStatus, int> StatusCounts { get; set; } = new Dictionary<NdrStatus, int>();
     public Task<IReadOnlyDictionary<NdrStatus, int>> GetStatusCountsAsync(IReadOnlySet<Guid>? branchIds, CancellationToken cancellationToken = default) => Task.FromResult(StatusCounts);
+    public IReadOnlyDictionary<Guid, int> OpenNdrCountsByBranch { get; set; } = new Dictionary<Guid, int>();
+    public IReadOnlySet<Guid>? LastOpenNdrBranchIds { get; private set; }
+    public Task<IReadOnlyDictionary<Guid, int>> GetOpenNdrCountsByBranchAsync(IReadOnlySet<Guid>? branchIds, CancellationToken cancellationToken = default)
+    {
+        LastOpenNdrBranchIds = branchIds;
+        return Task.FromResult(OpenNdrCountsByBranch);
+    }
 }
 
 internal sealed class FakeCodReportingLookupService : ICodReportingLookupService

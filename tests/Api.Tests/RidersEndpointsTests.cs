@@ -14,6 +14,7 @@ using Courier.Merchants.Application;
 using Courier.Persistence;
 using Courier.Pricing.Application;
 using Courier.Pricing.Domain;
+using Courier.Reports.Application;
 using Courier.Riders.Application;
 using Courier.Riders.Domain;
 using Courier.Shipments.Application;
@@ -767,6 +768,157 @@ public class RidersEndpointsTests : IClassFixture<WebApplicationFactory<Program>
         var response = await branchManagerClient.GetAsync($"/api/v1/riders/runs/{runId}/breadcrumbs");
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    // ---- F15 R3b-2 reads: rider board, rider today, scoped rider single read, branch activity ----
+
+    private async Task<(HttpClient Owner, Guid Origin, Guid Destination, Guid PickupRider, Guid DeliveryRider, ShipmentResponse Shipment)> SeedOutForDeliveryAsync(string label, bool assignDelivery = true)
+    {
+        var client = _factory.CreateClient();
+        var org = await RegisterOrgAsync(client, label);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (originBranchId, destinationBranchId, serviceTypeId) = await SeedBranchesAsync(client);
+        var merchantId = await CreateMerchantAsync(client);
+        var pickupRiderId = await CreateRiderAsync(client, originBranchId, RiderRoleType.PickupRider);
+        var deliveryRiderId = await CreateRiderAsync(client, destinationBranchId, RiderRoleType.DeliveryRider);
+        var shipment = await BookAndMoveToDestinationAsync(client, merchantId, originBranchId, destinationBranchId, serviceTypeId, pickupRiderId);
+        if (assignDelivery)
+        {
+            var assign = await client.PostAsJsonAsync("/api/v1/riders/tasks", new AssignDeliveryTaskRequest(deliveryRiderId, shipment.Id, DeliveryTaskType.Delivery));
+            assign.EnsureSuccessStatusCode();
+        }
+        return (client, originBranchId, destinationBranchId, pickupRiderId, deliveryRiderId, shipment);
+    }
+
+    private HttpClient ClientWithToken(string token)
+    {
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return client;
+    }
+
+    [Fact]
+    public async Task RiderBoard_Owner_ReturnsTodaysRunCountsAndNames()
+    {
+        var (owner, origin, destination, pickupRiderId, deliveryRiderId, _) = await SeedOutForDeliveryAsync("board");
+
+        var response = await owner.GetAsync($"/api/v1/riders/board?branchId={destination}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var row = Assert.Single((await response.Content.ReadFromJsonAsync<RiderBoardResponse>())!.Items);
+        Assert.Equal(deliveryRiderId, row.RiderId);
+        Assert.Equal("Test Rider", row.FullName);
+        Assert.Equal(destination, row.BaseBranchId);
+        Assert.Equal(DeliveryRunStatus.Active, row.Run!.Status);
+        Assert.Equal(1, row.TasksAssigned);
+        Assert.Equal(0, row.TasksCompleted);
+        Assert.Null(row.LastPingAt);
+
+        var all = (await owner.GetFromJsonAsync<RiderBoardResponse>("/api/v1/riders/board"))!.Items;
+        Assert.Equal(2, all.Count);
+        var pickupRow = all.Single(r => r.RiderId == pickupRiderId);
+        Assert.Equal(origin, pickupRow.BaseBranchId);
+        Assert.Equal(1, pickupRow.TasksCompleted);
+    }
+
+    [Fact]
+    public async Task RiderBoardAndToday_WithoutRiderRead_Return403_AndAnonymous401()
+    {
+        var (owner, origin, _, _, deliveryRiderId, _) = await SeedOutForDeliveryAsync("board-perm", assignDelivery: false);
+        var sortingStaff = ClientWithToken(await InviteAcceptAndLoginForBranchAsync(owner, "SortingStaff", origin));
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await sortingStaff.GetAsync("/api/v1/riders/board")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await sortingStaff.GetAsync($"/api/v1/riders/{deliveryRiderId}/today")).StatusCode);
+
+        var anonymous = _factory.CreateClient();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.GetAsync("/api/v1/riders/board")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.GetAsync($"/api/v1/riders/{deliveryRiderId}/today")).StatusCode);
+    }
+
+    [Fact]
+    public async Task RiderToday_InScope_ReturnsTasksWithAwbs()
+    {
+        var (owner, _, _, _, deliveryRiderId, shipment) = await SeedOutForDeliveryAsync("today");
+
+        var response = await owner.GetAsync($"/api/v1/riders/{deliveryRiderId}/today");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var today = await response.Content.ReadFromJsonAsync<RiderTodayResponse>();
+        Assert.Equal(deliveryRiderId, today!.Rider.RiderId);
+        var task = Assert.Single(today.Tasks);
+        Assert.Equal(shipment.Awb, task.Awb);
+        Assert.Equal(DeliveryTaskType.Delivery, task.Type);
+        Assert.Equal(DeliveryTaskStatus.Pending, task.Status);
+    }
+
+    [Fact]
+    public async Task BranchScopedUser_SeesOnlyOwnBranchRiders_AndOtherBranchRiderReadsAre404()
+    {
+        var (owner, origin, destination, pickupRiderId, deliveryRiderId, _) = await SeedOutForDeliveryAsync("board-scope");
+        var manager = ClientWithToken(await InviteAcceptAndLoginForBranchAsync(owner, "BranchManager", origin));
+
+        var board = (await manager.GetFromJsonAsync<RiderBoardResponse>("/api/v1/riders/board"))!.Items;
+        Assert.Equal(pickupRiderId, Assert.Single(board).RiderId);
+        Assert.Empty((await manager.GetFromJsonAsync<RiderBoardResponse>($"/api/v1/riders/board?branchId={destination}"))!.Items);
+
+        Assert.Equal(HttpStatusCode.OK, (await manager.GetAsync($"/api/v1/riders/{pickupRiderId}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await manager.GetAsync($"/api/v1/riders/{deliveryRiderId}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await manager.GetAsync($"/api/v1/riders/{deliveryRiderId}/today")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await manager.GetAsync($"/api/v1/riders/{Guid.NewGuid()}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await manager.GetAsync($"/api/v1/riders/{Guid.NewGuid()}/today")).StatusCode);
+    }
+
+    [Fact]
+    public async Task BranchActivity_Owner_CountsCustodyRidersOutAndExceptions()
+    {
+        var (owner, origin, destination, _, deliveryRiderId, shipment) = await SeedOutForDeliveryAsync("activity", assignDelivery: false);
+
+        var before = (await owner.GetFromJsonAsync<BranchActivityResponse>("/api/v1/branches/activity"))!.Items;
+        Assert.Equal(1, before.Single(r => r.BranchId == destination).OnHand);
+
+        var assign = await owner.PostAsJsonAsync("/api/v1/riders/tasks", new AssignDeliveryTaskRequest(deliveryRiderId, shipment.Id, DeliveryTaskType.Delivery));
+        assign.EnsureSuccessStatusCode();
+
+        var response = await owner.GetAsync("/api/v1/branches/activity");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var after = (await response.Content.ReadFromJsonAsync<BranchActivityResponse>())!.Items;
+        var destinationRow = after.Single(r => r.BranchId == destination);
+        Assert.Equal(0, destinationRow.OnHand);
+        Assert.Equal(1, destinationRow.OutForDelivery);
+        Assert.Equal(1, destinationRow.RidersOut);
+        Assert.Equal(0, destinationRow.OpenExceptions);
+        Assert.Equal(1, after.Single(r => r.BranchId == origin).RidersOut);
+    }
+
+    [Fact]
+    public async Task BranchActivity_ScopedUserGetsOwnBranchRow_WithoutBranchRead403_Anonymous401()
+    {
+        var (owner, origin, _, _, _, _) = await SeedOutForDeliveryAsync("activity-scope");
+        var manager = ClientWithToken(await InviteAcceptAndLoginForBranchAsync(owner, "BranchManager", origin));
+        var sortingStaff = ClientWithToken(await InviteAcceptAndLoginForBranchAsync(owner, "SortingStaff", origin));
+
+        var items = (await manager.GetFromJsonAsync<BranchActivityResponse>("/api/v1/branches/activity"))!.Items;
+        Assert.Equal(origin, Assert.Single(items).BranchId);
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await sortingStaff.GetAsync("/api/v1/branches/activity")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await _factory.CreateClient().GetAsync("/api/v1/branches/activity")).StatusCode);
+    }
+
+    [Fact]
+    public async Task R3b2Reads_NeverExposeAnotherTenant()
+    {
+        var (_, originA, destinationA, pickupRiderA, deliveryRiderA, _) = await SeedOutForDeliveryAsync("tenant-a");
+        var ownerB = _factory.CreateClient();
+        var orgB = await RegisterOrgAsync(ownerB, "tenant-b");
+        ownerB.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", orgB.AccessToken);
+
+        var board = (await ownerB.GetFromJsonAsync<RiderBoardResponse>("/api/v1/riders/board"))!.Items;
+        Assert.DoesNotContain(board, r => r.RiderId == pickupRiderA || r.RiderId == deliveryRiderA);
+        Assert.Empty((await ownerB.GetFromJsonAsync<RiderBoardResponse>($"/api/v1/riders/board?branchId={originA}"))!.Items);
+        Assert.Equal(HttpStatusCode.NotFound, (await ownerB.GetAsync($"/api/v1/riders/{deliveryRiderA}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await ownerB.GetAsync($"/api/v1/riders/{deliveryRiderA}/today")).StatusCode);
+        var activity = (await ownerB.GetFromJsonAsync<BranchActivityResponse>("/api/v1/branches/activity"))!.Items;
+        Assert.DoesNotContain(activity, r => r.BranchId == originA || r.BranchId == destinationA);
     }
 
     // Invites, accepts, and logs in a user under roleName scoped to the given branchId — same

@@ -65,6 +65,10 @@ public static class RidersEndpoints
             return Results.Ok(summary);
         }).RequirePermission("rider.read");
 
+        riders.MapGet("/board", async (Guid? branchId, RiderService service, HttpContext httpContext) =>
+            Results.Ok(await service.GetBoardAsync(branchId, httpContext.User, httpContext.RequestAborted)))
+            .RequirePermission("rider.read");
+
         riders.MapGet("/me", async (RiderService service, HttpContext httpContext) =>
         {
             var result = await service.GetMyRiderAsync(httpContext.User, httpContext.RequestAborted);
@@ -105,7 +109,13 @@ public static class RidersEndpoints
 
         riders.MapGet("/{id:guid}", async (Guid id, RiderService service, HttpContext httpContext) =>
         {
-            var result = await service.GetByIdAsync(id, httpContext.RequestAborted);
+            var result = await service.GetByIdAsync(id, httpContext.User, httpContext.RequestAborted);
+            return result is null ? Results.NotFound() : Results.Ok(result);
+        }).RequirePermission("rider.read");
+
+        riders.MapGet("/{id:guid}/today", async (Guid id, RiderService service, HttpContext httpContext) =>
+        {
+            var result = await service.GetTodayAsync(id, httpContext.User, httpContext.RequestAborted);
             return result is null ? Results.NotFound() : Results.Ok(result);
         }).RequirePermission("rider.read");
 

@@ -166,6 +166,7 @@ builder.Services.AddScoped<Courier.Audit.Infrastructure.AuditLogger>();
 builder.Services.AddScoped<IAuditLogReader>(sp => sp.GetRequiredService<Courier.Audit.Infrastructure.AuditLogger>());
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<IUserProvisioningService, UserProvisioningService>();
+builder.Services.AddScoped<IUserDirectoryLookupService, UserDirectoryLookupService>();
 builder.Services.AddScoped<RoleService>();
 builder.Services.AddScoped<UserManagementService>();
 builder.Services.AddScoped<IPermissionChecker, Courier.Identity.Infrastructure.PermissionChecker>();
@@ -243,6 +244,7 @@ builder.Services.AddScoped<INdrReportingLookupService, NdrReportingLookupService
 builder.Services.AddScoped<ICodReportingLookupService, CodReportingLookupService>();
 builder.Services.AddScoped<OrgDashboardService>();
 builder.Services.AddScoped<BranchDashboardService>();
+builder.Services.AddScoped<BranchActivityService>();
 builder.Services.AddScoped<ReportExportService>();
 builder.Services.AddScoped<GeographyQueryService>();
 builder.Services.AddScoped<IGeographyLookupService>(sp => sp.GetRequiredService<GeographyQueryService>());

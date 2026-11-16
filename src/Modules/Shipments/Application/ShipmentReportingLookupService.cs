@@ -160,4 +160,44 @@ public class ShipmentReportingLookupService : IShipmentReportingLookupService, I
 
         return counts.ToDictionary(x => x.Status, x => x.Count);
     }
+
+    // RtoInitiated sets CurrentBranchId to the destination (the parcel is back at that branch);
+    // DeliveryFailed/NdrCreated keep CurrentBranchId null (still with the rider), so they are
+    // counted by the branch's open NDRs, not here.
+    private static readonly ShipmentStatus[] OnHandStatuses =
+    {
+        ShipmentStatus.AtOriginBranch, ShipmentStatus.Sorted, ShipmentStatus.AtDestinationBranch,
+        ShipmentStatus.RtoInitiated, ShipmentStatus.RtoAtOrigin
+    };
+
+    public async Task<IReadOnlyDictionary<Guid, BranchCustodyCounts>> GetBranchCustodyCountsAsync(
+        IReadOnlySet<Guid>? branchIds, CancellationToken cancellationToken = default)
+    {
+        var onHandStatuses = OnHandStatuses;
+        var onHandQuery = _dbContext.Set<Shipment>().AsNoTracking()
+            .Where(s => s.CurrentBranchId != null && onHandStatuses.Contains(s.CurrentStatus));
+        var outForDeliveryQuery = _dbContext.Set<Shipment>().AsNoTracking()
+            .Where(s => s.CurrentStatus == ShipmentStatus.OutForDelivery);
+        if (branchIds is not null)
+        {
+            var branchIdArray = branchIds.ToArray();
+            onHandQuery = onHandQuery.Where(s => branchIdArray.Contains(s.CurrentBranchId!.Value));
+            outForDeliveryQuery = outForDeliveryQuery.Where(s => branchIdArray.Contains(s.DestinationBranchId));
+        }
+
+        var onHand = await onHandQuery
+            .GroupBy(s => s.CurrentBranchId!.Value)
+            .Select(g => new { BranchId = g.Key, Count = g.Count() })
+            .ToListAsync(cancellationToken);
+        var outForDelivery = await outForDeliveryQuery
+            .GroupBy(s => s.DestinationBranchId)
+            .Select(g => new { BranchId = g.Key, Count = g.Count() })
+            .ToListAsync(cancellationToken);
+
+        var onHandByBranch = onHand.ToDictionary(x => x.BranchId, x => x.Count);
+        var outForDeliveryByBranch = outForDelivery.ToDictionary(x => x.BranchId, x => x.Count);
+        return onHandByBranch.Keys.Union(outForDeliveryByBranch.Keys).ToDictionary(
+            branchId => branchId,
+            branchId => new BranchCustodyCounts(onHandByBranch.GetValueOrDefault(branchId), outForDeliveryByBranch.GetValueOrDefault(branchId)));
+    }
 }

@@ -200,7 +200,7 @@ public class RiderServiceAttemptsTests
         var outboxWriter = new RecordingOutboxWriter();
         var service = new RiderService(
             dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), new NotSupportedUserProvisioningService(),
-            new NotSupportedBranchLookup(), new AllBranchesAuthorizationChecker(), shipments, storage, ndr, cod, permissionChecker, outboxWriter, new NotSupportedShipmentTaskLookupService());
+            new NotSupportedBranchLookup(), new AllBranchesAuthorizationChecker(), shipments, storage, ndr, cod, permissionChecker, outboxWriter, new NotSupportedShipmentTaskLookupService(), new StubShipmentReportingLookup(), new StubUserDirectoryLookup());
         return (service, shipments, storage, ndr, cod, permissionChecker, rider.Id, organizationId, outboxWriter);
     }
 

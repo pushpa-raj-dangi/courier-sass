@@ -137,7 +137,7 @@ public class RiderServiceReadsTests
     private static RiderService CreateService(TestDbContext dbContext, Guid organizationId, IBranchAuthorizationChecker checker, IShipmentTaskLookupService? shipmentTaskLookup = null) =>
         new(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), new NotSupportedUserProvisioningService(),
             new NotSupportedBranchLookup(), checker, new NotSupportedShipmentTransitionService(), new NotSupportedObjectStorage(), new NotSupportedNdrCreationService(),
-            new NoopCodCollectionService(), new AlwaysTruePermissionChecker(), new NoopOutboxWriter(), shipmentTaskLookup ?? new NotSupportedShipmentTaskLookupService());
+            new NoopCodCollectionService(), new AlwaysTruePermissionChecker(), new NoopOutboxWriter(), shipmentTaskLookup ?? new NotSupportedShipmentTaskLookupService(), new StubShipmentReportingLookup(), new StubUserDirectoryLookup());
 
     [Fact]
     public async Task ListAsync_RestrictedToOneBranch_OnlyReturnsRidersAtThatBranch()
@@ -163,7 +163,7 @@ public class RiderServiceReadsTests
         await using var dbContext = CreateContext();
         var service = CreateService(dbContext, Guid.NewGuid(), new RestrictedBranchAuthorizationChecker());
 
-        var result = await service.GetByIdAsync(Guid.NewGuid());
+        var result = await service.GetByIdAsync(Guid.NewGuid(), ActingUser(Guid.NewGuid()));
 
         Assert.Null(result);
     }

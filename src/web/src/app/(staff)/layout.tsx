@@ -9,6 +9,7 @@ import { ManifestDetailSheet } from "@/features/manifests/components/ManifestDet
 import { RiderCreateSheet } from "@/features/riders/components/RiderCreateSheet";
 import { VehicleCreateSheet } from "@/features/riders/components/VehicleCreateSheet";
 import { AssignTaskSheet } from "@/features/riders/components/AssignTaskSheet";
+import { RiderDetailSheet } from "@/features/riders/components/RiderDetailSheet";
 import { NdrDetailSheet } from "@/features/ndr/components/NdrDetailSheet";
 import { ReturnShipmentDetailSheet } from "@/features/ndr/components/ReturnShipmentDetailSheet";
 
@@ -25,6 +26,7 @@ export default function StaffLayout({ children }: { children: ReactNode }) {
       <RiderCreateSheet />
       <VehicleCreateSheet />
       <AssignTaskSheet />
+      <RiderDetailSheet />
       <NdrDetailSheet />
       <ReturnShipmentDetailSheet />
     </AppShell>

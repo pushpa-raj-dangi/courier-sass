@@ -290,4 +290,76 @@ public class ShipmentReportingLookupServiceTests
 
         Assert.False(result.ContainsKey(ShipmentStatus.InTransit));
     }
+
+    [Fact]
+    public async Task GetBranchCustodyCountsAsync_OnHandByCurrentBranch_OutForDeliveryByDestination()
+    {
+        var tenantProvider = new FixedTenantProvider();
+        await using var dbContext = TestDbContextFactory.Create(tenantProvider);
+        var (orgId, originBranchId, destBranchId, merchantId) = await SeedOrgAsync(dbContext);
+        tenantProvider.OrganizationId = orgId;
+
+        Shipment At(ShipmentStatus status, Guid? current) => BuildShipment(orgId, originBranchId, destBranchId, merchantId, status, current);
+        dbContext.AddRange(
+            At(ShipmentStatus.AtOriginBranch, originBranchId),
+            At(ShipmentStatus.Sorted, originBranchId),
+            At(ShipmentStatus.RtoAtOrigin, originBranchId),
+            At(ShipmentStatus.AtDestinationBranch, destBranchId),
+            At(ShipmentStatus.RtoInitiated, destBranchId),
+            At(ShipmentStatus.OutForDelivery, null),
+            At(ShipmentStatus.OutForDelivery, null),
+            // Not physically at a branch, or not on hand: none of these may be counted.
+            At(ShipmentStatus.Created, originBranchId),
+            At(ShipmentStatus.PickedUp, originBranchId),
+            At(ShipmentStatus.InTransit, null),
+            At(ShipmentStatus.DeliveryFailed, null),
+            At(ShipmentStatus.NdrCreated, null),
+            At(ShipmentStatus.Delivered, null));
+        await dbContext.SaveChangesAsync();
+        var service = new ShipmentReportingLookupService(dbContext);
+
+        var counts = await service.GetBranchCustodyCountsAsync(null);
+
+        Assert.Equal(new BranchCustodyCounts(3, 0), counts[originBranchId]);
+        Assert.Equal(new BranchCustodyCounts(2, 2), counts[destBranchId]);
+        Assert.Equal(2, counts.Count);
+    }
+
+    [Fact]
+    public async Task GetBranchCustodyCountsAsync_BranchFilter_KeepsOnlyThoseBranches()
+    {
+        var tenantProvider = new FixedTenantProvider();
+        await using var dbContext = TestDbContextFactory.Create(tenantProvider);
+        var (orgId, originBranchId, destBranchId, merchantId) = await SeedOrgAsync(dbContext);
+        tenantProvider.OrganizationId = orgId;
+        dbContext.AddRange(
+            BuildShipment(orgId, originBranchId, destBranchId, merchantId, ShipmentStatus.AtOriginBranch, originBranchId),
+            BuildShipment(orgId, originBranchId, destBranchId, merchantId, ShipmentStatus.OutForDelivery, null));
+        await dbContext.SaveChangesAsync();
+        var service = new ShipmentReportingLookupService(dbContext);
+
+        var counts = await service.GetBranchCustodyCountsAsync(new HashSet<Guid> { destBranchId });
+
+        Assert.Equal(new BranchCustodyCounts(0, 1), Assert.Single(counts).Value);
+        Assert.False(counts.ContainsKey(originBranchId));
+    }
+
+    [Fact]
+    public async Task GetBranchCustodyCountsAsync_IgnoresOtherTenants()
+    {
+        var tenantProvider = new FixedTenantProvider();
+        await using var dbContext = TestDbContextFactory.Create(tenantProvider);
+        var (orgId, originBranchId, destBranchId, merchantId) = await SeedOrgAsync(dbContext);
+        var (otherOrgId, otherOriginBranchId, otherDestBranchId, otherMerchantId) = await SeedOrgAsync(dbContext);
+        dbContext.AddRange(
+            BuildShipment(orgId, originBranchId, destBranchId, merchantId, ShipmentStatus.AtOriginBranch, originBranchId),
+            BuildShipment(otherOrgId, otherOriginBranchId, otherDestBranchId, otherMerchantId, ShipmentStatus.AtOriginBranch, otherOriginBranchId));
+        await dbContext.SaveChangesAsync();
+        tenantProvider.OrganizationId = orgId;
+        var service = new ShipmentReportingLookupService(dbContext);
+
+        var counts = await service.GetBranchCustodyCountsAsync(null);
+
+        Assert.Equal(originBranchId, Assert.Single(counts).Key);
+    }
 }

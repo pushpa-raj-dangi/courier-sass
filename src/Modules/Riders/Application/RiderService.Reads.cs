@@ -63,10 +63,24 @@ public partial class RiderService
         return new MyTasksTodayResponse(run.Id, results);
     }
 
-    public async Task<RiderResponse?> GetByIdAsync(Guid riderId, CancellationToken cancellationToken = default)
+    // F15 R3b-2 security fix: branch-scoped like ListAsync. A rider based outside the caller's
+    // rider.read scope reads as not found (404), the same as an unknown id, so a pasted id from
+    // another branch confirms nothing.
+    public async Task<RiderResponse?> GetByIdAsync(Guid riderId, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
-        var rider = await _dbContext.Set<Rider>().FirstOrDefaultAsync(r => r.Id == riderId, cancellationToken);
+        var rider = await FindReadableRiderAsync(riderId, actingUser, cancellationToken);
         return rider is null ? null : ToResponse(rider);
+    }
+
+    private async Task<Rider?> FindReadableRiderAsync(Guid riderId, ClaimsPrincipal actingUser, CancellationToken cancellationToken)
+    {
+        var rider = await _dbContext.Set<Rider>().AsNoTracking().FirstOrDefaultAsync(r => r.Id == riderId, cancellationToken);
+        if (rider is null)
+        {
+            return null;
+        }
+        var accessibleBranchIds = await _branchAuthorizationChecker.GetAccessibleBranchIdsAsync(actingUser, "rider.read", cancellationToken);
+        return accessibleBranchIds is null || accessibleBranchIds.Contains(rider.BaseBranchId) ? rider : null;
     }
 
     // Branch-scoped the same way ShipmentService.ListAsync (Phase 6) and BranchService.ListAsync

@@ -150,4 +150,47 @@ public class RiderReportingLookupServiceTests
         Assert.Equal(1, result.Inactive);
         Assert.Equal(1, result.CurrentlyAssigned);
     }
+
+    [Fact]
+    public async Task GetRidersOutCountsAsync_CountsRidersWithAnActiveRunToday_ByBaseBranch()
+    {
+        var tenantProvider = new FixedTenantProvider();
+        await using var dbContext = TestDbContextFactory.Create(tenantProvider);
+        var (orgId, branchId) = await SeedOrgAsync(dbContext);
+        var otherBranchId = Guid.NewGuid();
+        dbContext.Add(new Courier.Branches.Domain.Branch
+        {
+            Id = otherBranchId, OrganizationId = orgId, Code = "BR2", Name = "Branch Two",
+            Type = Courier.Branches.Domain.BranchType.Branch, ProvinceId = ProvinceId, DistrictId = DistrictId,
+            LocalLevelId = LocalLevelId, WardNumber = 1, AddressLine = "Test Address"
+        });
+        await dbContext.SaveChangesAsync();
+        tenantProvider.OrganizationId = orgId;
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        DeliveryRun Run(Rider rider, DateOnly date, DeliveryRunStatus status) =>
+            new() { Id = Guid.NewGuid(), RiderId = rider.Id, BranchId = rider.BaseBranchId, Date = date, Status = status };
+
+        var onRun = BuildRider(orgId, branchId);
+        var alsoOnRun = BuildRider(orgId, branchId);
+        var finished = BuildRider(orgId, branchId);
+        var yesterdayOnly = BuildRider(orgId, branchId);
+        var otherBranchRider = BuildRider(orgId, otherBranchId);
+        dbContext.AddRange(onRun, alsoOnRun, finished, yesterdayOnly, otherBranchRider);
+        dbContext.AddRange(
+            Run(onRun, today, DeliveryRunStatus.Active),
+            Run(alsoOnRun, today, DeliveryRunStatus.Active),
+            Run(finished, today, DeliveryRunStatus.Completed),
+            Run(yesterdayOnly, today.AddDays(-1), DeliveryRunStatus.Active),
+            Run(otherBranchRider, today, DeliveryRunStatus.Active));
+        await dbContext.SaveChangesAsync();
+        var service = new RiderReportingLookupService(dbContext);
+
+        var all = await service.GetRidersOutCountsAsync(null, today);
+        var filtered = await service.GetRidersOutCountsAsync(new HashSet<Guid> { otherBranchId }, today);
+
+        Assert.Equal(2, all[branchId]);
+        Assert.Equal(1, all[otherBranchId]);
+        Assert.Equal(otherBranchId, Assert.Single(filtered).Key);
+    }
 }

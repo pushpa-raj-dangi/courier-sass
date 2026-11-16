@@ -98,3 +98,47 @@ export interface CompleteDeliveryInput {
   longitude?: number | null;
   collectedCodAmount?: number | null;
 }
+
+// F15 R3b-2 rider board and rider Sheet (GET /api/v1/riders/board, /riders/{id}/today).
+export type DeliveryRunStatus = "Active" | "Completed";
+export type DeliveryTaskStatus = "Pending" | "Completed" | "Failed";
+
+export interface RiderBoardRun {
+  id: string;
+  status: DeliveryRunStatus;
+}
+
+/** Counts are today's run only (UTC date). `lastPingAt` is null when the rider has not pinged today. */
+export interface RiderBoardRow {
+  riderId: string;
+  userId: string;
+  fullName: string;
+  baseBranchId: string;
+  roleType: RiderRoleType;
+  isActive: boolean;
+  vehiclePlate: string | null;
+  run: RiderBoardRun | null;
+  tasksAssigned: number;
+  tasksCompleted: number;
+  tasksFailed: number;
+  lastPingAt: string | null;
+}
+
+export interface RiderBoard {
+  items: RiderBoardRow[];
+}
+
+export interface RiderTodayTask {
+  taskId: string;
+  shipmentId: string;
+  /** "" when the AWB lookup missed. */
+  awb: string;
+  type: DeliveryTaskType;
+  sequence: number;
+  status: DeliveryTaskStatus;
+}
+
+export interface RiderToday {
+  rider: RiderBoardRow;
+  tasks: RiderTodayTask[];
+}
