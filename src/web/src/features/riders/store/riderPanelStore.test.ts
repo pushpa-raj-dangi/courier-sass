@@ -30,4 +30,9 @@ describe("useRiderPanelStore", () => {
     useRiderPanelStore.getState().openAssignTask();
     expect(useRiderPanelStore.getState().panel).toEqual({ mode: "assign-task" });
   });
+
+  it("openDetail switches to the rider detail panel", () => {
+    useRiderPanelStore.getState().openDetail("r1");
+    expect(useRiderPanelStore.getState().panel).toEqual({ mode: "detail", riderId: "r1" });
+  });
 });

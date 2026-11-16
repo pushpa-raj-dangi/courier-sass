@@ -32,3 +32,16 @@ export interface CreateBranchInput {
   operatingHours?: string;
   parentBranchId?: string;
 }
+
+/** GET /api/v1/branches/activity row. A branch missing from a loaded response has all zeros. */
+export interface BranchActivityRow {
+  branchId: string;
+  onHand: number;
+  outForDelivery: number;
+  ridersOut: number;
+  openExceptions: number;
+}
+
+export interface BranchActivity {
+  items: BranchActivityRow[];
+}
