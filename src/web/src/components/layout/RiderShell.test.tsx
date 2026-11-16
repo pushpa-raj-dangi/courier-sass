@@ -4,15 +4,15 @@ import { RiderShell } from "./RiderShell";
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/rider/tasks" }));
 vi.mock("@/features/rider-app/sync/useOutboxStatus", () => ({
-  useOutboxStatus: () => ({ pendingCount: 0, stuckItems: [], lastSyncedAt: null, refresh: vi.fn() }),
+  useOutboxStatus: () => ({ pendingCount: 0, pendingItems: [], stuckItems: [], lastSyncedAt: null, refresh: vi.fn() }),
 }));
 
 describe("RiderShell", () => {
-  it("renders the three bottom tabs and the page content", () => {
+  it("renders the Run / Scan / Profile tabs and marks the current one", () => {
     render(<RiderShell><p>Page content</p></RiderShell>);
     expect(screen.getByText("Page content")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /tasks/i })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /scan/i })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /profile/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Run" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Scan" })).not.toHaveAttribute("aria-current");
+    expect(screen.getByRole("link", { name: "Profile" })).toHaveAttribute("href", "/rider/profile");
   });
 });
