@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { MyToday, MyTodayTask } from "@/features/riders/types";
 import type { OutboxItem } from "@/features/rider-app/sync/types";
 
@@ -7,6 +7,7 @@ vi.mock("@/components/scanner/BarcodeScanner", () => ({
   BarcodeScanner: ({ onDetect }: { onDetect: (awb: string) => void }) => (
     <div>
       <button type="button" onClick={() => onDetect("NX-260930-00152")}>scan pickup</button>
+      <button type="button" onClick={() => onDetect("NX-260930-00153")}>scan pickup 2</button>
       <button type="button" onClick={() => onDetect("NX-260930-00148")}>scan delivery</button>
       <button type="button" onClick={() => onDetect("NX-260930-00101")}>scan done</button>
       <button type="button" onClick={() => onDetect("NX-260930-00199")}>scan unknown</button>
@@ -23,7 +24,7 @@ vi.mock("@/features/rider-app/sync/useOutboxStatus", () => ({
 const refresh = vi.fn();
 vi.mock("@/features/rider-app/sync/outboxStatusStore", () => ({ useOutboxStatusStore: { getState: () => ({ refresh }) } }));
 const pickupMutate = vi.fn();
-vi.mock("@/features/rider-app/hooks/useRiderPickupScan", () => ({ useRiderPickupScan: () => ({ mutate: pickupMutate, isPending: false }) }));
+vi.mock("@/features/rider-app/hooks/useRiderPickupScan", () => ({ useRiderPickupScan: () => ({ mutateAsync: pickupMutate, isPending: false }) }));
 const openRecordAttempt = vi.fn();
 vi.mock("@/features/rider-app/store/riderAppPanelStore", () => ({
   useRiderAppPanelStore: (selector: (s: unknown) => unknown) => selector({ openRecordAttempt }),
@@ -51,6 +52,7 @@ beforeEach(() => {
   };
   pendingItems = [];
   pickupMutate.mockReset();
+  pickupMutate.mockResolvedValue(undefined);
   openRecordAttempt.mockReset();
   refresh.mockReset();
 });
@@ -62,15 +64,14 @@ describe("RiderScanPage", () => {
     expect(screen.getByText("Lalitpur · 1 to deliver · 1 pickup")).toBeInTheDocument();
   });
 
-  it("runs the pickup scan for a pickup AWB and shows it saved on the phone", () => {
-    pickupMutate.mockImplementation((_vars, options) => {
+  it("runs the pickup scan for a pickup AWB and shows it saved on the phone", async () => {
+    pickupMutate.mockImplementation(async () => {
       pendingItems = [{ id: "o1", action: { kind: "pickup-scan", riderId: "r1", shipmentId: "s3", awb: "NX-260930-00152" }, idempotencyKey: "k", createdAt: 0, status: "pending" }];
-      options?.onSuccess?.();
     });
     const { rerender } = render(<RiderScanPage />);
     fireEvent.click(screen.getByRole("button", { name: "scan pickup" }));
-    expect(pickupMutate).toHaveBeenCalledWith({ awb: "NX-260930-00152", shipmentId: "s3" }, expect.anything());
-    expect(refresh).toHaveBeenCalled();
+    expect(pickupMutate).toHaveBeenCalledWith({ awb: "NX-260930-00152", shipmentId: "s3" });
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
     rerender(<RiderScanPage />);
     const result = within(screen.getByRole("status", { name: "Last scan" }));
     expect(result.getByText("PICKED UP")).toBeInTheDocument();
@@ -90,13 +91,13 @@ describe("RiderScanPage", () => {
     expect(screen.queryByRole("region", { name: "Recent scans" })).not.toBeInTheDocument();
   });
 
-  it("never shows Synced when the pickup could not be saved", () => {
-    pickupMutate.mockImplementation((_vars, options) => {
-      options?.onError?.();
-    });
+  it("never shows Synced when the pickup could not be saved", async () => {
+    pickupMutate.mockRejectedValue(new Error("nope"));
     render(<RiderScanPage />);
     fireEvent.click(screen.getByRole("button", { name: "scan pickup" }));
-    expect(within(screen.getByRole("status", { name: "Last scan" })).getByText("Couldn't save this scan · scan again")).toBeInTheDocument();
+    expect(await within(screen.getByRole("status", { name: "Last scan" })).findByText("Couldn't save this scan · scan again")).toBeInTheDocument();
+    expect(within(screen.getByRole("status", { name: "Last scan" })).getByText("NOT SAVED")).toBeInTheDocument();
+    expect(screen.queryByText("PICKED UP")).not.toBeInTheDocument();
     expect(within(screen.getByRole("region", { name: "Recent scans" })).getByText("Couldn't save · scan again")).toBeInTheDocument();
     expect(screen.queryByText("Synced")).not.toBeInTheDocument();
   });
@@ -107,6 +108,25 @@ describe("RiderScanPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "scan pickup" }));
     expect(pickupMutate).not.toHaveBeenCalled();
     expect(within(screen.getByRole("status", { name: "Last scan" })).getByText("Saved on this phone · waiting to sync")).toBeInTheDocument();
+  });
+
+  it("settles every scan when two pickups are scanned back to back", async () => {
+    today!.tasks.push(task({ taskId: "t5", shipmentId: "s5", type: "Pickup", recipientName: "Gita Store", recipientAddressLine: "Patan", awb: "NX-260930-00153", codAmount: 0 }));
+    render(<RiderScanPage />);
+    fireEvent.click(screen.getByRole("button", { name: "scan pickup" }));
+    fireEvent.click(screen.getByRole("button", { name: "scan pickup 2" }));
+    expect(pickupMutate).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(screen.queryByText("Saving…")).not.toBeInTheDocument());
+    expect(refresh).toHaveBeenCalledTimes(2);
+    expect(screen.getAllByText("Waiting to sync")).toHaveLength(2);
+  });
+
+  it("does not enqueue the same pickup again while the first scan is still saving", () => {
+    pickupMutate.mockReturnValue(new Promise(() => {}));
+    render(<RiderScanPage />);
+    fireEvent.click(screen.getByRole("button", { name: "scan pickup" }));
+    fireEvent.click(screen.getByRole("button", { name: "scan pickup" }));
+    expect(pickupMutate).toHaveBeenCalledTimes(1);
   });
 
   it("opens the POD Sheet for a delivery AWB", () => {

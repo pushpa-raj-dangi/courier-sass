@@ -74,22 +74,24 @@ export default function RiderScanPage() {
     const match = today.data.tasks.find((t) => t.awb === awb);
     const kind: ScanKind = !match ? "unknown" : match.status !== "Pending" ? "done" : match.type === "Pickup" ? "pickup" : "delivery";
     const id = Date.now() + Math.random();
-    const alreadyQueued = !!match && kind === "pickup" && taskSyncState(match.shipmentId, pendingItems, stuckItems) !== "synced";
+    const alreadyQueued =
+      !!match &&
+      kind === "pickup" &&
+      (taskSyncState(match.shipmentId, pendingItems, stuckItems) !== "synced" ||
+        scans.some((s) => s.task?.shipmentId === match.shipmentId && (s.save === "saving" || s.save === "queued")));
     const save: SaveState | undefined = kind === "pickup" ? (alreadyQueued ? "queued" : "saving") : undefined;
     setScans((prev) => [{ id, awb, kind, task: match, save }, ...prev].slice(0, MAX_RECENT));
     if (!match || kind === "done") return;
     if (kind === "pickup") {
       if (alreadyQueued) return;
-      pickupScan.mutate(
-        { awb: match.awb, shipmentId: match.shipmentId },
-        {
-          onSuccess: () => {
-            updateScan(id, "queued");
-            void useOutboxStatusStore.getState().refresh();
-          },
-          onError: () => updateScan(id, "failed"),
-        },
-      );
+      // mutateAsync (not per-call mutate callbacks) so every scan settles, even when scans overlap.
+      pickupScan
+        .mutateAsync({ awb: match.awb, shipmentId: match.shipmentId })
+        .then(() => {
+          updateScan(id, "queued");
+          void useOutboxStatusStore.getState().refresh();
+        })
+        .catch(() => updateScan(id, "failed"));
     } else {
       openRecordAttempt(match);
     }
@@ -102,12 +104,16 @@ export default function RiderScanPage() {
     if (scan.save === "saving") return "saving";
     if (scan.save === "failed") return "failed";
     const state = scan.task ? taskSyncState(scan.task.shipmentId, pendingItems, stuckItems) : "synced";
-    if (state === "waiting") return "waiting";
     if (state === "needs-review") return "needs-review";
-    return "synced";
+    if (state === "waiting") return "waiting";
+    // Queued but not (yet) visible in the outbox: only the run data can prove it reached the server.
+    const live = today.data?.tasks.find((t) => t.shipmentId === scan.task?.shipmentId);
+    return live && live.status !== "Pending" ? "synced" : "waiting";
   }
 
   const last = scans[0];
+  const lastKey = last ? statusKey(last) : undefined;
+  const lastBad = last?.kind === "pickup" && (lastKey === "failed" || lastKey === "needs-review");
 
   return (
     <div className="flex min-h-full flex-col">
@@ -138,9 +144,13 @@ export default function RiderScanPage() {
             </div>
           </section>
         ) : last && last.task ? (
-          <section role="status" aria-label="Last scan" className="space-y-1.5 rounded-xl border-2 border-status-delivered bg-card p-4">
-            <p className="font-mono text-2xs uppercase tracking-[0.1em] text-status-delivered">
-              {last.kind === "pickup" ? "PICKED UP" : "OPENED DELIVERY"}
+          <section
+            role="status"
+            aria-label="Last scan"
+            className={cn("space-y-1.5 rounded-xl border-2 bg-card p-4", lastBad ? "border-destructive" : "border-status-delivered")}
+          >
+            <p className={cn("font-mono text-2xs uppercase tracking-[0.1em]", lastBad ? "text-destructive" : "text-status-delivered")}>
+              {last.kind !== "pickup" ? "OPENED DELIVERY" : lastKey === "failed" ? "NOT SAVED" : lastKey === "needs-review" ? "NEEDS REVIEW" : "PICKED UP"}
             </p>
             <p className="font-mono text-base font-medium">{last.awb}</p>
             <p className="text-sm text-muted-foreground">
