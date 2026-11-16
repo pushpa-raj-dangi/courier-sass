@@ -1,18 +1,15 @@
 "use client";
 
 import { useEffect } from "react";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import type { RiderLocation } from "@/features/rider-tracking/hooks/useRiderLocations";
+import { cn } from "@/lib/utils";
+import { branchPinHtml, riderPinHtml, type MapBranchPin, type MapRiderPin } from "@/features/rider-tracking/lib/mapPins";
 
-const DEFAULT_CENTER: [number, number] = [27.7172, 85.324]; // Kathmandu — used only when no rider has reported yet.
+const DEFAULT_CENTER: [number, number] = [27.7172, 85.324]; // Kathmandu — only when nothing has a position.
 
-function minutesAgo(receivedAt: string): number {
-  return Math.max(0, Math.round((Date.now() - new Date(receivedAt).getTime()) / 60_000));
-}
-
-export function LiveMap({ locations, riderLicenseById }: { locations: RiderLocation[]; riderLicenseById: Map<string, string> }) {
+export function LiveMap({ pins, branch, className }: { pins: MapRiderPin[]; branch?: MapBranchPin; className?: string }) {
   useEffect(() => {
     // Leaflet's default marker icon references image paths relative to the installed package,
     // which bundlers rewrite incorrectly — fixed once here with CDN URLs, the standard workaround.
@@ -23,20 +20,33 @@ export function LiveMap({ locations, riderLicenseById }: { locations: RiderLocat
     });
   }, []);
 
-  const center: [number, number] = locations.length > 0 ? [locations[0].latitude, locations[0].longitude] : DEFAULT_CENTER;
+  const center: [number, number] = branch
+    ? [branch.latitude, branch.longitude]
+    : pins.length > 0
+      ? [pins[0].latitude, pins[0].longitude]
+      : DEFAULT_CENTER;
 
   return (
-    <MapContainer center={center} zoom={13} className="h-[500px] w-full rounded-md">
+    <MapContainer center={center} zoom={13} className={cn("h-[480px] w-full rounded-lg", className)}>
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      {locations.map((location) => (
-        <Marker key={location.riderId} position={[location.latitude, location.longitude]}>
-          <Popup>
-            <div>{riderLicenseById.get(location.riderId) ?? "Unknown rider"}</div>
-            <div>Last seen {minutesAgo(location.receivedAt)}m ago</div>
-          </Popup>
+      {branch && (
+        <Marker
+          position={[branch.latitude, branch.longitude]}
+          title={branch.label}
+          icon={L.divIcon({ className: "", iconSize: [64, 24], iconAnchor: [32, 12], html: branchPinHtml(branch.label) })}
+        />
+      )}
+      {pins.map((pin) => (
+        <Marker
+          key={pin.riderId}
+          position={[pin.latitude, pin.longitude]}
+          title={pin.label}
+          icon={L.divIcon({ className: "", iconSize: [40, 52], iconAnchor: [20, 16], html: riderPinHtml(pin) })}
+        >
+          <Popup>{pin.popup}</Popup>
         </Marker>
       ))}
     </MapContainer>
