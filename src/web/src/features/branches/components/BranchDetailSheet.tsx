@@ -74,6 +74,7 @@ export function BranchDetailSheet() {
                   </span>
                 }
                 facts={[
+                  { label: "Address", value: address },
                   { label: "Phone", value: branch.phone ?? "—" },
                   { label: "Hours", value: branch.operatingHours ?? "—" },
                   { label: "Delivery zone", value: zoneName },

@@ -44,14 +44,15 @@ export function BranchLocationCard({ branch, address }: { branch: Branch; addres
         <CardTitle className="text-sm font-semibold">Location</CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
-        {showMap && (
+        {showMap ? (
           <LiveMap
             className="h-48"
             pins={pins}
             branch={{ latitude: branch.latitude as number, longitude: branch.longitude as number, label: branch.code?.trim() ? branch.code : branch.name }}
           />
+        ) : (
+          <p className="text-sm text-muted-foreground">{address}</p>
         )}
-        <p className="text-sm text-muted-foreground">{address}</p>
       </CardContent>
     </Card>
   );

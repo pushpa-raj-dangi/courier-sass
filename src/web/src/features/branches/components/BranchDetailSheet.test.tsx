@@ -62,7 +62,7 @@ describe("BranchDetailSheet", () => {
     expect(screen.getByText("Kathmandu Hub")).toBeInTheDocument();
     expect(screen.getAllByText("KTM").length).toBeGreaterThan(0);
     expect(screen.getByText("Active")).toBeInTheDocument();
-    expect(screen.getByText("New Road, Ward 5, Kathmandu Metropolitan City, Kathmandu")).toBeInTheDocument();
+    expect(screen.getAllByText("New Road, Ward 5, Kathmandu Metropolitan City, Kathmandu")).toHaveLength(2);
     expect(screen.getByText("01-4444444")).toBeInTheDocument();
     expect(screen.getByText("Valley")).toBeInTheDocument();
     expect(screen.getByText("27.70000, 85.32000")).toBeInTheDocument();
@@ -102,6 +102,7 @@ describe("BranchDetailSheet", () => {
     granted = ["rider.location.read"];
     renderWithIntl(<BranchDetailSheet />);
     expect(screen.getByText("mini map KTM with 1 riders")).toBeInTheDocument();
+    expect(screen.getAllByText("New Road, Ward 5, Kathmandu Metropolitan City, Kathmandu")).toHaveLength(1);
     expect(useRiderLocations).toHaveBeenLastCalledWith("b1");
   });
 
