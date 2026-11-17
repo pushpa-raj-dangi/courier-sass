@@ -21,4 +21,13 @@ public class PublicTrackingStatusSerializationTests
 
         Assert.Equal(PublicTrackingStatus.Delivered, value);
     }
+
+    [Fact]
+    public void ReturningToSender_RoundTripsAsMemberName()
+    {
+        var json = JsonSerializer.Serialize(PublicTrackingStatus.ReturningToSender);
+
+        Assert.Equal("\"ReturningToSender\"", json);
+        Assert.Equal(PublicTrackingStatus.ReturningToSender, JsonSerializer.Deserialize<PublicTrackingStatus>(json));
+    }
 }

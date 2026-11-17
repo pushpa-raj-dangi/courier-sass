@@ -1064,7 +1064,8 @@ serve renders `ComingSoonSlot`. Each sub-phase has its own spec → plan → imp
 | R3b-1 — Parcel movement | Manifests (lifecycle strip, incoming/outgoing, receive reconciliation), NDR queue (owner/reason filters, attempts, follow-up, resolve), Returns (stage strip, return chain, hand back) | Done — spec `docs/superpowers/specs/2026-10-14-f15-r3b1-parcel-movement-design.md` |
 | R3b-2 — People & places | Riders (day strip, Riders/Map/Fleet tabs, rider Sheet), branches (type strip, live counts, branch Sheet) | Done — spec `docs/superpowers/specs/2026-10-15-f15-r3b2-people-and-places-design.md` |
 | R4 — Rider PWA | Run screen (day header, tabs, next stop), stepwise POD Sheet, scan (last result, recent scans), profile (today, cash, needs review, sync) | Done — spec `docs/superpowers/specs/2026-11-16-f15-r4-rider-pwa-design.md` |
-| R5 — Merchant portal + public tracking | 7 merchant pages, `/track` | Planned |
+| R5a — Public tracking | `/track`, `/track/[awb]` | Done — spec `docs/superpowers/specs/2026-11-17-f15-r5a-public-tracking-design.md` |
+| R5b — Merchant portal | 7 merchant pages (artboards first) | Planned |
 | R6 — Platform + admin | Platform pages, admin, audit, billing, auth pages | Planned |
 
 **Backend follow-ups from R1:** notification feed (header bell); nav badge counts (e.g. open
@@ -1148,6 +1149,12 @@ fixed value. The offline outbox is unchanged.
 4. Recipient coordinates and distance to the next stop.
 5. Branch cash deposit deadline for riders.
 6. A human-readable run code.
+
+**Backend follow-ups from R5a:**
+1. ETA window on public tracking.
+2. Delivery OTP hint once SMS OTP ships.
+3. Reschedule request from the tracking page.
+4. Organization support contact on tracking.
 
 ## Later
 

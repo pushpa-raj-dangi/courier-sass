@@ -1,4 +1,6 @@
 using Courier.Branches.Domain;
+using Courier.Geography.Domain;
+using Courier.Merchants.Domain;
 using Courier.Shipments.Domain;
 using Microsoft.EntityFrameworkCore;
 
@@ -66,6 +68,25 @@ public class PublicTrackingService
             lastStatus = mapped;
         }
 
-        return new PublicTrackingResponse(shipment.Awb, PublicTrackingStatusMapper.Map(shipment.CurrentStatus), publicEvents);
+        // Only the merchant's public-facing DisplayName (never LegalName) and the coarse destination
+        // area (municipality/district names, never ward/address/phone) are exposed. The anonymous
+        // request has no tenant context, hence IgnoreQueryFilters keyed by the already-resolved
+        // shipment's own ids.
+        var senderName = await _dbContext.Set<Merchant>().IgnoreQueryFilters()
+            .Where(m => m.Id == shipment.MerchantId && m.OrganizationId == shipment.OrganizationId)
+            .Select(m => m.DisplayName)
+            .FirstOrDefaultAsync(cancellationToken);
+        var localLevelName = shipment.RecipientLocalLevelId is Guid localLevelId
+            ? await _dbContext.Set<LocalLevel>().IgnoreQueryFilters()
+                .Where(l => l.Id == localLevelId).Select(l => l.Name).FirstOrDefaultAsync(cancellationToken)
+            : null;
+        var districtName = shipment.RecipientDistrictId is Guid districtId
+            ? await _dbContext.Set<District>().IgnoreQueryFilters()
+                .Where(d => d.Id == districtId).Select(d => d.Name).FirstOrDefaultAsync(cancellationToken)
+            : null;
+        var destinationArea = PublicTrackingAreaFormatter.Format(localLevelName, districtName, shipment.RecipientCity);
+
+        return new PublicTrackingResponse(shipment.Awb, PublicTrackingStatusMapper.Map(shipment.CurrentStatus), publicEvents,
+            destinationArea, senderName);
     }
 }

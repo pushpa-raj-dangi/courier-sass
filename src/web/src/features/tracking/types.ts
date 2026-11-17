@@ -6,7 +6,8 @@ export type PublicTrackingStatus =
   | "OutForDelivery"
   | "Delivered"
   | "DeliveryAttemptUnsuccessful"
-  | "Cancelled";
+  | "Cancelled"
+  | "ReturningToSender";
 
 export interface PublicTrackingEvent {
   status: PublicTrackingStatus;
@@ -18,4 +19,6 @@ export interface PublicTrackingResult {
   awb: string;
   currentStatus: PublicTrackingStatus;
   events: PublicTrackingEvent[];
+  destinationArea: string | null;
+  senderName: string | null;
 }
