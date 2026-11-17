@@ -19,7 +19,7 @@ const COLUMNS: ColumnDef<MerchantSettlement>[] = [
   { key: "cod", header: "COD collected", render: (s) => <span className={money}>{formatRs(settlementTotals(s.items).cod)}</span> },
   { key: "fees", header: "Fees", render: (s) => <span className={money}>{formatRs(settlementTotals(s.items).fees)}</span> },
   { key: "net", header: "You receive", render: (s) => <span className={`${money} font-medium`}>{formatRs(s.totalPayable)}</span> },
-  { key: "status", header: "Status", render: (s) => <StatusBadge status={s.status} namespace="MerchantSettlement" /> },
+  { key: "status", header: "Status", render: (s) => <StatusBadge status={s.status} namespace="MerchantPayout" /> },
   { key: "paid", header: "Paid on", render: (s) => <span className="text-xs text-muted-foreground">{formatPaidOn(s.settledAt)}</span> },
 ];
 

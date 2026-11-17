@@ -98,7 +98,10 @@ describe("MerchantCodPage", () => {
   it("shows em dashes in the strip when the summary fails", () => {
     summaryMock.mockReturnValue({ data: undefined, isLoading: false, isError: true, refetch: vi.fn() });
     renderPage();
-    expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(3);
+    const steps = within(screen.getByRole("list", { name: "COD money flow" })).getAllByRole("listitem").filter((li) => li.getAttribute("aria-hidden") !== "true");
+    expect(steps).toHaveLength(3);
+    steps.forEach((li) => expect(within(li).getByText("—")).toBeInTheDocument());
+    expect(screen.queryByText("Rs 0")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
   });
 

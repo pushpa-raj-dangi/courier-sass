@@ -39,6 +39,12 @@ describe("resolveStatusConfig — Merchant namespace coverage", () => {
     expect(resolveStatusConfig("RtoInTransit", "Merchant").label).toBe("Returning to you");
   });
 
+  it("keeps staff settlement labels and uses merchant payout vocabulary", () => {
+    expect(resolveStatusConfig("Created", "MerchantSettlement").label).toBe("Created");
+    expect(resolveStatusConfig("Created", "MerchantPayout")).toEqual({ label: "Awaiting payout", token: "status-created" });
+    expect(resolveStatusConfig("Settled", "MerchantPayout")).toEqual({ label: "Settled", token: "status-delivered" });
+  });
+
   it("spot-checks labels and tokens", () => {
     expect(resolveStatusConfig("Created", "Merchant")).toEqual({ label: "Booked", token: "status-created" });
     expect(resolveStatusConfig("InternationalException", "Merchant")).toEqual({ label: "Delivery failed", token: "status-ndr" });

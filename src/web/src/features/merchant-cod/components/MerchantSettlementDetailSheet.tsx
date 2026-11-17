@@ -39,7 +39,7 @@ export function MerchantSettlementDetailSheet() {
           <SheetHeaderBlock
             eyebrow={`SETTLEMENT · ${formatPeriod(settlement.periodFrom, settlement.periodTo)}`}
             title={formatRs(settlement.totalPayable)}
-            status={<StatusBadge status={settlement.status} namespace="MerchantSettlement" />}
+            status={<StatusBadge status={settlement.status} namespace="MerchantPayout" />}
           />
         ) : (
           <SheetHeader>
