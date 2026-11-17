@@ -3,69 +3,46 @@
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowRight, PackageSearch } from "lucide-react";
+import { Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { FieldError } from "@/components/ui/field-error";
 import { trackingSearchSchema, type TrackingSearchFormValues } from "@/features/tracking/schema";
 
-export function TrackingSearchForm() {
+export function TrackingSearchForm({ defaultAwb }: { defaultAwb?: string }) {
   const router = useRouter();
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<TrackingSearchFormValues>({ resolver: zodResolver(trackingSearchSchema) });
+  } = useForm<TrackingSearchFormValues>({
+    resolver: zodResolver(trackingSearchSchema),
+    defaultValues: { awb: defaultAwb ?? "" },
+  });
 
   function onSubmit(values: TrackingSearchFormValues) {
     router.push(`/track/${encodeURIComponent(values.awb.trim())}`);
   }
 
   return (
-    <div className="relative w-full max-w-sm overflow-hidden rounded-md border border-marketing-border bg-marketing-bg-elevated p-6 shadow-[8px_8px_0_0_hsl(var(--marketing-accent)/0.18)]">
-      <span
-        aria-hidden="true"
-        className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-marketing-accent/70 to-transparent"
-      />
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
-        <div className="space-y-2">
-          <Label htmlFor="awb" className="text-marketing-fg">
-            AWB Number
-          </Label>
-          <div className="relative">
-            <PackageSearch
-              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-marketing-muted-fg"
-              strokeWidth={2}
-              aria-hidden="true"
-            />
-            <Input
-              id="awb"
-              type="text"
-              autoComplete="off"
-              placeholder="NP2026-000123"
-              className="border-marketing-border bg-transparent pl-9 font-mono text-marketing-fg placeholder:text-marketing-muted-fg/60 focus-visible:ring-marketing-accent"
-              aria-invalid={!!errors.awb}
-              aria-describedby={errors.awb ? "awb-error" : undefined}
-              {...register("awb")}
-            />
-          </div>
-          {errors.awb && (
-            <FieldError id="awb-error">{errors.awb.message}</FieldError>
-          )}
-        </div>
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="group flex h-11 w-full items-center justify-center gap-2 rounded-md bg-marketing-accent px-6 text-sm font-medium text-marketing-accent-fg shadow-[4px_4px_0_0_hsl(var(--marketing-fg)/0.18)] transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-marketing-accent focus-visible:ring-offset-2 focus-visible:ring-offset-marketing-bg disabled:pointer-events-none disabled:opacity-50"
-        >
+    <form onSubmit={handleSubmit(onSubmit)} className="w-full space-y-2" noValidate>
+      <div className="flex h-12 items-center gap-2 rounded-lg border border-input bg-card pl-3 pr-1 focus-within:ring-1 focus-within:ring-ring">
+        <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <Input
+          type="text"
+          autoComplete="off"
+          placeholder="NP2026-000123"
+          aria-label="AWB number"
+          className="h-full flex-1 border-0 bg-transparent px-0 font-mono shadow-none focus-visible:ring-0"
+          aria-invalid={!!errors.awb}
+          aria-describedby={errors.awb ? "awb-error" : undefined}
+          {...register("awb")}
+        />
+        <Button type="submit" disabled={isSubmitting} className="h-11 shrink-0 px-4">
           Track
-          <ArrowRight
-            className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
-            strokeWidth={2}
-            aria-hidden="true"
-          />
-        </button>
-      </form>
-    </div>
+        </Button>
+      </div>
+      {errors.awb && <FieldError id="awb-error">{errors.awb.message}</FieldError>}
+    </form>
   );
 }

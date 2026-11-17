@@ -22,4 +22,20 @@ describe("TrackingSearchForm", () => {
 
     await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/track/AWB123"));
   });
+
+  it("prefills defaultAwb", () => {
+    render(<TrackingSearchForm defaultAwb="NX-1" />);
+
+    expect(screen.getByLabelText("AWB number")).toHaveValue("NX-1");
+  });
+
+  it("trims and encodes on submit", async () => {
+    pushMock.mockClear();
+    render(<TrackingSearchForm />);
+
+    fireEvent.change(screen.getByLabelText("AWB number"), { target: { value: " ab 1 " } });
+    fireEvent.click(screen.getByRole("button", { name: /track/i }));
+
+    await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/track/ab%201"));
+  });
 });
