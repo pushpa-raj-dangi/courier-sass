@@ -203,8 +203,9 @@ yet — book your first one", "No settlements yet", etc.). Counts that fail show
 - Tab counts via one `pageSize=1` list request per group (6 small requests, cached by TanStack
   Query) rather than a new counts endpoint — keeps backend scope to the COD reads.
 - Settlement period filter client-side (the merchant list is unpaginated today).
-- Shipment JSON carries `currentStatus` as the enum's integer; rows/badges map it with the same
-  numeric→name mapping `statusConfig.ts` already uses. Filter requests send enum *names*.
+- Shipment JSON carries `currentStatus` as the enum *name* (`JsonStringEnumConverter` on
+  `ShipmentStatus`); filter requests send the same names. Merchant labels come from a new
+  `Merchant.` namespace in `statusConfig.ts` covering every `ShipmentStatus`.
 - Header "N shipments booked" = the All count (includes Cancelled); "N parcels on the way"
   = booked + inTransit + outForDelivery (excludes Cancelled).
 - Sidebar badge: `useMerchantNavGroups` gains one needsAttention count query, only when the user has
