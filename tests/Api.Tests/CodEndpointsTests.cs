@@ -811,6 +811,29 @@ public class CodEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
     }
 
     [Fact]
+    public async Task MerchantSummary_ApiKeyCallerScopedForCodSettlementsRead_SeesOwnCollectedAmount()
+    {
+        var (staff, origin, destination, serviceTypeId, pickupRiderId, deliveryRiderId) = await SeedPortalOrgAsync("portal-summary-apikey");
+        var (merchantId, ownerEmail, password) = await CreateMerchantWithLoginAsync(staff, "portal-summary-apikey");
+        await BookAndCompleteCodDeliveryAsync(staff, merchantId, origin, destination, serviceTypeId, pickupRiderId, deliveryRiderId, 2500m);
+        var merchantClient = await LoginMerchantAsync(ownerEmail, password);
+        var createKeyResponse = await merchantClient.PostAsJsonAsync("/api/v1/merchant/api-keys",
+            new CreateApiKeyRequest(new[] { MerchantPermissionCatalog.CodSettlementsRead }));
+        createKeyResponse.EnsureSuccessStatusCode();
+        var apiKey = await createKeyResponse.Content.ReadFromJsonAsync<ApiKeyCreatedResponse>();
+
+        var apiKeyClient = _factory.CreateClient();
+        apiKeyClient.DefaultRequestHeaders.Add("X-Api-Key", apiKey!.PlaintextKey);
+
+        var response = await apiKeyClient.GetAsync("/api/v1/cod/merchant-summary");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var summary = await response.Content.ReadFromJsonAsync<MerchantCodSummaryResponse>();
+        Assert.Equal(2500m, summary!.CollectedNotSettled.Amount);
+        Assert.Equal(1, summary.CollectedNotSettled.Count);
+    }
+
+    [Fact]
     public async Task MerchantSummary_SecondMerchantSameOrg_SeesZero()
     {
         var (staff, origin, destination, serviceTypeId, pickupRiderId, deliveryRiderId) = await SeedPortalOrgAsync("portal-summary-b");

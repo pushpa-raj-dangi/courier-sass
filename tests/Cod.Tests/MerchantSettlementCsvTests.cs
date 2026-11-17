@@ -43,4 +43,17 @@ public class MerchantSettlementCsvTests
 
         Assert.StartsWith("'=HYPERLINK,", lines[1]);
     }
+
+    [Fact]
+    public void FileName_PeriodStartingAtNptMidnight_UsesNptDate()
+    {
+        var npt = TimeZoneInfo.CreateCustomTimeZone("Asia/Kathmandu", TimeSpan.FromMinutes(345), "Nepal Time", "Nepal Time");
+        // 2026-11-01 00:00 NPT is 2026-10-31 18:15 UTC; 2026-11-15 23:59 NPT is 2026-11-15 18:14 UTC.
+        var settlement = new MerchantSettlementResponse(Guid.NewGuid(), Guid.NewGuid(),
+            new DateTimeOffset(2026, 10, 31, 18, 15, 0, TimeSpan.Zero), new DateTimeOffset(2026, 11, 15, 18, 14, 0, TimeSpan.Zero),
+            0m, MerchantSettlementStatus.Created, null, new List<MerchantSettlementItemResponse>());
+
+        Assert.Equal("settlement-20261101-20261115.csv", MerchantSettlementCsv.FileName(settlement, npt));
+        Assert.Equal("settlement-20261031-20261115.csv", MerchantSettlementCsv.FileName(settlement, TimeZoneInfo.Utc));
+    }
 }

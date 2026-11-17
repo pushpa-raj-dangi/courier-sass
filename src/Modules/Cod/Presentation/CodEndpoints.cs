@@ -133,15 +133,24 @@ public static class CodEndpoints
             {
                 return Results.Forbid();
             }
-            var settlement = await service.GetMerchantSettlementByIdAsync(id, httpContext.User, httpContext.RequestAborted);
-            if (settlement is null)
+            MerchantSettlementResponse? settlement;
+            string fileName;
+            try
             {
-                return Results.NotFound();
+                settlement = await service.GetMerchantSettlementByIdAsync(id, httpContext.User, httpContext.RequestAborted);
+                if (settlement is null)
+                {
+                    return Results.NotFound();
+                }
+                fileName = await service.GetMerchantSettlementExportFileNameAsync(settlement, httpContext.RequestAborted);
+            }
+            catch (CodValidationException ex)
+            {
+                return ValidationFailed(ex);
             }
 
             httpContext.Response.ContentType = "text/csv; charset=utf-8";
-            httpContext.Response.Headers.ContentDisposition =
-                $"attachment; filename=\"settlement-{settlement.PeriodFrom:yyyyMMdd}-{settlement.PeriodTo:yyyyMMdd}.csv\"";
+            httpContext.Response.Headers.ContentDisposition = $"attachment; filename=\"{fileName}\"";
             await using var writer = new StreamWriter(httpContext.Response.Body, leaveOpen: true);
             foreach (var line in MerchantSettlementCsv.Lines(settlement))
             {
@@ -193,7 +202,10 @@ public static class CodEndpoints
         }
         catch (CodValidationException ex)
         {
-            return Results.BadRequest(new { error = new { code = "COD_VALIDATION_FAILED", message = ex.Message } });
+            return ValidationFailed(ex);
         }
     }
+
+    private static IResult ValidationFailed(CodValidationException ex) =>
+        Results.BadRequest(new { error = new { code = "COD_VALIDATION_FAILED", message = ex.Message } });
 }

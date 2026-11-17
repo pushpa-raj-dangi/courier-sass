@@ -358,4 +358,19 @@ public class CodServiceMerchantPortalTests
 
         Assert.Equal(MerchantCodState.Prepaid, result!.State);
     }
+
+    [Fact]
+    public async Task ExportFileName_UsesOrgTimeZoneDates()
+    {
+        await using var db = CreateContext();
+        var service = CreateService(db, Guid.NewGuid());
+        // NPT midnight 1 Oct = 18:15 UTC 30 Sep; NPT midnight 31 Oct = 18:15 UTC 30 Oct.
+        var settlement = new MerchantSettlementResponse(Guid.NewGuid(), Guid.NewGuid(),
+            new DateTimeOffset(2026, 9, 30, 18, 15, 0, TimeSpan.Zero), new DateTimeOffset(2026, 10, 30, 18, 15, 0, TimeSpan.Zero),
+            0m, MerchantSettlementStatus.Created, null, new List<MerchantSettlementItemResponse>());
+
+        var fileName = await service.GetMerchantSettlementExportFileNameAsync(settlement);
+
+        Assert.Equal("settlement-20261001-20261031.csv", fileName);
+    }
 }

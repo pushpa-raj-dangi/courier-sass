@@ -22,5 +22,16 @@ public static class MerchantSettlementCsv
         return CsvWriter.WriteLines(Headers, rows);
     }
 
+    /// <summary>
+    /// "settlement-yyyyMMdd-yyyyMMdd.csv" with the period dates in the organization's time zone —
+    /// a period starting at NPT midnight is stored as 18:15 UTC the previous day.
+    /// </summary>
+    public static string FileName(MerchantSettlementResponse settlement, TimeZoneInfo organizationTimeZone)
+    {
+        var from = TimeZoneInfo.ConvertTime(settlement.PeriodFrom, organizationTimeZone);
+        var to = TimeZoneInfo.ConvertTime(settlement.PeriodTo, organizationTimeZone);
+        return string.Create(CultureInfo.InvariantCulture, $"settlement-{from:yyyyMMdd}-{to:yyyyMMdd}.csv");
+    }
+
     private static string Fmt(decimal value) => value.ToString("0.00", CultureInfo.InvariantCulture);
 }

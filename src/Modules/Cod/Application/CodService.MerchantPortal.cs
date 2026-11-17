@@ -124,4 +124,13 @@ public partial class CodService
             ? new MerchantShipmentCodStatusResponse(MerchantCodState.Settled, settlement.Id, settlement.PeriodFrom, settlement.PeriodTo, settlement.SettledAt)
             : new MerchantShipmentCodStatusResponse(MerchantCodState.InSettlement, settlement.Id, settlement.PeriodFrom, settlement.PeriodTo, null);
     }
+
+    /// <summary>The export file name for a settlement, with its period dates in the organization's time zone.</summary>
+    public async Task<string> GetMerchantSettlementExportFileNameAsync(MerchantSettlementResponse settlement, CancellationToken cancellationToken = default)
+    {
+        var organizationId = _currentTenantProvider.OrganizationId
+            ?? throw new CodValidationException("No active organization context.");
+        var tz = await _organizationTimeZoneLookup.GetTimeZoneAsync(organizationId, cancellationToken);
+        return MerchantSettlementCsv.FileName(settlement, tz);
+    }
 }
