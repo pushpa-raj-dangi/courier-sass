@@ -88,6 +88,30 @@ describe("MerchantCodPage", () => {
     expect(screen.getByText("2 delivered COD parcels")).toBeInTheDocument();
   });
 
+  it("opens the sheet from a focusable period button", () => {
+    settlementMock.mockReturnValue(ok(settlement));
+    renderPage();
+    const row = screen.getAllByRole("row")[1];
+    const periodButton = within(row).getByRole("button");
+    periodButton.focus();
+    expect(periodButton).toHaveFocus();
+    fireEvent.click(periodButton);
+    expect(useMerchantSettlementPanelStore.getState().panel).toEqual({ mode: "detail", id: "st1" });
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("captions In settlement by settlement count, not parcels", () => {
+    renderPage();
+    expect(screen.getByText("2 settlements awaiting payout")).toBeInTheDocument();
+  });
+
+  it("singularises one delivered COD parcel in the sheet", () => {
+    settlementMock.mockReturnValue(ok({ ...settlement, items: [settlement.items[0]] }));
+    useMerchantSettlementPanelStore.setState({ panel: { mode: "detail", id: "st1" } });
+    renderPage();
+    expect(screen.getByText("1 delivered COD parcel")).toBeInTheDocument();
+  });
+
   it("keeps an accessible sheet title while loading", () => {
     useMerchantSettlementPanelStore.setState({ panel: { mode: "detail", id: "st1" } });
     settlementMock.mockReturnValue({ data: undefined, isLoading: true, isError: false, refetch: vi.fn() });

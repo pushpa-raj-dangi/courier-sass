@@ -9,6 +9,7 @@ import { DetailSkeleton } from "@/components/states/DetailSkeleton";
 import { StatusBadge } from "@/components/status-badge/StatusBadge";
 import { formatRs } from "@/features/cod/lib/codFormat";
 import { useMerchantSettlement } from "@/features/merchant-cod/hooks/useMerchantSettlement";
+import { deliveredCodParcelsCaption } from "@/features/merchant-cod/lib/codCopy";
 import { formatPeriod } from "@/features/merchant-cod/lib/formatPeriod";
 import { settlementExportUrl } from "@/features/merchant-cod/lib/settlementExportUrl";
 import { settlementTotals } from "@/features/merchant-cod/lib/settlementTotals";
@@ -47,7 +48,7 @@ export function MerchantSettlementDetailSheet() {
           </SheetHeader>
         )}
         <SheetDescription className={settlement ? undefined : "sr-only"}>
-          {settlement ? `${settlement.items.length} delivered COD parcels` : "Settlement details"}
+          {settlement ? deliveredCodParcelsCaption(settlement.items.length) : "Settlement details"}
         </SheetDescription>
 
         <div className="flex-1 space-y-5">

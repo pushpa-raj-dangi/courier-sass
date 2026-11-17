@@ -4,7 +4,7 @@ import { KpiTile } from "@/components/page/KpiTile";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatRs } from "@/features/cod/lib/codFormat";
 import { useMerchantCodSummary } from "@/features/merchant-cod/hooks/useMerchantCodSummary";
-import { formatDayMonth, plural, settlementsCaption } from "../lib/dashboardLogic";
+import { deliveredCodParcelsCaption, formatDayMonth, plural, settlementsCaption } from "../lib/dashboardLogic";
 import { SectionError } from "@/components/states/SectionError";
 
 export function MoneyBand() {
@@ -36,7 +36,7 @@ export function MoneyBand() {
         <span className="text-2xl font-semibold tabular-nums tracking-tight">
           {formatRs(data.collectedNotSettled.amount)}
         </span>
-        <span className="text-2xs opacity-90">{data.collectedNotSettled.count} delivered COD parcels</span>
+        <span className="text-2xs opacity-90">{deliveredCodParcelsCaption(data.collectedNotSettled.count)}</span>
       </div>
       <KpiTile
         label="In settlement"

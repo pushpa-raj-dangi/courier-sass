@@ -16,17 +16,22 @@ vi.mock("@/features/merchant-shipments/hooks/useMerchantServiceTypes", () => ({
   useMerchantServiceTypes: () => ({ data: [{ id: "s1", code: "Express", name: "Express" }] }),
 }));
 vi.mock("@/features/merchant-shipments/hooks/useMerchantShipmentQuote", () => ({
-  useMerchantShipmentQuote: () => ({ data: quoteData, isFetching: false }),
+  useMerchantShipmentQuote: () => ({ data: quoteData, isFetching: false, isError: quoteError, refetch: refetchQuote }),
 }));
+let quoteError = false;
+const refetchQuote = vi.fn();
 vi.mock("@/features/merchant-shipments/hooks/useCreateMerchantShipment", () => ({
   useCreateMerchantShipment: () => ({ mutateAsync }),
 }));
 vi.mock("@/features/branches/GeographyPicker", () => ({ GeographyPicker: () => <div data-testid="geo" /> }));
 
 import { MerchantShipmentCreateSheet } from "./MerchantShipmentCreateSheet";
+import { BookingPriceFooter } from "./BookingPriceFooter";
 
 beforeEach(() => {
   quoteData = undefined;
+  quoteError = false;
+  refetchQuote.mockReset();
   mutateAsync.mockReset();
 });
 
@@ -44,6 +49,26 @@ describe("MerchantShipmentCreateSheet", () => {
   it("disables the book button until a quote exists", () => {
     render(<MerchantShipmentCreateSheet />);
     expect(screen.getByRole("button", { name: "Book shipment" })).toBeDisabled();
+  });
+
+  it("explains a failed quote, retries it, and keeps Book disabled", () => {
+    quoteError = true;
+    render(<MerchantShipmentCreateSheet />);
+    expect(screen.getByRole("alert")).toHaveTextContent("Couldn't price this shipment");
+    expect(screen.getByRole("button", { name: "Book shipment" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(refetchQuote).toHaveBeenCalled();
+    expect(mutateAsync).not.toHaveBeenCalled();
+  });
+
+  it("labels the submit spinner Booking…", () => {
+    render(<BookingPriceFooter figures={null} isQuoting={false} isSubmitting onCancel={vi.fn()} />);
+    expect(screen.getByRole("status", { name: "Booking…" })).toBeInTheDocument();
+  });
+
+  it("shows no quote error when the quote is fine", () => {
+    render(<MerchantShipmentCreateSheet />);
+    expect(screen.queryByText("Couldn't price this shipment")).not.toBeInTheDocument();
   });
 
   it("shows the quote figures and a priced book button", () => {

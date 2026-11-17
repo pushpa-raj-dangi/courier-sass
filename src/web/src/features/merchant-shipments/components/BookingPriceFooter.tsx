@@ -8,6 +8,9 @@ import type { BookingFigures } from "@/features/merchant-shipments/lib/bookingFi
 interface Props {
   figures: BookingFigures | null;
   isQuoting: boolean;
+  /** The last quote request failed — shown with a retry; Book stays disabled until a quote exists. */
+  quoteFailed?: boolean;
+  onRetryQuote?: () => void;
   isSubmitting: boolean;
   onCancel: () => void;
 }
@@ -22,7 +25,7 @@ function Figure({ label, value, strong }: { label: string; value: string; strong
 }
 
 /** Sticky footer: server-computed figures (display only) above Cancel and the primary Book button. */
-export function BookingPriceFooter({ figures, isQuoting, isSubmitting, onCancel }: Props) {
+export function BookingPriceFooter({ figures, isQuoting, quoteFailed, onRetryQuote, isSubmitting, onCancel }: Props) {
   const money = (n: number | null | undefined) => (n == null ? "—" : formatRs(n));
   return (
     <div className="sticky bottom-0 space-y-3 border-t border-border bg-background px-6 py-4">
@@ -32,10 +35,19 @@ export function BookingPriceFooter({ figures, isQuoting, isSubmitting, onCancel 
         <Figure label="Your charge" value={money(figures?.charge)} />
         <Figure label="You receive" value={money(figures?.receive)} strong />
       </dl>
+      {quoteFailed && !isQuoting && (
+        // Not SectionError: its button has no type and would submit the booking form.
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-destructive">Couldn&apos;t price this shipment</p>
+          <Button type="button" variant="outline" size="sm" onClick={onRetryQuote}>
+            Try again
+          </Button>
+        </div>
+      )}
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
         <Button type="submit" disabled={isSubmitting || !figures || isQuoting}>
-          {isSubmitting ? <Spinner className="h-4 w-4" /> : figures ? `Book for ${formatRs(figures.charge)}` : "Book shipment"}
+          {isSubmitting ? <Spinner className="h-4 w-4" aria-label="Booking…" /> : figures ? `Book for ${formatRs(figures.charge)}` : "Book shipment"}
         </Button>
       </div>
     </div>

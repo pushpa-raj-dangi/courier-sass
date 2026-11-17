@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ALL_SHIPMENT_STATUSES } from "@/features/shipments/lib/statusGroups";
-import { MERCHANT_STATUS_GROUPS, MERCHANT_SHIPMENT_TABS, groupOf } from "./statusGroups";
+import { ACTIVE_RETURN_STATUSES, MERCHANT_STATUS_GROUPS, MERCHANT_SHIPMENT_TABS, groupOf } from "./statusGroups";
 
 describe("merchant status groups", () => {
   it("maps every status except Cancelled to exactly one group", () => {
@@ -14,6 +14,11 @@ describe("merchant status groups", () => {
     expect(groupOf("RtoDelivered")).toBe("returning");
     expect(groupOf("Cancelled")).toBeNull();
     expect(groupOf("Bogus")).toBeNull();
+  });
+
+  it("keeps RtoDelivered in the Returning tab but not in active returns", () => {
+    expect(MERCHANT_STATUS_GROUPS.returning.statuses).toContain("RtoDelivered");
+    expect(ACTIVE_RETURN_STATUSES).toEqual(["RtoInitiated", "RtoInTransit", "RtoAtOrigin"]);
   });
 
   it("lists tabs in order", () => {

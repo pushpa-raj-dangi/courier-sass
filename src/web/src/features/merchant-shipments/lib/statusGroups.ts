@@ -23,7 +23,13 @@ export const MERCHANT_STATUS_GROUPS: Record<MerchantStatusGroup, { label: string
   delivered: { label: "Delivered", statuses: ["Delivered", "DeliveredAbroad"] },
 };
 
-export type MerchantShipmentTab = "all" | MerchantStatusGroup;
+/**
+ * Returns still on their way back — the "returning" group minus terminal RtoDelivered.
+ * Used only by the dashboard attention row so it clears once returns land; the Returning tab keeps RtoDelivered.
+ */
+export const ACTIVE_RETURN_STATUSES: readonly string[] = ["RtoInitiated", "RtoInTransit", "RtoAtOrigin"];
+
+export type MerchantShipmentTab ="all" | MerchantStatusGroup;
 
 export const MERCHANT_SHIPMENT_TABS: readonly MerchantShipmentTab[] = [
   "all", "booked", "inTransit", "outForDelivery", "needsAttention", "returning", "delivered",

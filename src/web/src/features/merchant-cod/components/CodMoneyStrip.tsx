@@ -5,6 +5,7 @@ import { SectionError } from "@/components/states/SectionError";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { formatRs } from "@/features/cod/lib/codFormat";
+import { plural, settlementsCaption } from "@/features/merchant-cod/lib/codCopy";
 import { useMerchantCodSummary } from "@/features/merchant-cod/hooks/useMerchantCodSummary";
 
 interface Step {
@@ -16,10 +17,6 @@ interface Step {
   highlighted?: boolean;
 }
 
-function plural(n: number, one: string, many: string) {
-  return `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
-}
-
 /** Where the merchant's COD money is: collected › in settlement › settled this month. */
 export function CodMoneyStrip() {
   const { data, isLoading, isError, refetch } = useMerchantCodSummary();
@@ -29,20 +26,20 @@ export function CodMoneyStrip() {
       key: "collected",
       label: "Collected, not yet settled",
       amount: data?.collectedNotSettled.amount ?? null,
-      caption: data ? plural(data.collectedNotSettled.count, "parcel", "parcels") : null,
+      caption: data ? plural(data.collectedNotSettled.count, "parcel") : null,
       highlighted: true,
     },
     {
       key: "in-settlement",
       label: "In settlement",
       amount: data?.inSettlement.amount ?? null,
-      caption: data ? plural(data.inSettlement.count, "parcel", "parcels") : null,
+      caption: data ? settlementsCaption(data.inSettlement.count) : null,
     },
     {
       key: "settled",
       label: "Settled this month",
       amount: data?.settledThisMonth.amount ?? null,
-      caption: data ? plural(data.settledThisMonth.payouts, "payout", "payouts") : null,
+      caption: data ? plural(data.settledThisMonth.payouts, "payout") : null,
     },
   ];
 

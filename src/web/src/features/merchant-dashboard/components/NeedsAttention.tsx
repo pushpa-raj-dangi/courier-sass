@@ -5,13 +5,18 @@ import { useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle } from "lucide-react";
 import { SectionCard } from "@/components/page/SectionCard";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useMerchantShipmentCounts } from "@/features/merchant-shipments/hooks/useMerchantShipmentCounts";
+import {
+  useMerchantActiveReturnsCount,
+  useMerchantShipmentCounts,
+} from "@/features/merchant-shipments/hooks/useMerchantShipmentCounts";
 import { attentionRows } from "../lib/dashboardLogic";
 import { SectionError } from "@/components/states/SectionError";
 
 export function NeedsAttention() {
   const queryClient = useQueryClient();
-  const { needsAttention, returning } = useMerchantShipmentCounts();
+  const { needsAttention } = useMerchantShipmentCounts();
+  // Active returns only (no RtoDelivered) so the row clears once returns land; the link still opens the Returning tab.
+  const returning = useMerchantActiveReturnsCount();
   const loading = needsAttention.isLoading || returning.isLoading;
 
   let body;

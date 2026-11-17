@@ -76,7 +76,7 @@ export function MerchantShipmentCreateSheet() {
           wantsInsurance: wantsInsurance ?? false,
         }
       : null;
-  const { data: quote, isFetching: isQuoting } = useMerchantShipmentQuote(quoteInput);
+  const { data: quote, isFetching: isQuoting, isError: quoteFailed, refetch: refetchQuote } = useMerchantShipmentQuote(quoteInput);
   // Read-only, server-computed figures — never editable, per CLAUDE.md §33.
   const figures = quote ? bookingFigures(quote, toSafeQuoteAmount(codAmount)) : null;
 
@@ -299,7 +299,14 @@ export function MerchantShipmentCreateSheet() {
 
               {serverError && <FieldError id="merchant-shipment-server-error">{serverError}</FieldError>}
             </div>
-            <BookingPriceFooter figures={figures} isQuoting={isQuoting} isSubmitting={isSubmitting} onCancel={close} />
+            <BookingPriceFooter
+              figures={figures}
+              isQuoting={isQuoting}
+              quoteFailed={quoteFailed}
+              onRetryQuote={() => refetchQuote()}
+              isSubmitting={isSubmitting}
+              onCancel={close}
+            />
           </form>
         </FormProvider>
       </SheetContent>

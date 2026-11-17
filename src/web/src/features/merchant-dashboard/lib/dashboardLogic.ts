@@ -1,4 +1,8 @@
-const dayMonth = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short" });
+import { plural } from "@/features/merchant-cod/lib/codCopy";
+
+export { plural, settlementsCaption, deliveredCodParcelsCaption } from "@/features/merchant-cod/lib/codCopy";
+
+const dayMonth =new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short" });
 
 /** Local hour: <12 morning, <17 afternoon, else evening. */
 export function greetingFor(hour: number): "morning" | "afternoon" | "evening" {
@@ -20,13 +24,6 @@ export function formatDayMonth(iso: string): string {
   return dayMonth.format(new Date(iso));
 }
 
-export function plural(n: number, singular: string, pluralForm = `${singular}s`): string {
-  return `${n} ${n === 1 ? singular : pluralForm}`;
-}
-
-export function settlementsCaption(count: number): string {
-  return `${plural(count, "settlement")} awaiting payout`;
-}
 
 export type AttentionRow = { key: "needsAttention" | "returning"; text: string };
 

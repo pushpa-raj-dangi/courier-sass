@@ -17,7 +17,9 @@ vi.mock("@/features/merchant-auth/hooks/useMerchantPermission", () => ({
 }));
 vi.mock("@/features/merchant-shipments/hooks/useMerchantShipmentCounts", () => ({
   useMerchantShipmentCounts: () => counts,
+  useMerchantActiveReturnsCount: () => activeReturns,
 }));
+let activeReturns: { count: number | null; isLoading: boolean } = { count: 2, isLoading: false };
 const recentItems = [
   { id: "1", awb: "AWB-001", recipientName: "Ram", currentStatus: "InTransit", codAmount: 1200, createdAt: "2026-11-10T05:00:00Z" },
   { id: "2", awb: "AWB-002", recipientName: "Sita", currentStatus: "Delivered", codAmount: 0, createdAt: "2026-11-11T05:00:00Z" },
@@ -68,6 +70,7 @@ beforeEach(() => {
     all: c(30), booked: c(3), inTransit: c(5), outForDelivery: c(2),
     needsAttention: c(1), returning: c(2), delivered: c(9),
   };
+  activeReturns = c(2);
 });
 
 describe("merchant dashboard", () => {
@@ -115,11 +118,39 @@ describe("merchant dashboard", () => {
     expect(screen.getByRole("link", { name: "2 returning to you" })).toHaveAttribute("href", "/merchant/shipments?tab=returning");
   });
 
-  it("says nothing needs attention when both counts are zero", () => {
+  it("says nothing needs attention when failed deliveries and active returns are both zero", () => {
     counts.needsAttention = c(0);
-    counts.returning = c(0);
+    // Returning tab still counts terminal RtoDelivered parcels; the attention row must ignore them.
+    counts.returning = c(5);
+    activeReturns = c(0);
     renderPage();
     expect(screen.getByText("Nothing needs you right now")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /returning to you/ })).not.toBeInTheDocument();
+  });
+
+  it("uses the active-returns count for the returning row", () => {
+    counts.returning = c(5);
+    activeReturns = c(3);
+    renderPage();
+    expect(screen.getByRole("link", { name: "3 returning to you" })).toHaveAttribute("href", "/merchant/shipments?tab=returning");
+  });
+
+  it("shows retry when the active-returns count failed", () => {
+    activeReturns = c(null);
+    renderPage();
+    expect(screen.queryByRole("link", { name: /returning to you/ })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Try again" }).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("singularises one delivered COD parcel and shows Prepaid for zero-COD recent rows", () => {
+    summaryHook.mockReturnValue({
+      data: { ...summaryData, collectedNotSettled: { amount: 500, count: 1 } },
+      isLoading: false, isError: false, refetch: refetchSummary,
+    });
+    renderPage();
+    expect(screen.getByText("1 delivered COD parcel")).toBeInTheDocument();
+    const row = screen.getByRole("button", { name: "AWB-002" }).closest("tr")!;
+    expect(row).toHaveTextContent("Prepaid");
   });
 
   it("opens the detail sheet from a recent shipment row", () => {

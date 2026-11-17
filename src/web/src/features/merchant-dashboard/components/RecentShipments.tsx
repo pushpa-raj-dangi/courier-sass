@@ -62,7 +62,7 @@ export function RecentShipments() {
                 <TableCell>
                   <StatusBadge status={s.currentStatus} namespace="Merchant" />
                 </TableCell>
-                <TableCell className="text-right tabular-nums">{formatRs(s.codAmount)}</TableCell>
+                <TableCell className="text-right tabular-nums">{s.codAmount > 0 ? formatRs(s.codAmount) : "Prepaid"}</TableCell>
                 <TableCell>{formatDate(s.createdAt)}</TableCell>
               </TableRow>
             ))}
