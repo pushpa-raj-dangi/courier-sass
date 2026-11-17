@@ -6,7 +6,7 @@ export default function TrackPage() {
     <div className="min-h-screen bg-background">
       <TrackingHeader />
       <main className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 py-16">
-        <span className="font-mono text-2xs uppercase tracking-[0.14em] text-muted-foreground">Track a parcel</span>
+        <span aria-hidden="true" className="font-mono text-2xs uppercase tracking-[0.14em] text-muted-foreground">Track a parcel</span>
         <h1 className="font-display text-3xl font-semibold tracking-tight text-foreground">Track a parcel</h1>
         <p className="text-base text-muted-foreground">Enter the AWB number from your receipt or SMS.</p>
         <TrackingSearchForm />

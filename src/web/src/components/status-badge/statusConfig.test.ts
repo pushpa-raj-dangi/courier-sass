@@ -17,6 +17,7 @@ describe("resolveStatusConfig — Public namespace", () => {
       Delivered: "Delivered",
       DeliveryAttemptUnsuccessful: "Delivery Attempt Unsuccessful",
       Cancelled: "Cancelled",
+      ReturningToSender: "Returning to Sender",
     };
     for (const [member, expectedLabel] of Object.entries(expectedLabels)) {
       const config = resolveStatusConfig(member, "Public");

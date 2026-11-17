@@ -7,6 +7,7 @@ import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FieldError } from "@/components/ui/field-error";
+import { cn } from "@/lib/utils";
 import { trackingSearchSchema, type TrackingSearchFormValues } from "@/features/tracking/schema";
 
 export function TrackingSearchForm({ defaultAwb }: { defaultAwb?: string }) {
@@ -26,7 +27,13 @@ export function TrackingSearchForm({ defaultAwb }: { defaultAwb?: string }) {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="w-full space-y-2" noValidate>
-      <div className="flex h-12 items-center gap-2 rounded-lg border border-input bg-card pl-3 pr-1 focus-within:ring-1 focus-within:ring-ring">
+      <div
+        data-invalid={errors.awb ? "true" : undefined}
+        className={cn(
+          "flex h-12 items-center gap-2 rounded-lg border bg-card pl-3 pr-1 focus-within:ring-1",
+          errors.awb ? "border-destructive focus-within:ring-destructive" : "border-input focus-within:ring-ring"
+        )}
+      >
         <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         <Input
           type="text"

@@ -15,8 +15,8 @@ import {
 function EmptyState({ icon: Icon, message }: { icon: LucideIcon; message: string }) {
   return (
     <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border p-10 text-center">
-      <Icon className="size-8 text-muted-foreground" strokeWidth={1.5} />
-      <p className="text-sm text-muted-foreground">{message}</p>
+      <Icon className="size-8 text-muted-foreground" strokeWidth={1.5} aria-hidden="true" />
+      <h1 className="text-sm font-normal text-muted-foreground">{message}</h1>
     </div>
   );
 }

@@ -16,4 +16,10 @@ describe("TrackPage", () => {
     expect(screen.getByText(/no account needed/i)).toBeInTheDocument();
     expect(container.querySelector('[data-testid="marketing-grid"]')).toBeNull();
   });
+
+  it("hides the duplicate eyebrow from assistive tech", () => {
+    render(<TrackPage />);
+    const eyebrow = screen.getAllByText("Track a parcel").find((el) => el.tagName !== "H1");
+    expect(eyebrow).toHaveAttribute("aria-hidden", "true");
+  });
 });

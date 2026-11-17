@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { Package } from "lucide-react";
-import { MarketingThemeToggle } from "@/features/marketing/components/MarketingThemeToggle";
+import { ArrowLeft, Package } from "lucide-react";
+import { ThemeToggle } from "@/components/layout/ThemeToggle";
 
 export function TrackingHeader({ showBack = false }: { showBack?: boolean }) {
   return (
@@ -15,12 +15,14 @@ export function TrackingHeader({ showBack = false }: { showBack?: boolean }) {
         {showBack && (
           <Link
             href="/track"
-            className="flex min-h-11 items-center px-2 text-sm text-muted-foreground hover:text-foreground"
+            aria-label="Track another parcel"
+            className="flex min-h-11 min-w-11 items-center justify-center gap-1.5 px-2 text-sm text-muted-foreground hover:text-foreground"
           >
-            Track another parcel
+            <ArrowLeft className="size-4" aria-hidden="true" />
+            <span className="hidden sm:inline">Track another parcel</span>
           </Link>
         )}
-        <MarketingThemeToggle />
+        <ThemeToggle className="h-11 w-11" />
       </div>
     </header>
   );

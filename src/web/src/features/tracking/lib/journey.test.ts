@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildJourney, formatEventTime } from "@/features/tracking/lib/journey";
+import { headlineFor } from "@/features/tracking/lib/statusMeta";
 import type {
   PublicTrackingResult,
   PublicTrackingStatus,
@@ -104,6 +105,65 @@ describe("buildJourney", () => {
     expect(steps).toHaveLength(1);
     expect(steps[0].stage).toBe("Received");
     expect(steps[0].state).toBe("done");
+  });
+
+  it("cancelled with no events yields no steps", () => {
+    expect(buildJourney(result("Cancelled", []))).toEqual([]);
+  });
+
+  it("returning to sender shows only reached stages, all done, and never a pending delivery", () => {
+    const steps = buildJourney(
+      result("ReturningToSender", [
+        ...base,
+        { status: "OutForDelivery" },
+        { status: "DeliveryAttemptUnsuccessful" },
+        { status: "ReturningToSender" },
+      ]),
+    );
+    expect(steps.map((s) => s.stage)).toEqual([
+      "Received",
+      "PickedUp",
+      "InTransit",
+      "AtDestinationBranch",
+      "OutForDelivery",
+    ]);
+    expect(steps.every((s) => s.state === "done")).toBe(true);
+    expect(steps.every((s) => !s.alert)).toBe(true);
+    expect(steps.some((s) => s.stage === "Delivered")).toBe(false);
+  });
+});
+
+describe("headlineFor", () => {
+  const ofd = (timestamp: string) =>
+    result("OutForDelivery", [{ status: "Received" }, { status: "OutForDelivery", timestamp }]);
+
+  it("says Arriving today when the latest OFD event is on the viewer's local today", () => {
+    // Local-time constructors keep this independent of the test runner's time zone.
+    const now = new Date(2026, 8, 30, 18, 0);
+    const sameDay = new Date(2026, 8, 30, 8, 0).toISOString();
+    expect(headlineFor(ofd(sameDay), now)).toBe("Arriving today");
+  });
+
+  it("falls back to Out for delivery when the OFD event was on an earlier day", () => {
+    const now = new Date(2026, 8, 30, 9, 0);
+    const yesterday = new Date(2026, 8, 29, 17, 0).toISOString();
+    expect(headlineFor(ofd(yesterday), now)).toBe("Out for delivery");
+  });
+
+  it("uses the latest OFD event on a reattempt", () => {
+    const now = new Date(2026, 8, 30, 12, 0);
+    const r = result("OutForDelivery", [
+      { status: "OutForDelivery", timestamp: new Date(2026, 8, 29, 9, 0).toISOString() },
+      { status: "DeliveryAttemptUnsuccessful", timestamp: new Date(2026, 8, 29, 12, 0).toISOString() },
+      { status: "OutForDelivery", timestamp: new Date(2026, 8, 30, 9, 0).toISOString() },
+    ]);
+    expect(headlineFor(r, now)).toBe("Arriving today");
+  });
+
+  it("uses the static headline for other statuses", () => {
+    const now = new Date(2026, 8, 30, 12, 0);
+    expect(headlineFor(result("ReturningToSender", []), now)).toBe("Returning to the seller");
+    expect(headlineFor(result("InTransit", []), now)).toBe("On its way");
   });
 });
 

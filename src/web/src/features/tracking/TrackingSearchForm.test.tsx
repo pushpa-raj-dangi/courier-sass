@@ -14,6 +14,20 @@ describe("TrackingSearchForm", () => {
     expect(await screen.findByText(/enter an awb number/i)).toBeInTheDocument();
   });
 
+  it("marks the input invalid and gives the wrapper an error border", async () => {
+    render(<TrackingSearchForm />);
+    const input = screen.getByLabelText("AWB number");
+    expect(input).toHaveAttribute("aria-invalid", "false");
+    expect(input.parentElement).not.toHaveClass("border-destructive");
+
+    fireEvent.click(screen.getByRole("button", { name: /track/i }));
+
+    await screen.findByText(/enter an awb number/i);
+    expect(input).toHaveAttribute("aria-invalid", "true");
+    expect(input.parentElement).toHaveClass("border-destructive");
+    expect(input.parentElement).toHaveAttribute("data-invalid", "true");
+  });
+
   it("navigates to the AWB's results page on submit", async () => {
     render(<TrackingSearchForm />);
 

@@ -39,8 +39,9 @@ function latestEvent(result: PublicTrackingResult, status: PublicTrackingStatus)
   return matches.length > 0 ? matches[matches.length - 1] : null;
 }
 
+// Terminal off-route statuses: no "now"/"next" — only the stages actually reached, all done.
 function currentIndex(status: PublicTrackingStatus): number | null {
-  if (status === "Cancelled") return null;
+  if (status === "Cancelled" || status === "ReturningToSender") return null;
   if (status === "DeliveryAttemptUnsuccessful") return OFD_INDEX;
   return JOURNEY_STAGES.indexOf(status);
 }

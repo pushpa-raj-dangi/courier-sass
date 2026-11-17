@@ -124,6 +124,7 @@ export const STATUS_CONFIG: Record<string, StatusConfigEntry> = {
   "Public.Delivered": { label: "Delivered", token: "status-delivered" },
   "Public.DeliveryAttemptUnsuccessful": { label: "Delivery Attempt Unsuccessful", token: "status-ndr" },
   "Public.Cancelled": { label: "Cancelled", token: "status-cancelled" },
+  "Public.ReturningToSender": { label: "Returning to Sender", token: "status-rto" },
 };
 
 export function resolveStatusConfig(status: string, namespace?: string): StatusConfigEntry {
