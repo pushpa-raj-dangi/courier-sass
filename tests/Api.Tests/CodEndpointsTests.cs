@@ -482,6 +482,57 @@ public class CodEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
     }
 
     [Fact]
+    public async Task SettlementExport_Merchant_ReturnsCsvWithHeaderAndTotal()
+    {
+        var staffClient = _factory.CreateClient();
+        var org = await RegisterOrgAsync(staffClient, "export-own");
+        staffClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (originBranchId, destinationBranchId, serviceTypeId) = await SeedBranchesAsync(staffClient);
+        var pickupRiderId = await CreateRiderAsync(staffClient, originBranchId, RiderRoleType.PickupRider);
+        var deliveryRiderId = await CreateRiderAsync(staffClient, destinationBranchId, RiderRoleType.DeliveryRider);
+        var (merchantId, ownerEmail, password) = await CreateMerchantWithLoginAsync(staffClient, "export-own");
+        var settlement = await SeedMerchantSettlementAsync(staffClient, merchantId, originBranchId, destinationBranchId, serviceTypeId, pickupRiderId, deliveryRiderId, 2500m);
+        var merchantClient = await LoginMerchantAsync(ownerEmail, password);
+
+        var response = await merchantClient.GetAsync($"/api/v1/cod/settlements/{settlement.Id}/export");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.StartsWith("text/csv", response.Content.Headers.ContentType!.ToString());
+        Assert.Contains("settlement-", response.Content.Headers.ContentDisposition!.ToString());
+        var lines = (await response.Content.ReadAsStringAsync()).Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
+        Assert.Equal("AWB,COD amount,Courier fee,Other deductions,Net payable", lines[0]);
+        Assert.StartsWith("Total,", lines[^1]);
+    }
+
+    [Fact]
+    public async Task SettlementExport_ForeignSettlement_Returns404()
+    {
+        var staffClient = _factory.CreateClient();
+        var org = await RegisterOrgAsync(staffClient, "export-foreign");
+        staffClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (originBranchId, destinationBranchId, serviceTypeId) = await SeedBranchesAsync(staffClient);
+        var pickupRiderId = await CreateRiderAsync(staffClient, originBranchId, RiderRoleType.PickupRider);
+        var deliveryRiderId = await CreateRiderAsync(staffClient, destinationBranchId, RiderRoleType.DeliveryRider);
+        var (merchantAId, _, _) = await CreateMerchantWithLoginAsync(staffClient, "export-foreign-a");
+        var settlementA = await SeedMerchantSettlementAsync(staffClient, merchantAId, originBranchId, destinationBranchId, serviceTypeId, pickupRiderId, deliveryRiderId, 2500m);
+        var (_, ownerEmailB, passwordB) = await CreateMerchantWithLoginAsync(staffClient, "export-foreign-b");
+        var merchantBClient = await LoginMerchantAsync(ownerEmailB, passwordB);
+
+        Assert.Equal(HttpStatusCode.NotFound, (await merchantBClient.GetAsync($"/api/v1/cod/settlements/{settlementA.Id}/export")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await merchantBClient.GetAsync($"/api/v1/cod/settlements/{Guid.NewGuid()}/export")).StatusCode);
+    }
+
+    [Fact]
+    public async Task SettlementExport_StaffToken_Returns403()
+    {
+        var staffClient = _factory.CreateClient();
+        var org = await RegisterOrgAsync(staffClient, "export-staff");
+        staffClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await staffClient.GetAsync($"/api/v1/cod/settlements/{Guid.NewGuid()}/export")).StatusCode);
+    }
+
+    [Fact]
     public async Task MerchantSettlements_MerchantJwt_NoSettlements_Returns200Empty()
     {
         var staffClient = _factory.CreateClient();

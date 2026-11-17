@@ -127,6 +127,30 @@ public static class CodEndpoints
             return result is null ? Results.NotFound() : Results.Ok(result);
         }).RequireMerchantPermissionAnyCredential(MerchantPermissionCatalog.CodSettlementsRead);
 
+        merchantGroup.MapGet("/{id:guid}/export", async (Guid id, CodService service, HttpContext httpContext) =>
+        {
+            if (httpContext.User.GetMerchantId() is null)
+            {
+                return Results.Forbid();
+            }
+            var settlement = await service.GetMerchantSettlementByIdAsync(id, httpContext.User, httpContext.RequestAborted);
+            if (settlement is null)
+            {
+                return Results.NotFound();
+            }
+
+            httpContext.Response.ContentType = "text/csv; charset=utf-8";
+            httpContext.Response.Headers.ContentDisposition =
+                $"attachment; filename=\"settlement-{settlement.PeriodFrom:yyyyMMdd}-{settlement.PeriodTo:yyyyMMdd}.csv\"";
+            await using var writer = new StreamWriter(httpContext.Response.Body, leaveOpen: true);
+            foreach (var line in MerchantSettlementCsv.Lines(settlement))
+            {
+                await writer.WriteAsync(line);
+            }
+            await writer.FlushAsync();
+            return Results.Empty;
+        }).RequireMerchantPermissionAnyCredential(MerchantPermissionCatalog.CodSettlementsRead);
+
         // F15 R5b-1 merchant portal reads. Same auth chain as merchantGroup; the permission filter
         // rejects staff tokens (no merchant claim) with 403 before the service is reached.
         var portalGroup = app.MapGroup("/api/v1/cod")
