@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { attentionRows, firstName, greetingFor, sumCounts } from "./dashboardLogic";
+import { attentionRows, firstName, greetingFor, plural, sumCounts } from "./dashboardLogic";
 
 describe("dashboardLogic", () => {
   it("picks greeting by local hour", () => {
@@ -20,6 +20,11 @@ describe("dashboardLogic", () => {
   it("builds attention rows", () => {
     expect(attentionRows(0, 0)).toEqual([]);
     expect(attentionRows(2, 0).map((r) => r.text)).toEqual(["2 failed deliveries"]);
-    expect(attentionRows(null, 1).map((r) => r.text)).toEqual(["— failed deliveries", "1 returning to you"]);
+    expect(attentionRows(1, 1).map((r) => r.text)).toEqual(["1 failed delivery", "1 returning to you"]);
+  });
+  it("pluralises", () => {
+    expect(plural(1, "payout")).toBe("1 payout");
+    expect(plural(3, "payout")).toBe("3 payouts");
+    expect(plural(2, "failed delivery", "failed deliveries")).toBe("2 failed deliveries");
   });
 });

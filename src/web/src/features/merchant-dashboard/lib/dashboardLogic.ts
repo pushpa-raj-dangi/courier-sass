@@ -20,16 +20,21 @@ export function formatDayMonth(iso: string): string {
   return dayMonth.format(new Date(iso));
 }
 
+export function plural(n: number, singular: string, pluralForm = `${singular}s`): string {
+  return `${n} ${n === 1 ? singular : pluralForm}`;
+}
+
 export function settlementsCaption(count: number): string {
-  return `${count} ${count === 1 ? "settlement" : "settlements"} awaiting payout`;
+  return `${plural(count, "settlement")} awaiting payout`;
 }
 
 export type AttentionRow = { key: "needsAttention" | "returning"; text: string };
 
-/** Rows to show; empty when both counts are known to be zero. Unknown counts render as "—". */
-export function attentionRows(needsAttention: number | null, returning: number | null): AttentionRow[] {
+/** Rows to show for known counts; empty when both are zero. Callers handle unknown (null) counts as an error. */
+export function attentionRows(needsAttention: number, returning: number): AttentionRow[] {
   const rows: AttentionRow[] = [];
-  if (needsAttention !== 0) rows.push({ key: "needsAttention", text: `${needsAttention ?? "—"} failed deliveries` });
-  if (returning !== 0) rows.push({ key: "returning", text: `${returning ?? "—"} returning to you` });
+  if (needsAttention > 0)
+    rows.push({ key: "needsAttention", text: `${plural(needsAttention, "failed delivery", "failed deliveries")}` });
+  if (returning > 0) rows.push({ key: "returning", text: `${returning} returning to you` });
   return rows;
 }

@@ -26,6 +26,11 @@ describe("merchant COD hooks", () => {
     expect(vi.mocked(global.fetch).mock.calls[0][0]).toBe("/api/merchant/cod/summary");
   });
 
+  it("summary makes no request when disabled", () => {
+    renderHook(() => useMerchantCodSummary({ enabled: false }), { wrapper });
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
   it("awaiting passes page and pageSize", async () => {
     const { result } = renderHook(() => useMerchantAwaiting(2), { wrapper });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));

@@ -26,7 +26,7 @@ export function RecentShipments() {
       }
     >
       {isLoading ? (
-        <Skeleton className="h-40 w-full" />
+        <Skeleton data-testid="dashboard-skeleton" className="h-40 w-full" />
       ) : isError ? (
         <ErrorState
           title="Couldn't load shipments"
@@ -34,7 +34,7 @@ export function RecentShipments() {
           onRetry={() => refetch()}
         />
       ) : items.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No shipments yet</p>
+        <p className="text-sm text-muted-foreground">No shipments yet — book your first one</p>
       ) : (
         <Table>
           <TableHeader>

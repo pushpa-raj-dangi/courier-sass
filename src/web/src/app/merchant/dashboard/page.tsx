@@ -50,7 +50,7 @@ export default function MerchantDashboardPage() {
       />
       {canReadCod && <MoneyBand />}
       <div className="grid gap-4 lg:grid-cols-3">
-        <ParcelsNow />
+        <ParcelsNow canReadCod={canReadCod} />
         <NeedsAttention />
       </div>
       <RecentShipments />
