@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/status-badge/StatusBadge";
 import { DataTable, type ColumnDef } from "@/components/data-table/DataTable";
 import { useMerchantPermission } from "@/features/merchant-auth/hooks/useMerchantPermission";
 import { useMerchantShipments } from "@/features/merchant-shipments/hooks/useMerchantShipments";
+import { EMPTY_MERCHANT_LIST_PARAMS } from "@/features/merchant-shipments/lib/listParams";
 import { useMerchantServiceTypes } from "@/features/merchant-shipments/hooks/useMerchantServiceTypes";
 import { useMerchantShipmentPanelStore } from "@/features/merchant-shipments/store/merchantShipmentPanelStore";
 import type { Shipment } from "@/features/merchant-shipments/types";
@@ -22,7 +23,7 @@ const currencyFormatter = new Intl.NumberFormat("en-NP", {
 export default function MerchantShipmentsPage() {
   const [page, setPage] = useState(1);
   const pageSize = 20;
-  const { data, isLoading, isError, refetch } = useMerchantShipments(page, pageSize);
+  const { data, isLoading, isError, refetch } = useMerchantShipments({ ...EMPTY_MERCHANT_LIST_PARAMS, page }, pageSize);
   const { data: serviceTypes } = useMerchantServiceTypes();
   const canCreate = useMerchantPermission("shipment.create");
   const openCreate = useMerchantShipmentPanelStore((s) => s.openCreate);

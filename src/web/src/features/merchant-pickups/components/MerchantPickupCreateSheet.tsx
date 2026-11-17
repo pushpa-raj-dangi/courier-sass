@@ -12,6 +12,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Spinner } from "@/components/ui/spinner";
 import { FieldError } from "@/components/ui/field-error";
 import { useMerchantShipments } from "@/features/merchant-shipments/hooks/useMerchantShipments";
+import { EMPTY_MERCHANT_LIST_PARAMS } from "@/features/merchant-shipments/lib/listParams";
 import { useCreateMerchantPickup } from "@/features/merchant-pickups/hooks/useCreateMerchantPickup";
 import { useMerchantPickupPanelStore } from "@/features/merchant-pickups/store/merchantPickupPanelStore";
 import { createMerchantPickupSchema, type CreateMerchantPickupFormValues } from "@/features/merchant-pickups/schema";
@@ -24,7 +25,7 @@ export function MerchantPickupCreateSheet() {
   const createPickup = useCreateMerchantPickup();
   // First page is enough to populate the picker — a merchant with more than 20 freshly-booked,
   // not-yet-picked-up shipments waiting at once is a scale this phase doesn't need to solve for.
-  const { data: shipments } = useMerchantShipments(1, 20);
+  const { data: shipments } = useMerchantShipments(EMPTY_MERCHANT_LIST_PARAMS, 20);
   const bookedShipments = (shipments?.items ?? []).filter((s) => s.currentStatus === "Created");
   const [serverError, setServerError] = useState<string | null>(null);
 

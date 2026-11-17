@@ -111,6 +111,33 @@ export const STATUS_CONFIG: Record<string, StatusConfigEntry> = {
   "Kyc.Approved": { label: "Approved", token: "status-delivered" },
   "Kyc.Rejected": { label: "Rejected", token: "status-cancelled" },
 
+  // ShipmentStatus in merchant vocabulary (R5b-1) — namespaced "Merchant.X" because the merchant
+  // portal collapses internal branch/sort steps and renames returns ("Returning to you").
+  "Merchant.Created": { label: "Booked", token: "status-created" },
+  "Merchant.PickupAssigned": { label: "Booked", token: "status-created" },
+  "Merchant.PickedUp": { label: "Picked up", token: "status-in-transit" },
+  "Merchant.AtOriginBranch": { label: "In transit", token: "status-in-transit" },
+  "Merchant.Sorted": { label: "In transit", token: "status-in-transit" },
+  "Merchant.InTransit": { label: "In transit", token: "status-in-transit" },
+  "Merchant.CustomsPrepared": { label: "In transit", token: "status-in-transit" },
+  "Merchant.HandedToCarrier": { label: "In transit", token: "status-in-transit" },
+  "Merchant.InInternationalTransit": { label: "In transit", token: "status-in-transit" },
+  "Merchant.CustomsHold": { label: "In transit", token: "status-in-transit" },
+  "Merchant.CustomsClearance": { label: "In transit", token: "status-in-transit" },
+  "Merchant.ReceivedFromCarrier": { label: "In transit", token: "status-in-transit" },
+  "Merchant.AtDestinationBranch": { label: "At destination branch", token: "status-in-transit" },
+  "Merchant.OutForDelivery": { label: "Out for delivery", token: "status-out-for-delivery" },
+  "Merchant.DeliveryFailed": { label: "Delivery failed", token: "status-ndr" },
+  "Merchant.NdrCreated": { label: "Delivery failed", token: "status-ndr" },
+  "Merchant.InternationalException": { label: "Delivery failed", token: "status-ndr" },
+  "Merchant.RtoInitiated": { label: "Returning to you", token: "status-rto" },
+  "Merchant.RtoInTransit": { label: "Returning to you", token: "status-rto" },
+  "Merchant.RtoAtOrigin": { label: "Returning to you", token: "status-rto" },
+  "Merchant.RtoDelivered": { label: "Returned to you", token: "status-rto" },
+  "Merchant.Delivered": { label: "Delivered", token: "status-delivered" },
+  "Merchant.DeliveredAbroad": { label: "Delivered", token: "status-delivered" },
+  "Merchant.Cancelled": { label: "Cancelled", token: "status-cancelled" },
+
   // PublicTrackingStatus — the anonymous /track/{awb} surface (Frontend Phase F11). Namespaced
   // ("Public.X") on the same principle as every other multi-enum status set in this file, even
   // though most member names would otherwise collide outright with ShipmentStatus's own keys

@@ -5,23 +5,35 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { findActiveItem } from "@/components/console/navModel";
 import { useMerchantNavGroups } from "./useMerchantNavGroups";
 
-function mockSession(permissions: string[]) {
-  global.fetch = vi.fn().mockResolvedValue({
-    ok: true,
-    status: 200,
-    json: async () => ({
-      merchantUserId: "mu1",
-      merchantId: "m1",
-      organizationId: "o1",
-      merchantDisplayName: "Acme Traders",
-      email: "owner@acme.test",
-      fullName: "Owner Person",
-      role: "Owner",
-      permissions,
-      kycStatus: "Pending",
-    }),
+function mockSession(permissions: string[], needsAttention = 0) {
+  global.fetch = vi.fn().mockImplementation(async (url: string) => {
+    if (url.includes("/api/merchant/shipments")) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ items: [], page: 1, pageSize: 1, totalCount: needsAttention, totalPages: 1 }),
+      };
+    }
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        merchantUserId: "mu1",
+        merchantId: "m1",
+        organizationId: "o1",
+        merchantDisplayName: "Acme Traders",
+        email: "owner@acme.test",
+        fullName: "Owner Person",
+        role: "Owner",
+        permissions,
+        kycStatus: "Pending",
+      }),
+    };
   }) as unknown as typeof fetch;
 }
+
+const shipmentsBadge = (groups: { items: { label: string; badge?: unknown }[] }[]) =>
+  groups.flatMap((g) => g.items).find((i) => i.label === "Shipments")?.badge;
 
 function wrapper() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -73,5 +85,33 @@ describe("useMerchantNavGroups", () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     const active = findActiveItem("/merchant/shipments/abc", result.current.groups);
     expect(active?.item.label).toBe("Shipments");
+  });
+
+  it("shows the needs-attention count on Shipments", async () => {
+    mockSession(["shipment.read"], 3);
+    const { result } = renderHook(() => useMerchantNavGroups(), { wrapper: wrapper() });
+
+    await waitFor(() => expect(shipmentsBadge(result.current.groups)).toBe(3));
+  });
+
+  it("shows no badge at zero count", async () => {
+    mockSession(["shipment.read"], 0);
+    const { result } = renderHook(() => useMerchantNavGroups(), { wrapper: wrapper() });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    await waitFor(() =>
+      expect((global.fetch as unknown as { mock: { calls: string[][] } }).mock.calls.some((c) => c[0].includes("/api/merchant/shipments"))).toBe(true)
+    );
+    await new Promise((r) => setTimeout(r, 50));
+    expect(shipmentsBadge(result.current.groups)).toBeUndefined();
+  });
+
+  it("shows no badge without shipment.read and never requests the count", async () => {
+    mockSession(["merchant.cod.read"], 5);
+    const { result } = renderHook(() => useMerchantNavGroups(), { wrapper: wrapper() });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(result.current.groups.flatMap((g) => g.items).every((i) => i.badge === undefined)).toBe(true);
   });
 });

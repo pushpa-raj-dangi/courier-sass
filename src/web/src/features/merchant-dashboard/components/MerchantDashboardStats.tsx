@@ -1,6 +1,7 @@
 "use client";
 
 import { useMerchantShipments } from "@/features/merchant-shipments/hooks/useMerchantShipments";
+import { EMPTY_MERCHANT_LIST_PARAMS } from "@/features/merchant-shipments/lib/listParams";
 import { useMerchantSettlements } from "@/features/merchant-cod/hooks/useMerchantSettlements";
 
 const currencyFormatter = new Intl.NumberFormat("en-NP", { style: "currency", currency: "NPR" });
@@ -20,7 +21,7 @@ function StatTile({ label, value }: { label: string; value: string }) {
 // settlement) — no new backend dashboard-aggregation endpoint, matching the design spec's
 // resolved "no new backend read needed" decision for this screen.
 export function MerchantDashboardStats() {
-  const { data: shipments } = useMerchantShipments(1, 100);
+  const { data: shipments } = useMerchantShipments(EMPTY_MERCHANT_LIST_PARAMS, 100);
   const { data: settlements } = useMerchantSettlements();
 
   const items = shipments?.items ?? [];
