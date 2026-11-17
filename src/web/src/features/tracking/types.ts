@@ -18,4 +18,6 @@ export interface PublicTrackingResult {
   awb: string;
   currentStatus: PublicTrackingStatus;
   events: PublicTrackingEvent[];
+  destinationArea: string | null;
+  senderName: string | null;
 }
