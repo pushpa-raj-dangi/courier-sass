@@ -87,7 +87,7 @@ public class CodServiceCollectionsTests
 
     private static CodService CreateService(TestDbContext dbContext, Guid organizationId, IOutboxWriter? outboxWriter = null) => new(
         dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), new AlwaysTrueBranchLookup(),
-        new AllBranchesAuthorizationChecker(), new AlwaysTrueMerchantLookup(), new AlwaysTrueShipmentAwbLookup(), outboxWriter ?? new RecordingOutboxWriter());
+        new AllBranchesAuthorizationChecker(), new AlwaysTrueMerchantLookup(), new AlwaysTrueShipmentAwbLookup(), outboxWriter ?? new RecordingOutboxWriter(), new FixedTimeZoneLookup(), new ZeroDeliveryLookup());
 
     [Fact]
     public async Task CreateExpectedAsync_PersistsRowWithCodExpectedStatus()

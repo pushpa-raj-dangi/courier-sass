@@ -39,18 +39,21 @@ async function fetchTracking(awb: string): Promise<PublicTrackingResult> {
 
 const TERMINAL_STATUSES = new Set<string>(["Delivered", "Cancelled"]);
 
-export function useTrackShipment(awb: string) {
+export function useTrackShipment(awb: string, options?: { poll?: boolean }) {
+  const poll = options?.poll ?? true;
   return useQuery({
     queryKey: ["track", awb],
     queryFn: () => fetchTracking(awb),
     enabled: awb !== "",
     retry: false,
-    refetchInterval: (query) => {
-      const data = query.state.data;
-      if (!data || TERMINAL_STATUSES.has(data.currentStatus)) {
-        return false;
-      }
-      return 15000;
-    },
+    refetchInterval: poll
+      ? (query) => {
+          const data = query.state.data;
+          if (!data || TERMINAL_STATUSES.has(data.currentStatus)) {
+            return false;
+          }
+          return 15000;
+        }
+      : false,
   });
 }

@@ -240,6 +240,8 @@ builder.Services.AddScoped<NdrService>();
 builder.Services.AddScoped<IShipmentReportingLookupService, ShipmentReportingLookupService>();
 builder.Services.AddScoped<Courier.Cod.Application.IShipmentAwbLookupService, ShipmentReportingLookupService>();
 builder.Services.AddScoped<IShipmentTaskBatchLookupService, ShipmentReportingLookupService>();
+builder.Services.AddScoped<Courier.Cod.Application.IShipmentDeliveryLookupService, ShipmentReportingLookupService>();
+builder.Services.AddScoped<Courier.SharedKernel.IOrganizationTimeZoneLookup, Courier.Identity.Application.OrganizationTimeZoneLookup>();
 builder.Services.AddScoped<IManifestReportingLookupService, ManifestReportingLookupService>();
 builder.Services.AddScoped<IRiderReportingLookupService, RiderReportingLookupService>();
 builder.Services.AddScoped<INdrReportingLookupService, NdrReportingLookupService>();

@@ -18,6 +18,32 @@ describe("useTrackShipment", () => {
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
+  it("sets no refetch interval when poll is false, and polls by default", async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers(),
+      json: async () => ({ awb: "AWB1", currentStatus: "InTransit", events: [] }),
+    });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const localWrapper = ({ children }: { children: React.ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+
+    const off = renderHook(() => useTrackShipment("AWB-OFF", { poll: false }), { wrapper: localWrapper });
+    const on = renderHook(() => useTrackShipment("AWB-ON"), { wrapper: localWrapper });
+    await waitFor(() => expect(off.result.current.isSuccess).toBe(true));
+    await waitFor(() => expect(on.result.current.isSuccess).toBe(true));
+
+    const intervalOf = (key: string) => {
+      const query = queryClient.getQueryCache().find({ queryKey: ["track", key] })!;
+      const interval = query.observers[0].options.refetchInterval;
+      return typeof interval === "function" ? interval(query) : interval;
+    };
+    expect(intervalOf("AWB-OFF")).toBe(false);
+    expect(intervalOf("AWB-ON")).toBe(15000);
+  });
+
   it("returns the tracking result on success", async () => {
     (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       ok: true,

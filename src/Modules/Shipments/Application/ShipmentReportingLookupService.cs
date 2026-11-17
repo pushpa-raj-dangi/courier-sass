@@ -8,7 +8,7 @@ namespace Courier.Shipments.Application;
 // (to create COD collections on delivery), so this is the one direction a Shipments->Cod interface
 // implementation can flow without a circular project reference; Cod declares the interface it
 // needs and this class (already holding the Shipment DbContext access) satisfies it.
-public class ShipmentReportingLookupService : IShipmentReportingLookupService, IShipmentAwbLookupService, IShipmentTaskBatchLookupService
+public class ShipmentReportingLookupService : IShipmentReportingLookupService, IShipmentAwbLookupService, IShipmentTaskBatchLookupService, IShipmentDeliveryLookupService
 {
     private readonly DbContext _dbContext;
 
@@ -200,6 +200,27 @@ public class ShipmentReportingLookupService : IShipmentReportingLookupService, I
             branchId => branchId,
             branchId => new BranchCustodyCounts(onHandByBranch.GetValueOrDefault(branchId), outForDeliveryByBranch.GetValueOrDefault(branchId)));
     }
+
+    // ShipmentEvent has no tenant query filter, so the events are intersected with the
+    // tenant-filtered Shipment set (restricted to the merchant) before counting.
+    public async Task<int> CountDeliveredAsync(
+        Guid merchantId, DateTimeOffset fromUtc, DateTimeOffset toUtc, CancellationToken ct = default)
+    {
+        var merchantShipmentIds = _dbContext.Set<Shipment>().AsNoTracking()
+            .Where(s => s.MerchantId == merchantId)
+            .Select(s => s.Id);
+
+        return await _dbContext.Set<ShipmentEvent>().AsNoTracking()
+            .Where(e => (e.EventType == ShipmentEventType.Delivered || e.EventType == ShipmentEventType.DeliveredAbroad)
+                && e.Timestamp >= fromUtc && e.Timestamp < toUtc
+                && merchantShipmentIds.Contains(e.ShipmentId))
+            .Select(e => e.ShipmentId)
+            .Distinct()
+            .CountAsync(ct);
+    }
+
+    public Task<bool> BelongsToMerchantAsync(Guid shipmentId, Guid merchantId, CancellationToken ct = default) =>
+        _dbContext.Set<Shipment>().AsNoTracking().AnyAsync(s => s.Id == shipmentId && s.MerchantId == merchantId, ct);
 
     public async Task<IReadOnlyDictionary<Guid, ShipmentTaskInfo>> GetTaskInfosAsync(
         IReadOnlySet<Guid> shipmentIds, CancellationToken cancellationToken = default)

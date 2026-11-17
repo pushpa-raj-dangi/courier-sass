@@ -126,6 +126,71 @@ public static class CodEndpoints
             var result = await service.GetMerchantSettlementByIdAsync(id, httpContext.User, httpContext.RequestAborted);
             return result is null ? Results.NotFound() : Results.Ok(result);
         }).RequireMerchantPermissionAnyCredential(MerchantPermissionCatalog.CodSettlementsRead);
+
+        merchantGroup.MapGet("/{id:guid}/export", async (Guid id, CodService service, HttpContext httpContext) =>
+        {
+            if (httpContext.User.GetMerchantId() is null)
+            {
+                return Results.Forbid();
+            }
+            MerchantSettlementResponse? settlement;
+            string fileName;
+            try
+            {
+                settlement = await service.GetMerchantSettlementByIdAsync(id, httpContext.User, httpContext.RequestAborted);
+                if (settlement is null)
+                {
+                    return Results.NotFound();
+                }
+                fileName = await service.GetMerchantSettlementExportFileNameAsync(settlement, httpContext.RequestAborted);
+            }
+            catch (CodValidationException ex)
+            {
+                return ValidationFailed(ex);
+            }
+
+            httpContext.Response.ContentType = "text/csv; charset=utf-8";
+            httpContext.Response.Headers.ContentDisposition = $"attachment; filename=\"{fileName}\"";
+            await using var writer = new StreamWriter(httpContext.Response.Body, leaveOpen: true);
+            foreach (var line in MerchantSettlementCsv.Lines(settlement))
+            {
+                await writer.WriteAsync(line);
+            }
+            await writer.FlushAsync();
+            return Results.Empty;
+        }).RequireMerchantPermissionAnyCredential(MerchantPermissionCatalog.CodSettlementsRead);
+
+        // F15 R5b-1 merchant portal reads. Same auth chain as merchantGroup; the permission filter
+        // rejects staff tokens (no merchant claim) with 403 before the service is reached.
+        var portalGroup = app.MapGroup("/api/v1/cod")
+            .RequireAuthorization(policy => policy
+                .AddAuthenticationSchemes(AuthSchemes.Bearer, AuthSchemes.ApiKey)
+                .RequireAssertion(ctx => ctx.User.Identity?.IsAuthenticated == true))
+            .RequireApiKeyRateLimit()
+            .WithTags("COD Management");
+
+        portalGroup.MapGet("/merchant-summary", async (CodService service, HttpContext httpContext) =>
+            await HandleMerchantAsync(httpContext, () => service.GetMerchantCodSummaryAsync(httpContext.User, DateTimeOffset.UtcNow, httpContext.RequestAborted)))
+            .RequireMerchantPermissionAnyCredential(MerchantPermissionCatalog.CodSettlementsRead);
+
+        portalGroup.MapGet("/merchant-awaiting", async (int? page, int? pageSize, CodService service, HttpContext httpContext) =>
+            await HandleMerchantAsync(httpContext, () => service.ListMerchantAwaitingAsync(page, pageSize, httpContext.User, httpContext.RequestAborted)))
+            .RequireMerchantPermissionAnyCredential(MerchantPermissionCatalog.CodSettlementsRead);
+
+        portalGroup.MapGet("/merchant-shipments/{shipmentId:guid}/cod-status", async (Guid shipmentId, CodService service, HttpContext httpContext) =>
+            await HandleMerchantAsync(httpContext, () => service.GetMerchantShipmentCodStatusAsync(shipmentId, httpContext.User, httpContext.RequestAborted)))
+            .RequireMerchantPermissionAnyCredential(MerchantPermissionCatalog.CodSettlementsRead);
+    }
+
+    // Explicit defence in depth for the merchant-only routes: a principal without a merchant_id is
+    // a 403 here, independent of the permission filter, never a 400 from the service.
+    private static async Task<IResult> HandleMerchantAsync<T>(HttpContext httpContext, Func<Task<T>> operation)
+    {
+        if (httpContext.User.GetMerchantId() is null)
+        {
+            return Results.Forbid();
+        }
+        return await HandleAsync(operation);
     }
 
     private static async Task<IResult> HandleAsync<T>(Func<Task<T>> operation)
@@ -137,7 +202,10 @@ public static class CodEndpoints
         }
         catch (CodValidationException ex)
         {
-            return Results.BadRequest(new { error = new { code = "COD_VALIDATION_FAILED", message = ex.Message } });
+            return ValidationFailed(ex);
         }
     }
+
+    private static IResult ValidationFailed(CodValidationException ex) =>
+        Results.BadRequest(new { error = new { code = "COD_VALIDATION_FAILED", message = ex.Message } });
 }

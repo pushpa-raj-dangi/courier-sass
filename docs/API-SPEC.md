@@ -58,6 +58,10 @@ POST   /api/v1/pickups/{id}/cancel       # cancel a pickup request
 
 GET    /api/v1/cod/settlements           # list own settlements
 GET    /api/v1/cod/settlements/{id}      # settlement detail + line items
+GET    /api/v1/cod/settlements/{id}/export        # settlement as CSV (F15 R5b-1)
+GET    /api/v1/cod/merchant-summary               # where my COD money is (F15 R5b-1)
+GET    /api/v1/cod/merchant-awaiting              # collected, not yet in a settlement (F15 R5b-1)
+GET    /api/v1/cod/merchant-shipments/{shipmentId}/cod-status   # one shipment's COD state (F15 R5b-1)
 
 GET    /api/v1/webhooks                  # list configured subscriptions
 POST   /api/v1/webhooks                  # register a webhook endpoint
@@ -75,12 +79,91 @@ All list/detail endpoints are implicitly scoped to the authenticated Merchant �
 to return.
 
 **Credential kinds accepted per route group.** `Shipments`, `Webhooks`, `Pickups`, and
-`GET /cod/settlements*` all accept *either* a merchant JWT (`Authorization: Bearer <jwt>`,
+`GET /cod/settlements*` (and the §3.1 merchant COD reads) all accept *either* a merchant JWT (`Authorization: Bearer <jwt>`,
 scheme `Bearer`) *or* an API key (scheme `ApiKey`) — both schemes are registered on those
 route groups and either credential, once resolved to a `(OrganizationId, MerchantId)` pair,
 is treated identically downstream. `POST/GET/DELETE /api/v1/merchant/api-keys` is the one
 deliberate exception: it stays JWT-only (`CLARIFICATIONS.md` #13's self-escalation
 carve-out) so a key can never create, list, or revoke another key — including itself.
+
+### 3.1 Merchant COD reads (F15 R5b-1)
+
+Four read-only routes behind the merchant portal's dashboard and COD page. Shared rules:
+
+* Auth: merchant JWT (`Bearer`) or API key (`X-Api-Key`), permission `merchant.cod.read`
+  (an API key must be scoped to it). Rate limited per API key like the rest of §3.
+* Staff tokens (no `merchant_id` claim) → `403`, checked before the service runs.
+* Scope is always the caller's own merchant plus the current organization, both taken from
+  the credential. Another merchant's settlement or shipment id → `404`, exactly like a
+  nonexistent id, so existence never leaks.
+* "Today" and "this month" are calendar days/months in the **organization's time zone**
+  (Nepal Time, UTC+05:45, by default), not UTC.
+* Errors use the §2 envelope; a missing tenant context is `400` `COD_VALIDATION_FAILED`.
+
+#### `GET /api/v1/cod/merchant-summary`
+
+```json
+{
+  "collectedNotSettled": { "amount": 61450.00, "count": 12 },
+  "inSettlement":        { "amount": 8000.00,  "count": 1 },
+  "settledThisMonth":    { "amount": 90000.00, "payouts": 3, "lastSettledAt": "2026-11-05T05:00:00Z" },
+  "deliveredToday":      { "parcels": 4, "codCollected": 5300.00 }
+}
+```
+
+* `collectedNotSettled` — collected amount and parcel count of COD collections that reached
+  `COD_COLLECTED` (or `RIDER_DEPOSITED` / `BRANCH_RECONCILED` / `FINANCE_VERIFIED`) and are not
+  yet in a merchant settlement.
+* `inSettlement` — Σ `totalPayable` and the number of **settlements** (not parcels) in status
+  `Created`, i.e. awaiting payout.
+* `settledThisMonth` — Σ `totalPayable` and count of `Settled` settlements whose `settledAt`
+  falls in the current org-time-zone month; `lastSettledAt` is the latest of them, or `null`.
+* `deliveredToday` — the merchant's shipments delivered today (org time zone) and the COD
+  collected today.
+
+#### `GET /api/v1/cod/merchant-awaiting?page=&pageSize=`
+
+The rows behind `collectedNotSettled`, newest collection first. `page` defaults to 1,
+`pageSize` to 25 (max 200). Response is the standard paged shape:
+
+```json
+{
+  "items": [
+    { "shipmentId": "…", "awb": "QA-900", "collectedAt": "2026-11-16T08:12:00Z",
+      "collectedAmount": 1200.00, "courierFee": 100.00, "net": 1100.00 }
+  ],
+  "page": 1, "pageSize": 25, "totalCount": 1, "totalPages": 1
+}
+```
+
+`courierFee` is the shipment's total charge fixed at booking; `net = collectedAmount − courierFee`.
+
+#### `GET /api/v1/cod/merchant-shipments/{shipmentId}/cod-status`
+
+```json
+{ "state": "InSettlement", "settlementId": "…", "periodFrom": "…", "periodTo": "…", "settledAt": null }
+```
+
+`state` is one of `Prepaid` (no COD on the shipment), `NotCollected`,
+`CollectedAwaitingSettlement`, `InSettlement`, `Settled`. `settlementId`, `periodFrom` and
+`periodTo` are set for `InSettlement` and `Settled`; `settledAt` only for `Settled`. A shipment
+that is not the caller's → `404`.
+
+#### `GET /api/v1/cod/settlements/{id}/export`
+
+The settlement as CSV (`text/csv; charset=utf-8`), served as an attachment named
+`settlement-yyyyMMdd-yyyyMMdd.csv`, with the period dates in the organization's time zone (a
+period starting at Nepal midnight is stored as 18:15 UTC the previous day but is named by its
+Nepal date). Columns:
+
+```text
+AWB,COD amount,Courier fee,Other deductions,Net payable
+```
+
+One row per settlement item, then a final `Total` row (Σ of each amount column; the net
+total is the settlement's `totalPayable`). Amounts use `0.00` with an invariant decimal
+point; lines end in CRLF. Text cells that would start a spreadsheet formula (`=`, `+`, `-`,
+`@`, tab, CR) are prefixed with `'`; plain negative numbers are left as-is.
 
 ## 4. Public Tracking
 

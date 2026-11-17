@@ -1,9 +1,13 @@
 using System.Text;
+using System.Text.RegularExpressions;
 
-namespace Courier.Reports.Infrastructure;
+namespace Courier.SharedKernel;
 
 public static class CsvWriter
 {
+    // A pure invariant-culture number cannot be a formula, so negative amounts stay numeric.
+    private static readonly Regex PlainNumber = new(@"^-?\d+(\.\d+)?\z", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
     public static string Write(IReadOnlyList<string> headers, IEnumerable<IReadOnlyList<string?>> rows)
     {
         var sb = new StringBuilder();
@@ -30,7 +34,7 @@ public static class CsvWriter
     private static string EscapeField(string? field)
     {
         field ??= string.Empty;
-        if (field.Length > 0 && "=+-@\t\r".Contains(field[0]))
+        if (field.Length > 0 && "=+-@\t\r".Contains(field[0]) && !PlainNumber.IsMatch(field))
         {
             field = "'" + field;
         }
