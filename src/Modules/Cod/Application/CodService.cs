@@ -19,6 +19,8 @@ public partial class CodService : ICodCollectionCreationService, ICodCollectionS
     private readonly IMerchantLookupService _merchantLookupService;
     private readonly IShipmentAwbLookupService _shipmentAwbLookupService;
     private readonly IOutboxWriter _outboxWriter;
+    private readonly IOrganizationTimeZoneLookup _organizationTimeZoneLookup;
+    private readonly IShipmentDeliveryLookupService _shipmentDeliveryLookupService;
 
     public CodService(
         DbContext dbContext,
@@ -28,8 +30,12 @@ public partial class CodService : ICodCollectionCreationService, ICodCollectionS
         IBranchAuthorizationChecker branchAuthorizationChecker,
         IMerchantLookupService merchantLookupService,
         IShipmentAwbLookupService shipmentAwbLookupService,
-        IOutboxWriter outboxWriter)
+        IOutboxWriter outboxWriter,
+        IOrganizationTimeZoneLookup organizationTimeZoneLookup,
+        IShipmentDeliveryLookupService shipmentDeliveryLookupService)
     {
+        _organizationTimeZoneLookup = organizationTimeZoneLookup;
+        _shipmentDeliveryLookupService = shipmentDeliveryLookupService;
         _dbContext = dbContext;
         _currentTenantProvider = currentTenantProvider;
         _auditLogger = auditLogger;

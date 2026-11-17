@@ -58,3 +58,22 @@ public record RiderCashHoldingResponse(
     Guid RiderId, Guid BranchId, int ParcelCount, decimal Amount, DateTimeOffset OldestCollectedAt, DateTimeOffset LatestCollectedAt);
 
 public record RiderCashResponse(List<RiderCashHoldingResponse> Items);
+
+// F15 R5b-1 merchant portal read models.
+public record MoneyBucket(decimal Amount, int Count);
+
+public record SettledBucket(decimal Amount, int Payouts, DateTimeOffset? LastSettledAt);
+
+public record DeliveredTodayBucket(int Parcels, decimal CodCollected);
+
+public record MerchantCodSummaryResponse(
+    MoneyBucket CollectedNotSettled, MoneyBucket InSettlement, SettledBucket SettledThisMonth, DeliveredTodayBucket DeliveredToday);
+
+public record MerchantAwaitingCollectionResponse(
+    Guid ShipmentId, string Awb, DateTimeOffset CollectedAt, decimal CollectedAmount, decimal CourierFee, decimal Net);
+
+[System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))]
+public enum MerchantCodState { Prepaid, NotCollected, CollectedAwaitingSettlement, InSettlement, Settled }
+
+public record MerchantShipmentCodStatusResponse(
+    MerchantCodState State, Guid? SettlementId, DateTimeOffset? PeriodFrom, DateTimeOffset? PeriodTo, DateTimeOffset? SettledAt);

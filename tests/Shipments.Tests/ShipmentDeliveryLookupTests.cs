@@ -90,4 +90,54 @@ public class ShipmentDeliveryLookupTests
         Assert.False(await service.BelongsToMerchantAsync(a1.Id, merchantB));
         Assert.False(await service.BelongsToMerchantAsync(Guid.NewGuid(), merchantA));
     }
+
+    [Fact]
+    public async Task Lookups_AreTenantScoped_ShipmentsOfAnotherOrganizationAreInvisible()
+    {
+        var tenant = new FixedTenantProvider();
+        await using var db = TestDbContextFactory.Create(tenant);
+        var orgOne = Guid.NewGuid();
+        var orgTwo = Guid.NewGuid();
+        var merchantOne = Guid.NewGuid();
+        var merchantTwo = Guid.NewGuid();
+        var branchesOne = (Guid.NewGuid(), Guid.NewGuid());
+        var branchesTwo = (Guid.NewGuid(), Guid.NewGuid());
+        foreach (var (org, merchant, branches) in new[] { (orgOne, merchantOne, branchesOne), (orgTwo, merchantTwo, branchesTwo) })
+        {
+            db.Add(new Courier.Identity.Domain.Organization { Id = org, Name = $"Org {org}", Slug = $"org-{org:N}" });
+            foreach (var (id, code) in new[] { (branches.Item1, "ORG"), (branches.Item2, "DST") })
+            {
+                db.Add(new Courier.Branches.Domain.Branch
+                {
+                    Id = id, OrganizationId = org, Code = code, Name = code, Type = Courier.Branches.Domain.BranchType.Hub,
+                    ProvinceId = ProvinceId, DistrictId = DistrictId, LocalLevelId = LocalLevelId, WardNumber = 1, AddressLine = "Addr"
+                });
+            }
+            db.Add(new Courier.Merchants.Domain.Merchant { Id = merchant, OrganizationId = org, LegalName = $"M {merchant}", DisplayName = $"M {merchant}" });
+        }
+        await db.SaveChangesAsync();
+
+        var from = DateTimeOffset.Parse("2026-10-05T00:00:00Z");
+        var to = DateTimeOffset.Parse("2026-10-06T00:00:00Z");
+        var mid = DateTimeOffset.Parse("2026-10-05T12:00:00Z");
+        var own = Build(orgOne, branchesOne.Item1, branchesOne.Item2, merchantOne, ShipmentStatus.Delivered);
+        var foreign = Build(orgTwo, branchesTwo.Item1, branchesTwo.Item2, merchantTwo, ShipmentStatus.Delivered);
+        // A shipment that sits in org two but names org one's merchant: tenant filtering alone must hide it.
+        var foreignSameMerchantValue = Build(orgTwo, branchesTwo.Item1, branchesTwo.Item2, merchantOne, ShipmentStatus.Delivered);
+        db.AddRange(own, foreign, foreignSameMerchantValue);
+        db.AddRange(
+            Evt(own.Id, ShipmentEventType.Delivered, mid),
+            Evt(foreign.Id, ShipmentEventType.Delivered, mid),
+            Evt(foreignSameMerchantValue.Id, ShipmentEventType.Delivered, mid));
+        await db.SaveChangesAsync();
+
+        tenant.OrganizationId = orgOne;
+        var service = new ShipmentReportingLookupService(db);
+
+        Assert.Equal(1, await service.CountDeliveredAsync(merchantOne, from, to));
+        Assert.Equal(0, await service.CountDeliveredAsync(merchantTwo, from, to));
+        Assert.True(await service.BelongsToMerchantAsync(own.Id, merchantOne));
+        Assert.False(await service.BelongsToMerchantAsync(foreign.Id, merchantTwo));
+        Assert.False(await service.BelongsToMerchantAsync(foreignSameMerchantValue.Id, merchantOne));
+    }
 }

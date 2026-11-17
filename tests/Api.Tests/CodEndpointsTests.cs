@@ -729,4 +729,114 @@ public class CodEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
         Assert.Equal(HttpStatusCode.Forbidden, (await merchantClient.GetAsync("/api/v1/cod/flow")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await merchantClient.GetAsync("/api/v1/cod/rider-cash")).StatusCode);
     }
+
+    // ---- F15 R5b-1: merchant portal summary / awaiting / per-shipment COD status ----
+
+    private async Task<(HttpClient Staff, Guid OriginBranchId, Guid DestinationBranchId, Guid ServiceTypeId, Guid PickupRiderId, Guid DeliveryRiderId)> SeedPortalOrgAsync(string label)
+    {
+        var staffClient = _factory.CreateClient();
+        var org = await RegisterOrgAsync(staffClient, label);
+        staffClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (originBranchId, destinationBranchId, serviceTypeId) = await SeedBranchesAsync(staffClient);
+        var pickupRiderId = await CreateRiderAsync(staffClient, originBranchId, RiderRoleType.PickupRider);
+        var deliveryRiderId = await CreateRiderAsync(staffClient, destinationBranchId, RiderRoleType.DeliveryRider);
+        return (staffClient, originBranchId, destinationBranchId, serviceTypeId, pickupRiderId, deliveryRiderId);
+    }
+
+    [Fact]
+    public async Task MerchantSummary_MerchantJwt_SeesOwnCollectedAmount()
+    {
+        var (staff, origin, destination, serviceTypeId, pickupRiderId, deliveryRiderId) = await SeedPortalOrgAsync("portal-summary");
+        var (merchantId, ownerEmail, password) = await CreateMerchantWithLoginAsync(staff, "portal-summary");
+        await BookAndCompleteCodDeliveryAsync(staff, merchantId, origin, destination, serviceTypeId, pickupRiderId, deliveryRiderId, 2500m);
+        var merchantClient = await LoginMerchantAsync(ownerEmail, password);
+
+        var response = await merchantClient.GetAsync("/api/v1/cod/merchant-summary");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var summary = await response.Content.ReadFromJsonAsync<MerchantCodSummaryResponse>();
+        Assert.Equal(2500m, summary!.CollectedNotSettled.Amount);
+        Assert.Equal(1, summary.CollectedNotSettled.Count);
+    }
+
+    [Fact]
+    public async Task MerchantSummary_SecondMerchantSameOrg_SeesZero()
+    {
+        var (staff, origin, destination, serviceTypeId, pickupRiderId, deliveryRiderId) = await SeedPortalOrgAsync("portal-summary-b");
+        var (merchantAId, _, _) = await CreateMerchantWithLoginAsync(staff, "portal-a");
+        var (_, ownerEmailB, passwordB) = await CreateMerchantWithLoginAsync(staff, "portal-b");
+        await BookAndCompleteCodDeliveryAsync(staff, merchantAId, origin, destination, serviceTypeId, pickupRiderId, deliveryRiderId, 2500m);
+        var merchantBClient = await LoginMerchantAsync(ownerEmailB, passwordB);
+
+        var summary = await (await merchantBClient.GetAsync("/api/v1/cod/merchant-summary")).Content.ReadFromJsonAsync<MerchantCodSummaryResponse>();
+        var awaiting = await (await merchantBClient.GetAsync("/api/v1/cod/merchant-awaiting")).Content.ReadFromJsonAsync<PagedResult<MerchantAwaitingCollectionResponse>>();
+
+        Assert.Equal(0m, summary!.CollectedNotSettled.Amount);
+        Assert.Equal(0, summary.CollectedNotSettled.Count);
+        Assert.Empty(awaiting!.Items);
+    }
+
+    [Fact]
+    public async Task MerchantSummary_StaffToken_Returns403()
+    {
+        var staffClient = _factory.CreateClient();
+        var org = await RegisterOrgAsync(staffClient, "portal-staff");
+        staffClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await staffClient.GetAsync("/api/v1/cod/merchant-summary")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await staffClient.GetAsync("/api/v1/cod/merchant-awaiting")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await staffClient.GetAsync($"/api/v1/cod/merchant-shipments/{Guid.NewGuid()}/cod-status")).StatusCode);
+    }
+
+    [Fact]
+    public async Task MerchantAwaiting_ListsOwnCollection_WithAwb()
+    {
+        var (staff, origin, destination, serviceTypeId, pickupRiderId, deliveryRiderId) = await SeedPortalOrgAsync("portal-awaiting");
+        var (merchantId, ownerEmail, password) = await CreateMerchantWithLoginAsync(staff, "portal-awaiting");
+        var shipment = await BookAndCompleteCodDeliveryAsync(staff, merchantId, origin, destination, serviceTypeId, pickupRiderId, deliveryRiderId, 2500m);
+        var merchantClient = await LoginMerchantAsync(ownerEmail, password);
+
+        var response = await merchantClient.GetAsync("/api/v1/cod/merchant-awaiting");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var page = await response.Content.ReadFromJsonAsync<PagedResult<MerchantAwaitingCollectionResponse>>();
+        var row = Assert.Single(page!.Items);
+        Assert.Equal(shipment.Id, row.ShipmentId);
+        Assert.Equal(shipment.Awb, row.Awb);
+        Assert.Equal(2500m, row.CollectedAmount);
+        Assert.Equal(row.CollectedAmount - row.CourierFee, row.Net);
+    }
+
+    [Fact]
+    public async Task MerchantCodStatus_ForeignShipment_Returns404()
+    {
+        var (staff, origin, destination, serviceTypeId, pickupRiderId, deliveryRiderId) = await SeedPortalOrgAsync("portal-foreign");
+        var (merchantAId, _, _) = await CreateMerchantWithLoginAsync(staff, "portal-foreign-a");
+        var (_, ownerEmailB, passwordB) = await CreateMerchantWithLoginAsync(staff, "portal-foreign-b");
+        var shipmentA = await BookAndCompleteCodDeliveryAsync(staff, merchantAId, origin, destination, serviceTypeId, pickupRiderId, deliveryRiderId, 2500m);
+        var merchantBClient = await LoginMerchantAsync(ownerEmailB, passwordB);
+
+        var foreign = await merchantBClient.GetAsync($"/api/v1/cod/merchant-shipments/{shipmentA.Id}/cod-status");
+        var missing = await merchantBClient.GetAsync($"/api/v1/cod/merchant-shipments/{Guid.NewGuid()}/cod-status");
+
+        Assert.Equal(HttpStatusCode.NotFound, foreign.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode);
+    }
+
+    [Fact]
+    public async Task MerchantCodStatus_AfterSettlement_ReturnsInSettlement()
+    {
+        var (staff, origin, destination, serviceTypeId, pickupRiderId, deliveryRiderId) = await SeedPortalOrgAsync("portal-status");
+        var (merchantId, ownerEmail, password) = await CreateMerchantWithLoginAsync(staff, "portal-status");
+        var settlement = await SeedMerchantSettlementAsync(staff, merchantId, origin, destination, serviceTypeId, pickupRiderId, deliveryRiderId, 2500m);
+        var shipmentId = settlement.Items.Single().ShipmentId;
+        var merchantClient = await LoginMerchantAsync(ownerEmail, password);
+
+        var response = await merchantClient.GetAsync($"/api/v1/cod/merchant-shipments/{shipmentId}/cod-status");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var status = await response.Content.ReadFromJsonAsync<MerchantShipmentCodStatusResponse>();
+        Assert.Equal(MerchantCodState.InSettlement, status!.State);
+        Assert.Equal(settlement.Id, status.SettlementId);
+    }
 }

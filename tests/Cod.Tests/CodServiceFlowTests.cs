@@ -80,7 +80,7 @@ public class CodServiceFlowTests
 
     private static CodService CreateService(TestDbContext dbContext, Guid organizationId, IBranchAuthorizationChecker checker) => new(
         dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), new NoBranchLookup(),
-        checker, new NoMerchantLookup(), new NoAwbLookup(), new NoopOutboxWriter());
+        checker, new NoMerchantLookup(), new NoAwbLookup(), new NoopOutboxWriter(), new FixedTimeZoneLookup(), new ZeroDeliveryLookup());
 
     private static void Seed(TestDbContext dbContext, Guid organizationId, Guid branchId, CodCollectionStatus status, decimal expected,
         decimal? collected = null, Guid? riderId = null, DateTimeOffset? createdAt = null, DateTimeOffset? collectedAt = null)

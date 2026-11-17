@@ -98,7 +98,7 @@ public class CodServiceReadsTests
 
     private static CodService CreateService(TestDbContext dbContext, Guid organizationId, IBranchAuthorizationChecker branchAuthorizationChecker) => new(
         dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), new AlwaysTrueBranchLookup(),
-        branchAuthorizationChecker, new AlwaysTrueMerchantLookup(), new AlwaysTrueShipmentAwbLookup(), new NoopOutboxWriter());
+        branchAuthorizationChecker, new AlwaysTrueMerchantLookup(), new AlwaysTrueShipmentAwbLookup(), new NoopOutboxWriter(), new FixedTimeZoneLookup(), new ZeroDeliveryLookup());
 
     private static async Task<CODCollection> SeedCollectionAsync(TestDbContext dbContext, Guid organizationId, Guid merchantId, Guid branchId, CodCollectionStatus status, decimal? collectedAmount)
     {

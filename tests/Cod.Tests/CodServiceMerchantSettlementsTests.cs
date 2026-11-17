@@ -84,7 +84,7 @@ public class CodServiceMerchantSettlementsTests
 
     private static CodService CreateService(TestDbContext dbContext, Guid organizationId) => new(
         dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), new AlwaysTrueBranchLookup(),
-        new AllBranchesAuthorizationChecker(), new AlwaysTrueMerchantLookup(), new AlwaysTrueShipmentAwbLookup(), new NoopOutboxWriter());
+        new AllBranchesAuthorizationChecker(), new AlwaysTrueMerchantLookup(), new AlwaysTrueShipmentAwbLookup(), new NoopOutboxWriter(), new FixedTimeZoneLookup(), new ZeroDeliveryLookup());
 
     private static async Task<CODCollection> SeedFinanceVerifiedAsync(TestDbContext dbContext, Guid organizationId, Guid merchantId, decimal codAmount, decimal totalCharge, DateTimeOffset collectedAt)
     {

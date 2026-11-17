@@ -92,7 +92,7 @@ public class CodServiceRiderSettlementsTests
 
     private static CodService CreateService(TestDbContext dbContext, Guid organizationId) => new(
         dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), new AlwaysTrueBranchLookup(),
-        new AllBranchesAuthorizationChecker(), new AlwaysTrueMerchantLookup(), new AlwaysTrueShipmentAwbLookup(), new NoopOutboxWriter());
+        new AllBranchesAuthorizationChecker(), new AlwaysTrueMerchantLookup(), new AlwaysTrueShipmentAwbLookup(), new NoopOutboxWriter(), new FixedTimeZoneLookup(), new ZeroDeliveryLookup());
 
     private static async Task<CODCollection> SeedCollectedAsync(TestDbContext dbContext, Guid organizationId, Guid riderId, Guid branchId, decimal amount)
     {

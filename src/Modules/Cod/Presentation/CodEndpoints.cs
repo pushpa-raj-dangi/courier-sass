@@ -126,6 +126,27 @@ public static class CodEndpoints
             var result = await service.GetMerchantSettlementByIdAsync(id, httpContext.User, httpContext.RequestAborted);
             return result is null ? Results.NotFound() : Results.Ok(result);
         }).RequireMerchantPermissionAnyCredential(MerchantPermissionCatalog.CodSettlementsRead);
+
+        // F15 R5b-1 merchant portal reads. Same auth chain as merchantGroup; the permission filter
+        // rejects staff tokens (no merchant claim) with 403 before the service is reached.
+        var portalGroup = app.MapGroup("/api/v1/cod")
+            .RequireAuthorization(policy => policy
+                .AddAuthenticationSchemes(AuthSchemes.Bearer, AuthSchemes.ApiKey)
+                .RequireAssertion(ctx => ctx.User.Identity?.IsAuthenticated == true))
+            .RequireApiKeyRateLimit()
+            .WithTags("COD Management");
+
+        portalGroup.MapGet("/merchant-summary", async (CodService service, HttpContext httpContext) =>
+            await HandleAsync(() => service.GetMerchantCodSummaryAsync(httpContext.User, DateTimeOffset.UtcNow, httpContext.RequestAborted)))
+            .RequireMerchantPermissionAnyCredential(MerchantPermissionCatalog.CodSettlementsRead);
+
+        portalGroup.MapGet("/merchant-awaiting", async (int? page, int? pageSize, CodService service, HttpContext httpContext) =>
+            await HandleAsync(() => service.ListMerchantAwaitingAsync(page, pageSize, httpContext.User, httpContext.RequestAborted)))
+            .RequireMerchantPermissionAnyCredential(MerchantPermissionCatalog.CodSettlementsRead);
+
+        portalGroup.MapGet("/merchant-shipments/{shipmentId:guid}/cod-status", async (Guid shipmentId, CodService service, HttpContext httpContext) =>
+            await HandleAsync(() => service.GetMerchantShipmentCodStatusAsync(shipmentId, httpContext.User, httpContext.RequestAborted)))
+            .RequireMerchantPermissionAnyCredential(MerchantPermissionCatalog.CodSettlementsRead);
     }
 
     private static async Task<IResult> HandleAsync<T>(Func<Task<T>> operation)
