@@ -24,4 +24,24 @@ public enum PublicTrackingStatus
 
 public record PublicTrackingEvent(PublicTrackingStatus Status, DateTime Timestamp, string? Location);
 
-public record PublicTrackingResponse(string Awb, PublicTrackingStatus CurrentStatus, List<PublicTrackingEvent> Events);
+public record PublicTrackingResponse(string Awb, PublicTrackingStatus CurrentStatus, List<PublicTrackingEvent> Events,
+    string? DestinationArea, string? SenderName);
+
+// Coarse destination only (municipality/district, or the free-text city for international
+// shipments) — never ward, street address, or phone. Geography wins over the free-text city.
+public static class PublicTrackingAreaFormatter
+{
+    public static string? Format(string? localLevelName, string? districtName, string? city)
+    {
+        var parts = new[] { localLevelName, districtName }
+            .Select(p => p?.Trim())
+            .Where(p => !string.IsNullOrEmpty(p))
+            .ToArray();
+        if (parts.Length > 0)
+        {
+            return string.Join(", ", parts);
+        }
+        var trimmedCity = city?.Trim();
+        return string.IsNullOrEmpty(trimmedCity) ? null : trimmedCity;
+    }
+}

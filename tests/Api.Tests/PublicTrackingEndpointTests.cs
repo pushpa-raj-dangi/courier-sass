@@ -308,6 +308,26 @@ public class PublicTrackingEndpointTests : IClassFixture<WebApplicationFactory<P
     }
 
     [Fact]
+    public async Task GetTrack_DomesticShipment_ReturnsDestinationAreaAndMerchantDisplayName()
+    {
+        var staffClient = _factory.CreateClient();
+        var org = await RegisterOrgAsync(staffClient, "area");
+        staffClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (originBranchId, destinationBranchId, serviceTypeId) = await SeedRoutableBranchesAsync(staffClient);
+        var merchantId = await CreateMerchantAsync(staffClient);
+        var pickupRiderId = await CreateRiderAsync(staffClient, originBranchId, RiderRoleType.PickupRider);
+        var shipment = await BookAndMoveToDestinationAsync(staffClient, merchantId, originBranchId, destinationBranchId, serviceTypeId, pickupRiderId);
+
+        var anonClient = _factory.CreateClient();
+        var response = await anonClient.GetAsync($"/track/{shipment.Awb}");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var tracking = JsonSerializer.Deserialize<PublicTrackingResponse>(await response.Content.ReadAsStringAsync(), CaseInsensitiveJson);
+
+        Assert.Equal("Kathmandu Metropolitan City, Kathmandu", tracking!.DestinationArea);
+        Assert.Equal("Shipper", tracking.SenderName);
+    }
+
+    [Fact]
     public async Task GetTrack_ResponseBody_NeverContainsInternalOrFinancialFieldsAtWireLevel()
     {
         var staffClient = _factory.CreateClient();
@@ -335,7 +355,10 @@ public class PublicTrackingEndpointTests : IClassFixture<WebApplicationFactory<P
         string[] forbiddenFields =
         {
             "branchid", "userid", "riderid", "latitude", "longitude",
-            "notes", "metadata", "codamount", "deliverycharge", "declaredvalue"
+            "notes", "metadata", "codamount", "deliverycharge", "declaredvalue",
+            "recipient one", "sender one", "9800000000", "9800000001",
+            "recipient address", "sender address", "shipper pvt",
+            "recipientphone", "addressline"
         };
         foreach (var field in forbiddenFields)
         {
