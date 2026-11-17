@@ -28,6 +28,15 @@ public class MerchantSettlementCsvTests
     }
 
     [Fact]
+    public void Lines_NegativeNet_IsNotGuarded()
+    {
+        var lines = MerchantSettlementCsv.Lines(Settlement(Item("NX-3", 50m, 100m))).ToList();
+
+        Assert.Equal("NX-3,50.00,100.00,0.00,-50.00\r\n", lines[1]);
+        Assert.Equal("Total,50.00,100.00,0.00,-50.00\r\n", lines[2]);
+    }
+
+    [Fact]
     public void Lines_GuardsFormulaInjectionInAwb()
     {
         var lines = MerchantSettlementCsv.Lines(Settlement(Item("=HYPERLINK", 100m, 10m))).ToList();

@@ -82,6 +82,29 @@ public class CsvWriterTests
     }
 
     [Theory]
+    [InlineData("-50.00")]
+    [InlineData("-7")]
+    [InlineData("2350.00")]
+    public void WriteLines_PlainNumber_IsNotGuarded(string number)
+    {
+        var lines = CsvWriter.WriteLines(
+            new[] { "Amount" },
+            new[] { (IReadOnlyList<string?>)new[] { number } }).ToList();
+
+        Assert.Equal(number + "\r\n", lines[1]);
+    }
+
+    [Fact]
+    public void WriteLines_NegativeExpressionThatIsNotAPlainNumber_IsStillGuarded()
+    {
+        var lines = CsvWriter.WriteLines(
+            new[] { "Amount" },
+            new[] { (IReadOnlyList<string?>)new[] { "-1+1" } }).ToList();
+
+        Assert.Equal("'-1+1\r\n", lines[1]);
+    }
+
+    [Theory]
     [InlineData("=cmd|'/c calc'!A1")]
     [InlineData("+1+1")]
     public void WriteLines_FieldStartingWithFormulaCharacter_IsPrefixedWithSingleQuote(string maliciousField)
