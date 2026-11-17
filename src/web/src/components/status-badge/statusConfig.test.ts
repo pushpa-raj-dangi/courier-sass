@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { resolveStatusConfig } from "./statusConfig";
+import { ALL_SHIPMENT_STATUSES } from "@/features/shipments/lib/statusGroups";
+import { resolveStatusConfig, STATUS_CONFIG } from "./statusConfig";
 
 describe("resolveStatusConfig — Public namespace", () => {
   it("resolves PublicTrackingStatus members to their own label, not ShipmentStatus's", () => {
@@ -23,5 +24,24 @@ describe("resolveStatusConfig — Public namespace", () => {
       const config = resolveStatusConfig(member, "Public");
       expect(config.label).toBe(expectedLabel);
     }
+  });
+});
+
+describe("resolveStatusConfig — Merchant namespace coverage", () => {
+  it("has an explicit Merchant. entry for every ShipmentStatus", () => {
+    for (const name of ALL_SHIPMENT_STATUSES) {
+      expect(STATUS_CONFIG[`Merchant.${name}`], name).toBeDefined();
+    }
+  });
+
+  it("uses merchant vocabulary for returns", () => {
+    expect(resolveStatusConfig("RtoDelivered", "Merchant").label).toBe("Returned to you");
+    expect(resolveStatusConfig("RtoInTransit", "Merchant").label).toBe("Returning to you");
+  });
+
+  it("spot-checks labels and tokens", () => {
+    expect(resolveStatusConfig("Created", "Merchant")).toEqual({ label: "Booked", token: "status-created" });
+    expect(resolveStatusConfig("InternationalException", "Merchant")).toEqual({ label: "Delivery failed", token: "status-ndr" });
+    expect(resolveStatusConfig("DeliveredAbroad", "Merchant")).toEqual({ label: "Delivered", token: "status-delivered" });
   });
 });

@@ -113,5 +113,7 @@ describe("useMerchantNavGroups", () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     await new Promise((r) => setTimeout(r, 50));
     expect(result.current.groups.flatMap((g) => g.items).every((i) => i.badge === undefined)).toBe(true);
+    const calls = (global.fetch as unknown as { mock: { calls: string[][] } }).mock.calls;
+    expect(calls.some((c) => c[0].includes("/api/merchant/shipments"))).toBe(false);
   });
 });
