@@ -91,7 +91,7 @@ export const STATUS_CONFIG: Record<string, StatusConfigEntry> = {
   // MerchantSettlementStatus — its own namespace (not "Cod.X") because its Settled member would
   // otherwise collide with CodCollectionStatus.Settled's key immediately above under one flat
   // Record.
-  "MerchantSettlement.Created": { label: "Created", token: "status-created" },
+  "MerchantSettlement.Created": { label: "Awaiting payout", token: "status-created" },
   "MerchantSettlement.Settled": { label: "Settled", token: "status-delivered" },
 
   // PickupRequestStatus — namespaced ("PickupRequest.X") for the same collision-avoidance

@@ -1,29 +1,28 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { ErrorState } from "@/components/states/ErrorState";
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { SectionCard } from "@/components/page/SectionCard";
+import { SheetHeaderBlock } from "@/components/page/SheetHeaderBlock";
+import { SectionError } from "@/components/states/SectionError";
 import { DetailSkeleton } from "@/components/states/DetailSkeleton";
 import { StatusBadge } from "@/components/status-badge/StatusBadge";
+import { formatRs } from "@/features/cod/lib/codFormat";
 import { useMerchantSettlement } from "@/features/merchant-cod/hooks/useMerchantSettlement";
+import { formatPeriod } from "@/features/merchant-cod/lib/formatPeriod";
+import { settlementExportUrl } from "@/features/merchant-cod/lib/settlementExportUrl";
+import { settlementTotals } from "@/features/merchant-cod/lib/settlementTotals";
 import { useMerchantSettlementPanelStore } from "@/features/merchant-cod/store/merchantSettlementPanelStore";
-import { toCsv } from "@/features/merchant-cod/lib/toCsv";
 
-const currencyFormatter = new Intl.NumberFormat("en-NP", { style: "currency", currency: "NPR" });
-
-function downloadCsv(filename: string, csv: string) {
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
+function Row({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <div className="flex items-center justify-between py-1.5 text-sm">
+      <dt className={strong ? "font-semibold text-foreground" : "text-muted-foreground"}>{label}</dt>
+      <dd className={strong ? "font-semibold tabular-nums text-foreground" : "tabular-nums text-foreground"}>{value}</dd>
+    </div>
+  );
 }
 
-// Doubles as the invoice view per the design spec's resolved decision — no separate Invoice
-// entity/entity exists, so this Sheet's own printable layout plus a CSV export of the already-
-// fetched settlement is the whole "invoice" feature.
 export function MerchantSettlementDetailSheet() {
   const panel = useMerchantSettlementPanelStore((s) => s.panel);
   const close = useMerchantSettlementPanelStore((s) => s.close);
@@ -31,103 +30,73 @@ export function MerchantSettlementDetailSheet() {
   const id = panel.mode === "detail" ? panel.id : "";
 
   const { data: settlement, isLoading, isError, refetch } = useMerchantSettlement(id);
-
-  function handleDownloadCsv() {
-    if (!settlement) return;
-    const csv = toCsv(
-      ["Shipment AWB", "COD Amount", "Courier Fee", "Other Deductions", "Net Payable"],
-      settlement.items.map((item) => [
-        item.shipmentAwb,
-        item.codAmount.toFixed(2),
-        item.courierFee.toFixed(2),
-        item.otherDeductions.toFixed(2),
-        item.netPayable.toFixed(2),
-      ])
-    );
-    downloadCsv(`settlement-${settlement.id}.csv`, csv);
-  }
+  const totals = settlement ? settlementTotals(settlement.items) : null;
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => { if (!open) close(); }}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-xl print:max-w-none print:overflow-visible">
-        <style>{`
-          @media print {
-            .merchant-invoice-no-print { display: none !important; }
-          }
-        `}</style>
-        <SheetHeader className="merchant-invoice-no-print">
-          <SheetTitle>Settlement Invoice</SheetTitle>
-        </SheetHeader>
-        <div className="mt-6 space-y-6">
+      <SheetContent className="flex w-full flex-col overflow-y-auto sm:max-w-xl">
+        {settlement ? (
+          <SheetHeaderBlock
+            eyebrow={`SETTLEMENT · ${formatPeriod(settlement.periodFrom, settlement.periodTo)}`}
+            title={formatRs(settlement.totalPayable)}
+            status={<StatusBadge status={settlement.status} namespace="MerchantSettlement" />}
+          />
+        ) : (
+          <SheetHeader>
+            <SheetTitle>Settlement</SheetTitle>
+          </SheetHeader>
+        )}
+        <SheetDescription className={settlement ? undefined : "sr-only"}>
+          {settlement ? `${settlement.items.length} delivered COD parcels` : "Settlement details"}
+        </SheetDescription>
+
+        <div className="flex-1 space-y-5">
           {isLoading && <DetailSkeleton fieldRows={2} />}
-          {isError && (
-            <ErrorState
-              title="Couldn't load this settlement"
-              description="It may not exist, or you may not have access to it."
-              onRetry={() => refetch()}
-            />
-          )}
-          {settlement && (
+          {isError && <SectionError message="Couldn't load this settlement." onRetry={() => refetch()} />}
+          {settlement && totals && (
             <>
-              <div className="flex gap-2 merchant-invoice-no-print">
-                <Button variant="outline" size="sm" onClick={() => window.print()}>
-                  Print
-                </Button>
-                <Button variant="outline" size="sm" onClick={handleDownloadCsv}>
-                  Download CSV
-                </Button>
-              </div>
+              <SectionCard title="How it adds up">
+                <dl className="divide-y divide-border">
+                  <Row label="COD collected" value={formatRs(totals.cod)} />
+                  <Row label="Courier fees" value={`− ${formatRs(totals.fees)}`} />
+                  {totals.other > 0 && <Row label="Other deductions" value={`− ${formatRs(totals.other)}`} />}
+                  <Row label="You receive" value={formatRs(totals.net)} strong />
+                </dl>
+              </SectionCard>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1">
-                  <span className="text-xs text-muted-foreground">Status</span>
-                  <StatusBadge status={settlement.status} namespace="MerchantSettlement" />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <span className="text-xs text-muted-foreground">Period</span>
-                  <span className="text-sm font-medium text-foreground">
-                    {new Date(settlement.periodFrom).toLocaleDateString()} – {new Date(settlement.periodTo).toLocaleDateString()}
-                  </span>
-                </div>
-                {settlement.settledAt && (
-                  <div className="flex flex-col gap-1">
-                    <span className="text-xs text-muted-foreground">Settled At</span>
-                    <span className="text-sm font-medium text-foreground">{new Date(settlement.settledAt).toLocaleString()}</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <span className="text-xs text-muted-foreground">Line Items</span>
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                      <th className="py-2">Shipment</th>
-                      <th className="py-2 text-right">COD Amount</th>
-                      <th className="py-2 text-right">Courier Fee</th>
-                      <th className="py-2 text-right">Net Payable</th>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border text-left text-2xs text-muted-foreground">
+                    <th className="py-2 font-medium">AWB</th>
+                    <th className="py-2 text-right font-medium">COD</th>
+                    <th className="py-2 text-right font-medium">Fee</th>
+                    <th className="py-2 text-right font-medium">Net</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {settlement.items.map((item) => (
+                    <tr key={item.id} className="border-b border-border/50">
+                      <td className="py-2 font-mono">{item.shipmentAwb}</td>
+                      <td className="py-2 text-right tabular-nums">{formatRs(item.codAmount)}</td>
+                      <td className="py-2 text-right tabular-nums">{formatRs(item.courierFee)}</td>
+                      <td className="py-2 text-right tabular-nums">{formatRs(item.netPayable)}</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {settlement.items.map((item) => (
-                      <tr key={item.id} className="border-b border-border/50">
-                        <td className="py-2">{item.shipmentAwb}</td>
-                        <td className="py-2 text-right">{currencyFormatter.format(item.codAmount)}</td>
-                        <td className="py-2 text-right">{currencyFormatter.format(item.courierFee)}</td>
-                        <td className="py-2 text-right">{currencyFormatter.format(item.netPayable)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="flex items-center justify-between border-t border-border pt-4">
-                <span className="text-sm font-semibold text-foreground">Total Payable</span>
-                <span className="text-lg font-semibold text-foreground">{currencyFormatter.format(settlement.totalPayable)}</span>
-              </div>
+                  ))}
+                </tbody>
+              </table>
             </>
           )}
         </div>
+
+        {settlement && (
+          <SheetFooter>
+            <Button asChild variant="outline">
+              <a href={settlementExportUrl(settlement.id)} download>
+                Download CSV
+              </a>
+            </Button>
+          </SheetFooter>
+        )}
       </SheetContent>
     </Sheet>
   );
