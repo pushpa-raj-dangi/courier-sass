@@ -17,7 +17,7 @@ export function ServiceTypeCards({ serviceTypes, value, onChange, invalid, descr
   return (
     <div
       role="radiogroup"
-      aria-label="Service type"
+      aria-labelledby="serviceType-label"
       aria-invalid={invalid || undefined}
       aria-describedby={describedBy}
       className="grid grid-cols-1 gap-2 sm:grid-cols-2"

@@ -10,7 +10,8 @@ export interface BookingFigures {
 
 /** Splits a server quote into the four footer figures. Display only — never sent back. */
 export function bookingFigures(quote: QuoteResponse, codAmount: number): BookingFigures {
-  const insurance = quote.appliedCharges
+  // Verified: AdditionalChargeType carries [JsonConverter(JsonStringEnumConverter)], so the wire value is "Insurance".
+  const insurance =quote.appliedCharges
     .filter((c) => String(c.type).toLowerCase() === "insurance")
     .reduce((sum, c) => sum + c.amount, 0);
   return {

@@ -54,6 +54,13 @@ describe("MerchantShipmentCreateSheet", () => {
     expect(screen.getByRole("button", { name: "Book for Rs 150" })).toBeEnabled();
   });
 
+  it("keeps the sender summary inside the service and payment section", () => {
+    render(<MerchantShipmentCreateSheet />);
+    const section = screen.getByText("03 · SERVICE AND PAYMENT").closest("section")!;
+    expect(section).toHaveTextContent(/Sender:/);
+    expect(screen.getByRole("radiogroup", { name: "Service type" })).toBeInTheDocument();
+  });
+
   it("reveals the sender fields on change", () => {
     render(<MerchantShipmentCreateSheet />);
     expect(screen.queryByLabelText("Sender name")).not.toBeInTheDocument();

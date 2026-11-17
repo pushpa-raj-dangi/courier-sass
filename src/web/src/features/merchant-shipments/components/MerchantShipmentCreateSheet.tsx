@@ -147,7 +147,6 @@ export function MerchantShipmentCreateSheet() {
                   />
                   {errors.recipientAddressLine && <FieldError id="recipientAddressLine-error">{errors.recipientAddressLine.message}</FieldError>}
                 </div>
-                <MerchantSenderSection />
               </section>
 
               <section className="space-y-4">
@@ -196,7 +195,7 @@ export function MerchantShipmentCreateSheet() {
               <section className="space-y-4">
                 <SectionEyebrow>03 · SERVICE AND PAYMENT</SectionEyebrow>
                 <div className="space-y-2">
-                  <Label>Service type</Label>
+                  <Label id="serviceType-label">Service type</Label>
                   <Controller
                     name="serviceTypeId"
                     control={control}
@@ -295,6 +294,7 @@ export function MerchantShipmentCreateSheet() {
                     <Label htmlFor="wantsInsurance">Insure this parcel</Label>
                   </div>
                 </div>
+                <MerchantSenderSection />
               </section>
 
               {serverError && <FieldError id="merchant-shipment-server-error">{serverError}</FieldError>}
