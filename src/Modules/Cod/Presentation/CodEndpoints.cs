@@ -137,16 +137,27 @@ public static class CodEndpoints
             .WithTags("COD Management");
 
         portalGroup.MapGet("/merchant-summary", async (CodService service, HttpContext httpContext) =>
-            await HandleAsync(() => service.GetMerchantCodSummaryAsync(httpContext.User, DateTimeOffset.UtcNow, httpContext.RequestAborted)))
+            await HandleMerchantAsync(httpContext, () => service.GetMerchantCodSummaryAsync(httpContext.User, DateTimeOffset.UtcNow, httpContext.RequestAborted)))
             .RequireMerchantPermissionAnyCredential(MerchantPermissionCatalog.CodSettlementsRead);
 
         portalGroup.MapGet("/merchant-awaiting", async (int? page, int? pageSize, CodService service, HttpContext httpContext) =>
-            await HandleAsync(() => service.ListMerchantAwaitingAsync(page, pageSize, httpContext.User, httpContext.RequestAborted)))
+            await HandleMerchantAsync(httpContext, () => service.ListMerchantAwaitingAsync(page, pageSize, httpContext.User, httpContext.RequestAborted)))
             .RequireMerchantPermissionAnyCredential(MerchantPermissionCatalog.CodSettlementsRead);
 
         portalGroup.MapGet("/merchant-shipments/{shipmentId:guid}/cod-status", async (Guid shipmentId, CodService service, HttpContext httpContext) =>
-            await HandleAsync(() => service.GetMerchantShipmentCodStatusAsync(shipmentId, httpContext.User, httpContext.RequestAborted)))
+            await HandleMerchantAsync(httpContext, () => service.GetMerchantShipmentCodStatusAsync(shipmentId, httpContext.User, httpContext.RequestAborted)))
             .RequireMerchantPermissionAnyCredential(MerchantPermissionCatalog.CodSettlementsRead);
+    }
+
+    // Explicit defence in depth for the merchant-only routes: a principal without a merchant_id is
+    // a 403 here, independent of the permission filter, never a 400 from the service.
+    private static async Task<IResult> HandleMerchantAsync<T>(HttpContext httpContext, Func<Task<T>> operation)
+    {
+        if (httpContext.User.GetMerchantId() is null)
+        {
+            return Results.Forbid();
+        }
+        return await HandleAsync(operation);
     }
 
     private static async Task<IResult> HandleAsync<T>(Func<Task<T>> operation)
