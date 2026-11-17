@@ -72,3 +72,24 @@ recipient/sender person names, COD/charges, or staff/rider ids.
 ## Non-goals
 
 ETA, stop number, OTP, COD, reschedule, support contact, merchant portal (R5b).
+
+## Changes after final review
+
+- New public status `ReturningToSender` (appended to `PublicTrackingStatus`, serialized by name).
+  `RtoInitiated`, `RtoInTransit`, `RtoAtOrigin` and `RtoDelivered` now map to it instead of
+  `DeliveryAttemptUnsuccessful`, so a returned parcel no longer reads "We missed you" with an
+  upcoming "Delivered" step. `DeliveryFailed`/`NdrCreated` still map to
+  `DeliveryAttemptUnsuccessful`. Web: label "Returning to Sender" (`status-rto`), headline
+  "Returning to the seller"; the journey shows only reached stages, all done, with no now/next
+  (same as `Cancelled`). The journey section is omitted when it would have no steps.
+- The status summary sentence is rendered under the headline only for
+  `DeliveryAttemptUnsuccessful` ("A delivery attempt was unsuccessful. We'll contact you or try
+  again.") and `ReturningToSender` ("This parcel is on its way back to the seller.").
+- "Arriving today" is shown only when the latest `OutForDelivery` event falls on the viewer's local
+  today; otherwise the headline is "Out for delivery" (`headlineFor(result, now)` in
+  `statusMeta.ts`).
+- Smaller fixes: status label in `text-foreground` (the coloured dot carries the status colour) for
+  contrast; app `ThemeToggle` in the header at a 44px target; icon-only "Track another parcel" link
+  below `sm`; error states render their message as the page h1; the landing eyebrow is
+  `aria-hidden`; the search box gets a destructive border when invalid; the merchant name lookup
+  also matches the shipment's organization.
