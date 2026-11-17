@@ -18,10 +18,10 @@ public class PublicTrackingStatusMapperTests
     [InlineData(ShipmentStatus.Delivered, PublicTrackingStatus.Delivered)]
     [InlineData(ShipmentStatus.DeliveryFailed, PublicTrackingStatus.DeliveryAttemptUnsuccessful)]
     [InlineData(ShipmentStatus.NdrCreated, PublicTrackingStatus.DeliveryAttemptUnsuccessful)]
-    [InlineData(ShipmentStatus.RtoInitiated, PublicTrackingStatus.DeliveryAttemptUnsuccessful)]
-    [InlineData(ShipmentStatus.RtoInTransit, PublicTrackingStatus.DeliveryAttemptUnsuccessful)]
-    [InlineData(ShipmentStatus.RtoAtOrigin, PublicTrackingStatus.DeliveryAttemptUnsuccessful)]
-    [InlineData(ShipmentStatus.RtoDelivered, PublicTrackingStatus.DeliveryAttemptUnsuccessful)]
+    [InlineData(ShipmentStatus.RtoInitiated, PublicTrackingStatus.ReturningToSender)]
+    [InlineData(ShipmentStatus.RtoInTransit, PublicTrackingStatus.ReturningToSender)]
+    [InlineData(ShipmentStatus.RtoAtOrigin, PublicTrackingStatus.ReturningToSender)]
+    [InlineData(ShipmentStatus.RtoDelivered, PublicTrackingStatus.ReturningToSender)]
     [InlineData(ShipmentStatus.Cancelled, PublicTrackingStatus.Cancelled)]
     public void Map_KnownStatus_ReturnsExpectedPublicStatus(ShipmentStatus input, PublicTrackingStatus expected)
     {

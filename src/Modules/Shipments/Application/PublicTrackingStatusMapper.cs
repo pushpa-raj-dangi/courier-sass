@@ -17,9 +17,11 @@ public static class PublicTrackingStatusMapper
         ShipmentStatus.AtDestinationBranch => PublicTrackingStatus.AtDestinationBranch,
         ShipmentStatus.OutForDelivery => PublicTrackingStatus.OutForDelivery,
         ShipmentStatus.Delivered or ShipmentStatus.DeliveredAbroad => PublicTrackingStatus.Delivered,
-        ShipmentStatus.DeliveryFailed or ShipmentStatus.NdrCreated or ShipmentStatus.RtoInitiated
-            or ShipmentStatus.RtoInTransit or ShipmentStatus.RtoAtOrigin or ShipmentStatus.RtoDelivered
-            => PublicTrackingStatus.DeliveryAttemptUnsuccessful,
+        ShipmentStatus.DeliveryFailed or ShipmentStatus.NdrCreated => PublicTrackingStatus.DeliveryAttemptUnsuccessful,
+        // A returned parcel will not reach the recipient — never imply a pending delivery.
+        ShipmentStatus.RtoInitiated or ShipmentStatus.RtoInTransit or ShipmentStatus.RtoAtOrigin
+            or ShipmentStatus.RtoDelivered
+            => PublicTrackingStatus.ReturningToSender,
         ShipmentStatus.Cancelled => PublicTrackingStatus.Cancelled,
         _ => throw new NotSupportedException($"ShipmentStatus '{status}' has no public tracking mapping.")
     };

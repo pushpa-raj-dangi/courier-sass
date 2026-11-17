@@ -19,7 +19,9 @@ public enum PublicTrackingStatus
     OutForDelivery,
     Delivered,
     DeliveryAttemptUnsuccessful,
-    Cancelled
+    Cancelled,
+    // Appended (not inserted) so existing member ordinals stay stable.
+    ReturningToSender
 }
 
 public record PublicTrackingEvent(PublicTrackingStatus Status, DateTime Timestamp, string? Location);

@@ -73,7 +73,7 @@ public class PublicTrackingService
         // request has no tenant context, hence IgnoreQueryFilters keyed by the already-resolved
         // shipment's own ids.
         var senderName = await _dbContext.Set<Merchant>().IgnoreQueryFilters()
-            .Where(m => m.Id == shipment.MerchantId)
+            .Where(m => m.Id == shipment.MerchantId && m.OrganizationId == shipment.OrganizationId)
             .Select(m => m.DisplayName)
             .FirstOrDefaultAsync(cancellationToken);
         var localLevelName = shipment.RecipientLocalLevelId is Guid localLevelId
