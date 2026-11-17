@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -55,17 +55,18 @@ export function MerchantShipmentDetailSheet() {
   const { data: shipment, isLoading, isError, refetch } = useMerchantShipment(awb);
   const { data: branches } = useMerchantBranches();
   const { data: serviceTypes } = useMerchantServiceTypes();
-  const { data: codStatus } = useMerchantShipmentCodStatus(shipment?.id);
+  const codQuery = useMerchantShipmentCodStatus(shipment?.id);
+  const codStatus = codQuery.data;
   const tracking = useTrackShipment(awb, { poll: false });
   const cancelShipment = useCancelMerchantShipment();
   const canCancel = useMerchantPermission("shipment.cancel");
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<"ok" | "failed" | null>(null);
 
   useEffect(() => {
-    if (!copied) return;
-    const t = setTimeout(() => setCopied(false), 2500);
+    if (copied === null) return;
+    const t = setTimeout(() => setCopied(null), 2500);
     return () => clearTimeout(t);
   }, [copied]);
 
@@ -85,9 +86,9 @@ export function MerchantShipmentDetailSheet() {
   async function handleCopy() {
     try {
       await navigator.clipboard.writeText(`${window.location.origin}/track/${awb}`);
-      setCopied(true);
+      setCopied("ok");
     } catch {
-      // Clipboard can be unavailable (insecure context); nothing useful to show.
+      setCopied("failed");
     }
   }
 
@@ -99,6 +100,7 @@ export function MerchantShipmentDetailSheet() {
   return (
     <Sheet open={isOpen} onOpenChange={(open) => { if (!open) close(); }}>
       <SheetContent className="flex w-full flex-col gap-0 overflow-y-auto sm:max-w-xl">
+        {!shipment && <SheetTitle className="sr-only">{awb ? `Shipment ${awb}` : "Shipment"}</SheetTitle>}
         {isLoading && <DetailSkeleton fieldRows={4} />}
         {isError && (
           <ErrorState
@@ -129,7 +131,17 @@ export function MerchantShipmentDetailSheet() {
                   <Row label="Status" value={<StatusBadge status={shipment.currentStatus} namespace="Merchant" />} />
                   <Row label="Delivering branch" value={branchName(shipment.destinationBranchId)} />
                   <Row label="Last update" value={shipment.lastEventAt ? formatEventTime(shipment.lastEventAt) : "—"} />
-                  <Row label="COD settlement" value={codLine(codStatus, shipment.codAmount)} />
+                  <Row label="COD settlement" value={
+                      isPrepaid ? "Prepaid" : codQuery.isLoading ? (
+                        <Skeleton className="h-4 w-24" />
+                      ) : codQuery.isError ? (
+                        <span className="inline-flex items-center gap-2">
+                          <span className="text-destructive">Couldn&apos;t load</span>
+                          <Button variant="outline" size="sm" onClick={() => codQuery.refetch()}>Try again</Button>
+                        </span>
+                      ) : codLine(codStatus, shipment.codAmount)
+                    }
+                  />
                 </dl>
               </section>
 
@@ -233,7 +245,7 @@ export function MerchantShipmentDetailSheet() {
                   Copy tracking link
                 </Button>
                 <span role="status" className="text-xs text-muted-foreground">
-                  {copied ? "Tracking link copied" : ""}
+                  {copied === "ok" ? "Tracking link copied" : copied === "failed" ? "Couldn't copy link" : ""}
                 </span>
               </div>
               {cancelError && <FieldError id="merchant-cancel-error">{cancelError}</FieldError>}
