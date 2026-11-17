@@ -1,4 +1,4 @@
-using Courier.Reports.Infrastructure;
+using Courier.SharedKernel;
 
 namespace Courier.Reports.Tests;
 

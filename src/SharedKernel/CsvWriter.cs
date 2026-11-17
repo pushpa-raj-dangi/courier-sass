@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace Courier.Reports.Infrastructure;
+namespace Courier.SharedKernel;
 
 public static class CsvWriter
 {
