@@ -5,7 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatRs } from "@/features/cod/lib/codFormat";
 import { useMerchantCodSummary } from "@/features/merchant-cod/hooks/useMerchantCodSummary";
 import { formatDayMonth, plural, settlementsCaption } from "../lib/dashboardLogic";
-import { SectionError } from "./SectionError";
+import { SectionError } from "@/components/states/SectionError";
 
 export function MoneyBand() {
   const { data, isLoading, isError, refetch } = useMerchantCodSummary();

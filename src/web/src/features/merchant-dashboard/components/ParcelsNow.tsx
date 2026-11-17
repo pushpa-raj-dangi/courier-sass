@@ -9,7 +9,7 @@ import { formatRs } from "@/features/cod/lib/codFormat";
 import { useMerchantCodSummary } from "@/features/merchant-cod/hooks/useMerchantCodSummary";
 import { useMerchantShipmentCounts } from "@/features/merchant-shipments/hooks/useMerchantShipmentCounts";
 import { MERCHANT_STATUS_GROUPS, type MerchantShipmentTab } from "@/features/merchant-shipments/lib/statusGroups";
-import { SectionError } from "./SectionError";
+import { SectionError } from "@/components/states/SectionError";
 
 const TILES = ["booked", "inTransit", "outForDelivery"] as const;
 

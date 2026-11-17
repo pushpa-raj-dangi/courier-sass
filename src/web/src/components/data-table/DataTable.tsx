@@ -69,6 +69,8 @@ export interface DataTableProps<T> {
   onPageChange: (page: number) => void;
   rowKey: (row: T) => string;
   selectedRowId?: string;
+  /** Makes the whole row clickable; keep a real button inside for keyboard access. */
+  onRowClick?: (row: T) => void;
 }
 
 export function DataTable<T>({
@@ -80,6 +82,7 @@ export function DataTable<T>({
   onPageChange,
   rowKey,
   selectedRowId,
+  onRowClick,
 }: DataTableProps<T>) {
   if (isLoading) {
     return <LoadingState rows={data?.pageSize ?? 5} />;
@@ -109,7 +112,8 @@ export function DataTable<T>({
                 <TableRow
                   key={id}
                   aria-selected={selectedRowId === undefined ? undefined : selected}
-                  className={cn(selected && "bg-accent hover:bg-accent")}
+                  onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  className={cn(onRowClick && "cursor-pointer", selected && "bg-accent hover:bg-accent")}
                 >
                   {columns.map((col) => (
                     <TableCell key={col.key} className="h-[52px] py-2">

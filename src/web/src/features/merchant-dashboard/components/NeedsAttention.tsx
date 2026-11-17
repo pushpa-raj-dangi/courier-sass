@@ -7,7 +7,7 @@ import { SectionCard } from "@/components/page/SectionCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMerchantShipmentCounts } from "@/features/merchant-shipments/hooks/useMerchantShipmentCounts";
 import { attentionRows } from "../lib/dashboardLogic";
-import { SectionError } from "./SectionError";
+import { SectionError } from "@/components/states/SectionError";
 
 export function NeedsAttention() {
   const queryClient = useQueryClient();
