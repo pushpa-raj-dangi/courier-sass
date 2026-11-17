@@ -2,6 +2,12 @@ import { cn } from "@/lib/utils";
 import { formatEventTime, type JourneyStep } from "@/features/tracking/lib/journey";
 import { statusTokenClasses } from "@/features/tracking/lib/statusTokenClasses";
 
+const STATE_WORD: Record<JourneyStep["state"], string> = {
+  done: "completed",
+  now: "current",
+  next: "upcoming",
+};
+
 function stepDotClass(step: JourneyStep, nowToken: string): string {
   if (step.state === "done") return "border-primary bg-primary";
   if (step.state === "next") return "border-border bg-card";
@@ -19,7 +25,11 @@ export function TrackingJourney({ steps, nowToken = "status-in-transit" }: { ste
             ? [formatEventTime(step.timestamp), step.location].filter(Boolean).join(" · ")
             : null;
           return (
-            <li key={step.stage} data-state={step.state} className="relative flex gap-3 pb-5 last:pb-0">
+            <li
+              key={step.stage}
+              data-state={step.state}
+              aria-current={step.state === "now" ? "step" : undefined}
+              className="relative flex gap-3 pb-5 last:pb-0">
               {!isLast && (
                 <span
                   aria-hidden="true"
@@ -41,6 +51,7 @@ export function TrackingJourney({ steps, nowToken = "status-in-transit" }: { ste
                   )}
                 >
                   {step.label}
+                  <span className="sr-only"> ({STATE_WORD[step.state]})</span>
                 </p>
                 {step.state !== "next" && meta && <p className="text-xs text-muted-foreground">{meta}</p>}
               </div>
