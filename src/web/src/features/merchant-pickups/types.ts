@@ -1,3 +1,13 @@
+export type PickupStage = "Requested" | "Scheduled" | "Collected" | "Cancelled";
+
+export interface PickupParcel {
+  id: string;
+  awb: string;
+  destinationArea: string | null;
+  /** null = prepaid */
+  codAmount: number | null;
+}
+
 export interface PickupRequest {
   id: string;
   merchantId: string;
@@ -8,4 +18,7 @@ export interface PickupRequest {
   status: "Requested" | "Scheduled" | "Completed" | "Cancelled";
   createdAt: string;
   updatedAt: string;
+  stage: PickupStage;
+  branchName: string | null;
+  shipments: PickupParcel[];
 }

@@ -105,6 +105,11 @@ export const STATUS_CONFIG: Record<string, StatusConfigEntry> = {
   "PickupRequest.Scheduled": { label: "Scheduled", token: "status-sealed" },
   "PickupRequest.Completed": { label: "Completed", token: "status-delivered" },
   "PickupRequest.Cancelled": { label: "Cancelled", token: "status-cancelled" },
+  // PickupStage — the derived merchant-facing stage (Collected replaces the stored "Completed").
+  "PickupStage.Requested": { label: "Requested", token: "status-created" },
+  "PickupStage.Scheduled": { label: "Scheduled", token: "status-sealed" },
+  "PickupStage.Collected": { label: "Collected", token: "status-delivered" },
+  "PickupStage.Cancelled": { label: "Cancelled", token: "status-cancelled" },
 
   // KycStatus — first UI anywhere to render this enum (Frontend Phase F10). Reuses existing
   // tokens: Pending reads as "just submitted, nothing decided yet" (same as Created), Approved
