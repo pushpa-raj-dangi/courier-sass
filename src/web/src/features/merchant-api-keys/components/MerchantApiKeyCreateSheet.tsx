@@ -10,28 +10,8 @@ import { Spinner } from "@/components/ui/spinner";
 import { FieldError } from "@/components/ui/field-error";
 import { useCreateMerchantApiKey } from "@/features/merchant-api-keys/hooks/useCreateMerchantApiKey";
 import { useMerchantApiKeyPanelStore } from "@/features/merchant-api-keys/store/merchantApiKeyPanelStore";
+import { AVAILABLE_SCOPES, scopeLabel } from "@/features/merchant-api-keys/lib/scopeLabels";
 import type { ApiKeyCreated } from "@/features/merchant-api-keys/types";
-
-// Every MerchantPermissionCatalog constant except ApiKeysManage — an issued key can never carry
-// that scope itself (server-side refuses it unconditionally, ApiKeyService.CreateApiKeyAsync's
-// own doc comment), so it's excluded from the picker rather than offered and silently dropped.
-const AVAILABLE_SCOPES = [
-  "merchant.profile.read",
-  "merchant.profile.update",
-  "merchant.staff.manage",
-  "merchant.kyc.upload",
-  "shipment.create",
-  "shipment.read",
-  "shipment.cancel",
-  "merchant.webhooks.manage",
-  "merchant.pickups.create",
-  "merchant.pickups.read",
-  "merchant.pickups.cancel",
-  "merchant.cod.read",
-  "merchant.pricing.read",
-  "merchant.branches.read",
-  "merchant.geography.read",
-];
 
 export function MerchantApiKeyCreateSheet() {
   const panel = useMerchantApiKeyPanelStore((s) => s.panel);
@@ -94,14 +74,15 @@ export function MerchantApiKeyCreateSheet() {
               </p>
               <div className="max-h-64 space-y-2 overflow-y-auto rounded-lg border border-border p-3">
                 {AVAILABLE_SCOPES.map((scope) => (
-                  <div key={scope} className="flex items-center gap-2">
+                  <div key={scope} className="flex items-start gap-2">
                     <Checkbox
                       id={`scope-${scope}`}
                       checked={selectedScopes.includes(scope)}
                       onCheckedChange={(checked) => toggleScope(scope, checked === true)}
                     />
-                    <Label htmlFor={`scope-${scope}`} className="font-mono text-xs font-normal">
-                      {scope}
+                    <Label htmlFor={`scope-${scope}`} className="flex flex-col gap-0.5 text-xs font-normal">
+                      <span>{scopeLabel(scope)}</span>
+                      <span className="font-mono text-2xs text-muted-foreground">{scope}</span>
                     </Label>
                   </div>
                 ))}
