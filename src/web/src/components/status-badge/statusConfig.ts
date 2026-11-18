@@ -122,6 +122,10 @@ export const STATUS_CONFIG: Record<string, StatusConfigEntry> = {
   "Kyc.InReview": { label: "In review", token: "status-in-transit" },
   "Kyc.NotUploaded": { label: "Not uploaded", token: "status-created" },
 
+  // Merchant staff member state (R5b-2).
+  "Staff.Active": { label: "Active", token: "status-delivered" },
+  "Staff.Inactive": { label: "Inactive", token: "status-created" },
+
   // ShipmentStatus in merchant vocabulary (R5b-1) — namespaced "Merchant.X" because the merchant
   // portal collapses internal branch/sort steps and renames returns ("Returning to you").
   "Merchant.Created": { label: "Booked", token: "status-created" },
