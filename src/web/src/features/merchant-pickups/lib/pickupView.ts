@@ -10,7 +10,7 @@ export function isOpenStage(stage: PickupStage): boolean {
 const byDateAsc = (a: PickupRequest, b: PickupRequest) => a.requestedForDate.localeCompare(b.requestedForDate);
 
 // Dates are plain yyyy-MM-dd strings: compared as strings, never via Date.
-export function splitPickups(list: PickupRequest[], _now: Date = new Date()): { upcoming: PickupRequest[]; past: PickupRequest[] } {
+export function splitPickups(list: PickupRequest[]): { upcoming: PickupRequest[]; past: PickupRequest[] } {
   return {
     upcoming: list.filter((p) => isOpenStage(p.stage)).sort(byDateAsc),
     past: list.filter((p) => !isOpenStage(p.stage)).sort((a, b) => byDateAsc(b, a)),

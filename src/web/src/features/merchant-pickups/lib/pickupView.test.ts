@@ -37,7 +37,7 @@ describe("pickupView", () => {
       pk("d", "Cancelled", "2026-10-25"),
       pk("e", "Requested", "2026-11-02"),
     ];
-    const { upcoming, past } = splitPickups(list, now);
+    const { upcoming, past } = splitPickups(list);
     expect(upcoming.map((p) => p.id)).toEqual(["c", "e", "a"]);
     expect(past.map((p) => p.id)).toEqual(["d", "b"]);
   });
