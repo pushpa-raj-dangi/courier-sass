@@ -366,7 +366,64 @@ public class PickupsEndpointsTests : IClassFixture<WebApplicationFactory<Program
         var listAfterGrant = await scopedClient.GetAsync("/api/v1/pickups");
         Assert.Equal(HttpStatusCode.OK, listAfterGrant.StatusCode);
         var pickupsAfterGrant = await listAfterGrant.Content.ReadFromJsonAsync<List<PickupRequestResponse>>();
-        Assert.Contains(pickupsAfterGrant!, p => p.Id == pickup!.Id);
+        var visible = Assert.Single(pickupsAfterGrant!, p => p.Id == pickup!.Id);
+        Assert.Equal(shipmentId, Assert.Single(visible.Shipments).Id);
+    }
+
+    private async Task<ShipmentResponse> CreateShipmentResponseAsync(HttpClient merchantClient, Guid originBranchId, Guid destinationBranchId, Guid serviceTypeId, string idempotencyKey)
+    {
+        var response = await PostIdempotentAsync(merchantClient, "/api/v1/shipments", ValidShipmentRequest(originBranchId, destinationBranchId, serviceTypeId), idempotencyKey);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<ShipmentResponse>())!;
+    }
+
+    [Fact]
+    public async Task ListPickups_ReturnsBranchNameStageAndShipments()
+    {
+        var staffClient = _factory.CreateClient();
+        var org = await RegisterOrgAsync(staffClient, "list-enrich");
+        staffClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (originBranchId, destinationBranchId, serviceTypeId) = await SeedRoutableBranchesAsync(staffClient);
+        await SeedRateCardAsync(staffClient, originBranchId, destinationBranchId, serviceTypeId, 100m);
+        var (ownerEmail, password) = await CreateMerchantWithLoginAsync(staffClient, "list-enrich");
+        var merchantClient = await LoginMerchantAsync(ownerEmail, password);
+        var s1 = await CreateShipmentResponseAsync(merchantClient, originBranchId, destinationBranchId, serviceTypeId, "list-enrich-ship-1");
+        var s2 = await CreateShipmentResponseAsync(merchantClient, originBranchId, destinationBranchId, serviceTypeId, "list-enrich-ship-2");
+        var createResponse = await PostIdempotentAsync(merchantClient, "/api/v1/pickups",
+            new CreatePickupRequestRequest(new[] { s1.Id, s2.Id }, DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)), null), "list-enrich-pickup-1");
+        createResponse.EnsureSuccessStatusCode();
+
+        var list = await merchantClient.GetFromJsonAsync<List<PickupRequestResponse>>("/api/v1/pickups");
+
+        var item = Assert.Single(list!);
+        Assert.StartsWith("Branch ", item.BranchName);
+        Assert.Equal(PickupStage.Requested, item.Stage);
+        Assert.Equal(new[] { s1.Awb, s2.Awb }, item.Shipments.Select(s => s.Awb).ToArray());
+    }
+
+    [Fact]
+    public async Task ListPickups_SecondMerchantSameOrg_SeesNoneOfFirstMerchantsParcels()
+    {
+        var staffClient = _factory.CreateClient();
+        var org = await RegisterOrgAsync(staffClient, "list-isolation");
+        staffClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", org.AccessToken);
+        var (originBranchId, destinationBranchId, serviceTypeId) = await SeedRoutableBranchesAsync(staffClient);
+        await SeedRateCardAsync(staffClient, originBranchId, destinationBranchId, serviceTypeId, 100m);
+        var (ownerEmailA, passwordA) = await CreateMerchantWithLoginAsync(staffClient, "list-isolation-a");
+        var merchantAClient = await LoginMerchantAsync(ownerEmailA, passwordA);
+        var (ownerEmailB, passwordB) = await CreateMerchantWithLoginAsync(staffClient, "list-isolation-b");
+        var merchantBClient = await LoginMerchantAsync(ownerEmailB, passwordB);
+        var shipmentA = await CreateShipmentResponseAsync(merchantAClient, originBranchId, destinationBranchId, serviceTypeId, "list-isolation-ship-a");
+        var createResponse = await PostIdempotentAsync(merchantAClient, "/api/v1/pickups",
+            new CreatePickupRequestRequest(new[] { shipmentA.Id }, DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)), null), "list-isolation-pickup-a");
+        createResponse.EnsureSuccessStatusCode();
+
+        var response = await merchantBClient.GetAsync("/api/v1/pickups");
+
+        response.EnsureSuccessStatusCode();
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.DoesNotContain(shipmentA.Awb, body);
+        Assert.Empty((await response.Content.ReadFromJsonAsync<List<PickupRequestResponse>>())!);
     }
 
     [Fact]
