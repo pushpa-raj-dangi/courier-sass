@@ -1,15 +1,16 @@
 import { create } from "zustand";
+import type { KycDocumentType } from "@/features/merchant-kyc/types";
 
-type MerchantKycPanelState = { mode: "closed" } | { mode: "upload" };
+type MerchantKycPanelState = { mode: "closed" } | { mode: "upload"; documentType: KycDocumentType };
 
 interface MerchantKycPanelStore {
   panel: MerchantKycPanelState;
-  openUpload: () => void;
+  openUpload: (documentType?: KycDocumentType) => void;
   close: () => void;
 }
 
 export const useMerchantKycPanelStore = create<MerchantKycPanelStore>((set) => ({
   panel: { mode: "closed" },
-  openUpload: () => set({ panel: { mode: "upload" } }),
+  openUpload: (documentType = "CitizenshipDocument") => set({ panel: { mode: "upload", documentType } }),
   close: () => set({ panel: { mode: "closed" } }),
 }));

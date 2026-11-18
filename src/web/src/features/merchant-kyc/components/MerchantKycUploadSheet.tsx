@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
 import { FieldError } from "@/components/ui/field-error";
+import { SheetHeaderBlock } from "@/components/page/SheetHeaderBlock";
 import { useUploadMerchantKycDocument } from "@/features/merchant-kyc/hooks/useUploadMerchantKycDocument";
 import { useMerchantKycPanelStore } from "@/features/merchant-kyc/store/merchantKycPanelStore";
 import type { KycDocumentType } from "@/features/merchant-kyc/types";
@@ -34,6 +35,16 @@ export function MerchantKycUploadSheet() {
   const [documentType, setDocumentType] = useState<KycDocumentType>("CitizenshipDocument");
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Each open starts from the type the caller preselected, with a clean form.
+  const openType = panel.mode === "upload" ? panel.documentType : null;
+  useEffect(() => {
+    if (openType) {
+      setDocumentType(openType);
+      setFile(null);
+      setError(null);
+    }
+  }, [openType, isOpen]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -62,9 +73,11 @@ export function MerchantKycUploadSheet() {
   return (
     <Sheet open={isOpen} onOpenChange={(open) => { if (!open) close(); }}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-md">
-        <SheetHeader>
-          <SheetTitle>Upload KYC Document</SheetTitle>
-        </SheetHeader>
+        <SheetHeaderBlock
+          eyebrow="KYC VERIFICATION"
+          title="Upload KYC document"
+          subtitle="PDF, JPEG or PNG. The courier reviews it before paying out your COD."
+        />
         <form onSubmit={handleSubmit} className="mt-6 space-y-6" noValidate>
           <div className="space-y-2">
             <Label htmlFor="documentType">Document Type</Label>

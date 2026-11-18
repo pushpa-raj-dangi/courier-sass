@@ -15,6 +15,11 @@ describe("useMerchantPickupPanelStore", () => {
     expect(useMerchantPickupPanelStore.getState().panel).toEqual({ mode: "create" });
   });
 
+  it("openDetail switches to the detail panel with the pickup id", () => {
+    useMerchantPickupPanelStore.getState().openDetail("p1");
+    expect(useMerchantPickupPanelStore.getState().panel).toEqual({ mode: "detail", id: "p1" });
+  });
+
   it("close returns to closed", () => {
     useMerchantPickupPanelStore.getState().openCreate();
     useMerchantPickupPanelStore.getState().close();

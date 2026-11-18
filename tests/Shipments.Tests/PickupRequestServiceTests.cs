@@ -1,5 +1,7 @@
 using System.Security.Claims;
 using Courier.Audit.Application;
+using Courier.Branches.Application;
+using Courier.Geography.Infrastructure;
 using Courier.Shipments.Application;
 using Courier.Shipments.Domain;
 using Courier.Shipments.Infrastructure;
@@ -38,6 +40,16 @@ file class RestrictedBranchesAuthorizationChecker : IBranchAuthorizationChecker
         Task.FromResult(_accessibleBranchIds.Contains(branchId));
 }
 
+file class FakeBranchLookup : IBranchLookupService
+{
+    public const string NamePrefix = "Branch ";
+    public Task<IReadOnlyDictionary<Guid, string>> GetNamesByIdsAsync(IReadOnlySet<Guid> branchIds, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyDictionary<Guid, string>>(branchIds.ToDictionary(id => id, id => NamePrefix + id));
+    public Task<BranchZoneInfo?> GetZoneInfoAsync(Guid branchId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    public Task<int> CountActiveBranchesAsync(Guid organizationId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    public Task<Courier.SharedKernel.PagedResult<BranchAdminRecord>> ListForOrganizationAsync(Guid organizationId, int? page, int? pageSize, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+}
+
 public class PickupRequestServiceTests
 {
     private class TestDbContext : DbContext
@@ -47,6 +59,8 @@ public class PickupRequestServiceTests
         {
             modelBuilder.ApplyConfiguration(new ShipmentConfiguration());
             modelBuilder.ApplyConfiguration(new PickupRequestConfiguration());
+            modelBuilder.ApplyConfiguration(new LocalLevelConfiguration());
+            modelBuilder.ApplyConfiguration(new DistrictConfiguration());
         }
     }
 
@@ -77,7 +91,155 @@ public class PickupRequestServiceTests
     };
 
     private static PickupRequestService CreateService(TestDbContext dbContext, Guid organizationId, IBranchAuthorizationChecker? branchAuthorizationChecker = null) =>
-        new(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), branchAuthorizationChecker ?? new AllBranchesAuthorizationChecker());
+        new(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), branchAuthorizationChecker ?? new AllBranchesAuthorizationChecker(), new FakeBranchLookup());
+
+    private static async Task<PickupRequest> SeedPickupAsync(TestDbContext dbContext, Guid merchantId, Guid branchId, params Guid[] shipmentIds)
+    {
+        var pickup = new PickupRequest
+        {
+            Id = Guid.NewGuid(), OrganizationId = Guid.NewGuid(), MerchantId = merchantId, BranchId = branchId,
+            ShipmentIds = shipmentIds, RequestedForDate = DateOnly.FromDateTime(DateTime.UtcNow),
+            Status = PickupRequestStatus.Requested, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow
+        };
+        dbContext.Set<PickupRequest>().Add(pickup);
+        await dbContext.SaveChangesAsync();
+        return pickup;
+    }
+
+    [Fact]
+    public async Task ListAsync_ReturnsBranchNameAndShipmentsInShipmentIdsOrder()
+    {
+        await using var dbContext = CreateContext();
+        var merchantId = Guid.NewGuid();
+        var branchId = Guid.NewGuid();
+        var pokhara = GeographyIds.LocalLevelId("Gandaki", "Kaski", "Pokhara Metropolitan City");
+        var kaski = GeographyIds.DistrictId("Gandaki", "Kaski");
+        dbContext.Set<Courier.Geography.Domain.District>().Add(new() { Id = kaski, ProvinceId = Guid.NewGuid(), Name = "Kaski" });
+        dbContext.Set<Courier.Geography.Domain.LocalLevel>().Add(new() { Id = pokhara, DistrictId = kaski, Name = "Pokhara Metropolitan City" });
+        var a = NewShipment(merchantId, branchId);
+        a.RecipientLocalLevelId = pokhara; a.RecipientDistrictId = kaski; a.CodAmount = 0m;
+        var b = NewShipment(merchantId, branchId);
+        b.RecipientLocalLevelId = pokhara; b.RecipientDistrictId = kaski; b.CodAmount = 2500m;
+        dbContext.Set<Shipment>().AddRange(a, b);
+        await dbContext.SaveChangesAsync();
+        await SeedPickupAsync(dbContext, merchantId, branchId, b.Id, a.Id);
+
+        var result = await CreateService(dbContext, Guid.NewGuid()).ListAsync(MerchantUser(merchantId));
+
+        var item = Assert.Single(result);
+        Assert.Equal("Branch " + branchId, item.BranchName);
+        Assert.Equal(new[] { b.Id, a.Id }, item.Shipments.Select(s => s.Id).ToArray());
+        Assert.All(item.Shipments, s => Assert.Equal("Pokhara Metropolitan City, Kaski", s.DestinationArea));
+        Assert.Equal(2500m, item.Shipments[0].CodAmount);
+        Assert.Null(item.Shipments[1].CodAmount);
+    }
+
+    [Fact]
+    public async Task ListAsync_MissingShipmentId_IsOmitted()
+    {
+        await using var dbContext = CreateContext();
+        var merchantId = Guid.NewGuid();
+        var a = NewShipment(merchantId, Guid.NewGuid());
+        dbContext.Set<Shipment>().Add(a);
+        await dbContext.SaveChangesAsync();
+        await SeedPickupAsync(dbContext, merchantId, a.OriginBranchId, a.Id, Guid.NewGuid());
+
+        var item = Assert.Single(await CreateService(dbContext, Guid.NewGuid()).ListAsync(MerchantUser(merchantId)));
+
+        Assert.Single(item.Shipments);
+        Assert.Equal(2, item.ShipmentIds.Length);
+    }
+
+    [Fact]
+    public async Task ListAsync_ShipmentOfAnotherMerchant_IsNotReturned()
+    {
+        await using var dbContext = CreateContext();
+        var merchantId = Guid.NewGuid();
+        var mine = NewShipment(merchantId, Guid.NewGuid());
+        var theirs = NewShipment(Guid.NewGuid(), mine.OriginBranchId);
+        dbContext.Set<Shipment>().AddRange(mine, theirs);
+        await dbContext.SaveChangesAsync();
+        await SeedPickupAsync(dbContext, merchantId, mine.OriginBranchId, mine.Id, theirs.Id);
+
+        var item = Assert.Single(await CreateService(dbContext, Guid.NewGuid()).ListAsync(MerchantUser(merchantId)));
+
+        Assert.Equal(new[] { mine.Id }, item.Shipments.Select(s => s.Id).ToArray());
+    }
+
+    [Fact]
+    public async Task ListAsync_StaffCaller_PickupOmitsParcelOfAnotherMerchant()
+    {
+        await using var dbContext = CreateContext();
+        var merchantA = Guid.NewGuid();
+        var merchantB = Guid.NewGuid();
+        var branchId = Guid.NewGuid();
+        var parcelA = NewShipment(merchantA, branchId);
+        var parcelB = NewShipment(merchantB, branchId);
+        dbContext.Set<Shipment>().AddRange(parcelA, parcelB);
+        await dbContext.SaveChangesAsync();
+        var pickupA = await SeedPickupAsync(dbContext, merchantA, branchId, parcelA.Id, parcelB.Id);
+        var pickupB = await SeedPickupAsync(dbContext, merchantB, branchId, parcelB.Id);
+
+        var result = await CreateService(dbContext, Guid.NewGuid()).ListAsync(StaffUser(Guid.NewGuid()));
+
+        Assert.Equal(new[] { parcelA.Id }, result.Single(p => p.Id == pickupA.Id).Shipments.Select(s => s.Id).ToArray());
+        Assert.Equal(new[] { parcelB.Id }, result.Single(p => p.Id == pickupB.Id).Shipments.Select(s => s.Id).ToArray());
+    }
+
+    [Fact]
+    public async Task ListAsync_StageIsDerived()
+    {
+        await using var dbContext = CreateContext();
+        var merchantId = Guid.NewGuid();
+        var a = NewShipment(merchantId, Guid.NewGuid());
+        a.CurrentStatus = ShipmentStatus.PickedUp;
+        var b = NewShipment(merchantId, a.OriginBranchId);
+        b.CurrentStatus = ShipmentStatus.Delivered;
+        dbContext.Set<Shipment>().AddRange(a, b);
+        await dbContext.SaveChangesAsync();
+        await SeedPickupAsync(dbContext, merchantId, a.OriginBranchId, a.Id, b.Id);
+
+        var item = Assert.Single(await CreateService(dbContext, Guid.NewGuid()).ListAsync(MerchantUser(merchantId)));
+
+        Assert.Equal(PickupStage.Collected, item.Stage);
+    }
+
+    [Fact]
+    public async Task CancelAsync_ParcelPastPickup_Throws()
+    {
+        await using var dbContext = CreateContext();
+        var merchantId = Guid.NewGuid();
+        var a = NewShipment(merchantId, Guid.NewGuid());
+        a.CurrentStatus = ShipmentStatus.PickedUp;
+        dbContext.Set<Shipment>().Add(a);
+        await dbContext.SaveChangesAsync();
+        var pickup = await SeedPickupAsync(dbContext, merchantId, a.OriginBranchId, a.Id);
+
+        var ex = await Assert.ThrowsAsync<ShipmentValidationException>(() =>
+            CreateService(dbContext, Guid.NewGuid()).CancelAsync(pickup.Id, MerchantUser(merchantId)));
+
+        Assert.Equal("A rider has already collected parcels from this pickup", ex.Message);
+        var stored = await dbContext.Set<PickupRequest>().SingleAsync(p => p.Id == pickup.Id);
+        Assert.Equal(PickupRequestStatus.Requested, stored.Status);
+    }
+
+    [Fact]
+    public async Task CancelAsync_ParcelsCreatedOrAssigned_Succeeds()
+    {
+        await using var dbContext = CreateContext();
+        var merchantId = Guid.NewGuid();
+        var a = NewShipment(merchantId, Guid.NewGuid());
+        var b = NewShipment(merchantId, a.OriginBranchId);
+        b.CurrentStatus = ShipmentStatus.PickupAssigned;
+        dbContext.Set<Shipment>().AddRange(a, b);
+        await dbContext.SaveChangesAsync();
+        var pickup = await SeedPickupAsync(dbContext, merchantId, a.OriginBranchId, a.Id, b.Id);
+
+        var result = await CreateService(dbContext, Guid.NewGuid()).CancelAsync(pickup.Id, MerchantUser(merchantId));
+
+        Assert.Equal(PickupRequestStatus.Cancelled, result!.Status);
+        Assert.Equal(PickupStage.Cancelled, result.Stage);
+    }
 
     [Fact]
     public async Task CreatePickupRequestAsync_ShipmentsShareOriginBranch_CreatesRequestForThatBranch()

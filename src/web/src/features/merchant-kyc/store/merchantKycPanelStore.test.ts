@@ -12,7 +12,12 @@ describe("useMerchantKycPanelStore", () => {
 
   it("openUpload switches to the upload panel", () => {
     useMerchantKycPanelStore.getState().openUpload();
-    expect(useMerchantKycPanelStore.getState().panel).toEqual({ mode: "upload" });
+    expect(useMerchantKycPanelStore.getState().panel).toEqual({ mode: "upload", documentType: "CitizenshipDocument" });
+  });
+
+  it("openUpload keeps a preselected document type", () => {
+    useMerchantKycPanelStore.getState().openUpload("BankAccountProof");
+    expect(useMerchantKycPanelStore.getState().panel).toEqual({ mode: "upload", documentType: "BankAccountProof" });
   });
 
   it("close returns to closed", () => {

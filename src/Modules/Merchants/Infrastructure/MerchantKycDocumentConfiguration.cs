@@ -11,6 +11,7 @@ public class MerchantKycDocumentConfiguration : IEntityTypeConfiguration<Merchan
         builder.ToTable("MerchantKycDocuments");
         builder.HasKey(d => d.Id);
         builder.Property(d => d.StorageKey).HasMaxLength(500).IsRequired();
+        builder.Property(d => d.RejectionReason).HasMaxLength(500);
 
         builder.HasIndex(d => d.OrganizationId);
         builder.HasIndex(d => d.MerchantId);

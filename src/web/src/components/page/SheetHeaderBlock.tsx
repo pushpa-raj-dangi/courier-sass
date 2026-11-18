@@ -9,12 +9,14 @@ export function SheetHeaderBlock({
   title,
   mono = false,
   status,
+  subtitle,
   facts,
 }: {
   eyebrow: string;
   title: ReactNode;
   mono?: boolean;
   status?: ReactNode;
+  subtitle?: ReactNode;
   facts?: { label: string; value: ReactNode }[];
 }) {
   return (
@@ -25,6 +27,7 @@ export function SheetHeaderBlock({
           <SheetTitle className={cn("text-xl", mono ? "font-mono font-medium" : "font-sans font-semibold")}>{title}</SheetTitle>
           {status}
         </div>
+        {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
       </div>
       {facts && facts.length > 0 && (
         <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">

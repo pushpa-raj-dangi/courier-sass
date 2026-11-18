@@ -3,6 +3,7 @@ import { MerchantAppShell } from "@/components/merchant-layout/MerchantAppShell"
 import { MerchantShipmentCreateSheet } from "@/features/merchant-shipments/components/MerchantShipmentCreateSheet";
 import { MerchantShipmentDetailSheet } from "@/features/merchant-shipments/components/MerchantShipmentDetailSheet";
 import { MerchantPickupCreateSheet } from "@/features/merchant-pickups/components/MerchantPickupCreateSheet";
+import { MerchantPickupDetailSheet } from "@/features/merchant-pickups/components/MerchantPickupDetailSheet";
 import { MerchantSettlementDetailSheet } from "@/features/merchant-cod/components/MerchantSettlementDetailSheet";
 import { MerchantKycUploadSheet } from "@/features/merchant-kyc/components/MerchantKycUploadSheet";
 import { MerchantStaffInviteSheet } from "@/features/merchant-staff/components/MerchantStaffInviteSheet";
@@ -17,6 +18,7 @@ export default function MerchantLayout({ children }: { children: ReactNode }) {
       <MerchantShipmentCreateSheet />
       <MerchantShipmentDetailSheet />
       <MerchantPickupCreateSheet />
+      <MerchantPickupDetailSheet />
       <MerchantSettlementDetailSheet />
       <MerchantKycUploadSheet />
       <MerchantStaffInviteSheet />

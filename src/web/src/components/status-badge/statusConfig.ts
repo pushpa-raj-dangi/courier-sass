@@ -105,6 +105,11 @@ export const STATUS_CONFIG: Record<string, StatusConfigEntry> = {
   "PickupRequest.Scheduled": { label: "Scheduled", token: "status-sealed" },
   "PickupRequest.Completed": { label: "Completed", token: "status-delivered" },
   "PickupRequest.Cancelled": { label: "Cancelled", token: "status-cancelled" },
+  // PickupStage — the derived merchant-facing stage (Collected replaces the stored "Completed").
+  "PickupStage.Requested": { label: "Requested", token: "status-created" },
+  "PickupStage.Scheduled": { label: "Scheduled", token: "status-sealed" },
+  "PickupStage.Collected": { label: "Collected", token: "status-delivered" },
+  "PickupStage.Cancelled": { label: "Cancelled", token: "status-cancelled" },
 
   // KycStatus — first UI anywhere to render this enum (Frontend Phase F10). Reuses existing
   // tokens: Pending reads as "just submitted, nothing decided yet" (same as Created), Approved
@@ -113,6 +118,13 @@ export const STATUS_CONFIG: Record<string, StatusConfigEntry> = {
   "Kyc.Pending": { label: "Pending", token: "status-created" },
   "Kyc.Approved": { label: "Approved", token: "status-delivered" },
   "Kyc.Rejected": { label: "Rejected", token: "status-cancelled" },
+  // Merchant KYC row states (R5b-2): a required document with no upload has no KycStatus at all.
+  "Kyc.InReview": { label: "In review", token: "status-in-transit" },
+  "Kyc.NotUploaded": { label: "Not uploaded", token: "status-created" },
+
+  // Merchant staff member state (R5b-2).
+  "Staff.Active": { label: "Active", token: "status-delivered" },
+  "Staff.Inactive": { label: "Inactive", token: "status-created" },
 
   // ShipmentStatus in merchant vocabulary (R5b-1) — namespaced "Merchant.X" because the merchant
   // portal collapses internal branch/sort steps and renames returns ("Returning to you").

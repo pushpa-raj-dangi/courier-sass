@@ -16,4 +16,9 @@ public class MerchantKycDocument
     // server-side from the reviewing staff member's ClaimsPrincipal at review time, same
     // reasoning as Branch/DeliveryZone's acting-user ids.
     public Guid? ReviewedByUserId { get; set; }
+
+    // Nullable: rows created before these columns existed have no recorded dates.
+    public DateTime? UploadedAt { get; set; }
+    public DateTime? ReviewedAt { get; set; }
+    public string? RejectionReason { get; set; }
 }
