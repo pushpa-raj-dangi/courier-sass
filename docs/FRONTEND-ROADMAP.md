@@ -1066,7 +1066,7 @@ serve renders `ComingSoonSlot`. Each sub-phase has its own spec → plan → imp
 | R4 — Rider PWA | Run screen (day header, tabs, next stop), stepwise POD Sheet, scan (last result, recent scans), profile (today, cash, needs review, sync) | Done — spec `docs/superpowers/specs/2026-11-16-f15-r4-rider-pwa-design.md` |
 | R5a — Public tracking | `/track`, `/track/[awb]` | Done — spec `docs/superpowers/specs/2026-11-17-f15-r5a-public-tracking-design.md` |
 | R5b-1 — Merchant portal core | Dashboard, shipments (list, booking, detail), COD (settlements, awaiting, CSV) | Done — spec `docs/superpowers/specs/2026-11-17-f15-r5b1-merchant-core-design.md` |
-| R5b-2 — Merchant portal rest | Pickups, KYC, staff, API keys — restyle with page primitives | Planned |
+| R5b-2 — Merchant portal rest | Pickups, KYC, staff, API keys — restyle with page primitives | Done — spec `docs/superpowers/specs/2026-11-17-f15-r5b2-merchant-account-design.md` |
 | R6 — Platform + admin | Platform pages, admin, audit, billing, auth pages | Planned |
 
 **Backend follow-ups from R1:** notification feed (header bell); nav badge counts (e.g. open
@@ -1156,6 +1156,18 @@ fixed value. The offline outbox is unchanged.
 2. Delivery OTP hint once SMS OTP ships.
 3. Reschedule request from the tracking page.
 4. Organization support contact on tracking.
+
+**R5b-2 (2026-11-18):** pickups (stage, branch name, parcel list; cancel refused once a rider has
+collected), KYC (per-document status, rejection reason shown to the merchant, preselected upload),
+merchant staff and API keys pages. A review `rejectionReason` is required on reject.
+
+**Follow-ups from R5b-2:**
+1. Staff KYC review screen (the review endpoint exists; no staff UI yet).
+2. Staff deactivate / reactivate for merchant users.
+3. KYC file view (neither merchant nor staff can open the uploaded file).
+4. Pickup cancel is check-then-act with no concurrency token, so a rider collect can race it.
+5. Pickup rows are not keyboard-accessible.
+6. Move `pickupErrorMessage` into a shared lib.
 
 ## Later
 

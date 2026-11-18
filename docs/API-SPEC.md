@@ -165,6 +165,39 @@ total is the settlement's `totalPayable`). Amounts use `0.00` with an invariant 
 point; lines end in CRLF. Text cells that would start a spreadsheet formula (`=`, `+`, `-`,
 `@`, tab, CR) are prefixed with `'`; plain negative numbers are left as-is.
 
+### 3.2 Pickups and merchant KYC (F15 R5b-2)
+
+#### `GET /api/v1/pickups`
+
+Each item keeps its existing fields (including `status`, kept for compatibility) and adds:
+
+* `stage` - `Requested | Scheduled | Collected | Cancelled`, derived at read time from the
+  pickup's parcels (not stored): `Cancelled` when the request is cancelled; `Collected` when the
+  request is completed or every non-cancelled parcel is past pickup; `Scheduled` when any parcel
+  has a rider assigned or is past pickup; otherwise `Requested`.
+* `branchName` - the pickup branch's name, `null` when it cannot be resolved.
+* `shipments` - `[{ id, awb, destinationArea, codAmount }]`; `codAmount` is `null` for a prepaid parcel.
+
+#### `POST /api/v1/pickups/{id}/cancel`
+
+Returns `400` `SHIPMENT_VALIDATION_FAILED` ("A rider has already collected parcels from this
+pickup") when any parcel is already past pickup.
+
+#### `POST /api/v1/merchants/{id}/kyc-documents/{docId}/review` (staff, `merchant.kyc.review`)
+
+Body `{ "status": "Approved" | "Rejected", "rejectionReason": "..." }`.
+
+* `rejectionReason` is required when `status` is `Rejected`: non-blank after trimming, at most
+  500 characters; otherwise `400` `MERCHANT_VALIDATION_FAILED`. It is cleared on `Approved`.
+* The reason is **shown to the merchant** on their KYC page. Do not put internal notes in it.
+* Sets `reviewedAt`. Staff response: `id, documentType, status, reviewedByUserId, uploadedAt,
+  reviewedAt, rejectionReason`.
+
+#### `GET` and `POST /api/v1/merchant/kyc-documents` (merchant)
+
+Items are `id, documentType, status, uploadedAt, reviewedAt, rejectionReason`. The reviewer's
+user id is deliberately not exposed to the merchant.
+
 ## 4. Public Tracking
 
 ```http
