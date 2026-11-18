@@ -118,6 +118,9 @@ export const STATUS_CONFIG: Record<string, StatusConfigEntry> = {
   "Kyc.Pending": { label: "Pending", token: "status-created" },
   "Kyc.Approved": { label: "Approved", token: "status-delivered" },
   "Kyc.Rejected": { label: "Rejected", token: "status-cancelled" },
+  // Merchant KYC row states (R5b-2): a required document with no upload has no KycStatus at all.
+  "Kyc.InReview": { label: "In review", token: "status-in-transit" },
+  "Kyc.NotUploaded": { label: "Not uploaded", token: "status-created" },
 
   // ShipmentStatus in merchant vocabulary (R5b-1) — namespaced "Merchant.X" because the merchant
   // portal collapses internal branch/sort steps and renames returns ("Returning to you").

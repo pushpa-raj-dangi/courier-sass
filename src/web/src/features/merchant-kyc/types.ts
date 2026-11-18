@@ -10,5 +10,7 @@ export interface MerchantKycDocument {
   id: string;
   documentType: KycDocumentType;
   status: KycStatus;
-  reviewedByUserId: string | null;
+  uploadedAt: string | null;
+  reviewedAt: string | null;
+  rejectionReason: string | null;
 }
