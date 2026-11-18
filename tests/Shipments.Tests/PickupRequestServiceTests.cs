@@ -167,6 +167,26 @@ public class PickupRequestServiceTests
     }
 
     [Fact]
+    public async Task ListAsync_StaffCaller_PickupOmitsParcelOfAnotherMerchant()
+    {
+        await using var dbContext = CreateContext();
+        var merchantA = Guid.NewGuid();
+        var merchantB = Guid.NewGuid();
+        var branchId = Guid.NewGuid();
+        var parcelA = NewShipment(merchantA, branchId);
+        var parcelB = NewShipment(merchantB, branchId);
+        dbContext.Set<Shipment>().AddRange(parcelA, parcelB);
+        await dbContext.SaveChangesAsync();
+        var pickupA = await SeedPickupAsync(dbContext, merchantA, branchId, parcelA.Id, parcelB.Id);
+        var pickupB = await SeedPickupAsync(dbContext, merchantB, branchId, parcelB.Id);
+
+        var result = await CreateService(dbContext, Guid.NewGuid()).ListAsync(StaffUser(Guid.NewGuid()));
+
+        Assert.Equal(new[] { parcelA.Id }, result.Single(p => p.Id == pickupA.Id).Shipments.Select(s => s.Id).ToArray());
+        Assert.Equal(new[] { parcelB.Id }, result.Single(p => p.Id == pickupB.Id).Shipments.Select(s => s.Id).ToArray());
+    }
+
+    [Fact]
     public async Task ListAsync_StageIsDerived()
     {
         await using var dbContext = CreateContext();

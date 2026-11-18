@@ -396,7 +396,8 @@ public class PickupsEndpointsTests : IClassFixture<WebApplicationFactory<Program
         var list = await merchantClient.GetFromJsonAsync<List<PickupRequestResponse>>("/api/v1/pickups");
 
         var item = Assert.Single(list!);
-        Assert.StartsWith("Branch ", item.BranchName);
+        var originBranch = (await staffClient.GetFromJsonAsync<BranchResponse>($"/api/v1/branches/{originBranchId}"))!;
+        Assert.Equal(originBranch.Name, item.BranchName);
         Assert.Equal(PickupStage.Requested, item.Stage);
         Assert.Equal(new[] { s1.Awb, s2.Awb }, item.Shipments.Select(s => s.Awb).ToArray());
     }
