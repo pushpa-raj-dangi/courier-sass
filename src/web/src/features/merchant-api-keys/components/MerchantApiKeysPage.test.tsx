@@ -136,6 +136,37 @@ describe("MerchantApiKeysPage", () => {
     );
   });
 
+  it("keeps the dialog open and shows an error when revoke fails", async () => {
+    clientFetchMock.mockResolvedValue(keys);
+    renderPage();
+    await screen.findByText("ck_live_ab12…");
+    clientFetchMock.mockImplementation((_url: string, init?: { method?: string }) =>
+      init?.method === "DELETE"
+        ? Promise.reject(new Error(JSON.stringify({ error: { code: "x", message: "Server exploded" } })))
+        : Promise.resolve(keys)
+    );
+
+    const row = screen.getByText("ck_live_ab12…").closest("tr") as HTMLElement;
+    fireEvent.click(within(row).getByRole("button", { name: "Revoke" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Revoke key" }));
+
+    expect(await screen.findByText("Server exploded")).toBeInTheDocument();
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /Active/, hidden: true })).toHaveTextContent("2");
+    expect(screen.getByText("ck_live_ab12…", { selector: "td" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Revoke key" })).toBeEnabled();
+  });
+
+  it("closes the dialog after a successful revoke", async () => {
+    clientFetchMock.mockResolvedValue(keys);
+    renderPage();
+    await screen.findByText("ck_live_ab12…");
+    const row = screen.getByText("ck_live_ab12…").closest("tr") as HTMLElement;
+    fireEvent.click(within(row).getByRole("button", { name: "Revoke" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Revoke key" }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+  });
+
   it("opens the create sheet from the header action", async () => {
     clientFetchMock.mockResolvedValue(keys);
     renderPage();

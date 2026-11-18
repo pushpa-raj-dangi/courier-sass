@@ -126,14 +126,14 @@ function MerchantApiKeysContent() {
                         variant="outline"
                         size="sm"
                         className="border-destructive/40 text-destructive hover:bg-destructive/5 hover:text-destructive"
-                        disabled={revokeKey.isPending}
+                        disabled={revokeKey.isPending && revokeKey.variables === k.id}
                         onClick={() => setPendingRevoke(k)}
                       >
                         Revoke
                       </Button>
                     ) : (
                       <span className="text-xs text-muted-foreground">
-                        Revoked {k.revokedAt ? formatDate(k.revokedAt) : ""}
+                        {k.revokedAt ? `Revoked ${formatDate(k.revokedAt)}` : "Revoked"}
                       </span>
                     )}
                   </TableCell>
@@ -149,8 +149,8 @@ function MerchantApiKeysContent() {
         onOpenChange={(open) => {
           if (!open) setPendingRevoke(null);
         }}
-        onConfirm={(k) => {
-          revokeKey.mutate(k.id);
+        onConfirm={async (k) => {
+          await revokeKey.mutateAsync(k.id);
           setPendingRevoke(null);
         }}
       />
