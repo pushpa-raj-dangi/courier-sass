@@ -58,7 +58,7 @@ describe("MerchantStaffPage", () => {
     const roles = screen.getByRole("region", { name: "What each role can do" });
     const ownerCard = within(roles).getByTestId("role-card-Owner");
     expect(within(ownerCard).getByText("1")).toBeInTheDocument();
-    expect(within(ownerCard).getByText("Everything, plus staff, API keys and COD payouts")).toBeInTheDocument();
+    expect(within(ownerCard).getByText("Everything, plus staff and API keys")).toBeInTheDocument();
     const staffCard = within(roles).getByTestId("role-card-Staff");
     expect(within(staffCard).getByText("2")).toBeInTheDocument();
     expect(within(staffCard).getByText("Book shipments, request pickups, track parcels")).toBeInTheDocument();

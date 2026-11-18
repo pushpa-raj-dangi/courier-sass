@@ -31,7 +31,7 @@ const SEGMENT_COLOR: Record<KycRowState, string> = {
 
 function metaLine(row: KycRow): string {
   const { doc } = row;
-  if (!doc) return "Required for COD payouts";
+  if (!doc) return "Not uploaded yet";
   const uploaded = `Uploaded ${doc.uploadedAt ? formatDate(doc.uploadedAt) : "—"}`;
   if (!doc.reviewedAt || doc.status === "Pending") return uploaded;
   return `${uploaded} · ${doc.status === "Approved" ? "approved" : "rejected"} ${formatDate(doc.reviewedAt)}`;

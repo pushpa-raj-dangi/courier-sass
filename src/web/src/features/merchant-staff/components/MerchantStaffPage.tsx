@@ -19,7 +19,7 @@ import { useMerchantStaffPanelStore } from "@/features/merchant-staff/store/merc
 import { cn } from "@/lib/utils";
 
 const ROLE_DESCRIPTION = {
-  Owner: "Everything, plus staff, API keys and COD payouts",
+  Owner: "Everything, plus staff and API keys",
   Staff: "Book shipments, request pickups, track parcels",
 } as const;
 

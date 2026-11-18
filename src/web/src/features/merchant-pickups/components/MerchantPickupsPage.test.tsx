@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import userEvent from "@testing-library/user-event";
 
 const replace = vi.fn();
 let search = "";
@@ -21,6 +22,8 @@ vi.mock("@/features/merchant-auth/hooks/useMerchantPermission", () => ({
 import { useMerchantPickupPanelStore } from "@/features/merchant-pickups/store/merchantPickupPanelStore";
 import { MerchantPickupsPage } from "./MerchantPickupsPage";
 import type { PickupRequest } from "../types";
+
+const realOpenDetail = useMerchantPickupPanelStore.getState().openDetail;
 
 function pad(n: number) {
   return String(n).padStart(2, "0");
@@ -66,7 +69,7 @@ beforeEach(() => {
   replace.mockReset();
   clientFetchMock.mockReset();
   clientFetchMock.mockResolvedValue([upcoming, stale, done]);
-  useMerchantPickupPanelStore.setState({ panel: { mode: "closed" } });
+  useMerchantPickupPanelStore.setState({ panel: { mode: "closed" }, openDetail: realOpenDetail });
 });
 
 describe("MerchantPickupsPage", () => {
@@ -102,6 +105,26 @@ describe("MerchantPickupsPage", () => {
     const cell = await screen.findByText("Ring the bell");
     fireEvent.click(within(cell.closest("tr") as HTMLElement).getByText("5 parcels"));
     expect(useMerchantPickupPanelStore.getState().panel).toEqual({ mode: "detail", id: "p1" });
+  });
+
+  it("opens the detail Sheet from the keyboard via the pickup date button", async () => {
+    const user = userEvent.setup();
+    const openDetail = vi.fn();
+    useMerchantPickupPanelStore.setState({ openDetail });
+    renderPage();
+    const cell = await screen.findByText("Ring the bell");
+    const dateButton = within(cell.closest("tr") as HTMLElement).getByRole("button");
+    dateButton.focus();
+    expect(dateButton).toHaveFocus();
+    await user.keyboard("{Enter}");
+    expect(openDetail).toHaveBeenCalledTimes(1);
+    expect(openDetail).toHaveBeenCalledWith("p1");
+  });
+
+  it("uses the singular for a next pickup with one parcel", async () => {
+    clientFetchMock.mockResolvedValue([pickup({ id: "p9", shipments: [parcel(1)] })]);
+    renderPage();
+    expect(await screen.findByText("Kathmandu Hub · 1 parcel")).toBeInTheDocument();
   });
 
   it("shows past pickups under ?tab=past and switches tabs via the URL", async () => {

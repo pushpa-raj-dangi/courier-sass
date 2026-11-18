@@ -16,7 +16,7 @@ import { relativeDayLabel } from "@/lib/dates/kathmandu";
 import { useMerchantPermission } from "@/features/merchant-auth/hooks/useMerchantPermission";
 import { useMerchantPickups } from "@/features/merchant-pickups/hooks/useMerchantPickups";
 import { useMerchantPickupPanelStore } from "@/features/merchant-pickups/store/merchantPickupPanelStore";
-import { isOpenStage, parcelsCell, pickupDayLabel, pickupTiles, splitPickups, type PickupTab } from "@/features/merchant-pickups/lib/pickupView";
+import { isOpenStage, parcelsCell, parcelsLabel, pickupDayLabel, pickupTiles, splitPickups, type PickupTab } from "@/features/merchant-pickups/lib/pickupView";
 import type { PickupRequest } from "@/features/merchant-pickups/types";
 
 const dayLabel = pickupDayLabel;
@@ -59,7 +59,7 @@ export function MerchantPickupsPage() {
         <KpiTile
           label="Next pickup"
           value={tiles ? (tiles.next ? dayLabel(tiles.next.date) : "None booked") : "—"}
-          note={tiles?.next ? `${tiles.next.branchName ?? "A branch"} · ${tiles.next.parcels} parcels` : undefined}
+          note={tiles?.next ? `${tiles.next.branchName ?? "A branch"} · ${parcelsLabel(tiles.next.parcels)}` : undefined}
         />
         <KpiTile
           label="Waiting to be scheduled"
@@ -69,7 +69,7 @@ export function MerchantPickupsPage() {
         <KpiTile
           label="Collected this month"
           value={tiles ? tiles.collectedThisMonth.pickups : "—"}
-          note={tiles ? `pickups · ${tiles.collectedThisMonth.parcels} parcels` : undefined}
+          note={tiles ? `pickups · ${parcelsLabel(tiles.collectedThisMonth.parcels)}` : undefined}
         />
       </div>
 
@@ -126,14 +126,24 @@ function PickupsTable({ rows, onOpen }: { rows: PickupRequest[]; onOpen: (id: st
             return (
               <TableRow key={p.id} className="cursor-pointer" onClick={() => onOpen(p.id)}>
                 <TableCell>
-                  <div className="font-medium">{dayLabel(p.requestedForDate)}</div>
+                  <Button
+                    type="button"
+                    variant="link"
+                    className="h-auto p-0 font-medium text-foreground"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpen(p.id);
+                    }}
+                  >
+                    {dayLabel(p.requestedForDate)}
+                  </Button>
                   {isOpenStage(p.stage) && (
                     <div className="text-2xs text-muted-foreground">{relativeDayLabel(p.requestedForDate)}</div>
                   )}
                 </TableCell>
                 <TableCell>{p.branchName ?? "—"}</TableCell>
                 <TableCell>
-                  <div>{cell.count} {cell.count === 1 ? "parcel" : "parcels"}</div>
+                  <div>{parcelsLabel(cell.count)}</div>
                   {cell.count > 0 && (
                     <div className="font-mono text-2xs text-muted-foreground">
                       {cell.awbs.join(", ")}

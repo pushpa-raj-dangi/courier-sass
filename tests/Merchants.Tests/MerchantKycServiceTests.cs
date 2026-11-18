@@ -150,6 +150,44 @@ public class MerchantKycServiceTests
     }
 
     [Fact]
+    public async Task ListDocumentsAsync_OrdersLegacyNullsFirstThenByUploadedAtThenId()
+    {
+        await using var dbContext = CreateContext();
+        var merchantId = Guid.NewGuid();
+        var organizationId = Guid.NewGuid();
+        var user = await SeedMerchantUserAsync(dbContext, merchantId, organizationId);
+        var t0 = new DateTime(2026, 11, 1, 0, 0, 0, DateTimeKind.Utc);
+        MerchantKycDocument Doc(string id, DateTime? uploadedAt) => new()
+        {
+            Id = Guid.Parse(id),
+            MerchantId = merchantId,
+            OrganizationId = organizationId,
+            DocumentType = KycDocumentType.PanCard,
+            StorageKey = $"kyc/{id}",
+            UploadedAt = uploadedAt
+        };
+        dbContext.Set<MerchantKycDocument>().AddRange(
+            Doc("00000000-0000-0000-0000-000000000005", t0.AddDays(2)),
+            Doc("00000000-0000-0000-0000-000000000004", t0),
+            Doc("00000000-0000-0000-0000-000000000003", null),
+            Doc("00000000-0000-0000-0000-000000000002", t0),
+            Doc("00000000-0000-0000-0000-000000000001", null),
+            new MerchantKycDocument
+            {
+                Id = Guid.NewGuid(), MerchantId = Guid.NewGuid(), OrganizationId = organizationId,
+                DocumentType = KycDocumentType.PanCard, StorageKey = "kyc/other-merchant", UploadedAt = t0
+            });
+        await dbContext.SaveChangesAsync();
+        var service = new MerchantKycService(dbContext, new FixedTenantProvider(organizationId), new NoopAuditLogger(), new InMemoryObjectStorage());
+
+        var result = await service.ListDocumentsAsync(MerchantPrincipal(user.Id, merchantId));
+
+        Assert.Equal(
+            new[] { 1, 3, 2, 4, 5 }.Select(n => Guid.Parse($"00000000-0000-0000-0000-00000000000{n}")),
+            result.Select(d => d.Id));
+    }
+
+    [Fact]
     public async Task UploadDocumentAsync_SetsUploadedAt()
     {
         var (db, _, _, documentId, _) = await SeedUploadedAsync();

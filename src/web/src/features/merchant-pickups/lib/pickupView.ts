@@ -39,7 +39,11 @@ export function parcelsCell(p: PickupRequest): { count: number; awbs: string[]; 
   return { count, awbs: p.shipments.slice(0, 2).map((s) => s.awb), more: Math.max(0, count - 2) };
 }
 
-const dayFormat = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short" });
+export function parcelsLabel(count: number): string {
+  return `${count} ${count === 1 ? "parcel" : "parcels"}`;
+}
+
+const dayFormat =new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short" });
 
 /** "Tue, 18 Nov" from a plain yyyy-MM-dd; anchored at local noon so the day never shifts. */
 export function pickupDayLabel(isoDate: string): string {

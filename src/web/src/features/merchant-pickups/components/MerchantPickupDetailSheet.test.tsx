@@ -54,6 +54,19 @@ beforeEach(() => {
 });
 
 describe("MerchantPickupDetailSheet", () => {
+  it("does not fetch the pickup list while the Sheet is closed", async () => {
+    clientFetchMock.mockResolvedValue([base]);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <MerchantPickupDetailSheet />
+      </QueryClientProvider>
+    );
+    await new Promise((r) => setTimeout(r, 20));
+    expect(clientFetchMock).not.toHaveBeenCalledWith("/api/merchant/pickups");
+    expect(clientFetchMock).not.toHaveBeenCalled();
+  });
+
   it("titles the Sheet with the branch and parcel count", async () => {
     renderSheet();
     expect(await screen.findByText("Kathmandu Hub collects 2 parcels")).toBeInTheDocument();

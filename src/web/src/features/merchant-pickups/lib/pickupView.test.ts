@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PickupParcel, PickupRequest, PickupStage } from "../types";
-import { isOpenStage, parcelsCell, pickupTiles, splitPickups } from "./pickupView";
+import { isOpenStage, parcelsCell, parcelsLabel, pickupTiles, splitPickups } from "./pickupView";
 
 const now = new Date("2026-10-31T23:30:00Z"); // 2026-11-01 in Kathmandu
 
@@ -74,5 +74,13 @@ describe("pickupView", () => {
   it("parcelsCell shows first two AWBs", () => {
     expect(parcelsCell(pk("a", "Requested", "2026-11-01", 5))).toEqual({ count: 5, awbs: ["AWB0", "AWB1"], more: 3 });
     expect(parcelsCell(pk("a", "Requested", "2026-11-01", 0))).toEqual({ count: 0, awbs: [], more: 0 });
+  });
+});
+
+describe("parcelsLabel", () => {
+  it("pluralises by count", () => {
+    expect(parcelsLabel(0)).toBe("0 parcels");
+    expect(parcelsLabel(1)).toBe("1 parcel");
+    expect(parcelsLabel(5)).toBe("5 parcels");
   });
 });

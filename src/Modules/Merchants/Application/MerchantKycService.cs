@@ -64,6 +64,12 @@ public class MerchantKycService
 
         var documents = await _dbContext.Set<MerchantKycDocument>()
             .Where(d => d.MerchantId == merchantId)
+            // Oldest first, legacy null-UploadedAt rows before every dated one (explicit, since Postgres
+            // ASC puts NULLS LAST), Id as a deterministic tiebreak: the web's kycView treats a later
+            // list position as newer on ties, so this order makes the same row win on every request.
+            .OrderBy(d => d.UploadedAt == null ? 0 : 1)
+            .ThenBy(d => d.UploadedAt)
+            .ThenBy(d => d.Id)
             .ToListAsync(cancellationToken);
         return documents.Select(ToPortalResponse).ToList();
     }

@@ -94,6 +94,8 @@ describe("MerchantKycPage", () => {
     const rows = await screen.findAllByTestId("kyc-row");
     expect(within(rows[0]).queryByRole("button")).toBeNull();
     expect(within(rows[1]).getByText("Not uploaded")).toBeInTheDocument();
+    expect(within(rows[1]).getByText("Not uploaded yet")).toBeInTheDocument();
+    expect(screen.queryByText("Required for COD payouts")).toBeNull();
     fireEvent.click(within(rows[1]).getByRole("button", { name: "Upload" }));
     expect(openUpload).toHaveBeenCalledWith("PanCard");
   });

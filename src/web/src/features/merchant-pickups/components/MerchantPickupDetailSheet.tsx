@@ -41,7 +41,7 @@ export function MerchantPickupDetailSheet() {
   const isOpen = panel.mode === "detail";
   const id = panel.mode === "detail" ? panel.id : "";
 
-  const { data: pickups, isLoading, isError, refetch } = useMerchantPickups();
+  const { data: pickups, isLoading, isError, refetch } = useMerchantPickups({ enabled: isOpen });
   const pickup = pickups?.find((p) => p.id === id);
   const cancelPickup = useCancelMerchantPickup();
   const canCancel = useMerchantPermission("merchant.pickups.cancel");
