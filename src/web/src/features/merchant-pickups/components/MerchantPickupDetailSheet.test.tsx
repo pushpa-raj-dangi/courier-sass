@@ -59,6 +59,20 @@ describe("MerchantPickupDetailSheet", () => {
     expect(await screen.findByText("Kathmandu Hub collects 2 parcels")).toBeInTheDocument();
   });
 
+  it("uses the date as title, the request date in the eyebrow, and the note as its own block", async () => {
+    renderSheet({ ...base, notes: "Ring the shop bell" });
+    expect(await screen.findByRole("heading", { name: /Fri, 20 Nov/ })).toBeInTheDocument();
+    expect(screen.getByText("PICKUP · REQUESTED 1 NOV 2026")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Your note to the rider" })).toHaveTextContent("Ring the shop bell");
+  });
+
+  it("omits the note block when there is no note, and shows the cancel hint", async () => {
+    renderSheet();
+    await screen.findByText("Kathmandu Hub collects 2 parcels");
+    expect(screen.queryByText("Your note to the rider")).not.toBeInTheDocument();
+    expect(screen.getByText("You can cancel until the branch schedules a rider")).toBeInTheDocument();
+  });
+
   it("marks progress to the current stage", async () => {
     renderSheet({ ...base, stage: "Scheduled", status: "Scheduled" });
     const steps = await screen.findAllByRole("listitem");
@@ -125,6 +139,8 @@ describe("MerchantPickupDetailSheet", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Cancel pickup" }));
     fireEvent.click(screen.getAllByRole("button", { name: "Cancel pickup" }).at(-1)!);
     expect(await screen.findByText("A rider has already collected parcels from this pickup")).toBeInTheDocument();
+    const listCalls = () => clientFetchMock.mock.calls.filter((c) => c[0] === "/api/merchant/pickups").length;
+    await waitFor(() => expect(listCalls()).toBeGreaterThan(1));
     expect(useMerchantPickupPanelStore.getState().panel).toEqual({ mode: "detail", id: "p1" });
   });
 });

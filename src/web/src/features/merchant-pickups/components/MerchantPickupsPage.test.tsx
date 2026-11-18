@@ -72,11 +72,11 @@ beforeEach(() => {
 describe("MerchantPickupsPage", () => {
   it("shows tab counts and tile values", async () => {
     renderPage();
-    expect(await screen.findByRole("tab", { name: "Upcoming (2)" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Past (1)" })).toBeInTheDocument();
+    expect(await screen.findByRole("tab", { name: "Upcoming 2" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Past 1" })).toBeInTheDocument();
     expect(screen.getByText("Next pickup")).toBeInTheDocument();
     expect(screen.getByText(/Kathmandu Hub · 5 parcels/)).toBeInTheDocument();
-    expect(screen.getByText("Waiting for a branch").nextElementSibling).toHaveTextContent("1");
+    expect(screen.getByText("Waiting to be scheduled").nextElementSibling).toHaveTextContent("1");
   });
 
   it("says None booked when no open pickup is ahead", async () => {
@@ -123,14 +123,14 @@ describe("MerchantPickupsPage", () => {
     renderPage();
     expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't load pickup requests");
     expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Upcoming (—)" })).toBeInTheDocument();
-    expect(screen.getByText("Waiting for a branch").nextElementSibling).toHaveTextContent("—");
+    expect(screen.getByRole("tab", { name: "Upcoming —" })).toBeInTheDocument();
+    expect(screen.getByText("Waiting to be scheduled").nextElementSibling).toHaveTextContent("—");
   });
 
   it("hides Request pickup without the create permission", async () => {
     canCreate = false;
     renderPage();
-    await screen.findByRole("tab", { name: "Upcoming (2)" });
+    await screen.findByRole("tab", { name: "Upcoming 2" });
     expect(screen.queryByRole("button", { name: "Request pickup" })).not.toBeInTheDocument();
   });
 });

@@ -9,7 +9,8 @@ export function useCancelMerchantPickup() {
   return useMutation({
     mutationFn: (id: string) =>
       clientFetch<PickupRequest>(`/api/merchant/pickups/${id}/cancel`, { method: "POST" }),
-    onSuccess: () => {
+    // On settle, not just success: a 400 ("a rider already collected") means the list is stale.
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["merchant-pickups"] });
     },
   });

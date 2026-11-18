@@ -12,16 +12,14 @@ import { StatusBadge } from "@/components/status-badge/StatusBadge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { BorderedTableContainer } from "@/components/data-table/BorderedTableContainer";
-import { formatDate } from "@/features/cod/lib/codFormat";
 import { relativeDayLabel } from "@/lib/dates/kathmandu";
 import { useMerchantPermission } from "@/features/merchant-auth/hooks/useMerchantPermission";
 import { useMerchantPickups } from "@/features/merchant-pickups/hooks/useMerchantPickups";
 import { useMerchantPickupPanelStore } from "@/features/merchant-pickups/store/merchantPickupPanelStore";
-import { isOpenStage, parcelsCell, pickupTiles, splitPickups, type PickupTab } from "@/features/merchant-pickups/lib/pickupView";
+import { isOpenStage, parcelsCell, pickupDayLabel, pickupTiles, splitPickups, type PickupTab } from "@/features/merchant-pickups/lib/pickupView";
 import type { PickupRequest } from "@/features/merchant-pickups/types";
 
-// requestedForDate is a plain yyyy-MM-dd; anchor at local noon so formatting never shifts the day.
-const dayLabel = (isoDate: string) => formatDate(`${isoDate}T12:00:00`);
+const dayLabel = pickupDayLabel;
 
 export function MerchantPickupsPage() {
   const router = useRouter();
@@ -46,7 +44,7 @@ export function MerchantPickupsPage() {
     <div className="space-y-5">
       <PageHeader
         title="Pickups"
-        description="Ask a branch to collect your parcels, and see what has been collected."
+        description="When a rider comes to collect your parcels, and which ones"
         actions={
           canCreate && (
             <Button size="sm" className="gap-1.5" onClick={() => openCreate()}>
@@ -64,21 +62,25 @@ export function MerchantPickupsPage() {
           note={tiles?.next ? `${tiles.next.branchName ?? "A branch"} · ${tiles.next.parcels} parcels` : undefined}
         />
         <KpiTile
-          label="Waiting for a branch"
+          label="Waiting to be scheduled"
           value={tiles ? tiles.waiting : "—"}
-          note="Requested, no branch confirmation yet"
+          note="requests the branch has not confirmed"
         />
         <KpiTile
           label="Collected this month"
           value={tiles ? tiles.collectedThisMonth.pickups : "—"}
-          note={tiles ? `${tiles.collectedThisMonth.parcels} parcels` : undefined}
+          note={tiles ? `pickups · ${tiles.collectedThisMonth.parcels} parcels` : undefined}
         />
       </div>
 
       <Tabs value={tab} onValueChange={(v) => selectTab(v as PickupTab)}>
         <TabsList>
-          <TabsTrigger value="upcoming">Upcoming ({split ? split.upcoming.length : "—"})</TabsTrigger>
-          <TabsTrigger value="past">Past ({split ? split.past.length : "—"})</TabsTrigger>
+          <TabsTrigger value="upcoming" className="gap-1.5">
+            Upcoming <span className="tabular-nums text-muted-foreground">{split ? split.upcoming.length : "—"}</span>
+          </TabsTrigger>
+          <TabsTrigger value="past" className="gap-1.5">
+            Past <span className="tabular-nums text-muted-foreground">{split ? split.past.length : "—"}</span>
+          </TabsTrigger>
         </TabsList>
       </Tabs>
 

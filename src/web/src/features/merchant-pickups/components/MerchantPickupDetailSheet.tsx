@@ -28,6 +28,7 @@ import { useMerchantShipmentPanelStore } from "@/features/merchant-shipments/sto
 import { useMerchantPickups } from "@/features/merchant-pickups/hooks/useMerchantPickups";
 import { useCancelMerchantPickup } from "@/features/merchant-pickups/hooks/useCancelMerchantPickup";
 import { useMerchantPickupPanelStore } from "@/features/merchant-pickups/store/merchantPickupPanelStore";
+import { pickupDayLabel } from "@/features/merchant-pickups/lib/pickupView";
 import { pickupErrorMessage } from "@/features/merchant-pickups/lib/pickupErrorMessage";
 import type { PickupStage } from "@/features/merchant-pickups/types";
 
@@ -84,14 +85,10 @@ export function MerchantPickupDetailSheet() {
         {pickup && (
           <>
             <SheetHeaderBlock
-              eyebrow={`PICKUP · ${dateLabel.toUpperCase()}`}
-              title={`${pickup.branchName ?? "The branch"} collects ${count} ${count === 1 ? "parcel" : "parcels"}`}
+              eyebrow={`PICKUP · REQUESTED ${formatDate(pickup.createdAt).toUpperCase()}`}
+              title={pickupDayLabel(pickup.requestedForDate)}
               status={<StatusBadge status={pickup.stage} namespace="PickupStage" />}
-              facts={[
-                { label: "Pickup date", value: dateLabel },
-                { label: "Collecting branch", value: pickup.branchName ?? "—" },
-                { label: "Notes", value: pickup.notes ?? "—" },
-              ]}
+              subtitle={`${pickup.branchName ?? "The branch"} collects ${count} ${count === 1 ? "parcel" : "parcels"}`}
             />
 
             <div className="space-y-6 py-4">
@@ -116,6 +113,13 @@ export function MerchantPickupDetailSheet() {
                 </ol>
               )}
 
+              {pickup.notes && (
+                <section aria-label="Your note to the rider" className="space-y-1 rounded-lg border border-border p-3">
+                  <h3 className="text-2xs font-medium text-muted-foreground">Your note to the rider</h3>
+                  <p className="text-sm text-foreground">{pickup.notes}</p>
+                </section>
+              )}
+
               <section aria-label="Parcels in this pickup" className="space-y-2">
                 <h3 className="text-xs font-medium text-muted-foreground">Parcels</h3>
                 {count === 0 ? (
@@ -133,13 +137,14 @@ export function MerchantPickupDetailSheet() {
                       {pickup.shipments.map((s) => (
                         <TableRow key={s.id}>
                           <TableCell>
-                            <button
+                            <Button
                               type="button"
-                              className="font-mono text-sm text-primary underline-offset-2 hover:underline"
+                              variant="link"
+                              className="h-auto p-0 font-mono"
                               onClick={() => openShipment(s.awb)}
                             >
                               {s.awb}
-                            </button>
+                            </Button>
                           </TableCell>
                           <TableCell>{s.destinationArea ?? "—"}</TableCell>
                           <TableCell className="text-right tabular-nums">
@@ -155,14 +160,18 @@ export function MerchantPickupDetailSheet() {
 
             <div className="mt-auto space-y-2 border-t border-border pt-4">
               {canCancel && pickup.stage === "Requested" && (
-                <Button
-                  type="button"
-                  variant="destructive"
-                  onClick={() => setConfirmOpen(true)}
-                  disabled={cancelPickup.isPending}
-                >
-                  {cancelPickup.isPending ? <Spinner className="h-4 w-4" /> : "Cancel pickup"}
-                </Button>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-xs text-muted-foreground">You can cancel until the branch schedules a rider</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="border-destructive/40 text-destructive hover:bg-destructive/5 hover:text-destructive"
+                    onClick={() => setConfirmOpen(true)}
+                    disabled={cancelPickup.isPending}
+                  >
+                    {cancelPickup.isPending ? <Spinner className="h-4 w-4" /> : "Cancel pickup"}
+                  </Button>
+                </div>
               )}
               {cancelError && <FieldError id="merchant-pickup-cancel-error">{cancelError}</FieldError>}
             </div>
