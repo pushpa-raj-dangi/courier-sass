@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Security.Claims;
 using Courier.Audit.Application;
 using Courier.Merchants.Domain;
@@ -21,7 +22,7 @@ public class MerchantKycService
         _objectStorage = objectStorage;
     }
 
-    public async Task<MerchantKycDocumentResponse> UploadDocumentAsync(
+    public async Task<MerchantPortalKycDocumentResponse> UploadDocumentAsync(
         KycDocumentType documentType, Stream content, string contentType, ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
         if (!Enum.IsDefined(documentType))
@@ -45,17 +46,18 @@ public class MerchantKycService
             OrganizationId = merchantUser.OrganizationId,
             DocumentType = documentType,
             StorageKey = storageKey,
-            Status = KycStatus.Pending
+            Status = KycStatus.Pending,
+            UploadedAt = DateTime.UtcNow
         };
         _dbContext.Set<MerchantKycDocument>().Add(document);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         await _auditLogger.LogAsync(new AuditEntry(merchantUser.OrganizationId, actingUserId, "merchant_kyc.uploaded", "MerchantKycDocument", document.Id.ToString()), cancellationToken);
 
-        return ToResponse(document);
+        return ToPortalResponse(document);
     }
 
-    public async Task<List<MerchantKycDocumentResponse>> ListDocumentsAsync(ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
+    public async Task<List<MerchantPortalKycDocumentResponse>> ListDocumentsAsync(ClaimsPrincipal actingUser, CancellationToken cancellationToken = default)
     {
         var merchantId = actingUser.GetMerchantId()
             ?? throw new MerchantValidationException("Acting merchant could not be resolved.");
@@ -63,7 +65,7 @@ public class MerchantKycService
         var documents = await _dbContext.Set<MerchantKycDocument>()
             .Where(d => d.MerchantId == merchantId)
             .ToListAsync(cancellationToken);
-        return documents.Select(ToResponse).ToList();
+        return documents.Select(ToPortalResponse).ToList();
     }
 
     public async Task<MerchantKycDocumentResponse?> ReviewDocumentAsync(
@@ -90,15 +92,43 @@ public class MerchantKycService
             throw new MerchantValidationException("Invalid review status.");
         }
 
+        string? rejectionReason = null;
+        if (request.Status == KycStatus.Rejected)
+        {
+            rejectionReason = request.RejectionReason?.Trim();
+            if (string.IsNullOrEmpty(rejectionReason))
+            {
+                throw new MerchantValidationException("A rejection reason is required.");
+            }
+            if (rejectionReason.Length > 500)
+            {
+                throw new MerchantValidationException("Rejection reason must be 500 characters or fewer.");
+            }
+        }
+
+        var before = SerializeReviewState(document.Status, document.RejectionReason);
+
         document.Status = request.Status;
+        document.RejectionReason = rejectionReason;
+        document.ReviewedAt = DateTime.UtcNow;
         document.ReviewedByUserId = actingUserId;
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        await _auditLogger.LogAsync(new AuditEntry(organizationId, actingUserId, "merchant_kyc.reviewed", "MerchantKycDocument", document.Id.ToString()), cancellationToken);
+        await _auditLogger.LogAsync(new AuditEntry(
+            organizationId, actingUserId, "merchant_kyc.reviewed", "MerchantKycDocument", document.Id.ToString(),
+            before, SerializeReviewState(document.Status, document.RejectionReason)), cancellationToken);
 
-        return ToResponse(document);
+        return ToStaffResponse(document);
     }
 
-    private static MerchantKycDocumentResponse ToResponse(MerchantKycDocument document) => new(
-        document.Id, document.DocumentType, document.Status, document.ReviewedByUserId);
+    private static string SerializeReviewState(KycStatus status, string? rejectionReason) =>
+        JsonSerializer.Serialize(new { status = status.ToString(), rejectionReason });
+
+    private static MerchantKycDocumentResponse ToStaffResponse(MerchantKycDocument document) => new(
+        document.Id, document.DocumentType, document.Status, document.ReviewedByUserId,
+        document.UploadedAt, document.ReviewedAt, document.RejectionReason);
+
+    private static MerchantPortalKycDocumentResponse ToPortalResponse(MerchantKycDocument document) => new(
+        document.Id, document.DocumentType, document.Status,
+        document.UploadedAt, document.ReviewedAt, document.RejectionReason);
 }

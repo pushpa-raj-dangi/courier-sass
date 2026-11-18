@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
+using System.Text.Json;
 using Courier.Geography.Infrastructure;
 using Courier.Identity.Application;
 using Courier.Merchants.Application;
@@ -67,11 +68,11 @@ public class MerchantKycEndpointsTests : IClassFixture<WebApplicationFactory<Pro
         uploadContent.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
         var uploadResponse = await merchantClient.PostAsync($"/api/v1/merchant/kyc-documents?documentType={KycDocumentType.PanCard}", uploadContent);
         Assert.Equal(HttpStatusCode.Created, uploadResponse.StatusCode);
-        var uploaded = await uploadResponse.Content.ReadFromJsonAsync<MerchantKycDocumentResponse>();
+        var uploaded = await uploadResponse.Content.ReadFromJsonAsync<MerchantPortalKycDocumentResponse>();
         Assert.Equal(KycStatus.Pending, uploaded!.Status);
 
         var listResponse = await merchantClient.GetAsync("/api/v1/merchant/kyc-documents");
-        var documents = await listResponse.Content.ReadFromJsonAsync<List<MerchantKycDocumentResponse>>();
+        var documents = await listResponse.Content.ReadFromJsonAsync<List<MerchantPortalKycDocumentResponse>>();
         Assert.Contains(documents!, d => d.Id == uploaded.Id);
 
         var reviewResponse = await staffClient.PostAsJsonAsync(
@@ -83,6 +84,52 @@ public class MerchantKycEndpointsTests : IClassFixture<WebApplicationFactory<Pro
     }
 
     [Fact]
+    public async Task ListKycDocuments_ReturnsNewFields_AndNoReviewerId()
+    {
+        var staffClient = await RegisterStaffClientAsync("d");
+        var (merchantId, merchantClient) = await CreateMerchantAndLoginAsync(staffClient, "d");
+        var uploadContent = new ByteArrayContent(Encoding.UTF8.GetBytes("fake pan card bytes"));
+        uploadContent.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
+        var uploadResponse = await merchantClient.PostAsync($"/api/v1/merchant/kyc-documents?documentType={KycDocumentType.PanCard}", uploadContent);
+        var uploaded = await uploadResponse.Content.ReadFromJsonAsync<MerchantPortalKycDocumentResponse>();
+
+        var reviewResponse = await staffClient.PostAsJsonAsync(
+            $"/api/v1/merchants/{merchantId}/kyc-documents/{uploaded!.Id}/review",
+            new ReviewKycDocumentRequest(KycStatus.Rejected, "Photo is blurry"));
+        Assert.Equal(HttpStatusCode.OK, reviewResponse.StatusCode);
+
+        var listResponse = await merchantClient.GetAsync("/api/v1/merchant/kyc-documents");
+        var items = await listResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var item = items.EnumerateArray().Single(e => e.GetProperty("id").GetGuid() == uploaded.Id);
+
+        Assert.True(item.TryGetProperty("uploadedAt", out var uploadedAt));
+        Assert.NotEqual(JsonValueKind.Null, uploadedAt.ValueKind);
+        Assert.True(item.TryGetProperty("reviewedAt", out var reviewedAt));
+        Assert.NotEqual(JsonValueKind.Null, reviewedAt.ValueKind);
+        Assert.Equal("Photo is blurry", item.GetProperty("rejectionReason").GetString());
+        Assert.False(item.TryGetProperty("reviewedByUserId", out _));
+    }
+
+    [Fact]
+    public async Task ReviewKycDocument_RejectWithoutReason_Returns400()
+    {
+        var staffClient = await RegisterStaffClientAsync("e");
+        var (merchantId, merchantClient) = await CreateMerchantAndLoginAsync(staffClient, "e");
+        var uploadContent = new ByteArrayContent(Encoding.UTF8.GetBytes("fake bytes"));
+        uploadContent.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
+        var uploadResponse = await merchantClient.PostAsync($"/api/v1/merchant/kyc-documents?documentType={KycDocumentType.Other}", uploadContent);
+        var uploaded = await uploadResponse.Content.ReadFromJsonAsync<MerchantPortalKycDocumentResponse>();
+
+        var reviewResponse = await staffClient.PostAsync(
+            $"/api/v1/merchants/{merchantId}/kyc-documents/{uploaded!.Id}/review",
+            new StringContent("{ \"status\": \"Rejected\" }", Encoding.UTF8, "application/json"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, reviewResponse.StatusCode);
+        var body = await reviewResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("MERCHANT_VALIDATION_FAILED", body.GetProperty("error").GetProperty("code").GetString());
+    }
+
+    [Fact]
     public async Task Review_FromDifferentOrganization_Returns404()
     {
         var staffClientA = await RegisterStaffClientAsync("b");
@@ -90,7 +137,7 @@ public class MerchantKycEndpointsTests : IClassFixture<WebApplicationFactory<Pro
         var uploadContent = new ByteArrayContent(Encoding.UTF8.GetBytes("fake bytes"));
         uploadContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
         var uploadResponse = await merchantClient.PostAsync($"/api/v1/merchant/kyc-documents?documentType={KycDocumentType.Other}", uploadContent);
-        var uploaded = await uploadResponse.Content.ReadFromJsonAsync<MerchantKycDocumentResponse>();
+        var uploaded = await uploadResponse.Content.ReadFromJsonAsync<MerchantPortalKycDocumentResponse>();
 
         var staffClientB = await RegisterStaffClientAsync("c");
 
